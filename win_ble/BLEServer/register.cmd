@@ -1,0 +1,1 @@
+REG ADD "HKCU\Software\Google\Chrome\NativeMessagingHosts\org.urish.web_bluetooth.server" /ve /t REG_SZ /d "C:\p\web-bluetooth-polyfill\BLEServer\manifest.json" /f

@@ -695,10 +695,9 @@ packages:
   win_ble:
     dependency: transitive
     description:
-      name: win_ble
-      sha256: "2a867e13c4b355b101fc2c6e2ac85eeebf965db34eca46856f8b478e93b41e96"
-      url: "https://pub.dev"
-    source: hosted
+      path: win_ble
+      relative: true
+    source: path
     version: "1.1.1"
   xdg_directories:
     dependency: transitive

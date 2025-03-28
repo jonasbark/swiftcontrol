@@ -1,0 +1,9 @@
+{
+  "name": "org.urish.web_bluetooth.server",
+  "description": "Web Bluetooth Polyfill Server",
+  "path": "C:\\P\\web-bluetooth-polyfill\\BLEServer\\debug\\BLEServer.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://lfdhhpmjipnimfkijgapkalpepjjecfm/"
+  ]
+}
