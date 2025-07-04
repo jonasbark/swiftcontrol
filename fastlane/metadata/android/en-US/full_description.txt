@@ -1,0 +1,32 @@
+With SwiftControl you can control your favorite trainer app using your Zwift Click, Zwift Ride or Zwift Play devices. Here's what you can do with it:
+
+• Virtual Gear shifting
+• Steering / turning
+• Adjust workout intensity
+• Control music on your device
+• More? If you can do it via keyboard, mouse or touch, you can do it with SwiftControl
+
+<b>Supported Apps:</b>
+• MyWhoosh
+• indieVelo / Training Peaks
+• Biketerra.com
+• Any other app: you can customize simulated touch points of all your buttons in the app
+
+<b>Supported Devices:</b>
+• Zwift Click
+• Zwift Ride
+• Zwift Play
+
+<b>How does it work?</b>
+The app connects to your Zwift device automatically. When using Android, a "click" on a certain part of the screen is simulated to trigger the action.
+
+<b>Features:</b>
+• Bluetooth Low Energy device connectivity
+• Customizable touch actions for any app
+• Battery level monitoring for connected devices
+• Persistent notification to keep app alive
+• Accessibility service for screen interaction
+
+<b>Troubleshooting:</b>
+• Your Zwift device is found but connection does not work properly? You may need to update the firmware in Zwift Companion app.
+• The app is losing connection over time? Check device battery optimization settings to keep the app alive.

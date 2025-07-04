@@ -1,0 +1,1 @@
+Only use the light theme for the app and added more troubleshooting information

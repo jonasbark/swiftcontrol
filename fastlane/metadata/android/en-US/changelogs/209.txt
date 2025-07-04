@@ -1,0 +1,1 @@
+You can now assign Escape and arrow down key to your custom keymap (#18)

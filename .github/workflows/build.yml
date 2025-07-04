@@ -103,6 +103,7 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/SwiftControl.android.apk
             build/macos/Build/Products/Release/SwiftControl.macos.zip
+            fdroid-submission/
 
         #10 Extract Version
       - name: Extract version from pubspec.yaml
@@ -129,11 +130,56 @@ jobs:
           new_version="${{ env.VERSION }}-build-${{ github.run_number }}"
           echo "VERSION=$new_version" >> $GITHUB_ENV
 
+        #12 Prepare F-Droid submission
+      - name: Prepare F-Droid submission
+        run: |
+          # Create F-Droid submission directory
+          mkdir -p fdroid-submission
+          
+          # Copy necessary files for F-Droid submission
+          cp metadata/en-US.yml fdroid-submission/
+          cp -r fastlane fdroid-submission/
+          
+          # Create F-Droid submission info
+          cat > fdroid-submission/README.md << 'EOF'
+          # F-Droid Submission for SwiftControl
+          
+          This directory contains the necessary files for submitting SwiftControl to F-Droid.
+          
+          ## Files included:
+          - `en-US.yml`: F-Droid metadata file
+          - `fastlane/`: App store metadata in fastlane format
+          
+          ## Submission process:
+          1. Fork the F-Droid Data repository: https://gitlab.com/fdroid/fdroiddata
+          2. Copy `en-US.yml` to `metadata/de.jonasbark.swift_play.yml` in the F-Droid Data repository
+          3. Copy the fastlane metadata to the appropriate location
+          4. Submit a merge request
+          
+          ## Build requirements:
+          - The app builds with Flutter stable channel
+          - No proprietary dependencies
+          - Uses standard Android build process
+          - Compatible with F-Droid's reproducible build system
+          EOF
+          
+          # Create version-specific changelog for F-Droid
+          VERSION_CODE=$(echo "${{ env.VERSION }}" | cut -d+ -f2)
+          if [ -z "$VERSION_CODE" ]; then
+            VERSION_CODE=$(echo "${{ env.VERSION }}" | tr -d '.')
+          fi
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          
+          # Create F-Droid submission archive
+          cd fdroid-submission
+          zip -r ../SwiftControl.fdroid-submission.zip .
+          cd ..
+
         #13 Create Release
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/SwiftControl.android.apk,build/macos/Build/Products/Release/SwiftControl.macos.zip"
+          artifacts: "build/app/outputs/flutter-apk/SwiftControl.android.apk,build/macos/Build/Products/Release/SwiftControl.macos.zip,SwiftControl.fdroid-submission.zip"
           tag: v${{ env.VERSION }}
           token: ${{ secrets.TOKEN }}
 

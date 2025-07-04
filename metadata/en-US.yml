@@ -1,0 +1,75 @@
+Categories:
+  - Sports & Health
+  - System
+License: GPL-3.0-only
+AuthorName: Jonas Bark
+AuthorEmail: jonas@jonasbark.de
+WebSite: https://github.com/jonasbark/swiftcontrol
+SourceCode: https://github.com/jonasbark/swiftcontrol
+IssueTracker: https://github.com/jonasbark/swiftcontrol/issues
+Changelog: https://github.com/jonasbark/swiftcontrol/blob/main/CHANGELOG.md
+
+AutoName: SwiftControl
+Summary: Control your virtual riding trainer apps using Zwift devices
+
+Description: |-
+    With SwiftControl you can control your favorite trainer app using your Zwift Click, Zwift Ride or Zwift Play devices.
+    
+    Features:
+    * Virtual Gear shifting
+    * Steering / turning  
+    * Adjust workout intensity
+    * Control music on your device
+    * Customizable touch actions for any app
+    
+    Supported Apps:
+    * MyWhoosh
+    * indieVelo / Training Peaks
+    * Biketerra.com
+    * Any other app with customizable touch points
+    
+    Supported Devices:
+    * Zwift Click
+    * Zwift Ride
+    * Zwift Play
+    
+    The app connects to your Zwift device automatically via Bluetooth Low Energy and simulates touches on your screen to trigger actions in your trainer app.
+
+RepoType: git
+Repo: https://github.com/jonasbark/swiftcontrol
+
+Builds:
+  - versionName: 2.1.0
+    versionCode: 210
+    commit: v2.1.0
+    subdir: android
+    submodules: true
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk-headless
+      - update-alternatives --auto java
+    init: echo 'flutter.sdk=/opt/flutter' > local.properties
+    output: app/build/outputs/flutter-apk/app-release.apk
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - macos  
+      - windows
+      - linux
+      - web
+    prebuild:
+      - cd ..
+      - export PATH=/opt/flutter/bin:$PATH
+      - flutter packages get
+      - flutter config --no-analytics
+      - flutter pub get
+    build:
+      - cd ..
+      - export PATH=/opt/flutter/bin:$PATH
+      - flutter build apk --release --no-shrink
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 2.1.0
+CurrentVersionCode: 210
