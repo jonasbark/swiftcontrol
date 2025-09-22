@@ -65,3 +65,7 @@ Please consider donating to support the development of this app :)
 
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/boni)
 
+## Development
+
+For information about setting up automated Play Store deployment, see [docs/PLAY_STORE_DEPLOYMENT.md](docs/PLAY_STORE_DEPLOYMENT.md).
+

@@ -13,6 +13,7 @@
 migrate_working_dir/
 
 android/keystore.properties
+**/service-account*.json
 
 # IntelliJ related
 *.iml
