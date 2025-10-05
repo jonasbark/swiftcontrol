@@ -67,43 +67,70 @@ void KeypressSimulatorWindowsPlugin::SimulateKeyPress(
     modifiers.push_back(key_modifier);
   }
 
-  // List of compatible training apps to look for
-  std::vector<std::string> compatibleApps = {
-    "MyWhooshHD.exe",
-    "indieVelo.exe",
-    "biketerra.exe"
-  };
-
-  // Try to find and focus a compatible app
-  HWND targetWindow = NULL;
-  for (const std::string& processName : compatibleApps) {
-    targetWindow = FindTargetWindow(processName, "");
-    if (targetWindow != NULL) {
-      // Only focus the window if it's not already in the foreground
-      if (GetForegroundWindow() != targetWindow) {
-        SetForegroundWindow(targetWindow);
-        Sleep(50); // Brief delay to ensure window is focused
-      }
-      break;
+  // Check if this is a media key (USB HID Consumer Page: 0x000C0000 range)
+  bool isMediaKey = (keyCode & 0xFFFF0000) == 0x000C0000;
+  UINT vkCode = 0;
+  
+  if (isMediaKey) {
+    // Map USB HID media key codes to Windows VK codes
+    UINT hidUsage = keyCode & 0xFFFF;
+    switch (hidUsage) {
+      case 0x00E8: vkCode = VK_MEDIA_PLAY_PAUSE; break;  // mediaPlayPause
+      case 0x00B5: vkCode = VK_MEDIA_NEXT_TRACK; break;  // mediaTrackNext
+      case 0x00B6: vkCode = VK_MEDIA_PREV_TRACK; break;  // mediaTrackPrevious
+      case 0x00B7: vkCode = VK_MEDIA_STOP; break;        // mediaStop
+      case 0x00E9: vkCode = VK_VOLUME_UP; break;         // audioVolumeUp
+      case 0x00EA: vkCode = VK_VOLUME_DOWN; break;       // audioVolumeDown
+      default:
+        // Unknown media key, try to continue with regular handling
+        isMediaKey = false;
+        break;
     }
   }
 
-  WORD sc = (WORD)MapVirtualKey(keyCode, MAPVK_VK_TO_VSC);
-
   INPUT in = {0};
   in.type = INPUT_KEYBOARD;
-  in.ki.wVk = 0;                 // when using SCANCODE, set VK=0
-  in.ki.wScan = sc;
-  in.ki.dwFlags = KEYEVENTF_SCANCODE | (keyDown ? 0 : KEYEVENTF_KEYUP);
-  if (keyCode == VK_LEFT || keyCode == VK_RIGHT || keyCode == VK_UP || keyCode == VK_DOWN ||
-    keyCode == VK_INSERT || keyCode == VK_DELETE || keyCode == VK_HOME || keyCode == VK_END ||
-    keyCode == VK_PRIOR || keyCode == VK_NEXT) {
-    in.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
-  }
-  SendInput(1, &in, sizeof(INPUT));
 
-  /*BYTE byteValue = static_cast<BYTE>(keyCode);
-  keybd_event(byteValue, 0x45, keyDown ? 0 : KEYEVENTF_KEYUP, 0);*/
+  if (isMediaKey) {
+    // For media keys, use VK code directly
+    in.ki.wVk = vkCode;
+    in.ki.wScan = 0;
+    in.ki.dwFlags = (keyDown ? 0 : KEYEVENTF_KEYUP);
+  } else {
+    // For regular keys, focus compatible apps and use scan code
+    // List of compatible training apps to look for
+    std::vector<std::string> compatibleApps = {
+      "MyWhooshHD.exe",
+      "indieVelo.exe",
+      "biketerra.exe"
+    };
+
+    // Try to find and focus a compatible app
+    HWND targetWindow = NULL;
+    for (const std::string& processName : compatibleApps) {
+      targetWindow = FindTargetWindow(processName, "");
+      if (targetWindow != NULL) {
+        // Only focus the window if it's not already in the foreground
+        if (GetForegroundWindow() != targetWindow) {
+          SetForegroundWindow(targetWindow);
+          Sleep(50); // Brief delay to ensure window is focused
+        }
+        break;
+      }
+    }
+
+    WORD sc = (WORD)MapVirtualKey(keyCode, MAPVK_VK_TO_VSC);
+    in.ki.wVk = 0;                 // when using SCANCODE, set VK=0
+    in.ki.wScan = sc;
+    in.ki.dwFlags = KEYEVENTF_SCANCODE | (keyDown ? 0 : KEYEVENTF_KEYUP);
+    if (keyCode == VK_LEFT || keyCode == VK_RIGHT || keyCode == VK_UP || keyCode == VK_DOWN ||
+      keyCode == VK_INSERT || keyCode == VK_DELETE || keyCode == VK_HOME || keyCode == VK_END ||
+      keyCode == VK_PRIOR || keyCode == VK_NEXT) {
+      in.ki.dwFlags |= KEYEVENTF_EXTENDEDKEY;
+    }
+  }
+
+  SendInput(1, &in, sizeof(INPUT));
 
   result->Success(flutter::EncodableValue(true));
 }
