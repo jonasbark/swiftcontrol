@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
+import 'package:swift_control/bluetooth/devices/bt_hid/bt_hid_device.dart';
 import 'package:swift_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
 import 'package:swift_control/bluetooth/devices/zwift/constants.dart';
 import 'package:swift_control/bluetooth/devices/zwift/zwift_click.dart';
@@ -35,6 +36,7 @@ abstract class BaseDevice {
     ZwiftConstants.ZWIFT_RIDE_CUSTOM_SERVICE_UUID,
     SquareConstants.SERVICE_UUID,
     WahooKickrBikeShiftConstants.SERVICE_UUID,
+    BtHidConstants.HID_SERVICE_UUID,
   ];
 
   static BaseDevice? fromScanResult(BleDevice scanResult) {
@@ -100,6 +102,10 @@ abstract class BaseDevice {
       } else {
         return null;
       }
+    } else if (scanResult.services.any((uuid) => uuid.toLowerCase() == BtHidConstants.HID_SERVICE_UUID.toLowerCase())) {
+      // Support for generic BT HID devices (media control buttons, keyboards, etc.)
+      // These are the cheap BT HID devices mentioned in the issue
+      return BtHidDevice(scanResult);
     } else {
       return null;
     }
