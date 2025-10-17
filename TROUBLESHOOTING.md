@@ -29,3 +29,20 @@ switch the setting to None, then back to Single-Tap and it should work again
 
 ## SwiftControl crashes on Windows when searching for the device 
 You're probably running into [this](https://github.com/jonasbark/swiftcontrol/issues/70) issue. Disconnect your controller device (e.g. Zwift Play) from Windows Bluetooth settings.
+
+## BT HID device (media control button) is not detected
+If you're using a cheap Bluetooth HID media control device:
+- Make sure the device is powered on and in pairing mode
+- The device should advertise the HID service (UUID 0x1812)
+- If the device is already paired with your phone/computer in Bluetooth settings, unpair it first
+- Some devices may appear as "Keyboard" or "Media Button" - these should work
+- Try scanning again in SwiftControl after putting the device in pairing mode
+
+## BT HID device buttons don't work as expected
+The default button mappings for BT HID media control devices are:
+- Volume Up / Next Track → Shift Up (increase gear)
+- Volume Down / Previous Track → Shift Down (decrease gear)
+- Play/Pause → Toggle UI
+- Arrow Keys → Navigation (if your device has them)
+
+If your device uses different button codes, please open an issue on GitHub with the device details.
