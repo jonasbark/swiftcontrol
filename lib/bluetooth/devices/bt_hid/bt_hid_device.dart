@@ -149,11 +149,11 @@ class BtHidDevice extends BaseDevice {
           buttons.add(ControllerButton.shiftUpRight);
         }
         // Down Arrow (0x51) -> Shift Down
-        else if (keyCode == 0x50) {
+        else if (keyCode == 0x51) {
           buttons.add(ControllerButton.shiftDownRight);
         }
         // Left Arrow (0x50) -> Navigate Left
-        else if (keyCode == 0x50 && !buttons.contains(ControllerButton.shiftDownRight)) {
+        else if (keyCode == 0x50) {
           buttons.add(ControllerButton.navigationLeft);
         }
         // Right Arrow (0x4F) -> Navigate Right
