@@ -1,3 +1,9 @@
+### 3.2.0 (Unreleased)
+- support for generic Bluetooth HID devices (media control buttons, keyboards)
+  - this enables the use of cheap BT HID media control devices from AliExpress and similar sources
+  - media keys (volume up/down, next/previous track) are mapped to shift up/down
+  - play/pause button is mapped to toggle UI
+
 ### 3.1.0 (2025-10-17) 
 - new app icon
 - adjusted MyWhoosh keyboard navigation mapping (thanks @bin101)
