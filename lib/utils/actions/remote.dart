@@ -31,7 +31,7 @@ class RemoteActions extends BaseActions {
     }
 
     if (keyPair.physicalKey != null && keyPair.touchPosition == Offset.zero) {
-      return ('Physical key actions are not supported, yet');
+      return ('Physical key actions are not supported on iOS. Please open "Customize Keymap", select this button, and choose "Simulate Touch" instead of keyboard input.');
     } else {
       final point = await resolveTouchPosition(action: action, windowInfo: null);
       final point2 = point; //Offset(100, 99.0);
