@@ -186,12 +186,6 @@ class BtHidConstants {
   static const String BOOT_KEYBOARD_INPUT_REPORT_UUID = '00002a22-0000-1000-8000-00805f9b34fb';
   
   // Available buttons that can be triggered by HID devices
-  // Typically media control buttons map to shift up/down
-  static const List<ControllerButton> availableButtons = [
-    ControllerButton.shiftUpRight,
-    ControllerButton.shiftDownRight,
-    ControllerButton.navigationLeft,
-    ControllerButton.navigationRight,
-    ControllerButton.onOffLeft,
-  ];
+  // Users can map any HID button to any controller button
+  static const List<ControllerButton> availableButtons = ControllerButton.values;
 }

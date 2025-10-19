@@ -23,6 +23,8 @@ void main() {
 
     test('BtHidDevice should have correct available buttons', () {
       expect(device.availableButtons, isNotEmpty);
+      // Should include all ControllerButton values
+      expect(device.availableButtons, equals(ControllerButton.values));
       expect(device.availableButtons, contains(ControllerButton.shiftUpRight));
       expect(device.availableButtons, contains(ControllerButton.shiftDownRight));
       expect(device.availableButtons, contains(ControllerButton.onOffLeft));
