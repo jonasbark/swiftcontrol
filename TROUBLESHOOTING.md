@@ -36,10 +36,3 @@ switch the setting to None, then back to Single-Tap and it should work again
 
 ## SwiftControl crashes on Windows when searching for the device 
 You're probably running into [this](https://github.com/jonasbark/swiftcontrol/issues/70) issue. Disconnect your controller device (e.g. Zwift Play) from Windows Bluetooth settings.
-
-## Shimano DI2 / SRAM AXS not detected
-- Make sure your DI2/AXS system has Bluetooth enabled and is in pairing mode
-- For Shimano DI2: You may need to configure special function buttons in your shifter using the E-Tube app
-- For SRAM AXS: Ensure your AXS controller/shifters are updated to the latest firmware via the AXS app
-- SwiftControl will only receive button presses from configured special function buttons, not regular shifting buttons
-- The device must be disconnected from any other apps (E-Tube, AXS app) before connecting to SwiftControl

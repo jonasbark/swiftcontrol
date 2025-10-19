@@ -16,7 +16,6 @@ import '../../utils/keymap/buttons.dart';
 import '../messages/notification.dart';
 import 'elite/elite_square.dart';
 import 'shimano/shimano_di2.dart';
-import 'sram/sram_axs.dart';
 
 abstract class BaseDevice {
   final BleDevice scanResult;
@@ -38,7 +37,6 @@ abstract class BaseDevice {
     SquareConstants.SERVICE_UUID,
     WahooKickrBikeShiftConstants.SERVICE_UUID,
     ShimanoDI2Constants.SERVICE_UUID,
-    SramAXSConstants.SERVICE_UUID,
   ];
 
   static BaseDevice? fromScanResult(BleDevice scanResult) {
@@ -106,8 +104,6 @@ abstract class BaseDevice {
       }
     } else if (scanResult.services.contains(ShimanoDI2Constants.SERVICE_UUID)) {
       return ShimanoDI2(scanResult);
-    } else if (scanResult.services.contains(SramAXSConstants.SERVICE_UUID)) {
-      return SramAXS(scanResult);
     } else {
       return null;
     }

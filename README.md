@@ -42,7 +42,6 @@ Get the latest version for Windows here: https://github.com/jonasbark/swiftcontr
 - Elite Square Smart Frame (beta)
 - Wahoo Kickr Bike Shift (beta)
 - Shimano DI2 (beta)
-- SRAM AXS (beta)
 
 ## Supported Platforms
 
