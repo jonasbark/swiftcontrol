@@ -59,6 +59,16 @@ class AccessibilityService : AccessibilityService(), Listener {
         val stroke = StrokeDescription(path, 0, ViewConfiguration.getTapTimeout().toLong(), isKeyDown && !isKeyUp)
         gestureBuilder.addStroke(stroke)
 
-        dispatchGesture(gestureBuilder.build(), null, null)
+        val callback = object : AccessibilityService.GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                Log.d("AccessibilityService", "Touch gesture completed successfully at ($x, $y)")
+            }
+
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                Log.w("AccessibilityService", "Touch gesture cancelled at ($x, $y). This may happen on some devices (e.g., Redmi/MIUI). Check accessibility permissions and consider installing from Play Store.")
+            }
+        }
+
+        dispatchGesture(gestureBuilder.build(), callback, null)
     }
 }

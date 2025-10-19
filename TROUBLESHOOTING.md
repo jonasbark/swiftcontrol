@@ -21,6 +21,13 @@ If you don't do that SwiftControl will need to reconnect every minute.
   - enable auto start of SwiftControl
   - grant accessibility permission for SwiftControl
 - see https://github.com/jonasbark/swiftcontrol/issues/38 for more details
+- **For Redmi/Xiaomi devices (MIUI/HyperOS)**: These devices may block touch gestures from accessibility services. To diagnose:
+  1. Enable "Developer Options" on your device (tap Build Number 7 times in Settings > About Phone)
+  2. In Developer Options, enable "Pointer Location" or "Show Touches"
+  3. Try using SwiftControl - if you don't see any touch indicators, the gestures are being blocked
+  4. **Workaround**: Install SwiftControl from the Play Store instead of sideloading - some Redmi devices only allow touch gestures from Play Store apps
+  5. Check Android logs using `adb logcat | grep AccessibilityService` to see if gestures are being cancelled
+  6. If gestures are still cancelled, try disabling MIUI Optimization in Developer Options (requires device restart)
 
 ## Remote control is not working - nothing happens
 - Try to unpair it from your phone / computer Bluetooth settings, then re-pair it.
