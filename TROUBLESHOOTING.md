@@ -22,6 +22,12 @@ If you don't do that SwiftControl will need to reconnect every minute.
   - grant accessibility permission for SwiftControl
 - see https://github.com/jonasbark/swiftcontrol/issues/38 for more details
 
+## iOS Remote Control: "Physical key actions are not supported on iOS"
+If you see this error when using your iPhone/iPad as a remote control for another iOS device:
+- iOS remote control mode only supports touch gestures, not keyboard shortcuts
+- To fix: Open "Customize Keymap" in SwiftControl, select each button showing the error, and choose "Simulate Touch" instead of keyboard input
+- You'll need to position the touch points on your screen using a screenshot of your app
+
 ## Remote control is not working - nothing happens
 - Try to unpair it from your phone / computer Bluetooth settings, then re-pair it.
 - Try restarting the pairing process in SwiftControl
