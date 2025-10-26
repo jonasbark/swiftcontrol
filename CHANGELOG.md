@@ -1,14 +1,24 @@
-### 3.2.0 (Unreleased)
-- support for generic Bluetooth HID devices (media control buttons, keyboards)
-  - this enables the use of cheap BT HID media control devices from AliExpress and similar sources
-  - media keys (volume up/down, next/previous track) are mapped to shift up/down
-  - play/pause button is mapped to toggle UI
+### 3.2.1 (unreleased)
+- fix firmware version display for Zwift Click V2 devices
+- attempt to fix touch position on some Android devices
+- Wahoo Kickr Bike Shift can now be connected correctly
+- update default keymap for TrainingPeaks
+
+### 3.2.0 (2025-10-22)
+- a brand-new way of controlling MyWhoosh:
+  - device pairing no longer required as mouse emulation is no longer needed  
+  - SwiftControl can now stay in the background
+  - more devices can be controlled
+  - do more, such as define Emotes, Camera angles and steering
 
 ### 3.1.0 (2025-10-17) 
 - new app icon
 - adjusted MyWhoosh keyboard navigation mapping (thanks @bin101)
 - support for Wahook Kickr Bike Shift (thanks @MattW2)
-- initial support for Elite Square Smart Frame 
+- initial support for Elite Square Smart Frame
+- reconnects to your device automatically when connection is lost
+- SwiftControl now warns you if your device firmware is outdated
+- SwiftControl is now available in Microsoft Store: https://apps.microsoft.com/detail/9NP42GS03Z26
 
 ### 3.0.3 (2025-10-12)
 - SwiftControl now supports iOS!

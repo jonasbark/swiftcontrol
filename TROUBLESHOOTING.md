@@ -15,6 +15,13 @@ If you don't do that SwiftControl will need to reconnect every minute.
 3. Connect your Trainer, then connect the Click V2
 4. Close the Zwift app again and connect again in SwiftControl
 
+## Android: Connection works, buttons work but nothing happens in MyWhoosh and similar
+- especially for Redmi and other chinese Android devices please follow the instructions on https://dontkillmyapp.com/:
+  - disable battery optimization for SwiftControl
+  - enable auto start of SwiftControl
+  - grant accessibility permission for SwiftControl
+- see https://github.com/jonasbark/swiftcontrol/issues/38 for more details
+
 ## Remote control is not working - nothing happens
 - Try to unpair it from your phone / computer Bluetooth settings, then re-pair it.
 - Try restarting the pairing process in SwiftControl
@@ -30,19 +37,14 @@ switch the setting to None, then back to Single-Tap and it should work again
 ## SwiftControl crashes on Windows when searching for the device 
 You're probably running into [this](https://github.com/jonasbark/swiftcontrol/issues/70) issue. Disconnect your controller device (e.g. Zwift Play) from Windows Bluetooth settings.
 
-## BT HID device (media control button) is not detected
-If you're using a cheap Bluetooth HID media control device:
-- Make sure the device is powered on and in pairing mode
-- The device should advertise the HID service (UUID 0x1812)
-- If the device is already paired with your phone/computer in Bluetooth settings, unpair it first
-- Some devices may appear as "Keyboard" or "Media Button" - these should work
-- Try scanning again in SwiftControl after putting the device in pairing mode
+## Link requirement for MyWhoosh stuck at "Waiting for MyWhoosh"
+The same network restrictions apply for SwiftControl as it applies to MyWhoosh Link app. Please verify with the MyWhoosh Link app if connection is possible at all.
+Here are some instructions that can help:
+https://mywhoosh.com/troubleshoot/
+https://www.facebook.com/groups/mywhoosh/posts/1323791068858873/
+In essence:
+- your two devices (phone, tablet) need to be on the same WiFi network
+- on iOS you have to turn off "Private Wi-Fi Address" in the WiFi settings
+- Limit IP Address Tracking may need to be disabled
+- mesh networks may not work
 
-## BT HID device buttons don't work as expected
-The default button mappings for BT HID media control devices are:
-- Volume Up / Next Track → Shift Up (increase gear)
-- Volume Down / Previous Track → Shift Down (decrease gear)
-- Play/Pause → Toggle UI
-- Arrow Keys → Navigation (if your device has them)
-
-If your device uses different button codes, please open an issue on GitHub with the device details.

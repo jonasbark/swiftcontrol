@@ -1,7 +1,7 @@
 name: swift_control
 description: "SwiftControl - Control your virtual riding"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-version: 3.1.0+28
+version: 3.2.0+32
 
 environment:
   sdk: ^3.9.0
@@ -58,6 +58,10 @@ flutter:
   assets:
     - CHANGELOG.md
     - TROUBLESHOOTING.md
+    - INSTRUCTIONS_ANDROID.md
+    - INSTRUCTIONS_IOS.md
+    - INSTRUCTIONS_WINDOWS.md
+    - INSTRUCTIONS_MACOS.md
     - shorebird.yaml
 
 msix_config:
@@ -66,7 +70,6 @@ msix_config:
   identity_name: JonasBark.SwiftControl
   publisher: CN=EDA6D86E-3E52-4054-9F3A-4277AFCCB2C4
   store: true
-  msix_version: 1.0.0.0
-  logo_path: logo.jpg
+  logo_path: logo.png
   build_windows: false
   capabilities: internetClient,bluetooth,inputInjectionBrokered

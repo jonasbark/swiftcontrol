@@ -51,6 +51,45 @@ List<Widget> buildMenuButtons() {
       ),
       SizedBox(width: 8),
     ],
+    PopupMenuButton(
+      itemBuilder: (BuildContext context) {
+        return [
+          PopupMenuItem(
+            child: Text('Instructions'),
+            onTap: () {
+              final instructions = Platform.isAndroid
+                  ? 'INSTRUCTIONS_ANDROID.md'
+                  : Platform.isIOS
+                  ? 'INSTRUCTIONS_IOS.md'
+                  : Platform.isMacOS
+                  ? 'INSTRUCTIONS_MACOS.md'
+                  : 'INSTRUCTIONS_WINDOWS.md';
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => MarkdownPage(assetPath: instructions)),
+              );
+            },
+          ),
+          PopupMenuItem(
+            child: Text('Troubleshooting Guide'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => MarkdownPage(assetPath: 'TROUBLESHOOTING.md')),
+              );
+            },
+          ),
+          PopupMenuItem(
+            child: Text('Get Support'),
+            onTap: () {
+              launchUrlString('https://github.com/jonasbark/swiftcontrol/issues');
+            },
+          ),
+        ];
+      },
+      icon: Icon(Icons.help_outline),
+    ),
+    SizedBox(width: 8),
     const MenuButton(),
     SizedBox(width: 8),
   ];
@@ -106,21 +145,7 @@ class MenuButton extends StatelessWidget {
             Navigator.push(context, MaterialPageRoute(builder: (c) => MarkdownPage(assetPath: 'CHANGELOG.md')));
           },
         ),
-        PopupMenuItem(
-          child: Text('Troubleshooting Guide'),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (c) => MarkdownPage(assetPath: 'TROUBLESHOOTING.md')),
-            );
-          },
-        ),
-        PopupMenuItem(
-          child: Text('Feedback'),
-          onTap: () {
-            launchUrlString('https://github.com/jonasbark/swiftcontrol/issues');
-          },
-        ),
+
         PopupMenuItem(
           child: Text('License'),
           onTap: () {

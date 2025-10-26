@@ -1,24 +1,34 @@
 import 'package:flutter/material.dart';
 
 enum InGameAction {
-  shiftUp,
-  shiftDown,
-  navigateLeft,
-  navigateRight,
-  toggleUi,
-  increaseResistance,
-  decreaseResistance;
+  shiftUp('Shift Up'),
+  shiftDown('Shift Down'),
+  navigateLeft('Navigate Left'),
+  navigateRight('Navigate Right'),
+  increaseResistance('Increase Resistance'),
+  decreaseResistance('Decrease Resistance'),
+  toggleUi('Toggle UI'),
+  cameraAngle('Change Camera Angle', possibleValues: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+  emote('Emote', possibleValues: [1, 2, 3, 4, 5, 6]),
+  uturn('U-Turn'),
+  steerLeft('Steer Left'),
+  steerRight('Steer Right');
+
+  final String title;
+  final List<int>? possibleValues;
+
+  const InGameAction(this.title, {this.possibleValues});
 
   @override
   String toString() {
-    return name;
+    return title;
   }
 }
 
 enum ControllerButton {
   // left controller
-  navigationUp._(InGameAction.increaseResistance, icon: Icons.keyboard_arrow_up, color: Colors.black),
-  navigationDown._(InGameAction.decreaseResistance, icon: Icons.keyboard_arrow_down, color: Colors.black),
+  navigationUp._(null, icon: Icons.keyboard_arrow_up, color: Colors.black),
+  navigationDown._(InGameAction.uturn, icon: Icons.keyboard_arrow_down, color: Colors.black),
   navigationLeft._(InGameAction.navigateLeft, icon: Icons.keyboard_arrow_left, color: Colors.black),
   navigationRight._(InGameAction.navigateRight, icon: Icons.keyboard_arrow_right, color: Colors.black),
   onOffLeft._(InGameAction.toggleUi),

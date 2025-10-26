@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:swift_control/main.dart';
 import 'package:swift_control/utils/requirements/android.dart';
 import 'package:swift_control/utils/requirements/multi.dart';
 import 'package:swift_control/utils/requirements/remote.dart';
+import 'package:universal_ble/universal_ble.dart';
 
 abstract class PlatformRequirement {
   String name;
@@ -21,24 +23,63 @@ abstract class PlatformRequirement {
   Widget? build(BuildContext context, VoidCallback onUpdate) {
     return null;
   }
+
+  Widget? buildDescription() {
+    return null;
+  }
 }
 
-Future<List<PlatformRequirement>> getRequirements(bool local) async {
+Future<List<PlatformRequirement>> getRequirements(ConnectionType connectionType) async {
   List<PlatformRequirement> list;
   if (kIsWeb) {
-    list = [BluetoothTurnedOn(), BluetoothScanning()];
+    final availablity = await UniversalBle.getBluetoothAvailabilityState();
+    if (availablity == AvailabilityState.unsupported) {
+      list = [UnsupportedPlatform()];
+    } else {
+      list = [BluetoothTurnedOn(), BluetoothScanning()];
+    }
   } else if (Platform.isMacOS) {
-    list = [BluetoothTurnedOn(), local ? KeyboardRequirement() : RemoteRequirement(), BluetoothScanning()];
+    list = [
+      TargetRequirement(),
+      BluetoothTurnedOn(),
+      switch (connectionType) {
+        ConnectionType.local => KeyboardRequirement(),
+        ConnectionType.remote => RemoteRequirement(),
+        ConnectionType.link => LinkRequirement(),
+        ConnectionType.unknown => PlaceholderRequirement(),
+      },
+      BluetoothScanning(),
+    ];
   } else if (Platform.isIOS) {
-    list = [BluetoothTurnedOn(), RemoteRequirement(), BluetoothScanning()];
+    list = [
+      TargetRequirement(),
+      BluetoothTurnedOn(),
+      switch (connectionType) {
+        ConnectionType.local => RemoteRequirement(),
+        ConnectionType.remote => RemoteRequirement(),
+        ConnectionType.link => LinkRequirement(),
+        ConnectionType.unknown => PlaceholderRequirement(),
+      },
+      BluetoothScanning(),
+    ];
   } else if (Platform.isWindows) {
-    list = [BluetoothTurnedOn(), local ? KeyboardRequirement() : RemoteRequirement(), BluetoothScanning()];
+    list = [
+      TargetRequirement(),
+      BluetoothTurnedOn(),
+      switch (connectionType) {
+        ConnectionType.local => KeyboardRequirement(),
+        ConnectionType.remote => RemoteRequirement(),
+        ConnectionType.link => LinkRequirement(),
+        ConnectionType.unknown => PlaceholderRequirement(),
+      },
+      BluetoothScanning(),
+    ];
   } else if (Platform.isAndroid) {
     final deviceInfoPlugin = DeviceInfoPlugin();
     final deviceInfo = await deviceInfoPlugin.androidInfo;
     list = [
+      TargetRequirement(),
       BluetoothTurnedOn(),
-      local ? AccessibilityRequirement() : RemoteRequirement(),
       NotificationRequirement(),
       if (deviceInfo.version.sdkInt <= 30)
         LocationRequirement()
@@ -46,6 +87,12 @@ Future<List<PlatformRequirement>> getRequirements(bool local) async {
         BluetoothScanRequirement(),
         BluetoothConnectRequirement(),
       ],
+      switch (connectionType) {
+        ConnectionType.local => AccessibilityRequirement(),
+        ConnectionType.remote => RemoteRequirement(),
+        ConnectionType.link => LinkRequirement(),
+        ConnectionType.unknown => PlaceholderRequirement(),
+      },
       BluetoothScanning(),
     ];
   } else {

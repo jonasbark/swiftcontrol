@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
-import 'package:swift_control/bluetooth/devices/bt_hid/bt_hid_device.dart';
 import 'package:swift_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
 import 'package:swift_control/bluetooth/devices/zwift/constants.dart';
 import 'package:swift_control/bluetooth/devices/zwift/zwift_click.dart';
@@ -16,6 +15,7 @@ import 'package:universal_ble/universal_ble.dart';
 import '../../utils/keymap/buttons.dart';
 import '../messages/notification.dart';
 import 'elite/elite_square.dart';
+import 'elite/elite_sterzo.dart';
 
 abstract class BaseDevice {
   final BleDevice scanResult;
@@ -36,7 +36,7 @@ abstract class BaseDevice {
     ZwiftConstants.ZWIFT_RIDE_CUSTOM_SERVICE_UUID,
     SquareConstants.SERVICE_UUID,
     WahooKickrBikeShiftConstants.SERVICE_UUID,
-    BtHidConstants.HID_SERVICE_UUID,
+    SterzoConstants.SERVICE_UUID,
   ];
 
   static BaseDevice? fromScanResult(BleDevice scanResult) {
@@ -54,6 +54,10 @@ abstract class BaseDevice {
       if (scanResult.name != null && scanResult.name!.toUpperCase().startsWith('KICKR BIKE SHIFT')) {
         device = WahooKickrBikeShift(scanResult);
       }
+
+      if (scanResult.name != null && scanResult.name!.toUpperCase().startsWith('STERZO')) {
+        device = EliteSterzo(scanResult);
+      }
     } else {
       device = switch (scanResult.name) {
         //'Zwift Ride' => ZwiftRide(scanResult), special case for Zwift Ride: we must only connect to the left controller
@@ -62,6 +66,14 @@ abstract class BaseDevice {
         //'Zwift Click' => ZwiftClick(scanResult), special case for Zwift Click v2: we must only connect to the left controller
         _ => null,
       };
+
+      if (scanResult.name != null) {
+        if (scanResult.name!.toUpperCase().startsWith('STERZO')) {
+          device = EliteSterzo(scanResult);
+        } else if (scanResult.name!.toUpperCase().startsWith('KICKR BIKE SHIFT')) {
+          return WahooKickrBikeShift(scanResult);
+        }
+      }
     }
 
     if (device != null) {
@@ -93,19 +105,8 @@ abstract class BaseDevice {
       };
     } else if (scanResult.services.contains(SquareConstants.SERVICE_UUID)) {
       return EliteSquare(scanResult);
-    } else if (scanResult.services.contains(WahooKickrBikeShiftConstants.SERVICE_UUID)) {
-      if (scanResult.name != null && !scanResult.name!.toUpperCase().contains('KICKR BIKE SHIFT')) {
-        return WahooKickrBikeShift(scanResult);
-      } else if (kIsWeb && scanResult.name == null) {
-        // some devices don't broadcast the name, so we must rely on the service UUID
-        return WahooKickrBikeShift(scanResult);
-      } else {
-        return null;
-      }
-    } else if (scanResult.services.any((uuid) => uuid.toLowerCase() == BtHidConstants.HID_SERVICE_UUID.toLowerCase())) {
-      // Support for generic BT HID devices (media control buttons, keyboards, etc.)
-      // These are the cheap BT HID devices mentioned in the issue
-      return BtHidDevice(scanResult);
+    } else if (scanResult.services.contains(SterzoConstants.SERVICE_UUID)) {
+      return EliteSterzo(scanResult);
     } else {
       return null;
     }

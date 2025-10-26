@@ -4,8 +4,12 @@ import 'package:dartx/dartx.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swift_control/utils/keymap/apps/supported_app.dart';
+import 'package:swift_control/utils/keymap/buttons.dart';
+import 'package:swift_control/utils/requirements/multi.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../main.dart';
+import '../actions/desktop.dart';
 import '../keymap/apps/custom_app.dart';
 
 class Settings {
@@ -13,6 +17,12 @@ class Settings {
 
   Future<void> init() async {
     prefs = await SharedPreferences.getInstance();
+    initializeActions(getLastTarget()?.connectionType ?? ConnectionType.unknown);
+
+    if (actionHandler is DesktopActions) {
+      // Must add this line.
+      await windowManager.ensureInitialized();
+    }
 
     try {
       // Get screen size for migrations
@@ -136,6 +146,16 @@ class Settings {
     return prefs.getString('last_seen_version');
   }
 
+  Target? getLastTarget() {
+    final targetString = prefs.getString('last_target');
+    if (targetString == null) return null;
+    return Target.values.firstOrNullWhere((e) => e.name == targetString);
+  }
+
+  Future<void> setLastTarget(Target target) async {
+    await prefs.setString('last_target', target.name);
+  }
+
   Future<void> setLastSeenVersion(String version) async {
     await prefs.setString('last_seen_version', version);
   }
@@ -182,5 +202,27 @@ class Settings {
     }
 
     return migratedData;
+  }
+
+  void setInGameActionForButton(ControllerButton button, InGameAction inGameAction) {
+    final key = 'ingameaction_${button.name}';
+    prefs.setString(key, inGameAction.name);
+  }
+
+  InGameAction? getInGameActionForButton(ControllerButton button) {
+    final key = 'ingameaction_${button.name}';
+    final actionName = prefs.getString(key);
+    if (actionName == null) return button.action;
+    return InGameAction.values.firstOrNullWhere((e) => e.name == actionName) ?? button.action;
+  }
+
+  void setInGameActionForButtonValue(ControllerButton button, InGameAction inGameAction, int value) {
+    final key = 'ingameaction_${button.name}_value';
+    prefs.setInt(key, value);
+  }
+
+  int? getInGameActionForButtonValue(ControllerButton button) {
+    final key = 'ingameaction_${button.name}_value';
+    return prefs.getInt(key);
   }
 }
