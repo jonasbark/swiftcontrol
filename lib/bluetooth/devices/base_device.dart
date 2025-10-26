@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
+import 'package:swift_control/bluetooth/devices/bt_hid/bt_hid_device.dart';
 import 'package:swift_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
 import 'package:swift_control/bluetooth/devices/zwift/constants.dart';
 import 'package:swift_control/bluetooth/devices/zwift/zwift_click.dart';
@@ -107,6 +108,8 @@ abstract class BaseDevice {
       return EliteSquare(scanResult);
     } else if (scanResult.services.contains(SterzoConstants.SERVICE_UUID)) {
       return EliteSterzo(scanResult);
+    } else if (scanResult.services.contains(BtHidConstants.HID_SERVICE_UUID)) {
+      return BtHidDevice(scanResult);
     } else {
       return null;
     }
@@ -139,6 +142,10 @@ abstract class BaseDevice {
 
     if (!kIsWeb) {
       await UniversalBle.requestMtu(device.deviceId, 517);
+    }
+
+    if (this is BtHidDevice) {
+      await UniversalBle.pair(device.deviceId);
     }
 
     final services = await UniversalBle.discoverServices(device.deviceId);
