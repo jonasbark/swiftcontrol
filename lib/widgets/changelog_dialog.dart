@@ -9,7 +9,10 @@ class ChangelogDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final latestVersion = Markdown(blocks: entry.blocks.skip(1).take(2).toList(), markdown: entry.markdown);
+    final latestVersion = Markdown(
+      blocks: entry.blocks.skip(1).takeWhile((b) => b.type != 'heading').toList(),
+      markdown: entry.markdown,
+    );
     return AlertDialog(
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,6 +44,7 @@ class ChangelogDialog extends StatelessWidget {
           showDialog(
             context: context,
             useRootNavigator: true,
+            routeSettings: RouteSettings(name: '/changelog'),
             builder: (context) => ChangelogDialog(entry: markdown),
           );
         }

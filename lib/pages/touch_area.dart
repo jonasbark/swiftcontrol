@@ -2,69 +2,77 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:keypress_simulator/keypress_simulator.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:swift_control/main.dart';
+import 'package:swift_control/utils/keymap/apps/my_whoosh.dart';
+import 'package:swift_control/widgets/button_widget.dart';
 import 'package:swift_control/widgets/keymap_explanation.dart';
-import 'package:swift_control/widgets/menu.dart';
 import 'package:swift_control/widgets/testbed.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../bluetooth/messages/notification.dart';
 import '../utils/actions/base_actions.dart';
-import '../utils/keymap/apps/custom_app.dart';
-import '../utils/keymap/buttons.dart';
 import '../utils/keymap/keymap.dart';
-import '../widgets/custom_keymap_selector.dart';
 
 final touchAreaSize = 42.0;
 
 class TouchAreaSetupPage extends StatefulWidget {
-  const TouchAreaSetupPage({super.key});
+  final KeyPair keyPair;
+  const TouchAreaSetupPage({super.key, required this.keyPair});
 
   @override
   State<TouchAreaSetupPage> createState() => _TouchAreaSetupPageState();
 }
 
 class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
-  File? _backgroundImage;
-  late StreamSubscription<BaseNotification> _actionSubscription;
-  ControllerButton? _pressedButton;
+  Uint8List? _backgroundImage;
   final TransformationController _transformationController = TransformationController();
 
   late Rect _imageRect;
+
+  bool _showFaded = true;
 
   Future<void> _pickScreenshot() async {
     final picker = ImagePicker();
     final result = await picker.pickImage(source: ImageSource.gallery);
     if (result != null) {
       final image = File(result.path);
-
-      // need to decode image to get its size so we can have a percentage mapping
-      final decodedImage = await decodeImageFromList(image.readAsBytesSync());
-      // calculate image rectangle in the current screen, given it's boxfit contain
-      final screenSize = MediaQuery.sizeOf(context);
-      final imageAspectRatio = decodedImage.width / decodedImage.height;
-      final screenAspectRatio = screenSize.width / screenSize.height;
-      if (imageAspectRatio > screenAspectRatio) {
-        // image is wider than screen
-        final width = screenSize.width;
-        final height = width / imageAspectRatio;
-        final top = (screenSize.height - height) / 2;
-        _imageRect = Rect.fromLTWH(0, top, width, height);
-      } else {
-        // image is taller than screen
-        final height = screenSize.height;
-        final width = height * imageAspectRatio;
-        final left = (screenSize.width - width) / 2;
-        _imageRect = Rect.fromLTWH(left, 0, width, height);
-      }
-      _backgroundImage = image;
-      setState(() {});
+      final Directory tempDir = await getTemporaryDirectory();
+      final tempImage = File('${tempDir.path}/${actionHandler.supportedApp?.name ?? 'temp'}_screenshot.png');
+      await image.copy(tempImage.path);
+      _backgroundImage = tempImage.readAsBytesSync();
+      await _calculateBounds();
     }
+  }
+
+  Future<void> _calculateBounds() async {
+    if (_backgroundImage == null) return;
+
+    // need to decode image to get its size so we can have a percentage mapping
+    final decodedImage = await decodeImageFromList(_backgroundImage!);
+    // calculate image rectangle in the current screen, given it's boxfit contain
+    final screenSize = MediaQuery.sizeOf(context);
+    final imageAspectRatio = decodedImage.width / decodedImage.height;
+    final screenAspectRatio = screenSize.width / screenSize.height;
+    if (imageAspectRatio > screenAspectRatio) {
+      // image is wider than screen
+      final width = screenSize.width;
+      final height = width / imageAspectRatio;
+      final top = (screenSize.height - height) / 2;
+      _imageRect = Rect.fromLTWH(0, top, width, height);
+    } else {
+      // image is taller than screen
+      final height = screenSize.height;
+      final width = height * imageAspectRatio;
+      final left = (screenSize.width - width) / 2;
+      _imageRect = Rect.fromLTWH(left, 0, width, height);
+    }
+    setState(() {});
   }
 
   void _saveAndClose() {
@@ -74,7 +82,6 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
   @override
   void dispose() {
     super.dispose();
-    _actionSubscription.cancel();
     // Exit full screen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
     // Reset orientation preferences to allow all orientations
@@ -105,35 +112,16 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       windowManager.setFullScreen(true);
     }
-    _actionSubscription = connection.actionStream.listen((data) async {
-      if (!mounted) {
-        return;
-      }
-      if (data is ButtonNotification) {
-        _pressedButton = data.buttonsClicked.singleOrNull;
-      }
+    getTemporaryDirectory().then((tempDir) async {
+      final tempImage = File('${tempDir.path}/${actionHandler.supportedApp?.name ?? 'temp'}_screenshot.png');
+      if (tempImage.existsSync()) {
+        _backgroundImage = tempImage.readAsBytesSync();
+        setState(() {});
 
-      if (_pressedButton != null) {
-        if (actionHandler.supportedApp!.keymap.getKeyPair(_pressedButton!) == null) {
-          final KeyPair keyPair;
-          actionHandler.supportedApp!.keymap.keyPairs.add(
-            keyPair = KeyPair(
-              touchPosition: Offset((actionHandler.supportedApp!.keymap.keyPairs.length + 1) * 10, 10),
-              buttons: [_pressedButton!],
-              physicalKey: null,
-              logicalKey: null,
-              isLongPress: false,
-            ),
-          );
-          setState(() {});
-
-          // open menu
-          if (Platform.isMacOS || Platform.isWindows) {
-            await Future.delayed(Duration(milliseconds: 300));
-            await keyPressSimulator.simulateMouseClickDown(keyPair.touchPosition);
-            await keyPressSimulator.simulateMouseClickUp(keyPair.touchPosition);
-          }
-        }
+        // wait a bit until device rotation is done
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          _calculateBounds();
+        });
       }
     });
   }
@@ -173,93 +161,6 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
       _imageRect.top + relativeY * _imageRect.height - differenceInHeight - iconSize / 2,
     );
 
-    final actions = [
-      if (actionHandler.supportedModes.contains(SupportedMode.keyboard))
-        PopupMenuItem<PhysicalKeyboardKey>(
-          value: null,
-          child: ListTile(
-            leading: Icon(Icons.keyboard_alt_outlined),
-            title: const Text('Simulate Keyboard shortcut'),
-            trailing: keyPair.physicalKey != null ? Checkbox(value: true, onChanged: null) : null,
-          ),
-          onTap: () async {
-            await showDialog<void>(
-              context: context,
-              barrierDismissible: false, // enable Escape key
-              builder: (c) =>
-                  HotKeyListenerDialog(customApp: actionHandler.supportedApp! as CustomApp, keyPair: keyPair),
-            );
-            setState(() {});
-          },
-        ),
-      if (actionHandler.supportedModes.contains(SupportedMode.touch))
-        PopupMenuItem<PhysicalKeyboardKey>(
-          value: null,
-          child: ListTile(
-            title: const Text('Simulate Touch'),
-            leading: Icon(Icons.touch_app_outlined),
-            trailing: keyPair.physicalKey == null && keyPair.touchPosition != Offset.zero
-                ? Checkbox(value: true, onChanged: null)
-                : null,
-          ),
-          onTap: () {
-            keyPair.physicalKey = null;
-            keyPair.logicalKey = null;
-            setState(() {});
-          },
-        ),
-
-      if (actionHandler.supportedModes.contains(SupportedMode.media))
-        PopupMenuItem<PhysicalKeyboardKey>(
-          child: PopupMenuButton<PhysicalKeyboardKey>(
-            padding: EdgeInsets.zero,
-            itemBuilder: (context) => [
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: PhysicalKeyboardKey.mediaPlayPause,
-                child: const Text('Media: Play/Pause'),
-              ),
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: PhysicalKeyboardKey.mediaStop,
-                child: const Text('Media: Stop'),
-              ),
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: PhysicalKeyboardKey.mediaTrackPrevious,
-                child: const Text('Media: Previous'),
-              ),
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: PhysicalKeyboardKey.mediaTrackNext,
-                child: const Text('Media: Next'),
-              ),
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: PhysicalKeyboardKey.audioVolumeUp,
-                child: const Text('Media: Volume Up'),
-              ),
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: PhysicalKeyboardKey.audioVolumeDown,
-                child: const Text('Media: Volume Down'),
-              ),
-            ],
-            onSelected: (key) {
-              keyPair.physicalKey = key;
-              keyPair.logicalKey = null;
-
-              setState(() {});
-            },
-            child: ListTile(
-              leading: Icon(Icons.music_note_outlined),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (keyPair.isSpecialKey) Checkbox(value: true, onChanged: null),
-                  Icon(Icons.arrow_right),
-                ],
-              ),
-              title: Text('Simulate Media key'),
-            ),
-          ),
-        ),
-    ];
-
     final icon = Container(
       constraints: BoxConstraints(minHeight: iconSize, minWidth: iconSize),
       child: Column(
@@ -287,51 +188,7 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
                 ],
               ),
             ),
-          PopupMenuButton<PhysicalKeyboardKey>(
-            enabled: enableTouch,
-            itemBuilder: (context) => [
-              if (actions.length > 1) ...actions,
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: null,
-                onTap: () {
-                  keyPair.isLongPress = !keyPair.isLongPress;
-                  setState(() {});
-                },
-                child: CheckboxListTile(
-                  value: keyPair.isLongPress,
-                  onChanged: (value) {
-                    keyPair.isLongPress = value ?? false;
-                    setState(() {});
-                    Navigator.of(context).pop();
-                  },
-                  title: const Text('Long Press Mode (vs. repeating)'),
-                ),
-              ),
-              PopupMenuDivider(),
-              PopupMenuItem<PhysicalKeyboardKey>(
-                value: null,
-                child: ListTile(
-                  title: const Text('Delete Keymap'),
-                  leading: Icon(Icons.delete, color: Colors.red),
-                ),
-                onTap: () {
-                  actionHandler.supportedApp!.keymap.keyPairs.remove(keyPair);
-                  setState(() {});
-                },
-              ),
-            ],
-            onSelected: (key) {
-              keyPair.physicalKey = key;
-              keyPair.logicalKey = null;
-              setState(() {});
-            },
-            child: Row(
-              children: [
-                KeypairExplanation(withKey: true, keyPair: keyPair),
-                Icon(Icons.more_vert),
-              ],
-            ),
-          ),
+          KeypairExplanation(withKey: true, keyPair: keyPair),
         ],
       ),
     );
@@ -341,41 +198,50 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
       top: position.dy,
       child: Tooltip(
         message: 'Drag to reposition',
-        child: Draggable(
-          dragAnchorStrategy: (widget, context, position) {
-            final scale = _transformationController.value.getMaxScaleOnAxis();
-            final RenderBox renderObject = context.findRenderObject() as RenderBox;
-            return renderObject.globalToLocal(position).scale(scale, scale);
-          },
-          feedback: Material(
-            color: Colors.transparent,
+        child: AnimatedOpacity(
+          opacity: _showFaded && widget.keyPair != keyPair ? 0.2 : 1.0,
+          duration: Duration(milliseconds: 300),
+          child: Draggable(
+            dragAnchorStrategy: (widget, context, position) {
+              final scale = _transformationController.value.getMaxScaleOnAxis();
+              final RenderBox renderObject = context.findRenderObject() as RenderBox;
+              return renderObject.globalToLocal(position).scale(scale, scale);
+            },
+            feedback: Material(
+              color: Colors.transparent,
+              child: icon,
+            ),
+            childWhenDragging: const SizedBox.shrink(),
+            onDragStarted: () {
+              // Capture the starting position to calculate drag distance later
+              dragStartPosition = position;
+              if (keyPair != widget.keyPair && _showFaded) {
+                setState(() {
+                  _showFaded = false;
+                });
+              }
+            },
+            onDragEnd: (details) {
+              // Calculate drag distance to prevent accidental repositioning from clicks
+              // while allowing legitimate drags even with low velocity (e.g., when overlapping buttons)
+              final dragDistance = dragStartPosition != null
+                  ? (details.offset - dragStartPosition!).distance
+                  : double.infinity;
+
+              // Only update position if dragged more than 5 pixels (prevents accidental clicks)
+              if (dragDistance > 5) {
+                final matrix = Matrix4.inverted(_transformationController.value);
+                final height = 0;
+                final sceneY = details.offset.dy - height;
+                final viewportPoint = MatrixUtils.transformPoint(
+                  matrix,
+                  Offset(details.offset.dx, sceneY) + Offset(iconSize / 2, differenceInHeight + iconSize / 2),
+                );
+                setState(() => onPositionChanged(viewportPoint));
+              }
+            },
             child: icon,
           ),
-          childWhenDragging: const SizedBox.shrink(),
-          onDragStarted: () {
-            // Capture the starting position to calculate drag distance later
-            dragStartPosition = position;
-          },
-          onDragEnd: (details) {
-            // Calculate drag distance to prevent accidental repositioning from clicks
-            // while allowing legitimate drags even with low velocity (e.g., when overlapping buttons)
-            final dragDistance = dragStartPosition != null
-                ? (details.offset - dragStartPosition!).distance
-                : double.infinity;
-
-            // Only update position if dragged more than 5 pixels (prevents accidental clicks)
-            if (dragDistance > 5) {
-              final matrix = Matrix4.inverted(_transformationController.value);
-              final height = 0;
-              final sceneY = details.offset.dy - height;
-              final viewportPoint = MatrixUtils.transformPoint(
-                matrix,
-                Offset(details.offset.dx, sceneY) + Offset(iconSize / 2, differenceInHeight + iconSize / 2),
-              );
-              setState(() => onPositionChanged(viewportPoint));
-            }
-          },
-          child: icon,
         ),
       ),
     );
@@ -389,6 +255,11 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
           if (_backgroundImage == null && constraints.biggest != _imageRect.size) {
             _imageRect = Rect.fromLTWH(0, 0, constraints.maxWidth, constraints.maxHeight);
           }
+          final keyPairsToShow =
+              actionHandler.supportedApp?.keymap.keyPairs
+                  .where((kp) => kp.touchPosition != Offset.zero && !kp.isSpecialKey)
+                  .toList() ??
+              [];
           return InteractiveViewer(
             transformationController: _transformationController,
             child: Stack(
@@ -397,7 +268,7 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
                   Positioned.fill(
                     child: Opacity(
                       opacity: 0.5,
-                      child: Image.file(
+                      child: Image.memory(
                         _backgroundImage!,
                         fit: BoxFit.contain,
                       ),
@@ -417,8 +288,8 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
                     ),
                   ),
 
-                ...?actionHandler.supportedApp?.keymap.keyPairs.map((keyPair) {
-                  return _buildDraggableArea(
+                for (final keyPair in keyPairsToShow)
+                  _buildDraggableArea(
                     enableTouch: true,
                     keyPair: keyPair,
                     onPositionChanged: (newPos) {
@@ -429,8 +300,7 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
                       setState(() {});
                     },
                     color: Colors.red,
-                  );
-                }),
+                  ),
 
                 Positioned.fill(child: Testbed()),
 
@@ -477,9 +347,16 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
                       PopupMenuButton(
                         itemBuilder: (c) => [
                           PopupMenuItem(
+                            child: Text('Choose another screenshot'),
+                            onTap: () {
+                              _pickScreenshot();
+                            },
+                          ),
+                          PopupMenuItem(
                             child: Text('Reset'),
                             onTap: () {
                               _backgroundImage = null;
+
                               actionHandler.supportedApp?.keymap.reset();
                               setState(() {});
                             },
@@ -487,7 +364,6 @@ class _TouchAreaSetupPageState extends State<TouchAreaSetupPage> {
                         ],
                         icon: Icon(Icons.more_vert),
                       ),
-                      if (kDebugMode) MenuButton(),
                     ],
                   ),
                 ),
@@ -510,6 +386,7 @@ class KeypairExplanation extends StatelessWidget {
   Widget build(BuildContext context) {
     return Wrap(
       spacing: 4,
+      runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         if (withKey)
@@ -518,8 +395,17 @@ class KeypairExplanation extends StatelessWidget {
           )
         else
           Icon(keyPair.icon),
-        if (keyPair.physicalKey != null && actionHandler.supportedModes.contains(SupportedMode.keyboard)) ...[
-          KeyWidget(
+        if (keyPair.inGameAction != null &&
+            ((settings.getTrainerApp() is MyWhoosh && settings.getMyWhooshLinkEnabled()) ||
+                (settings.getTrainerApp()?.supportsZwiftEmulation == true && settings.getZwiftEmulatorEnabled())))
+          _KeyWidget(
+            label: [
+              keyPair.inGameAction.toString().split('.').last,
+              if (keyPair.inGameActionValue != null) ': ${keyPair.inGameActionValue}',
+            ].joinToString(separator: ''),
+          )
+        else if (keyPair.isSpecialKey && actionHandler.supportedModes.contains(SupportedMode.media))
+          _KeyWidget(
             label: switch (keyPair.physicalKey) {
               PhysicalKeyboardKey.mediaPlayPause => 'Play/Pause',
               PhysicalKeyboardKey.mediaStop => 'Stop',
@@ -527,16 +413,50 @@ class KeypairExplanation extends StatelessWidget {
               PhysicalKeyboardKey.mediaTrackNext => 'Next',
               PhysicalKeyboardKey.audioVolumeUp => 'Volume Up',
               PhysicalKeyboardKey.audioVolumeDown => 'Volume Down',
-              _ => keyPair.logicalKey?.keyLabel ?? 'Unknown',
+              _ => 'Unknown',
             },
+          )
+        else if (keyPair.physicalKey != null && actionHandler.supportedModes.contains(SupportedMode.keyboard)) ...[
+          _KeyWidget(
+            label: keyPair.logicalKey?.keyLabel ?? 'Unknown',
           ),
           if (keyPair.isLongPress) Text('long\npress', style: TextStyle(fontSize: 10)),
         ] else ...[
-          if (!withKey)
-            KeyWidget(label: 'X: ${keyPair.touchPosition.dx.toInt()}, Y: ${keyPair.touchPosition.dy.toInt()}'),
+          if (!withKey && keyPair.touchPosition != Offset.zero)
+            _KeyWidget(label: 'X:${keyPair.touchPosition.dx.toInt()}, Y:${keyPair.touchPosition.dy.toInt()}'),
           if (keyPair.isLongPress) Text('long\npress', style: TextStyle(fontSize: 10)),
         ],
       ],
+    );
+  }
+}
+
+class _KeyWidget extends StatelessWidget {
+  final String label;
+  const _KeyWidget({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicWidth(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        constraints: BoxConstraints(minWidth: 30),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).colorScheme.primary),
+          borderRadius: BorderRadius.circular(4),
+          color: Theme.of(context).colorScheme.primaryContainer,
+        ),
+        child: Center(
+          child: Text(
+            label.splitByUpperCase(),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

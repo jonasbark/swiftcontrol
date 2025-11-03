@@ -3,12 +3,11 @@ import 'dart:io';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:swift_control/main.dart';
 import 'package:swift_control/utils/requirements/multi.dart';
 import 'package:swift_control/utils/requirements/platform.dart';
-import 'package:swift_control/widgets/changelog_dialog.dart';
 import 'package:swift_control/widgets/menu.dart';
+import 'package:swift_control/widgets/small_progress_indicator.dart';
 import 'package:swift_control/widgets/title.dart';
 
 import 'device.dart';
@@ -33,7 +32,6 @@ class _RequirementsPageState extends State<RequirementsPage> with WidgetsBinding
     // call after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       settings.init().then((_) {
-        _checkAndShowChangelog();
         if (!kIsWeb && Platform.isMacOS) {
           // add more delay due to CBManagerStateUnknown
           Future.delayed(const Duration(seconds: 2), () {
@@ -44,29 +42,6 @@ class _RequirementsPageState extends State<RequirementsPage> with WidgetsBinding
         }
       });
     });
-
-    connection.hasDevices.addListener(() {
-      if (connection.hasDevices.value) {
-        Navigator.push(context, MaterialPageRoute(builder: (c) => DevicePage()));
-      }
-    });
-  }
-
-  Future<void> _checkAndShowChangelog() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
-      final lastSeenVersion = settings.getLastSeenVersion();
-
-      if (mounted) {
-        await ChangelogDialog.showIfNeeded(context, currentVersion, lastSeenVersion);
-      }
-
-      // Update last seen version
-      await settings.setLastSeenVersion(currentVersion);
-    } catch (e) {
-      print('Failed to check changelog: $e');
-    }
   }
 
   @override
@@ -90,64 +65,107 @@ class _RequirementsPageState extends State<RequirementsPage> with WidgetsBinding
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: buildMenuButtons(),
       ),
-      body: _requirements.isEmpty
-          ? Center(child: CircularProgressIndicator())
-          : Card(
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Stepper(
-                currentStep: _currentStep,
-                connectorColor: WidgetStateProperty.resolveWith<Color>(
-                  (Set<WidgetState> states) => Theme.of(context).colorScheme.primary,
-                ),
-                onStepContinue: _currentStep < _requirements.length
-                    ? () {
-                        setState(() {
-                          _currentStep += 1;
-                        });
-                      }
-                    : null,
-                onStepTapped: (step) {
-                  if (_requirements[step].status && _requirements[step] is! TargetRequirement) {
-                    return;
-                  }
-                  final hasEarlierIncomplete = _requirements.indexWhere((req) => !req.status) < step;
-                  if (hasEarlierIncomplete) {
-                    return;
-                  }
-                  setState(() {
-                    _currentStep = step;
-                  });
-                },
-                controlsBuilder: (context, details) => Container(),
-                steps: _requirements
-                    .mapIndexed(
-                      (index, req) => Step(
-                        title: Text(req.name, style: TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: req.buildDescription() ?? (req.description != null ? Text(req.description!) : null),
-                        content: Container(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          alignment: Alignment.centerLeft,
-                          child:
-                              (index == _currentStep
-                                  ? req.build(context, () {
-                                      _reloadRequirements();
-                                    })
-                                  : null) ??
-                              ElevatedButton(
-                                onPressed: req.status
-                                    ? null
-                                    : () => _callRequirement(req, context, () {
-                                        _reloadRequirements();
-                                      }),
-                                child: Text(req.name),
+      body: SingleChildScrollView(
+        child: Column(
+          spacing: 12,
+          children: [
+            SizedBox(height: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 12,
+              children: [
+                Image.asset('icon.png', width: 64, height: 64),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Welcome to SwiftControl!', style: Theme.of(context).textTheme.titleMedium),
+                    Container(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width - 140),
+
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: 'Need help? Click on the '),
+                            WidgetSpan(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Icon(Icons.help_outline),
                               ),
+                            ),
+                            TextSpan(text: ' button on top and don\'t hesitate to contact us.'),
+                          ],
                         ),
-                        state: req.status ? StepState.complete : StepState.indexed,
                       ),
-                    )
-                    .toList(),
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
+            _requirements.isEmpty
+                ? Center(child: SmallProgressIndicator())
+                : Card(
+                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    child: Stepper(
+                      physics: NeverScrollableScrollPhysics(),
+                      currentStep: _currentStep,
+                      connectorColor: WidgetStateProperty.resolveWith<Color>(
+                        (Set<WidgetState> states) => Theme.of(context).colorScheme.primary,
+                      ),
+                      onStepContinue: _currentStep < _requirements.length
+                          ? () {
+                              setState(() {
+                                _currentStep += 1;
+                              });
+                            }
+                          : null,
+                      onStepTapped: (step) {
+                        if (_requirements[step].status && _requirements[step] is! TargetRequirement) {
+                          return;
+                        }
+                        final hasEarlierIncomplete =
+                            _requirements.indexWhere((req) => !req.status) != -1 &&
+                            _requirements.indexWhere((req) => !req.status) < step;
+                        if (hasEarlierIncomplete) {
+                          return;
+                        }
+                        setState(() {
+                          _currentStep = step;
+                        });
+                      },
+                      controlsBuilder: (context, details) => Container(),
+                      steps: _requirements
+                          .mapIndexed(
+                            (index, req) => Step(
+                              title: Text(req.name, style: TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle:
+                                  req.buildDescription() ?? (req.description != null ? Text(req.description!) : null),
+                              content: Container(
+                                padding: const EdgeInsets.only(top: 16.0),
+                                alignment: Alignment.centerLeft,
+                                child:
+                                    (index == _currentStep
+                                        ? req.build(context, () {
+                                            _reloadRequirements();
+                                          })
+                                        : null) ??
+                                    ElevatedButton(
+                                      onPressed: req.status
+                                          ? null
+                                          : () => _callRequirement(req, context, () {
+                                              _reloadRequirements();
+                                            }),
+                                      child: Text(req.name),
+                                    ),
+                              ),
+                              state: req.status ? StepState.complete : StepState.indexed,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -158,9 +176,29 @@ class _RequirementsPageState extends State<RequirementsPage> with WidgetsBinding
   }
 
   void _reloadRequirements() {
-    getRequirements(settings.getLastTarget()?.connectionType ?? ConnectionType.unknown).then((req) {
+    getRequirements(
+      settings.getLastTarget()?.connectionType ?? ConnectionType.unknown,
+    ).then((req) {
       _requirements = req;
-      _currentStep = req.indexWhere((req) => !req.status);
+      final unresolvedIndex = req.indexWhere((req) => !req.status);
+      if (unresolvedIndex != -1) {
+        _currentStep = unresolvedIndex;
+      } else if (mounted) {
+        String? currentPath;
+        navigatorKey.currentState?.popUntil((route) {
+          currentPath = route.settings.name;
+          return true;
+        });
+        if (currentPath == '/') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (c) => DevicePage(),
+              settings: RouteSettings(name: '/device'),
+            ),
+          );
+        }
+      }
       if (mounted) {
         setState(() {});
       }

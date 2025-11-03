@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package com.zwift.protobuf;
+
+// ------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------
+
+enum VendorOpcode {
+  // "Normal" opcodes
+  UNDEFINED                     = 0;
+  CONTROLLER_SYNC                = 1;
+  PAIR_DEVICES                   = 2;
+
+  // "Vendor" opcodes (0xFF00 ..)
+  ENABLE_TEST_MODE               = 0xFF00; // 65280
+  SET_DFU_TEST                   = 0xFF01; // 65281
+  SET_TRAINER_TEST_DATA          = 0xFF02; // 65282
+  SET_INPUT_DEVICE_TEST_DATA     = 0xFF03; // 65283
+  SET_GEAR_TEST_DATA             = 0xFF04; // 65284
+  SET_HRM_TEST_DATA              = 0xFF05; // 65285
+  SET_TEST_DATA                  = 0xFF06; // 65286
+}
+
+enum PairDeviceType {
+  BLE = 0;
+  ANT = 1;
+}
+
+// Status used by ControllerSync
+enum ControllerSyncStatus {
+  NOT_CONNECTED = 0;
+  CONNECTED     = 1;
+}
+
+// Looks like “data object / page” IDs used with pairing pages
+enum VendorDO {
+  NO_CLUE                     = 0;
+  PAGE_DEVICE_PAIRING = 0xF000; // 61440
+  DEVICE_COUNT        = 0xF001; // 61441
+  PAIRING_STATUS      = 0xF002; // 61442
+  PAIRED_DEVICE       = 0xF003; // 61443
+}
+
+// ------------------------------------------------------------
+// Messages (extracted from the generated lite classes)
+// ------------------------------------------------------------
+
+message ControllerSync {
+  // optional in code; proto3 treats as present when non-zero
+  ControllerSyncStatus status   = 1;
+  int32                timeStamp = 2; // seconds? (name from code)
+}
+
+message EnableTestMode {
+  bool enable = 1;
+}
+
+message PairDevices {
+  bool           pair     = 1; // code default = true
+  PairDeviceType type     = 2; // code default = 1 (ANT) per field init
+  bytes          deviceId = 3;
+}
+
+message DevicePairingDataPage {
+  int32                     devicesCount   = 1;
+  int32                     pairingStatus  = 2;
+  repeated PairedDevice     pairingDevList = 3;
+
+  message PairedDevice {
+    bytes device = 1;
+  }
+}
+
+message SetDfuTest {
+  // The Java shows a oneof testCaseCase_ with 3 alternatives:
+  oneof test_case {
+    bool failedEnterDfu        = 1;
+    bool failedStartAdvertising = 2;
+    int32 crcFailure           = 3; // probably an error code/count
+  }
+}
+
+message SetGearTestData {
+  int32 frontGearIdx = 1; // code default = 1
+  int32 rearGearIdx  = 2; // code default = 5
+}
+
+message SetHrmTestData {
+  bool  hrmPresent = 1;
+  int32 heartRate  = 2;
+}
+
+message SetInputDeviceTestData {
+  int32                           duration        = 1; // units unknown (ms/s)
+  int32                           buttonEvent     = 2; // enum-ish; int in code
+  repeated ControllerAnalogEvent  analogEventList = 3;
+
+  message ControllerAnalogEvent {
+    int32 sensorId = 1;
+    int32 value    = 2;
+  }
+}
+
+message SetTrainerTestData {
+  int32          dataMode       = 1; // likely an enum; int in code
+  int32          interfaces     = 2; // bitmask? int in code
+  TestTrainerData testTrainerData = 3;
+}
+
+message TestTrainerData {
+  int32 power                     = 1;
+  int32 cadence                   = 2;
+  int32 bikeSpeed                 = 3;
+  int32 averagedPower             = 4;
+  int32 wheelSpeed                = 5;
+  int32 calculatedRealGearRatio   = 6; // code default = 30000
+}

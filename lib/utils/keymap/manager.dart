@@ -5,15 +5,15 @@ import 'package:swift_control/main.dart';
 
 import 'apps/custom_app.dart';
 
-class KeypadManager {
+class KeymapManager {
   // Singleton instance
-  static final KeypadManager _instance = KeypadManager._internal();
+  static final KeymapManager _instance = KeymapManager._internal();
 
   // Private constructor
-  KeypadManager._internal();
+  KeymapManager._internal();
 
   // Factory constructor to return the singleton instance
-  factory KeypadManager() {
+  factory KeymapManager() {
     return _instance;
   }
 
@@ -36,51 +36,110 @@ class KeypadManager {
     );
   }
 
-  Future<String?> showManageProfileDialog(BuildContext context, String? currentProfile) async {
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Manage Profile: ${currentProfile ?? ''}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (currentProfile != null && actionHandler.supportedApp is CustomApp)
-              ListTile(
-                leading: Icon(Icons.edit),
-                title: Text('Rename'),
-                onTap: () => Navigator.pop(context, 'rename'),
-              ),
-            if (currentProfile != null)
-              ListTile(
-                leading: Icon(Icons.copy),
-                title: Text('Duplicate'),
-                onTap: () => Navigator.pop(context, 'duplicate'),
-              ),
-            ListTile(
-              leading: Icon(Icons.file_upload),
-              title: Text('Import'),
-              onTap: () => Navigator.pop(context, 'import'),
-            ),
-            if (currentProfile != null)
-              ListTile(
-                leading: Icon(Icons.share),
-                title: Text('Export'),
-                onTap: () => Navigator.pop(context, 'export'),
-              ),
-            if (currentProfile != null)
-              ListTile(
-                leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
-                title: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                onTap: () => Navigator.pop(context, 'delete'),
-              ),
-          ],
+  PopupMenuButton<String> getManageProfileDialog(
+    BuildContext context,
+    String? currentProfile, {
+    required VoidCallback onDone,
+  }) {
+    return PopupMenuButton(
+      itemBuilder: (context) => [
+        if (currentProfile != null && actionHandler.supportedApp is CustomApp)
+          PopupMenuItem(
+            child: Text('Rename'),
+            onTap: () async {
+              final newName = await _showRenameProfileDialog(
+                context,
+                currentProfile,
+              );
+              if (newName != null && newName.isNotEmpty && newName != currentProfile) {
+                await settings.duplicateCustomAppProfile(currentProfile, newName);
+                await settings.deleteCustomAppProfile(currentProfile);
+                final customApp = CustomApp(profileName: newName);
+                final savedKeymap = settings.getCustomAppKeymap(newName);
+                if (savedKeymap != null) {
+                  customApp.decodeKeymap(savedKeymap);
+                }
+                actionHandler.supportedApp = customApp;
+                await settings.setKeyMap(customApp);
+              }
+              onDone();
+            },
+          ),
+        if (currentProfile != null)
+          PopupMenuItem(
+            child: Text('Duplicate'),
+            onTap: () async {
+              final newName = await duplicate(
+                context,
+                currentProfile,
+              );
+              onDone();
+            },
+          ),
+        PopupMenuItem(
+          child: Text('Import'),
+          onTap: () async {
+            final jsonData = await _showImportDialog(context);
+            if (jsonData != null && jsonData.isNotEmpty) {
+              final success = await settings.importCustomAppProfile(jsonData);
+              if (success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Profile imported successfully'),
+                    duration: Duration(seconds: 5),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to import profile. Invalid format.'),
+                    duration: Duration(seconds: 5),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'))],
-      ),
+        if (currentProfile != null)
+          PopupMenuItem(
+            child: Text('Export'),
+            onTap: () {
+              final currentProfile = (actionHandler.supportedApp as CustomApp).profileName;
+              final jsonData = settings.exportCustomAppProfile(currentProfile);
+              if (jsonData != null) {
+                Clipboard.setData(ClipboardData(text: jsonData));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Profile "$currentProfile" exported to clipboard',
+                    ),
+                    duration: Duration(seconds: 5),
+                  ),
+                );
+              }
+            },
+          ),
+        if (currentProfile != null)
+          PopupMenuItem(
+            value: 'delete',
+            onTap: () async {
+              final confirmed = await _showDeleteConfirmDialog(
+                context,
+                currentProfile,
+              );
+              if (confirmed == true) {
+                await settings.deleteCustomAppProfile(currentProfile);
+              }
+              onDone();
+            },
+            child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
+      ],
     );
   }
 
-  Future<String?> showRenameProfileDialog(BuildContext context, String currentName) async {
+  Future<String?> _showRenameProfileDialog(BuildContext context, String currentName) async {
     final controller = TextEditingController(text: currentName);
     return showDialog<String>(
       context: context,
@@ -99,12 +158,12 @@ class KeypadManager {
     );
   }
 
-  Future<String?> showDuplicateProfileDialog(BuildContext context, String currentName) async {
+  Future<String?> _showDuplicateProfileDialog(BuildContext context, String currentName) async {
     final controller = TextEditingController(text: '$currentName (Copy)');
     return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Duplicate Profile'),
+        title: Text('Create new custom profile by duplicating "$currentName"'),
         content: TextField(
           controller: controller,
           decoration: InputDecoration(labelText: 'New Profile Name'),
@@ -118,7 +177,7 @@ class KeypadManager {
     );
   }
 
-  Future<bool?> showDeleteConfirmDialog(BuildContext context, String profileName) async {
+  Future<bool?> _showDeleteConfirmDialog(BuildContext context, String profileName) async {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -136,7 +195,7 @@ class KeypadManager {
     );
   }
 
-  Future<String?> showImportDialog(BuildContext context) async {
+  Future<String?> _showImportDialog(BuildContext context) async {
     final controller = TextEditingController();
 
     // Try to get data from clipboard
@@ -175,7 +234,7 @@ class KeypadManager {
   }
 
   Future<String?> duplicate(BuildContext context, String currentProfile) async {
-    final newName = await showDuplicateProfileDialog(context, currentProfile);
+    final newName = await _showDuplicateProfileDialog(context, currentProfile);
     if (newName != null && newName.isNotEmpty) {
       if (actionHandler.supportedApp is CustomApp) {
         await settings.duplicateCustomAppProfile(currentProfile, newName);
@@ -185,7 +244,7 @@ class KeypadManager {
           customApp.decodeKeymap(savedKeymap);
         }
         actionHandler.supportedApp = customApp;
-        await settings.setApp(customApp);
+        await settings.setKeyMap(customApp);
         return newName;
       } else {
         final customApp = CustomApp(profileName: newName);
@@ -201,15 +260,13 @@ class KeypadManager {
               physicalKey: pair.physicalKey,
               logicalKey: pair.logicalKey,
               isLongPress: pair.isLongPress,
-              touchPosition: pair.touchPosition != Offset.zero
-                  ? pair.touchPosition
-                  : Offset(((indexB + 1)) * 10, 20 + (index * 10)),
+              touchPosition: pair.touchPosition,
             );
           });
         });
 
         actionHandler.supportedApp = customApp;
-        await settings.setApp(customApp);
+        await settings.setKeyMap(customApp);
         return newName;
       }
     }

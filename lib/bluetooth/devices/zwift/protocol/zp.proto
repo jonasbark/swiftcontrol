@@ -1,0 +1,853 @@
+/* This file has been automatically generated from ./src/zp_main.proto */
+/* !!! Do not edit manually, instead update the source file */
+
+syntax = "proto2";
+
+import "nanopb.proto";
+
+package Zp;
+
+/////////////////////////////////////////////////////////////////
+// Enumerations
+/////////////////////////////////////////////////////////////////
+enum Opcode {
+  GET                                         = 0x00;
+  DEV_INFO_STATUS                             = 0x01;
+  BLE_SECURITY_REQUEST                        = 0x02;
+  TRAINER_NOTIF                               = 0x03;
+  TRAINER_CONFIG_SET                          = 0x04;
+  TRAINER_CONFIG_STATUS                       = 0x05;
+  // 0x06 - RESERVED
+  // 0x09 - RESERVED
+  // 0x0A - RESERVED
+  // 0x0B - RESERVED
+  DEV_INFO_SET                                = 0x0C;
+  // 0x0D - RESERVED
+  // 0x0E - RESERVED
+  POWER_OFF                                   = 0x0F;
+  // 0x10 - RESERVED
+  ///0x11 - RESERVED
+  RESET                                       = 0x18;
+  BATTERY_NOTIF                               = 0x19;
+  CONTROLLER_NOTIFICATION                     = 0x23;
+  LOG_DATA                                    = 0x2A;
+  SPINDOWN_REQUEST                            = 0x3A;
+  SPINDOWN_NOTIFICATION                       = 0x3B;
+  GET_RESPONSE                                = 0x3C;
+  // 0x3D - RESERVED
+  STATUS_RESPONSE                             = 0x3E;
+  SET                                         = 0x3F;
+  SET_RESPONSE                                = 0x40;
+  LOG_LEVEL_SET                               = 0x41;
+  DATA_CHANGE_NOTIFICATION                    = 0x42;
+  GAME_STATE_NOTIFICATION                     = 0x43;
+  SENSOR_RELAY_CONFIG                           = 0x44;
+  SENSOR_RELAY_GET                              = 0x45;
+  SENSOR_RELAY_RESPONSE                         = 0x46;
+  SENSOR_RELAY_NOTIFICATION                     = 0x47;
+  HRM_DATA_NOTIFICATION                       = 0x48;
+  WIFI_CONFIG_REQUEST                         = 0x49;
+  WIFI_NOTIFICATION                           = 0x4A;
+  POWER_METER_NOTIFICATION                    = 0x4B;
+  CADENCE_SENSOR_NOTIFICATION                 = 0x4C;
+  DEVICE_UPDATE_REQUEST                       = 0x4D;
+  RELAY_ZP_MESSAGE                            = 0x4E;
+
+  RIDE_ON                                     = 0x52;
+  RESERVED                                    = 0xFD;
+  LOST_CONTROL                                = 0xFE;
+  VENDOR_MESSAGE                              = 0xFF;
+}
+
+/* Data Objects */
+enum DO {
+
+  PAGE_DEV_INFO                                   = 0x0000;
+  PROTOCOL_VERSION                                = 0x0001;
+  SYSTEM_FW_VERSION                               = 0x0002;
+  DEVICE_NAME                                     = 0x0003;
+  SERIAL_NUMBER                                   = 0x0005;
+  SYSTEM_HW_REVISION                              = 0x0006;
+  DEVICE_CAPABILITIES                             = 0x0007;
+  MANUFACTURER_ID                                 = 0x0008;
+  PRODUCT_ID                                      = 0x0009;
+  DEVICE_UID                                      = 0x000A;
+
+  PAGE_CLIENT_SERVER_CONFIGURATION                = 0x0010;
+  CLIENT_SERVER_NOTIFICATIONS                     = 0x0011;
+
+  PAGE_DEVICE_UPDATE_INFO                         = 0x0020;
+  DEVICE_UPDATE_STATUS                            = 0x0021;
+  DEVICE_UPDATE_NEW_VERSION                       = 0x0022;
+
+  PAGE_DATE_TIME                                  = 0x0030;
+  UTC_DATE_TIME                                   = 0x0031;
+
+  PAGE_BLE_SECURITY                               = 0x0040;
+  BLE_SECURE_CONNECTION_STATUS                    = 0x0041;
+  BLE_SECURE_CONNECTION_WINDOW_STATUS             = 0x0042;
+
+  PAGE_TRAINER_CONFIG                             = 0x0200;
+  TRAINER_MODE                                    = 0x0201;
+  CFG_RESISTANCE                                  = 0x0202;
+  ERG_POWER                                       = 0x0203;
+  AVERAGING_WINDOW                                = 0x0204;
+  SIM_WIND                                        = 0x0205;
+  SIM_GRADE                                       = 0x0206;
+  SIM_REAL_GEAR_RATIO                             = 0x0207;
+  SIM_VIRT_GEAR_RATIO                             = 0x0208;
+  SIM_CW                                          = 0x0209;
+  SIM_WHEEL_DIAMETER                              = 0x020A;
+  SIM_BIKE_MASS                                   = 0x020B;
+  SIM_RIDER_MASS                                  = 0x020C;
+  SIM_CRR                                         = 0x020D;
+  SIM_RESERVED_FRONTAL_AREA                       = 0x020E;
+  SIM_EBRAKE                                      = 0x020F;
+
+  PAGE_TRAINER_GEAR_INDEX_CONFIG                  = 0x0210;
+  FRONT_GEAR_INDEX                                = 0x0211;
+  FRONT_GEAR_INDEX_MAX                            = 0x0212;
+  FRONT_GEAR_INDEX_MIN                            = 0x0213;
+  REAR_GEAR_INDEX                                 = 0x0214;
+  REAR_GEAR_INDEX_MAX                             = 0x0215;
+  REAR_GEAR_INDEX_MIN                             = 0x0216;
+
+  PAGE_TRAINER_CONFIG2                            = 0x0220;
+  HIGH_SPEED_DATA                                 = 0x0221;
+  ERG_POWER_SMOOTHING                             = 0x0222;
+  VIRTUAL_SHIFTING_MODE                           = 0x0223;
+
+  PAGE_DEVICE_TILT_CONFIG                         = 0x0230;
+  DEVICE_TILT_ENABLED                             = 0x0231;
+  DEVICE_TILT_GRADIENT_MIN                        = 0x0232;
+  DEVICE_TILT_GRADIENT_MAX                        = 0x0233;
+  DEVICE_TILT_GRADIENT                            = 0x0234;
+
+  BATTERY_STATE                                   = 0x0303;
+
+  PAGE_CONTROLLER_INPUT_CONFIG                    = 0x0400;
+  INPUT_SUPPORTED_DIGITAL_INPUTS                  = 0x0401;
+  INPUT_SUPPORTED_ANALOG_INPUTS                   = 0x0402;
+  INPUT_ANALOG_INPUT_RANGE                        = 0x0403;
+  INPUT_ANALOG_INPUT_DEADZONE                     = 0x0404;
+
+  PAGE_WIFI_CONFIGURATION                         = 0x0420;
+  WIFI_ENABLED                                    = 0x0421;
+  WIFI_STATUS                                     = 0x0422;
+  WIFI_SSID                                       = 0x0423;
+  WIFI_BAND                                       = 0x0424;
+  WIFI_RSSI                                       = 0x0425;
+  WIFI_REGION_CODE                                = 0x0426;
+
+  SENSOR_RELAY_DATA_PAGE                            = 0x0500;
+  SENSOR_RELAY_SUPPORTED_SENSORS                    = 0x0501;
+  SENSOR_RELAY_PAIRED_SENSORS                       = 0x0502;
+
+
+}
+
+enum Status {
+  // Enumeation of the common status values
+
+  SUCCESS        = 0x00;
+  FAILURE        = 0x01;
+  BUSY           = 0x02;
+  INVALID_PARAM  = 0x03;
+  NOT_PERMITTED  = 0x04;
+  NOT_SUPPORTED  = 0x05;
+  INVALID_MODE   = 0x06;
+}
+
+enum DeviceType {
+  // Enumeration to identify the device type as used in
+  // the advertisement packet, and Device Capabilities field
+  UNDEFINED                          = 0x00;
+  CYCLING_TURBO_TRAINER              = 0x01;
+  USER_INPUT_DEVICE                  = 0x02;
+  TREADMILL                          = 0x03;
+  SENSOR_RELAY                       = 0x04;
+  HEART_RATE_MONITOR                 = 0x05;
+  POWER_METER                        = 0x06;
+  CADENCE_SENSOR                     = 0x07;
+  WIFI                               = 0x08;
+}
+
+
+enum TrainerMode {
+  MODE_UNKNOWN = 0;
+  MODE_ERG = 1;
+  MODE_RESISTANCE = 2;
+  MODE_SIM = 3;
+}
+
+
+enum ChargingState {
+  CHARGING_IDLE       = 0;
+  CHARGING_PROGRESS   = 1;
+  CHARGING_DONE       = 2;
+}
+
+
+enum SpindownStatus {
+  SPINDOWN_IDLE              = 0;
+  SPINDOWN_REQUESTED         = 1;
+  SPINDOWN_SUCCESS           = 2;
+  SPINDOWN_ERROR             = 3;
+  SPINDOWN_STOP_PEDALLING    = 4;
+
+  SPINDOWN_ERROR_TIMEOUT     = 5;
+  SPINDOWN_ERROR_TOSHORT     = 6;
+  SPINDOWN_ERROR_TOSLOW      = 7;
+  SPINDOWN_ERROR_TOFAST      = 8;
+  SPINDOWN_ERROR_SAMPLEERROR = 9;
+  SPINDOWN_ERROR_ABORT       = 10;
+}
+
+enum LogLevel {
+  LOGLEVEL_OFF               = 0;
+  LOGLEVEL_ERROR             = 1;
+  LOGLEVEL_WARNING           = 2;
+  LOGLEVEL_INFO              = 3;
+  LOGLEVEL_DEBUG             = 4;
+  LOGLEVEL_TRACE             = 5;
+}
+
+enum RoadSurfaceType {
+  ROAD_SURFACE_SMOOTH_TARMAC          = 0;
+  ROAD_SURFACE_BRICK_ROAD             = 1;
+  ROAD_SURFACE_HARD_COBBLES           = 2;
+  ROAD_SURFACE_SOFT_COBBLES           = 3;
+  ROAD_SURFACE_NARROW_WOODEN_PLANKS   = 4;
+  ROAD_SURFACE_WIDE_WOODEN_PLANKS     = 5;
+  ROAD_SURFACE_DIRT                   = 6;
+  ROAD_SURFACE_GRAVEL                 = 7;
+  ROAD_SURFACE_CATTLE_GRID            = 8;
+  ROAD_SURFACE_CONCRETE_FLAG_STONES   = 9;
+  ROAD_SURFACE_ICE                    = 10;
+}
+
+enum WifiStatusCode {
+  WIFI_STATUS_DISABLED        	= 0;
+  WIFI_STATUS_NOT_PROVISIONED 	= 1;
+  WIFI_STATUS_SCANNING        	= 2;
+  WIFI_STATUS_DISCONNECTED    	= 3;
+  WIFI_STATUS_CONNECTING      	= 4;
+  WIFI_STATUS_CONNECTED       	= 5;
+  WIFI_STATUS_ERROR           	= 6;
+}
+
+enum WifiErrorCode {
+  WIFI_ERROR_UNKNOWN                = 0;   // Exact error not known
+  WIFI_ERROR_NO_MEMORY           	= 1;   // No Memory to execute request
+  WIFI_ERROR_INVALID_PARAMETERS  	= 2;   // Request has invalid, incorrect parameters
+  WIFI_ERROR_INVALID_STATE       	= 3;   // Module in incorrect state for request
+  WIFI_ERROR_NOT_FOUND              = 4;   // Data/Network not found
+  WIFI_ERROR_NOT_SUPPORTED          = 5;   // Requested Action not supported
+  WIFI_ERROR_NOT_ALLOWED         	= 6;   // Requested action not allowed
+  WIFI_ERROR_NOT_INITIALISED     	= 7;   // WiFi module not initialised
+  WIFI_ERROR_NOT_STARTED         	= 8;   // WiFi module not started
+  WIFI_ERROR_TIMEOUT             	= 9;   // Action did not complete without allowed time
+  WIFI_ERROR_MODE           	    = 10;  // WiFi mode incorrect
+  WIFI_ERROR_SSID_INVALID         	= 11;  // WiFi SSID not valid
+}
+
+enum InterfaceType {
+  INTERFACE_BLE    = 1;
+  INTERFACE_ANT    = 2;
+  INTERFACE_USB    = 3;
+  INTERFACE_ETH    = 4;
+  INTERFACE_WIFI   = 5;
+}
+
+enum SensorConnectionStatus {
+  SENSOR_STATUS_DISCOVERED    = 1; /* sensor has been discovered by no link has been initiated */
+  SENSOR_STATUS_DISCONNECTED  = 2; /* sensor has been linked with the Sensor Relay Device, but is currently not connected, ie. no communication */
+  SENSOR_STATUS_PAIRING       = 3; /* sensor has been linked with the Sensor Relay Device, and connection is being initiated/configured */
+  SENSOR_STATUS_CONNECTED     = 4; /* sensor has been linked with the Sensor Relay Device, and full communication has been establihed (including configuration) */
+}
+
+enum BleSecureConnectionStatus {
+  BLE_CONNECTION_SECURITY_STATUS_NONE          = 0; /* No security, no pairing */
+  BLE_CONNECTION_SECURITY_STATUS_INPROGRESS    = 1; /* Secure connection in progress */
+  BLE_CONNECTION_SECURITY_STATUS_ACTIVE        = 2; /* Secure connection established */
+  BLE_CONNECTION_SECURITY_STATUS_REJECTED      = 3; /* Secure connection rejected */
+}
+
+enum BleSecureConnectionWindowStatus {
+  BLE_SECURE_CONNECTION_WINDOW_STATUS_CLOSED   = 0; /* Secure connection window closed */
+  BLE_SECURE_CONNECTION_WINDOW_STATUS_OPEN     = 1; /* Secure connection window open */
+}
+
+/////////////////////////////////////////////////////////////////
+// Helper Structures
+/////////////////////////////////////////////////////////////////
+
+
+message TrainerEnvSim {
+  optional sint32 simulatedWind           = 1 [(nanopb).int_size = IS_16];
+  optional sint32 simulatedGrade          = 2 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedCW             = 3 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedCRR            = 4 [(nanopb).int_size = IS_16];
+}
+
+message TrainerBikeSim {
+  optional uint32 simulatedRealGearRatio      = 1 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedVirtualGearRatio   = 2 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedWheelDiameter      = 3 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedBikeMass           = 4 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedRiderMass          = 5 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedFrontalArea        = 6 [(nanopb).int_size = IS_16];
+  optional uint32 eBrake                      = 7 [(nanopb).int_size = IS_16];
+}
+
+message ControllerAnalogEvent {
+  optional uint32 sensorId = 1 [(nanopb).int_size = IS_8];
+  optional sint32 value    = 2 [(nanopb).int_size = IS_16];
+}
+
+
+
+message InputAnalogRange {
+  optional uint32 sensorId                  = 1 [(nanopb).int_size = IS_8];
+  optional sint32 minAnalogValue            = 2 [(nanopb).int_size = IS_16];
+  optional sint32 maxAnalogValue            = 3 [(nanopb).int_size = IS_16];
+}
+
+message InputAnalogDeadzone {
+  optional uint32 sensorId                  = 1 [(nanopb).int_size = IS_8];
+  optional sint32 negDeadzoneValue          = 2 [(nanopb).int_size = IS_16];
+  optional sint32 posDeadzoneValue          = 3 [(nanopb).int_size = IS_16];
+}
+
+message WifiNetwork {
+  optional uint32 networkId 	= 1 [(nanopb).int_size = IS_8];
+  optional bytes ssid            	= 2 [(nanopb).max_size = 32];
+  optional bytes password  	= 3 [(nanopb).max_size = 64];
+}
+
+message WifiRegionCode {
+  enum RegionCodeType {
+    ALPHA_2     = 0;        /* ISO 3166-1 Alpha 2 */
+    ALPHA_3     = 1;        /* ISO 3166-1 Alpha 3 */
+    NUMERIC    = 2;        /* ISO 3166-1 Numeric */
+    UNKNOWN  = 3;
+  }
+  optional RegionCodeType regionCodeType = 1;
+  optional bytes regionCode                            = 2 [(nanopb).max_size = 3];
+}
+
+message WifiNetworkDetails {
+  optional uint32 networkId        = 1 [(nanopb).int_size = IS_8];
+  optional bytes bssid             = 2 [(nanopb).max_size = 6, (nanopb).fixed_length = true];
+  optional bytes ssid              = 3 [(nanopb).max_size = 32];
+  optional uint32 securityType     = 4 [(nanopb).int_size = IS_8];
+  optional uint32 band             = 5 [(nanopb).int_size = IS_8];
+  optional sint32 rssi             = 6 [(nanopb).int_size = IS_8];
+}
+
+
+message SensorInfo {
+  reserved 3;
+
+  optional uint32 relayAssignedId                   = 1 [(nanopb).int_size = IS_8];
+  optional bytes sensorName                         = 2 [(nanopb).max_size = 32];
+  optional bytes sensorAddress                      = 4 [(nanopb).max_size = 6, (nanopb).fixed_length = true]; // 6 bytes HEX encoded
+  optional InterfaceType interfaceType              = 5;
+  optional SensorConnectionStatus connectionStatus  = 6;
+  repeated DeviceType deviceTypes                   = 7 [(nanopb).max_count = 8];
+  optional bool supportsZp                          = 8; // true if the sensor supports ZP protocol
+}
+
+message SensorInfoList {
+  repeated SensorInfo sensorInfo = 1 [(nanopb).max_count = 15];
+}
+
+message DeviceUpdatePage {
+  optional uint32 updateStatus = 1 [(nanopb).int_size = IS_8];
+  optional uint32 newVersion   = 2;
+}
+
+message DateTimePage {
+  optional uint32 utcDateTime = 1;
+}
+
+message BleSecurityPage {
+  optional BleSecureConnectionStatus secureConnectionStatus = 1;                                          // true if secure connection is established
+  optional BleSecureConnectionWindowStatus secureConnectionWindowStatus = 2; // Status of the secure connection window, ie. closed or open
+}
+
+/////////////////////////////////////////////////////////////////
+// Pages
+/////////////////////////////////////////////////////////////////
+
+// Page ID 0x000
+message DevInfoPage {
+  reserved 4,5;
+
+  message DeviceCapabilities {
+    required uint32 deviceType          = 1 [(nanopb).int_size = IS_8];
+    required uint32 capabilities        = 2;
+  }
+
+  optional uint32  protocolVersion        = 1 [(nanopb).int_size = IS_16];
+  optional bytes   systemFwVersion        = 2 [(nanopb).max_size = 4, (nanopb).fixed_length = true];
+  optional bytes   deviceName             = 3 [(nanopb).max_size = 12]; // 12 char UTF-8 encoded
+  optional bytes   serialNumber           = 6 [(nanopb).max_size = 15, (nanopb).fixed_length = true]; // 15 char UTF-8 encoded
+  optional bytes   systemHwRevision       = 7 [(nanopb).max_size = 5];
+  repeated DeviceCapabilities deviceCapabilities = 8 [(nanopb).max_count = 15];
+  optional uint32  manufacturerId         = 9 [(nanopb).int_size = IS_16];
+  optional uint32  productId              = 10 [(nanopb).int_size = IS_16];
+  optional bytes   deviceUid              = 11 [(nanopb).max_size = 12, (nanopb).fixed_length = true]; // 12 bytes HEX encoded
+}
+
+// Page ID 0x010
+message ClientServerCfgPage {
+  optional uint32 notifications 	= 1;
+}
+
+// Page ID 0x020
+message TrainerSimulationParam {
+  optional uint32 configuredResistance    = 1 [(nanopb).int_size = IS_16];
+  optional uint32 ergPower                = 2 [(nanopb).int_size = IS_16];
+  optional uint32 averagingWindow         = 3 [(nanopb).int_size = IS_16];
+  optional sint32 simulatedWind           = 4 [(nanopb).int_size = IS_16];
+  optional sint32 simulatedGrade          = 5 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedRealGearRatio  = 6 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedVirtualGearRatio = 7 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedCW             = 8 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedWheelDiameter  = 9 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedBikeMass       = 10 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedRiderMass      = 11 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedCRR            = 12 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedFrontalArea    = 13 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedEBrake         = 14 [(nanopb).int_size = IS_16];
+}
+
+// Page ID 0x022
+message TrainerOptions {
+  optional bool highSpeedDataEnabled      = 1;
+  optional bool ergPowerSmoothingEnabled  = 2;
+  optional uint32 virtualShiftingMode     = 3 [(nanopb).int_size = IS_8];
+}
+
+// Page ID 0x020 and 0x022   (Get Response)
+message TrainerCfgPage {
+  optional TrainerMode trainerMode = 1;
+  optional uint32 configuredResistance = 2 [(nanopb).int_size = IS_16];
+  optional uint32 ergPower =  3 [(nanopb).int_size = IS_16];
+  optional uint32 averagingWindow =  4 [(nanopb).int_size = IS_16];
+  optional sint32 simulatedWind = 5 [(nanopb).int_size = IS_16];
+  optional sint32 simulatedGrade = 6 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedRealGearRatio = 7 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedVirtualGearRatio = 8 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedCW = 9 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedWheelDiameter = 10 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedBikeMass = 11 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedRiderMass = 12 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedCRR = 13 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedFrontalArea = 14 [(nanopb).int_size = IS_16];
+  optional uint32 simulatedEBrake = 15 [(nanopb).int_size = IS_16];
+  optional bool highSpeedDataEnabled = 16;
+  optional bool ergPowerSmoothingEnabled = 17;
+  optional uint32 virtualShiftingMode = 18 [(nanopb).int_size = IS_8];
+}
+
+// Page ID 0x021
+message TrainerGearIndexConfigPage {
+  optional uint32 frontGearIdx     = 1 [(nanopb).int_size = IS_8];
+  optional uint32 frontGearIdxMax  = 2 [(nanopb).int_size = IS_8];
+  optional uint32 frontGearIdxMin  = 3 [(nanopb).int_size = IS_8];
+  optional uint32 rearGearIdx     = 4 [(nanopb).int_size = IS_8];
+  optional uint32 rearGearIdxMax  = 5 [(nanopb).int_size = IS_8];
+  optional uint32 rearGearIdxMin  = 6 [(nanopb).int_size = IS_8];
+}
+
+// Page ID 0x023
+message DeviceTiltConfigPage {
+  optional bool tiltEnabled           = 1;
+  optional sint32 tiltGradientMin     = 2 [(nanopb).int_size = IS_16];
+  optional sint32 tiltGradientMax     = 3 [(nanopb).int_size = IS_16];
+  optional sint32 tiltGradient        = 4 [(nanopb).int_size = IS_16];
+}
+
+
+// Page ID 0x040
+message ControllerInputConfigPage {
+  optional uint32 supportedDigitalInputs           = 1;
+  optional uint32 supportedAnalogInputs            = 2 [(nanopb).int_size = IS_16];
+  repeated InputAnalogRange analogInputRange       = 3 [(nanopb).max_count = 8];
+  repeated InputAnalogDeadzone analogDeadZone      = 4 [(nanopb).max_count = 8];
+}
+
+// Page 0x041
+message IpTransportPage {
+  optional uint32 ipv4Address  = 1;
+  optional uint32 tcpPort      = 2 [(nanopb).int_size = IS_16];
+}
+
+// Page 0x042
+message WifiConfigurationPage {
+  optional bool wifiEnabled     	= 1;
+  optional uint32 wifiStatus    	= 2 [(nanopb).int_size = IS_8];
+  optional bytes wifiSsid       	= 3 [(nanopb).max_size = 32];
+  optional uint32 wifiBand      	= 4 [(nanopb).int_size = IS_8];
+  optional sint32 wifiRssi      	= 5 [(nanopb).int_size = IS_8];
+  optional bytes wifiRegionCode 	= 6 [(nanopb).max_size = 3];
+}
+
+// Page ID 0x050
+message SensorRelayDataPage {
+  repeated uint32 supportedSensors = 1 [(nanopb).int_size = IS_8, (nanopb).max_count = 15];
+  repeated uint32 pairedSensors    = 2 [(nanopb).int_size = IS_8, (nanopb).max_count = 15];
+}
+
+
+/////////////////////////////////////////////////////////////////
+// Messages
+/////////////////////////////////////////////////////////////////
+
+// OpCode 0x00
+message Get {
+  required uint32  dataObjectId = 1 [(nanopb).int_size = IS_16];
+}
+
+// OpCode 0x01
+message DevInfo {
+  required DevInfoPage devInfo = 1;
+}
+
+// OpCode 0x02
+message BleSecurityRequest {
+  oneof request {
+    bool startSecureConnection = 1;      // procedure to initiate the process to setup a secure connection
+  }
+}
+
+// OpCode 0x03
+message TrainerNotification {
+  required uint32 power = 1 [(nanopb).int_size = IS_16];
+  required uint32 cadence = 2 [(nanopb).int_size = IS_16];
+  required uint32 bikeSpeed = 3 [(nanopb).int_size = IS_16];
+  required uint32 averagedPower = 4 [(nanopb).int_size = IS_16];
+  required uint32 wheelSpeed = 5 [(nanopb).int_size = IS_16];
+  optional uint32 calculatedRealGearRatio = 6 [(nanopb).int_size = IS_16];
+}
+
+// OpCode 0x04
+message TrainerConfigSet {
+  reserved 1;
+  oneof config {
+    uint32 configuredResistance    = 2 [(nanopb).int_size = IS_16];
+    uint32 ergPower                = 3 [(nanopb).int_size = IS_16];
+    TrainerEnvSim envSim           = 4;
+    TrainerBikeSim bikeSim         = 5;
+    uint32 averagingWindow         = 6 [(nanopb).int_size = IS_16];
+    TrainerOptions trainerOptions  = 7;
+  }
+}
+
+// OpCode 0x05
+message TrainerConfigStatus {
+  required TrainerCfgPage trainerCfg = 1;
+}
+
+
+// OpCode 0x0C
+message DevInfoSet {
+  oneof devInfo {
+    bytes deviceName = 1 [(nanopb).max_size = 12]; // 12 char UTF-8 encoded
+  }
+}
+
+// OpCode 0x0F
+// No protobuf payload is used for this message (ZAP_OPCODE_POWER_OFF)
+
+// OpCode 0x10
+
+// OpCode 0x11
+
+
+// OpCode 0x18
+message Reset {
+  optional uint32 resetProcedure = 1 [(nanopb).int_size = IS_8];
+}
+
+// OpCode 0x19
+message BatteryNotification {
+  oneof alert {
+    ChargingState newChgState     = 1;
+    uint32        newPercLevel    = 2 [(nanopb).int_size = IS_8];  // 0...100
+  }
+
+  optional uint32 source = 3 [(nanopb).int_size = IS_8]; // 0...255
+}
+
+// OpCode 0x1A
+message BatteryStatus {
+  required ChargingState chgState     = 1;
+  required uint32        percLevel    = 2 [(nanopb).int_size = IS_8];  // 0...100
+  required uint32        timeToEmpty  = 3 [(nanopb).int_size = IS_16]; // 0...65535
+  required uint32        timeToFull   = 4 [(nanopb).int_size = IS_16]; // 0...65535
+}
+
+// OpCode 0x23
+message ControllerNotification {
+  reserved 2;
+
+  optional uint32                buttonEvent       = 1;
+  repeated ControllerAnalogEvent analogEventList   = 3 [(nanopb).max_count = 8];
+}
+
+
+//OpCode 0x2A
+
+message LogDataNotification {
+
+  message ConnectionParameters {
+    required uint32 interval              = 1 [(nanopb).int_size = IS_16];
+    required uint32 latency               = 2 [(nanopb).int_size = IS_16];
+    required uint32 supervisorTimeout     = 3 [(nanopb).int_size = IS_16];
+    required bytes  bleChannelMap         = 4 [(nanopb).max_size = 5, (nanopb).fixed_length = true];
+    optional uint32 mtuSize               = 5 [(nanopb).int_size = IS_16];
+  }
+
+
+  message EnergySurveySummary {
+    required uint32 samples               = 1 [(nanopb).int_size = IS_16];
+    required bytes  averageEnergy         = 2 [(nanopb).max_size = 40, (nanopb).fixed_length = true];
+  }
+
+
+  message DataLogObject {
+    oneof event {
+      bytes                logData          = 1 [(nanopb).max_size = 128];
+      ConnectionParameters connectionParam  = 2;
+      EnergySurveySummary  energySurvey     = 3;
+      bytes                logString        = 4 [(nanopb).max_size = 237];
+    }
+  }
+
+
+  required LogLevel logLevel           = 1;
+  required DataLogObject dataLogObject = 2;
+}
+
+
+//OpCode 0x3A
+message SpindownRequest {
+
+  message StartSpindown {
+    required bool enable                      = 1;
+  }
+
+  message IgnoreSpindown {
+    required bool enable                      = 1;
+  }
+
+  oneof request {
+    StartSpindown         startSpindown    = 1;
+    IgnoreSpindown        ignoreSpindown   = 2;
+  }
+}
+
+//OpCode 0x3B
+message SpindownNotification {
+  message ManualSpindownStatus {
+    required SpindownStatus spindownStatus    = 1;
+    optional uint32 targetSpeedLow            = 2 [(nanopb).int_size = IS_16];
+    optional uint32 targetSpeedHigh           = 3 [(nanopb).int_size = IS_16];
+  }
+
+  message AutoSpindownStatus {
+    required bool completed                   = 1;
+  }
+
+  oneof event {
+    ManualSpindownStatus  manualSpindownStatus = 1;
+    AutoSpindownStatus    autoSpindownStatus   = 2;
+  }
+}
+
+// OpCode 0x3C
+message GetResponse {
+  required uint32 dataObjectId       = 1 [(nanopb).int_size = IS_16];
+  optional bytes  dataObjectData     = 2 [(nanopb).max_size = 237];
+}
+
+// OpCode 0x3E
+message StatusResponse {
+  required uint32 command            = 1 [(nanopb).int_size = IS_8];
+  required uint32 status             = 2 [(nanopb).int_size = IS_8];
+}
+
+// OpCode 0x3F
+message Set {
+  reserved 9;
+
+  optional uint32 options                        = 1 [(nanopb).int_size = IS_8];
+  optional uint32 msgId                          = 2 [(nanopb).int_size = IS_8];
+
+  oneof set {
+    DevInfoSet                 devInfo               = 3;
+    TrainerSimulationParam     trainerSimParam       = 4;
+    TrainerOptions             trainerOptions        = 5;
+    DeviceTiltConfigPage       deviceTiltConfig      = 6;
+    ControllerInputConfigPage  controllerInputConfig = 7;
+    TrainerGearIndexConfigPage trainerGearIndexConfig = 8;
+    WifiConfigurationPage      wifiConfig            = 10;
+    DateTimePage               dateTimeConfig        = 11;
+  }
+}
+
+// OpCode 0x40
+message SetResponse {
+  reserved 7;
+
+  message Response {
+    oneof page {
+      DevInfoPage             devInfo            = 1;
+      TrainerSimulationParam  trainerSimParam    = 2;
+      TrainerOptions          trainerOptions     = 3;
+      DeviceTiltConfigPage    deviceTiltConfig   = 4;
+      ControllerInputConfigPage controllerInputConfig = 5;
+      TrainerGearIndexConfigPage trainerGearIndexConfig = 6;
+      WifiConfigurationPage   wifiConfig         = 8;
+      DateTimePage            dateTimeConfig     = 9;
+    }
+  }
+
+  optional uint32 status            = 1 [(nanopb).int_size = IS_8];
+  optional uint32 msgId             = 2 [(nanopb).int_size = IS_8];
+  optional Response response        = 3;
+}
+
+//OpCode 0x41
+message LogLevelSet {
+  optional LogLevel logLevel     = 1;
+}
+
+//Opcode 0x42
+message DataChangeNotification {
+  reserved 7;
+
+  oneof notification {
+    DevInfoPage             devInfo            = 1;
+    TrainerSimulationParam  trainerSimParam    = 2;
+    TrainerOptions          trainerOptions     = 3;
+    DeviceTiltConfigPage    deviceTiltConfig   = 4;
+    ControllerInputConfigPage controllerInputConfig = 5;
+    TrainerGearIndexConfigPage trainerGearIndexConfig = 6;
+    WifiConfigurationPage   wifiConfig         = 8;
+    DeviceUpdatePage        deviceUpdatePage   = 9;
+    DateTimePage            dateTimePage       = 10;
+    BleSecurityPage         bleSecurityPage     = 11;
+  }
+}
+
+// Opcode 0x43 GAME_STATE_NOTIFICATION
+message GameStateNotification {
+  message GameSpeed {
+    optional sint32 normalisedSpeed   = 1 [(nanopb).int_size = IS_8];
+    optional sint32 speed             = 2 [(nanopb).int_size = IS_16];
+  }
+  message RoadSurface {
+    optional RoadSurfaceType roadSurfaceType = 1;
+    optional uint32 roughness                = 2 [(nanopb).int_size = IS_8];
+  }
+
+  oneof notification{
+    GameSpeed       gameSpeed       = 1;
+    RoadSurface     roadSurface     = 2;
+  }
+}
+
+
+//Opcode 0x44   (SENSOR_RELAY_CONFIG)
+message SensorRelayConfig {
+  oneof procedure {
+    bool search            = 1;
+    uint32 connect         = 2 [(nanopb).int_size = IS_8];
+    uint32 disconnect      = 3 [(nanopb).int_size = IS_8];
+    bool clearAll          = 4; /* remove all none connected sensor from its list to create a new clean list */
+    bool disconnectAll     = 5; /* disconnect all sensors, but do not remove from list */
+  }
+}
+
+//Opcode 0x45   (SENSOR_RELAY_GET)
+message SensorRelayGet {
+  oneof request {
+    uint32 pairedSensorInfo = 1 [(nanopb).int_size = IS_8];
+  }
+}
+
+//Opcode 0x46   (SENSOR_RELAY_RESPONSE)
+message SensorRelayResponse {
+  oneof response {
+    SensorInfoList pairedSensorInfoList = 1;
+  }
+}
+
+//Opcode 0x47   (SENSOR_RELAY_NOTIFIATION)
+message SensorRelayNotification {
+  oneof notification {
+    SensorInfo newSensor        = 1;
+    SensorInfo sensorStatus     = 2;
+  }
+}
+
+//Opcode 0x48   (HRM_DATA_NOTIFICATION)
+message HrmDataNotification {
+  optional uint32 sensorId              = 1 [(nanopb).int_size = IS_8];
+  optional uint32 hrm                   = 2 [(nanopb).int_size = IS_16];
+  optional uint32 energyExpended        = 3 [(nanopb).int_size = IS_16];
+  repeated uint32 rrInterval            = 4 [(nanopb).max_count = 15];
+}
+
+// OpCode 0x49
+message WifiConfigurationRequest {
+  oneof request {
+    bool startScan                = 1;
+    WifiNetwork connect           = 2;
+    bool forget                   = 3;
+    WifiRegionCode setRegionCode 	= 4;
+  }
+}
+
+// OpCode 0x4A
+message WifiNotification {
+  message WifiStatus {
+    optional WifiStatusCode wifiStatusCode   = 1;
+    optional WifiErrorCode wifiErrorCode   	= 2;
+  }
+
+  oneof notification {
+    WifiNetworkDetails discoveredNetwork   	= 1;
+    WifiStatus wifiStatus            = 2;
+  }
+}
+
+// OpCode 0x4B
+message PowerDataNotification {
+  optional uint32 sensorId              = 1 [(nanopb).int_size = IS_8];
+  optional uint32 power                 = 2 [(nanopb).int_size = IS_16];
+}
+
+// OpCode 0x4C
+message CadenceDataNotification {
+  optional uint32 sensorId              = 1 [(nanopb).int_size = IS_8];
+  optional uint32 cadence               = 2 [(nanopb).int_size = IS_16];
+}
+
+// OpCode 0x4D
+message DeviceUpdateRequest {
+  oneof procedure {
+    bool checkForUpdates   = 1;
+    bool activateUpdates   = 2;
+  }
+}
+
+// Opcode 0x4E
+message RelayZpMessage {
+  optional uint32 relayAssignedId = 1 [(nanopb).int_size = IS_8];
+  optional bytes payload = 2 [(nanopb).max_size = 238];
+}

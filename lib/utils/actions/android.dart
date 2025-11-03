@@ -1,8 +1,8 @@
 import 'package:accessibility/accessibility.dart';
 import 'package:flutter/services.dart';
+import 'package:swift_control/bluetooth/devices/zwift/zwift_emulator.dart';
 import 'package:swift_control/main.dart';
 import 'package:swift_control/utils/actions/base_actions.dart';
-import 'package:swift_control/utils/keymap/apps/custom_app.dart';
 import 'package:swift_control/utils/keymap/buttons.dart';
 import 'package:swift_control/widgets/keymap_explanation.dart';
 
@@ -30,25 +30,33 @@ class AndroidActions extends BaseActions {
       return ("Could not perform ${button.name.splitByUpperCase()}: No keymap set");
     }
 
-    if (supportedApp is CustomApp) {
-      final keyPair = supportedApp!.keymap.getKeyPair(button);
-      if (keyPair != null && keyPair.isSpecialKey) {
-        await accessibilityHandler.controlMedia(switch (keyPair.physicalKey) {
-          PhysicalKeyboardKey.mediaTrackNext => MediaAction.next,
-          PhysicalKeyboardKey.mediaPlayPause => MediaAction.playPause,
-          PhysicalKeyboardKey.audioVolumeUp => MediaAction.volumeUp,
-          PhysicalKeyboardKey.audioVolumeDown => MediaAction.volumeDown,
-          _ => throw SingleLineException("No action for key: ${keyPair.physicalKey}"),
-        });
-        return "Key pressed: ${keyPair.toString()}";
-      }
+    final keyPair = supportedApp!.keymap.getKeyPair(button);
+
+    if (keyPair == null) {
+      return ("Could not perform ${button.name.splitByUpperCase()}: No action assigned");
     }
-    final point = await resolveTouchPosition(action: button, windowInfo: windowInfo);
+
+    if (keyPair.inGameAction != null && whooshLink.isConnected.value) {
+      return whooshLink.sendAction(keyPair.inGameAction!, keyPair.inGameActionValue);
+    } else if (keyPair.inGameAction != null && zwiftEmulator.isConnected.value) {
+      return zwiftEmulator.sendAction(keyPair.inGameAction!, keyPair.inGameActionValue);
+    } else if (keyPair.isSpecialKey) {
+      await accessibilityHandler.controlMedia(switch (keyPair.physicalKey) {
+        PhysicalKeyboardKey.mediaTrackNext => MediaAction.next,
+        PhysicalKeyboardKey.mediaPlayPause => MediaAction.playPause,
+        PhysicalKeyboardKey.audioVolumeUp => MediaAction.volumeUp,
+        PhysicalKeyboardKey.audioVolumeDown => MediaAction.volumeDown,
+        _ => throw SingleLineException("No action for key: ${keyPair.physicalKey}"),
+      });
+      return "Key pressed: ${keyPair.toString()}";
+    }
+
+    final point = await resolveTouchPosition(keyPair: keyPair, windowInfo: windowInfo);
     if (point != Offset.zero) {
       try {
         await accessibilityHandler.performTouch(point.dx, point.dy, isKeyDown: isKeyDown, isKeyUp: isKeyUp);
       } on PlatformException catch (e) {
-        return "Failed to perform touch action. Please get in contact with Jonas.\n${e.message}";
+        return "Accessibility Service not working. Follow instructions at https://dontkillmyapp.com/";
       }
       return "Touch performed at: ${point.dx.toInt()}, ${point.dy.toInt()} -> ${isKeyDown && isKeyUp
           ? "click"
@@ -56,6 +64,6 @@ class AndroidActions extends BaseActions {
           ? "down"
           : "up"}";
     }
-    return "No touch performed";
+    return "No action assigned";
   }
 }

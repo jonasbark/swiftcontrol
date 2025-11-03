@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dartx/dartx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:swift_control/main.dart';
+import 'package:swift_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:swift_control/utils/keymap/buttons.dart';
 
 import '../actions/base_actions.dart';
+import 'apps/custom_app.dart';
 
 class Keymap {
   static Keymap custom = Keymap(keyPairs: []);
@@ -14,6 +17,9 @@ class Keymap {
   List<KeyPair> keyPairs;
 
   Keymap({required this.keyPairs});
+
+  final StreamController<void> _updateStream = StreamController<void>.broadcast();
+  Stream<void> get updateStream => _updateStream.stream;
 
   @override
   String toString() {
@@ -35,7 +41,24 @@ class Keymap {
   }
 
   void reset() {
-    keyPairs = [];
+    for (final keyPair in keyPairs) {
+      keyPair.physicalKey = null;
+      keyPair.logicalKey = null;
+      keyPair.touchPosition = Offset.zero;
+      keyPair.isLongPress = false;
+      keyPair.inGameAction = null;
+      keyPair.inGameActionValue = null;
+    }
+    _updateStream.add(null);
+  }
+
+  void addKeyPair(KeyPair keyPair) {
+    keyPairs.add(keyPair);
+    _updateStream.add(null);
+
+    if (actionHandler.supportedApp is CustomApp) {
+      settings.setKeyMap(actionHandler.supportedApp!);
+    }
   }
 }
 
@@ -45,6 +68,8 @@ class KeyPair {
   LogicalKeyboardKey? logicalKey;
   Offset touchPosition;
   bool isLongPress;
+  InGameAction? inGameAction;
+  int? inGameActionValue;
 
   KeyPair({
     required this.buttons,
@@ -52,6 +77,8 @@ class KeyPair {
     required this.logicalKey,
     this.touchPosition = Offset.zero,
     this.isLongPress = false,
+    this.inGameAction,
+    this.inGameActionValue,
   });
 
   bool get isSpecialKey =>
@@ -70,10 +97,13 @@ class KeyPair {
       PhysicalKeyboardKey.mediaTrackNext ||
       PhysicalKeyboardKey.audioVolumeUp ||
       PhysicalKeyboardKey.audioVolumeDown => Icons.music_note_outlined,
-      _ =>
-        physicalKey != null && actionHandler.supportedModes.contains(SupportedMode.keyboard)
-            ? Icons.keyboard
-            : Icons.touch_app,
+      _ when physicalKey != null && actionHandler.supportedModes.contains(SupportedMode.keyboard) => Icons.keyboard,
+      _
+          when inGameAction != null &&
+              ((settings.getTrainerApp() is MyWhoosh && settings.getMyWhooshLinkEnabled()) ||
+                  (settings.getTrainerApp()?.supportsZwiftEmulation == true && settings.getZwiftEmulatorEnabled())) =>
+        Icons.link,
+      _ => Icons.touch_app,
     };
   }
 
@@ -100,6 +130,8 @@ class KeyPair {
       if (physicalKey != null) 'physicalKey': physicalKey?.usbHidUsage.toString() ?? '0',
       if (touchPosition != Offset.zero) 'touchPosition': {'x': touchPosition.dx, 'y': touchPosition.dy},
       'isLongPress': isLongPress,
+      'inGameAction': inGameAction?.name,
+      'inGameActionValue': inGameActionValue,
     });
   }
 
@@ -116,8 +148,9 @@ class KeyPair {
         : Offset.zero;
 
     final buttons = decoded['actions']
-        .map<ControllerButton?>((e) => ControllerButton.values.firstOrNullWhere((element) => element.name == e))
-        .where((e) => e != null)
+        .map<ControllerButton>(
+          (e) => ControllerButton.values.firstOrNullWhere((element) => element.name == e) ?? ControllerButton(e),
+        )
         .cast<ControllerButton>()
         .toList();
     if (buttons.isEmpty) {
@@ -133,6 +166,10 @@ class KeyPair {
           : null,
       touchPosition: touchPosition,
       isLongPress: decoded['isLongPress'] ?? false,
+      inGameAction: decoded.containsKey('inGameAction')
+          ? InGameAction.values.firstOrNullWhere((element) => element.name == decoded['inGameAction'])
+          : null,
+      inGameActionValue: decoded['inGameActionValue'],
     );
   }
 }

@@ -1,35 +1,37 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:device_auto_rotate_checker/device_auto_rotate_checker.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:swift_control/bluetooth/devices/zwift/protocol/zp.pbenum.dart';
-import 'package:swift_control/bluetooth/devices/zwift/zwift_clickv2.dart';
-import 'package:swift_control/bluetooth/devices/zwift/zwift_device.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:swift_control/bluetooth/devices/link/link_device.dart';
+import 'package:swift_control/bluetooth/devices/zwift/zwift_emulator.dart';
 import 'package:swift_control/main.dart';
-import 'package:swift_control/pages/markdown.dart';
-import 'package:swift_control/pages/touch_area.dart';
 import 'package:swift_control/utils/actions/desktop.dart';
-import 'package:swift_control/utils/actions/link.dart';
+import 'package:swift_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:swift_control/utils/keymap/manager.dart';
+import 'package:swift_control/utils/requirements/zwift.dart';
 import 'package:swift_control/widgets/beta_pill.dart';
-import 'package:swift_control/widgets/ingameactions_customizer.dart';
 import 'package:swift_control/widgets/keymap_explanation.dart';
-import 'package:swift_control/widgets/loading_widget.dart';
 import 'package:swift_control/widgets/logviewer.dart';
+import 'package:swift_control/widgets/scan.dart';
 import 'package:swift_control/widgets/small_progress_indicator.dart';
 import 'package:swift_control/widgets/testbed.dart';
 import 'package:swift_control/widgets/title.dart';
 import 'package:swift_control/widgets/warning.dart';
 import 'package:universal_ble/universal_ble.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../bluetooth/devices/base_device.dart';
+import '../utils/actions/android.dart';
 import '../utils/actions/remote.dart';
 import '../utils/keymap/apps/custom_app.dart';
 import '../utils/keymap/apps/supported_app.dart';
 import '../utils/requirements/remote.dart';
+import '../widgets/changelog_dialog.dart';
 import '../widgets/menu.dart';
 
 class DevicePage extends StatefulWidget {
@@ -42,27 +44,10 @@ class DevicePage extends StatefulWidget {
 class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
   late StreamSubscription<BaseDevice> _connectionStateSubscription;
   final controller = TextEditingController(text: actionHandler.supportedApp?.name);
-
-  List<SupportedApp> _getAllApps() {
-    final baseApps = SupportedApp.supportedApps.where((app) => app is! CustomApp).toList();
-    final customProfiles = settings.getCustomAppProfiles();
-
-    final customApps = customProfiles.map((profile) {
-      final customApp = CustomApp(profileName: profile);
-      final savedKeymap = settings.getCustomAppKeymap(profile);
-      if (savedKeymap != null) {
-        customApp.decodeKeymap(savedKeymap);
-      }
-      return customApp;
-    }).toList();
-
-    // If no custom profiles exist, add the default "Custom" one
-    if (customApps.isEmpty) {
-      customApps.add(CustomApp());
-    }
-
-    return [...baseApps, ...customApps];
-  }
+  final _snackBarMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  bool _showAutoRotationWarning = false;
+  bool _showMiuiWarning = false;
+  StreamSubscription<bool>? _autoRotateStream;
 
   @override
   void initState() {
@@ -72,12 +57,32 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
     WakelockPlus.enable();
     WidgetsBinding.instance.addObserver(this);
 
-    if (actionHandler is RemoteActions && !kIsWeb && Platform.isIOS) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndShowChangelog();
+    });
+
+    if (!kIsWeb) {
+      whooshLink.isStarted.addListener(() {
+        if (mounted) setState(() {});
+      });
+
+      zwiftEmulator.isConnected.addListener(() {
+        if (mounted) setState(() {});
+      });
+
+      if (settings.getZwiftEmulatorEnabled() && actionHandler.supportedApp?.supportsZwiftEmulation == true) {
+        zwiftEmulator.startAdvertising(() {
+          if (mounted) setState(() {});
+        });
+      }
+    }
+
+    if (actionHandler is RemoteActions && !kIsWeb && Platform.isIOS && (actionHandler as RemoteActions).isConnected) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         // show snackbar to inform user that the app needs to stay in foreground
         _snackBarMessengerKey.currentState?.showSnackBar(
           SnackBar(
-            content: Text('To keep working properly the app needs to stay in the foreground.'),
+            content: Text('To simulate touches the app needs to stay in the foreground.'),
             duration: Duration(seconds: 5),
           ),
         );
@@ -86,12 +91,33 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
     _connectionStateSubscription = connection.connectionStream.listen((state) async {
       setState(() {});
     });
+
+    if (!kIsWeb && Platform.isAndroid) {
+      DeviceAutoRotateChecker.checkAutoRotate().then((isEnabled) {
+        if (!isEnabled) {
+          setState(() {
+            _showAutoRotationWarning = true;
+          });
+        }
+      });
+      _autoRotateStream = DeviceAutoRotateChecker.autoRotateStream.listen((isEnabled) {
+        setState(() {
+          _showAutoRotationWarning = !isEnabled;
+        });
+      });
+
+      // Check if device is MIUI and using local accessibility service
+      if (actionHandler is AndroidActions) {
+        _checkMiuiDevice();
+      }
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
 
+    _autoRotateStream?.cancel();
     _connectionStateSubscription.cancel();
     controller.dispose();
     super.dispose();
@@ -100,14 +126,14 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (actionHandler is RemoteActions && Platform.isIOS) {
+      if (actionHandler is RemoteActions && Platform.isIOS && (actionHandler as RemoteActions).isConnected) {
         UniversalBle.getBluetoothAvailabilityState().then((state) {
           if (state == AvailabilityState.poweredOn) {
             final requirement = RemoteRequirement();
             requirement.reconnect();
             _snackBarMessengerKey.currentState?.showSnackBar(
               SnackBar(
-                content: Text('To keep working properly the app needs to stay in the foreground.'),
+                content: Text('To simulate touches the app needs to stay in the foreground.'),
                 duration: Duration(seconds: 5),
               ),
             );
@@ -117,11 +143,49 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
     }
   }
 
-  final _snackBarMessengerKey = GlobalKey<ScaffoldMessengerState>();
+  Future<void> _checkMiuiDevice() async {
+    try {
+      // Don't show if user has dismissed the warning
+      if (settings.getMiuiWarningDismissed()) {
+        return;
+      }
+
+      final deviceInfo = await DeviceInfoPlugin().androidInfo;
+      final isMiui =
+          deviceInfo.manufacturer.toLowerCase() == 'xiaomi' ||
+          deviceInfo.brand.toLowerCase() == 'xiaomi' ||
+          deviceInfo.brand.toLowerCase() == 'redmi' ||
+          deviceInfo.brand.toLowerCase() == 'poco';
+      if (isMiui && mounted) {
+        setState(() {
+          _showMiuiWarning = true;
+        });
+      }
+    } catch (e) {
+      // Silently fail if device info is not available
+    }
+  }
+
+  Future<void> _checkAndShowChangelog() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion = packageInfo.version;
+      final lastSeenVersion = settings.getLastSeenVersion();
+
+      if (mounted) {
+        await ChangelogDialog.showIfNeeded(context, currentVersion, lastSeenVersion);
+      }
+
+      // Update last seen version
+      await settings.setLastSeenVersion(currentVersion);
+    } catch (e) {
+      print('Failed to check changelog: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final canVibrate = connection.devices.any(
+    final canVibrate = connection.bluetoothDevices.any(
       (device) => (device.device.name == 'Zwift Ride' || device.device.name == 'Zwift Play') && device.isConnected,
     );
 
@@ -151,10 +215,75 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!kIsWeb && Platform.isAndroid)
+                    if (_showAutoRotationWarning)
                       Warning(
                         children: [
                           Text('Enable auto-rotation on your device to make sure the app works correctly.'),
+                        ],
+                      ),
+                    if (_showMiuiWarning)
+                      Warning(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.warning_amber, color: Theme.of(context).colorScheme.error),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'MIUI Device Detected',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.close),
+                                onPressed: () async {
+                                  await settings.setMiuiWarningDismissed(true);
+                                  setState(() {
+                                    _showMiuiWarning = false;
+                                  });
+                                },
+                                tooltip: 'Dismiss',
+                                padding: EdgeInsets.zero,
+                                constraints: BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Your device is running MIUI, which is known to aggressively kill background services and accessibility services.',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'To ensure SwiftControl works properly:',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            '• Disable battery optimization for SwiftControl',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            '• Enable autostart for SwiftControl',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          Text(
+                            '• Lock the app in recent apps',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final url = Uri.parse('https://dontkillmyapp.com/xiaomi');
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(url, mode: LaunchMode.externalApplication);
+                              }
+                            },
+                            icon: Icon(Icons.open_in_new),
+                            label: Text('View Detailed Instructions'),
+                          ),
                         ],
                       ),
                     Padding(
@@ -172,99 +301,87 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (connection.devices.isEmpty) Text('No devices connected. Searching...'),
-                            ...connection.devices.map(
-                              (device) => Row(
-                                children: [
-                                  Text(
-                                    device.device.name?.screenshot ?? device.runtimeType.toString(),
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 8.0),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Theme.of(context).colorScheme.primaryContainer,
                                   ),
-                                  if (device.isBeta) BetaPill(),
-                                  if (device.batteryLevel != null) ...[
-                                    Icon(switch (device.batteryLevel!) {
-                                      >= 80 => Icons.battery_full,
-                                      >= 60 => Icons.battery_6_bar,
-                                      >= 50 => Icons.battery_5_bar,
-                                      >= 25 => Icons.battery_4_bar,
-                                      >= 10 => Icons.battery_2_bar,
-                                      _ => Icons.battery_alert,
-                                    }),
-                                    Text('${device.batteryLevel}%'),
-                                    if (device.firmwareVersion != null) Text(' - Firmware: ${device.firmwareVersion}'),
-                                    if (device.firmwareVersion != null &&
-                                        device is ZwiftDevice &&
-                                        device.firmwareVersion != device.latestFirmwareVersion) ...[
-                                      SizedBox(width: 8),
-                                      Icon(Icons.warning, color: Theme.of(context).colorScheme.error),
-                                      Text(
-                                        ' (latest: ${device.latestFirmwareVersion})',
-                                        style: TextStyle(color: Theme.of(context).colorScheme.error),
-                                      ),
-                                    ],
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Connected Controllers',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    if (connection.controllerDevices.isEmpty) SmallProgressIndicator(),
                                   ],
-                                ],
+                                ),
                               ),
                             ),
+                            if (connection.controllerDevices.isEmpty)
+                              ScanWidget()
+                            else
+                              ...connection.controllerDevices.map(
+                                (device) => device.showInformation(context),
+                              ),
+
+                            if (connection.remoteDevices.isNotEmpty ||
+                                actionHandler is RemoteActions ||
+                                whooshLink.isCompatible(settings.getLastTarget()!) ||
+                                actionHandler.supportedApp?.supportsZwiftEmulation == true)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8.0),
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: Theme.of(context).colorScheme.primaryContainer,
+                                    ),
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Text(
+                                    'Remote Connections',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ...connection.remoteDevices.map(
+                              (device) => device.showInformation(context),
+                            ),
+
+                            if (settings.getTrainerApp() is MyWhoosh &&
+                                !whooshLink.isConnected.value &&
+                                whooshLink.isCompatible(settings.getLastTarget()!))
+                              LinkDevice('').showInformation(context),
+                            if (settings.getTrainerApp()?.supportsZwiftEmulation == true)
+                              ZwiftRequirement().build(context, () {
+                                setState(() {});
+                              })!,
+
                             if (actionHandler is RemoteActions)
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Remote Control Mode: ${(actionHandler as RemoteActions).isConnected ? 'Connected' : 'Not connected'}',
                                   ),
-                                  LoadingWidget(
-                                    futureCallback: () async {
-                                      final requirement = RemoteRequirement();
-                                      await requirement.reconnect();
-                                    },
-                                    renderChild: (isLoading, tap) => TextButton(
-                                      onPressed: tap,
-                                      child: isLoading ? SmallProgressIndicator() : Text('Reconnect'),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else if (actionHandler is LinkActions)
-                              ValueListenableBuilder(
-                                valueListenable: whooshLink.isConnected,
-                                builder: (BuildContext context, value, Widget? child) {
-                                  return Text(
-                                    'Link connected: ${value ? 'Connected' : 'Not connected'}',
-                                  );
-                                },
-                              ),
-
-                            if (connection.devices.any((device) => (device is ZwiftClickV2) && device.isConnected))
-                              Warning(
-                                children: [
-                                  Text(
-                                    '''To make your Zwift Click V2 work best you should connect it in the Zwift app once each day.\nIf you don't do that SwiftControl will need to reconnect every minute.
-
-1. Open Zwift app
-2. Log in (subscription not required) and open the device connection screen
-3. Connect your Trainer, then connect the Zwift Click V2
-4. Close the Zwift app again and connect again in SwiftControl''',
-                                  ),
-                                  Row(
-                                    children: [
-                                      TextButton(
-                                        onPressed: () {
-                                          connection.devices.whereType<ZwiftClickV2>().forEach(
-                                            (device) => device.sendCommand(Opcode.RESET, null),
-                                          );
+                                  PopupMenuButton(
+                                    itemBuilder: (_) => [
+                                      PopupMenuItem(
+                                        child: Text('Reconnect'),
+                                        onTap: () async {
+                                          final requirement = RemoteRequirement();
+                                          await requirement.reconnect();
                                         },
-                                        child: Text('Reset now'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => MarkdownPage(assetPath: 'TROUBLESHOOTING.md'),
-                                            ),
-                                          );
-                                        },
-                                        child: Text('Troubleshooting'),
                                       ),
                                     ],
                                   ),
@@ -275,232 +392,126 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
                       ),
                     ),
 
-                    if (!kIsWeb) ...[
-                      SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text('Customize', style: Theme.of(context).textTheme.titleMedium),
+                    SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        'Customize ${settings.getTrainerApp()?.name} on ${settings.getLastTarget()?.name}',
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      Card(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            left: 16.0,
-                            right: 16,
-                            top: 16,
-                            bottom: canVibrate ? 0 : 12,
-                          ),
-                          child: Column(
-                            spacing: 12,
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (actionHandler is! LinkActions)
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  spacing: 8,
-                                  children: [
-                                    Expanded(
-                                      child: DropdownMenu<SupportedApp?>(
-                                        controller: controller,
-                                        dropdownMenuEntries: [
-                                          ..._getAllApps().map(
-                                            (app) => DropdownMenuEntry<SupportedApp>(value: app, label: app.name),
+                    ),
+                    Card(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: 16.0,
+                          right: 16,
+                          top: 16,
+                          bottom: canVibrate ? 0 : 12,
+                        ),
+                        child: Column(
+                          spacing: 12,
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              spacing: 8,
+                              children: [
+                                Expanded(
+                                  child: DropdownMenu<SupportedApp?>(
+                                    controller: controller,
+                                    dropdownMenuEntries: [
+                                      ..._getAllApps().map(
+                                        (app) => DropdownMenuEntry<SupportedApp>(
+                                          value: app,
+                                          label: app.name,
+                                          labelWidget: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(app.name),
+                                              if (app is CustomApp) BetaPill(text: 'CUSTOM'),
+                                            ],
                                           ),
-                                          DropdownMenuEntry(
-                                            value: CustomApp(profileName: 'New'),
-                                            label: 'Create new keymap',
-                                            labelWidget: Text('Create new keymap'),
-                                            leadingIcon: Icon(Icons.add),
-                                          ),
-                                        ],
-                                        label: Text('Select Keymap / app'),
-                                        onSelected: (app) async {
-                                          if (app == null) {
-                                            return;
-                                          } else if (app.name == 'New') {
-                                            final profileName = await KeypadManager().showNewProfileDialog(context);
-                                            if (profileName != null && profileName.isNotEmpty) {
-                                              final customApp = CustomApp(profileName: profileName);
-                                              actionHandler.supportedApp = customApp;
-                                              await settings.setApp(customApp);
-                                              controller.text = profileName;
-                                              setState(() {});
-                                            }
-                                          } else {
-                                            controller.text = app.name ?? '';
-                                            actionHandler.supportedApp = app;
-                                            await settings.setApp(app);
-                                            setState(() {});
-                                            if (app is! CustomApp &&
-                                                !kIsWeb &&
-                                                (Platform.isMacOS || Platform.isWindows)) {
-                                              _snackBarMessengerKey.currentState!.showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                    'Customize the keymap if you experience any issues (e.g. wrong keyboard output)',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                                        initialSelection: actionHandler.supportedApp,
-                                        hintText: 'Select your Keymap',
-                                      ),
-                                    ),
-
-                                    Row(
-                                      children: [
-                                        if (actionHandler.supportedApp != null)
-                                          ElevatedButton.icon(
-                                            onPressed: () async {
-                                              if (actionHandler.supportedApp is! CustomApp) {
-                                                final result = await KeypadManager().duplicate(
-                                                  context,
-                                                  actionHandler.supportedApp!.name,
-                                                );
-                                                if (result == null) {
-                                                  return;
-                                                }
-                                              }
-                                              final result = await Navigator.of(
-                                                context,
-                                              ).push<bool>(MaterialPageRoute(builder: (_) => TouchAreaSetupPage()));
-
-                                              if (result == true && actionHandler.supportedApp is CustomApp) {
-                                                await settings.setApp(actionHandler.supportedApp!);
-                                              }
-                                              setState(() {});
-                                            },
-                                            icon: Icon(Icons.edit),
-                                            label: Text('Edit'),
-                                          ),
-
-                                        IconButton(
-                                          onPressed: () async {
-                                            final currentProfile = actionHandler.supportedApp?.name;
-                                            final action = await KeypadManager().showManageProfileDialog(
-                                              context,
-                                              currentProfile,
-                                            );
-                                            if (action != null) {
-                                              if (action == 'rename') {
-                                                final newName = await KeypadManager().showRenameProfileDialog(
-                                                  context,
-                                                  currentProfile!,
-                                                );
-                                                if (newName != null &&
-                                                    newName.isNotEmpty &&
-                                                    newName != currentProfile) {
-                                                  await settings.duplicateCustomAppProfile(currentProfile, newName);
-                                                  await settings.deleteCustomAppProfile(currentProfile);
-                                                  final customApp = CustomApp(profileName: newName);
-                                                  final savedKeymap = settings.getCustomAppKeymap(newName);
-                                                  if (savedKeymap != null) {
-                                                    customApp.decodeKeymap(savedKeymap);
-                                                  }
-                                                  actionHandler.supportedApp = customApp;
-                                                  await settings.setApp(customApp);
-                                                  controller.text = newName;
-                                                  setState(() {});
-                                                }
-                                              } else if (action == 'duplicate') {
-                                                final newName = await KeypadManager().duplicate(
-                                                  context,
-                                                  currentProfile!,
-                                                );
-
-                                                if (newName != null) {
-                                                  controller.text = newName;
-                                                  setState(() {});
-                                                }
-                                              } else if (action == 'delete') {
-                                                final confirmed = await KeypadManager().showDeleteConfirmDialog(
-                                                  context,
-                                                  currentProfile!,
-                                                );
-                                                if (confirmed == true) {
-                                                  await settings.deleteCustomAppProfile(currentProfile);
-                                                  controller.text = '';
-                                                  setState(() {});
-                                                }
-                                              } else if (action == 'import') {
-                                                final jsonData = await KeypadManager().showImportDialog(context);
-                                                if (jsonData != null && jsonData.isNotEmpty) {
-                                                  final success = await settings.importCustomAppProfile(jsonData);
-                                                  if (mounted) {
-                                                    if (success) {
-                                                      _snackBarMessengerKey.currentState!.showSnackBar(
-                                                        SnackBar(
-                                                          content: Text('Profile imported successfully'),
-                                                          duration: Duration(seconds: 5),
-                                                        ),
-                                                      );
-                                                      setState(() {});
-                                                    } else {
-                                                      _snackBarMessengerKey.currentState!.showSnackBar(
-                                                        SnackBar(
-                                                          content: Text('Failed to import profile. Invalid format.'),
-                                                          duration: Duration(seconds: 5),
-                                                          backgroundColor: Colors.red,
-                                                        ),
-                                                      );
-                                                    }
-                                                  }
-                                                }
-                                              } else if (action == 'export') {
-                                                final currentProfile =
-                                                    (actionHandler.supportedApp as CustomApp).profileName;
-                                                final jsonData = settings.exportCustomAppProfile(currentProfile);
-                                                if (jsonData != null) {
-                                                  await Clipboard.setData(ClipboardData(text: jsonData));
-                                                  if (mounted) {
-                                                    _snackBarMessengerKey.currentState!.showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          'Profile "$currentProfile" exported to clipboard',
-                                                        ),
-                                                        duration: Duration(seconds: 5),
-                                                      ),
-                                                    );
-                                                  }
-                                                }
-                                              }
-                                            }
-                                          },
-                                          icon: Icon(Icons.more_vert),
                                         ),
-                                      ],
+                                      ),
+                                      DropdownMenuEntry(
+                                        value: CustomApp(profileName: 'New'),
+                                        label: 'Create new keymap',
+                                        labelWidget: Text('Create new keymap'),
+                                        leadingIcon: Icon(Icons.add),
+                                      ),
+                                    ],
+                                    label: Text('Select Keymap'),
+                                    onSelected: (app) async {
+                                      if (app == null) {
+                                        return;
+                                      } else if (app.name == 'New') {
+                                        final profileName = await KeymapManager().showNewProfileDialog(context);
+                                        if (profileName != null && profileName.isNotEmpty) {
+                                          final customApp = CustomApp(profileName: profileName);
+                                          actionHandler.init(customApp);
+                                          await settings.setKeyMap(customApp);
+                                          controller.text = profileName;
+                                          setState(() {});
+                                        }
+                                      } else {
+                                        controller.text = app.name ?? '';
+                                        actionHandler.supportedApp = app;
+                                        await settings.setKeyMap(app);
+                                        setState(() {});
+                                      }
+                                    },
+                                    initialSelection: actionHandler.supportedApp,
+                                    hintText: 'Select your Keymap',
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    KeymapManager().getManageProfileDialog(
+                                      context,
+                                      actionHandler.supportedApp is CustomApp ? actionHandler.supportedApp?.name : null,
+                                      onDone: () {
+                                        setState(() {});
+                                        controller.text = actionHandler.supportedApp?.name ?? '';
+                                      },
                                     ),
                                   ],
                                 ),
-                              if (actionHandler is LinkActions)
-                                InGameActionsCustomizer()
-                              else if (actionHandler.supportedApp != null)
-                                KeymapExplanation(
-                                  key: Key(actionHandler.supportedApp!.keymap.runtimeType.toString()),
-                                  keymap: actionHandler.supportedApp!.keymap,
-                                  onUpdate: () {
-                                    setState(() {});
-                                    controller.text = actionHandler.supportedApp?.name ?? '';
-                                  },
-                                ),
-                              if (canVibrate) ...[
-                                SwitchListTile(
-                                  title: Text('Enable vibration feedback when shifting gears'),
-                                  value: settings.getVibrationEnabled(),
-                                  contentPadding: EdgeInsets.zero,
-                                  onChanged: (value) async {
-                                    await settings.setVibrationEnabled(value);
-                                    setState(() {});
-                                  },
-                                ),
                               ],
+                            ),
+                            if (actionHandler.supportedApp is! CustomApp)
+                              Text(
+                                'Customize the keymap if you experience any issues (e.g. wrong keyboard output, or misaligned touch placements)',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            if (actionHandler.supportedApp != null && connection.controllerDevices.isNotEmpty)
+                              KeymapExplanation(
+                                key: Key(actionHandler.supportedApp!.keymap.runtimeType.toString()),
+                                keymap: actionHandler.supportedApp!.keymap,
+                                onUpdate: () {
+                                  setState(() {});
+                                  controller.text = actionHandler.supportedApp?.name ?? '';
+
+                                  if (actionHandler.supportedApp is CustomApp) {
+                                    settings.setKeyMap(actionHandler.supportedApp!);
+                                  }
+                                },
+                              ),
+                            if (canVibrate) ...[
+                              SwitchListTile(
+                                title: Text('Enable vibration feedback when shifting gears'),
+                                value: settings.getVibrationEnabled(),
+                                contentPadding: EdgeInsets.zero,
+                                onChanged: (value) async {
+                                  await settings.setVibrationEnabled(value);
+                                  setState(() {});
+                                },
+                              ),
                             ],
-                          ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                     SizedBox(height: 20),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -516,6 +527,27 @@ class _DevicePageState extends State<DevicePage> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  List<SupportedApp> _getAllApps() {
+    final baseApp = settings.getTrainerApp();
+    final customProfiles = settings.getCustomAppProfiles();
+
+    final customApps = customProfiles.map((profile) {
+      final customApp = CustomApp(profileName: profile);
+      final savedKeymap = settings.getCustomAppKeymap(profile);
+      if (savedKeymap != null) {
+        customApp.decodeKeymap(savedKeymap);
+      }
+      return customApp;
+    }).toList();
+
+    // If no custom profiles exist, add the default "Custom" one
+    if (customApps.isEmpty) {
+      customApps.add(CustomApp());
+    }
+
+    return [if (baseApp != null) baseApp, ...customApps];
   }
 }
 

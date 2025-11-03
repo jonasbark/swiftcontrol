@@ -1,7 +1,22 @@
-### 3.2.1 (unreleased)
+### 3.3.1 (unreleased)
+**New Features:**
+- Support for Shimano Di2
+
+### 3.3.0 (31-10-2025)
+
+**New Features:**
+- Support for Elite Sterzo (thanks @michidk)
+- Support for Gamepads
+- Support for cheap bluetooth remotes (such as [these](https://www.amazon.com/s?k=bluetooth+remote))
+- you can now customize the Keymap right from the Customize section
+- show signal strength of connected devices (thanks @michidk)
+- Android and Windows only: simulate bluetooth controllers
+  - enables gamepad and bluetooth remotes support for Zwift, Rouvy and Biketerra
+
+**Fixes:**
 - fix firmware version display for Zwift Click V2 devices
-- attempt to fix touch position on some Android devices
-- Wahoo Kickr Bike Shift can now be connected correctly
+- fix touch position on some Android devices
+- Wahoo Kickr Bike Shift can now be connected
 - update default keymap for TrainingPeaks
 
 ### 3.2.0 (2025-10-22)

@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
-import 'package:swift_control/bluetooth/ble.dart';
-import 'package:swift_control/bluetooth/devices/base_device.dart';
+import 'package:swift_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:swift_control/bluetooth/devices/zwift/constants.dart';
 import 'package:swift_control/bluetooth/messages/notification.dart';
 import 'package:swift_control/main.dart';
@@ -11,7 +10,7 @@ import 'package:swift_control/utils/keymap/buttons.dart';
 import 'package:swift_control/utils/single_line_exception.dart';
 import 'package:universal_ble/universal_ble.dart';
 
-abstract class ZwiftDevice extends BaseDevice {
+abstract class ZwiftDevice extends BluetoothDevice {
   ZwiftDevice(super.scanResult, {required super.availableButtons, super.isBeta});
 
   BleCharacteristic? syncRxCharacteristic;
@@ -24,7 +23,7 @@ abstract class ZwiftDevice extends BaseDevice {
 
   @override
   Future<void> handleServices(List<BleService> services) async {
-    final customService = services.firstOrNullWhere((service) => service.uuid == customServiceId);
+    final customService = services.firstOrNullWhere((service) => service.uuid == customServiceId.toLowerCase());
 
     if (customService == null) {
       throw Exception(
@@ -32,37 +31,14 @@ abstract class ZwiftDevice extends BaseDevice {
       );
     }
 
-    final deviceInformationService = services.firstOrNullWhere(
-      (service) => service.uuid == BleUuid.DEVICE_INFORMATION_SERVICE_UUID,
-    );
-    final firmwareCharacteristic = deviceInformationService?.characteristics.firstOrNullWhere(
-      (c) => c.uuid == BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_FIRMWARE_REVISION,
-    );
-    if (firmwareCharacteristic != null) {
-      final firmwareData = await UniversalBle.read(
-        device.deviceId,
-        deviceInformationService!.uuid,
-        firmwareCharacteristic.uuid,
-      );
-      firmwareVersion = String.fromCharCodes(firmwareData);
-      connection.signalChange(this);
-      if (firmwareVersion != latestFirmwareVersion) {
-        actionStreamInternal.add(
-          LogNotification(
-            'A new firmware version is available for ${device.name ?? device.rawName}: $latestFirmwareVersion (current: $firmwareVersion). Please update it in Zwift Companion app.',
-          ),
-        );
-      }
-    }
-
     final asyncCharacteristic = customService.characteristics.firstOrNullWhere(
-      (characteristic) => characteristic.uuid == ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID,
+      (characteristic) => characteristic.uuid == ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID.toLowerCase(),
     );
     final syncTxCharacteristic = customService.characteristics.firstOrNullWhere(
-      (characteristic) => characteristic.uuid == ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID,
+      (characteristic) => characteristic.uuid == ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID.toLowerCase(),
     );
     syncRxCharacteristic = customService.characteristics.firstOrNullWhere(
-      (characteristic) => characteristic.uuid == ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID,
+      (characteristic) => characteristic.uuid == ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID.toLowerCase(),
     );
 
     if (asyncCharacteristic == null || syncTxCharacteristic == null || syncRxCharacteristic == null) {
@@ -73,6 +49,14 @@ abstract class ZwiftDevice extends BaseDevice {
     await UniversalBle.subscribeIndications(device.deviceId, customService.uuid, syncTxCharacteristic.uuid);
 
     await setupHandshake();
+
+    if (firmwareVersion != latestFirmwareVersion) {
+      actionStreamInternal.add(
+        LogNotification(
+          'A new firmware version is available for ${device.name ?? device.rawName}: $latestFirmwareVersion (current: $firmwareVersion). Please update it in Zwift Companion app.',
+        ),
+      );
+    }
   }
 
   Future<void> setupHandshake() async {
@@ -87,7 +71,7 @@ abstract class ZwiftDevice extends BaseDevice {
 
   @override
   Future<void> processCharacteristic(String characteristic, Uint8List bytes) async {
-    if (kDebugMode && false) {
+    if (kDebugMode) {
       print(
         "${DateTime.now().toString().split(" ").last} Received data on $characteristic: ${bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ')}",
       );
@@ -98,7 +82,7 @@ abstract class ZwiftDevice extends BaseDevice {
 
     try {
       if (bytes.startsWith(startCommand)) {
-        _processDevicePublicKeyResponse(bytes);
+        processDevicePublicKeyResponse(bytes);
       } else {
         processData(bytes);
       }
@@ -113,7 +97,7 @@ abstract class ZwiftDevice extends BaseDevice {
     }
   }
 
-  void _processDevicePublicKeyResponse(Uint8List bytes) {
+  void processDevicePublicKeyResponse(Uint8List bytes) {
     final devicePublicKeyBytes = bytes.sublist(
       ZwiftConstants.RIDE_ON.length + ZwiftConstants.RESPONSE_START_CLICK.length,
     );
@@ -152,7 +136,7 @@ abstract class ZwiftDevice extends BaseDevice {
   @override
   Future<void> handleButtonsClicked(List<ControllerButton>? buttonsClicked) async {
     // the same messages are sent multiple times, so ignore
-    if (_lastButtonsClicked?.contentEquals(buttonsClicked ?? []) == false) {
+    if (_lastButtonsClicked == null || _lastButtonsClicked?.contentEquals(buttonsClicked ?? []) == false) {
       super.handleButtonsClicked(buttonsClicked);
     }
     _lastButtonsClicked = buttonsClicked;

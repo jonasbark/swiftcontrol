@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:dartx/dartx.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:swift_control/utils/keymap/apps/supported_app.dart';
+import 'package:swift_control/utils/requirements/multi.dart';
 
 import '../buttons.dart';
 import '../keymap.dart';
@@ -8,10 +12,20 @@ import '../keymap.dart';
 class CustomApp extends SupportedApp {
   final String profileName;
 
-  CustomApp({this.profileName = 'Custom'})
+  CustomApp({this.profileName = 'Other'})
     : super(
         name: profileName,
+        compatibleTargets: kIsWeb
+            ? [Target.thisDevice]
+            : [
+                if (!Platform.isIOS) Target.thisDevice,
+                Target.macOS,
+                Target.windows,
+                Target.iOS,
+                Target.android,
+              ],
         packageName: "custom_$profileName",
+        supportsZwiftEmulation: !kIsWeb && !(Platform.isIOS || Platform.isMacOS),
         keymap: Keymap(keyPairs: []),
       );
 
@@ -49,7 +63,7 @@ class CustomApp extends SupportedApp {
       keyPair.isLongPress = isLongPress;
       keyPair.touchPosition = touchPosition ?? Offset.zero;
     } else {
-      keymap.keyPairs.add(
+      keymap.addKeyPair(
         KeyPair(
           buttons: [zwiftButton],
           physicalKey: physicalKey,

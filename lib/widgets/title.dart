@@ -13,7 +13,7 @@ import 'package:swift_control/widgets/small_progress_indicator.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:version/version.dart';
 
-PackageInfo? _packageInfoValue;
+PackageInfo? packageInfoValue;
 bool? isFromPlayStore;
 
 class AppTitle extends StatefulWidget {
@@ -39,10 +39,10 @@ class _AppTitleState extends State<AppTitle> {
       });
     }
 
-    if (_packageInfoValue == null) {
+    if (packageInfoValue == null) {
       PackageInfo.fromPlatform().then((value) {
         setState(() {
-          _packageInfoValue = value;
+          packageInfoValue = value;
         });
         _checkForUpdate();
       });
@@ -109,7 +109,7 @@ class _AppTitleState extends State<AppTitle> {
         }
       }
     } else if (Platform.isMacOS) {
-      final url = Uri.parse('https://apps.microsoft.com/detail/9NP42GS03Z26');
+      final url = Uri.parse('https://apps.apple.com/us/app/swiftcontrol/id6753721284?platform=mac');
       final res = await http.get(url, headers: {'User-Agent': 'Mozilla/5.0'});
       if (res.statusCode != 200) return null;
 
@@ -143,9 +143,9 @@ class _AppTitleState extends State<AppTitle> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('SwiftControl', style: TextStyle(fontWeight: FontWeight.bold)),
-        if (_packageInfoValue != null)
+        if (packageInfoValue != null)
           Text(
-            'v${_packageInfoValue!.version}${_shorebirdPatch != null ? '+${_shorebirdPatch!.number}' : ''}${kIsWeb || (Platform.isAndroid && isFromPlayStore == false) ? ' (sideloaded)' : ''}',
+            'v${packageInfoValue!.version}${_shorebirdPatch != null ? '+${_shorebirdPatch!.number}' : ''}${kIsWeb || (Platform.isAndroid && isFromPlayStore == false) ? ' (sideloaded)' : ''}',
             style: TextStyle(fontFamily: "monospace", fontFamilyFallback: <String>["Courier"], fontSize: 12),
           )
         else
@@ -157,12 +157,12 @@ class _AppTitleState extends State<AppTitle> {
   void _showShorebirdRestartSnackbar() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Restart the app to use the new version'),
+        content: Text('Force-close the app to use the new version'),
         duration: Duration(seconds: 10),
         action: SnackBarAction(
           label: 'Restart',
           onPressed: () {
-            if (Platform.isIOS || Platform.isAndroid) {
+            if (Platform.isIOS) {
               connection.reset();
               Restart.restartApp(delayBeforeRestart: 1000);
             } else {
@@ -177,7 +177,7 @@ class _AppTitleState extends State<AppTitle> {
 
   void _compareVersion(String versionString) {
     final parsed = Version.parse(versionString);
-    final current = Version.parse(_packageInfoValue!.version);
+    final current = Version.parse(packageInfoValue!.version);
     if (parsed > current && mounted && !kDebugMode) {
       if (Platform.isAndroid) {
         _showUpdateSnackbar(parsed, 'https://play.google.com/store/apps/details?id=org.jonasbark.swiftcontrol');
