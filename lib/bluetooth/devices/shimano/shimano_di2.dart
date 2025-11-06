@@ -35,6 +35,13 @@ class ShimanoDi2 extends BluetoothDevice {
   bool _isInitialized = false;
 
   @override
+  Future<void> disconnect() async {
+    _isInitialized = false;
+    _lastButtons.clear();
+    await super.disconnect();
+  }
+
+  @override
   Future<void> processCharacteristic(String characteristic, Uint8List bytes) {
     if (characteristic.toLowerCase() == ShimanoDi2Constants.D_FLY_CHANNEL_UUID) {
       final channels = bytes.sublist(1);

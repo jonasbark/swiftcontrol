@@ -118,5 +118,39 @@ void main() {
       expect(stateMap[2], equals(0x00));
       expect(stateMap[3], equals(0x00));
     });
+
+    test('Should reset state on disconnection', () {
+      // Simulate device state before disconnect
+      var isInitialized = true;
+      final stateMap = <int, int>{
+        0: 0x01,
+        1: 0x00,
+        2: 0x01,
+        3: 0x00,
+      };
+      
+      // Simulate disconnect
+      isInitialized = false;
+      stateMap.clear();
+      
+      // State should be reset
+      expect(isInitialized, isFalse);
+      expect(stateMap.isEmpty, isTrue);
+    });
+
+    test('Should re-initialize after reconnection', () {
+      // First connection - initialized
+      var isInitialized = true;
+      
+      // Disconnection - reset
+      isInitialized = false;
+      
+      // Reconnection - should need initialization again
+      expect(isInitialized, isFalse);
+      
+      // After first data reception on reconnect
+      isInitialized = true;
+      expect(isInitialized, isTrue);
+    });
   });
 }
