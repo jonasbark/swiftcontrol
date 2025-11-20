@@ -50,8 +50,8 @@ class MdnsEmulator {
       ips: [localIP],
       txt: [
         'ble-service-uuids=FC82',
-        'mac-address=68-67-25-6C-66-9C',
-        'serial-number=234700181',
+        'mac-address=50-50-25-6C-66-9C',
+        'serial-number=244700181',
       ],
     );
 
@@ -155,7 +155,7 @@ class MdnsEmulator {
                       ],
                       ...hexToBytes(ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID.toNonDash()),
                       ...[
-                        _propertyVal(['notify']),
+                        _propertyVal(['indicate']),
                       ],
                     ];
 
@@ -171,7 +171,23 @@ class MdnsEmulator {
                     _write(socket, responseData);
                   }
                 case MdnsConstants.DC_MESSAGE_READ_CHARACTERISTIC:
-                  print('Hamlo');
+                  final rawUUID = body.takeBytes(16);
+                  final characteristicUUID = bytesToHex(rawUUID).toUUID();
+
+                  print(
+                    'Got Read Characteristic UUID: $characteristicUUID',
+                  );
+
+                  final responseBody = rawUUID;
+                  final responseData = [
+                    ...buildHeader(
+                      MdnsConstants.DC_RC_REQUEST_COMPLETED_SUCCESSFULLY,
+                      responseBody.length,
+                    ),
+                    ...responseBody,
+                  ];
+
+                  _write(socket, responseData);
                 case MdnsConstants.DC_MESSAGE_WRITE_CHARACTERISTIC:
                   final rawUUID = body.takeBytes(16);
                   final characteristicUUID = bytesToHex(rawUUID).toUUID();
@@ -266,6 +282,7 @@ class MdnsEmulator {
 
     if (properties.contains('read')) res |= 0x01;
     if (properties.contains('write')) res |= 0x02;
+    if (properties.contains('indicate')) res |= 0x03;
     if (properties.contains('notify')) res |= 0x04;
 
     return res;
