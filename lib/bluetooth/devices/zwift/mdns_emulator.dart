@@ -155,7 +155,7 @@ class MdnsEmulator {
                       ],
                       ...hexToBytes(ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID.toNonDash()),
                       ...[
-                        _propertyVal(['indicate']),
+                        _propertyVal(['notify']),
                       ],
                     ];
 
