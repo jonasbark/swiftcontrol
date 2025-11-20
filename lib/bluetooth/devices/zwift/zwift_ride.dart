@@ -11,6 +11,8 @@ import 'package:swift_control/main.dart';
 import 'package:swift_control/utils/keymap/buttons.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import 'buttons.dart';
+
 class ZwiftRide extends ZwiftDevice {
   /// Minimum absolute analog value (0-100) required to trigger paddle button press.
   /// Values below this threshold are ignored to prevent accidental triggers from

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dartx/dartx.dart';
+import 'package:swift_control/bluetooth/devices/zwift/mdns_emulator.dart';
 import 'package:swift_control/utils/keymap/buttons.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -35,17 +36,13 @@ class EliteSquare extends BluetoothDevice {
   @override
   Future<void> processCharacteristic(String characteristic, Uint8List bytes) async {
     if (characteristic == SquareConstants.CHARACTERISTIC_UUID) {
-      final fullValue = _bytesToHex(bytes);
+      final fullValue = bytesToHex(bytes);
       final currentValue = _extractButtonCode(fullValue);
       actionStreamInternal.add(LogNotification('Received $fullValue - vs $currentValue (last: $_lastValue)'));
 
       if (_lastValue != null) {
-        final currentRelevantPart = fullValue.length >= 14
-            ? fullValue.substring(6, 14)
-            : fullValue.substring(6);
-        final lastRelevantPart = _lastValue!.length >= 14
-            ? _lastValue!.substring(6, 14)
-            : _lastValue!.substring(6);
+        final currentRelevantPart = fullValue.length >= 14 ? fullValue.substring(6, 14) : fullValue.substring(6);
+        final lastRelevantPart = _lastValue!.length >= 14 ? _lastValue!.substring(6, 14) : _lastValue!.substring(6);
 
         if (currentRelevantPart != lastRelevantPart) {
           final buttonClicked = SquareConstants.BUTTON_MAPPING[currentValue];
@@ -68,10 +65,6 @@ class EliteSquare extends BluetoothDevice {
       }
     }
     return hexValue;
-  }
-
-  String _bytesToHex(List<int> bytes) {
-    return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
   }
 }
 

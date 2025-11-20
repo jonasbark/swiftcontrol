@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:swift_control/bluetooth/devices/zwift/constants.dart';
+import 'package:swift_control/bluetooth/devices/zwift/buttons.dart';
 import 'package:swift_control/main.dart';
 import 'package:swift_control/utils/actions/desktop.dart';
 

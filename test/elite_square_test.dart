@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:swift_control/bluetooth/devices/zwift/mdns_emulator.dart';
 
 // Helper function matching the Elite Square implementation
 // Extracts the 8-character button code from positions 6-14 of the hex string
@@ -7,10 +8,6 @@ String extractButtonCode(String hexValue) {
     return hexValue.substring(6, 14);
   }
   return hexValue.substring(6);
-}
-
-String bytesToHex(List<int> bytes) {
-  return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
 }
 
 void main() {
@@ -30,7 +27,7 @@ void main() {
       // Test that button code extraction is consistent for comparison
       final idleState = '030153000000000318f40101';
       final buttonPressed = '030153000000020318f40101';
-      
+
       final idleCode = extractButtonCode(idleState);
       final pressedCode = extractButtonCode(buttonPressed);
 
@@ -48,15 +45,15 @@ void main() {
       ];
 
       final parts = states.map(extractButtonCode).toList();
-      
+
       expect(parts[0], equals('00000000')); // idle
       expect(parts[1], equals('00000002')); // pressed
       expect(parts[2], equals('00000000')); // released
-      
+
       // Verify state transitions
-      expect(parts[0] != parts[1], isTrue);  // idle -> pressed
-      expect(parts[1] != parts[2], isTrue);  // pressed -> released
-      expect(parts[0] == parts[2], isTrue);  // back to idle
+      expect(parts[0] != parts[1], isTrue); // idle -> pressed
+      expect(parts[1] != parts[2], isTrue); // pressed -> released
+      expect(parts[0] == parts[2], isTrue); // back to idle
     });
 
     test('Should handle all button codes from mapping', () {
@@ -95,7 +92,7 @@ void main() {
       // 030153000000020318f40101 = [0x03, 0x01, 0x53, 0x00, 0x00, 0x00, 0x02, 0x03, 0x18, 0xf4, 0x01, 0x01]
       final bytes = [0x03, 0x01, 0x53, 0x00, 0x00, 0x00, 0x02, 0x03, 0x18, 0xf4, 0x01, 0x01];
       final hex = bytesToHex(bytes);
-      
+
       expect(hex, equals('030153000000020318f40101'));
     });
 
@@ -103,10 +100,10 @@ void main() {
       // Test with short strings
       expect(extractButtonCode('0123456789'), equals('6789'));
       expect(extractButtonCode('01234567'), equals('67'));
-      
+
       // Test with exact length (14 chars extracts positions 6-14)
       expect(extractButtonCode('01234567890123'), equals('67890123'));
-      
+
       // Test strings shorter than 14 extract from position 6 to end
       expect(extractButtonCode('0123456789ABC'), equals('6789ABC'));
     });
@@ -117,14 +114,14 @@ void main() {
       // According to the dump, the pattern is:
       // Base: 030153000000000318f40101
       // Byte positions 6-13 (8 chars) change to indicate button
-      
+
       final baseHex = '030153000000000318f40101';
       final buttonHex = '030153000000020318f40101';
-      
+
       // Extract the button part (positions 6-14)
       final baseButton = baseHex.substring(6, 14);
       final pressedButton = buttonHex.substring(6, 14);
-      
+
       expect(baseButton, equals('00000000'));
       expect(pressedButton, equals('00000002'));
     });

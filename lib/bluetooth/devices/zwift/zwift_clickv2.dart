@@ -6,6 +6,8 @@ import 'package:swift_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:swift_control/pages/markdown.dart';
 import 'package:swift_control/widgets/warning.dart';
 
+import 'buttons.dart';
+
 class ZwiftClickV2 extends ZwiftRide {
   ZwiftClickV2(super.scanResult)
     : super(

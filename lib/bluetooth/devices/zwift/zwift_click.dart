@@ -3,7 +3,7 @@ import 'package:swift_control/bluetooth/devices/zwift/protocol/zwift.pb.dart';
 import 'package:swift_control/bluetooth/devices/zwift/zwift_device.dart';
 import 'package:swift_control/utils/keymap/buttons.dart';
 
-import 'constants.dart';
+import 'buttons.dart';
 
 class ZwiftClick extends ZwiftDevice {
   ZwiftClick(super.scanResult) : super(availableButtons: [ZwiftButtons.shiftUpRight, ZwiftButtons.shiftUpLeft]);
