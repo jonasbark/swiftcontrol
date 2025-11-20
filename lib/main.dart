@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:swift_control/bluetooth/devices/zwift/mdns_emulator.dart';
 import 'package:swift_control/pages/requirements.dart';
 import 'package:swift_control/theme.dart';
 import 'package:swift_control/utils/actions/android.dart';
@@ -25,6 +26,7 @@ var screenshotMode = false;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final error = await settings.init();
+  mdnsEmulator.init();
   runApp(SwiftPlayApp(error: error));
 }
 

@@ -4,16 +4,17 @@ import 'dart:typed_data';
 import 'package:dartx/dartx.dart';
 import 'package:mdns_dart/mdns_dart.dart';
 import 'package:swift_control/bluetooth/devices/zwift/constants.dart';
+import 'package:swift_control/bluetooth/devices/zwift/protocol/zp.pbenum.dart';
+import 'package:swift_control/bluetooth/devices/zwift/protocol/zwift.pb.dart' show RideKeyPadStatus;
+import 'package:swift_control/bluetooth/devices/zwift/zwift_ride.dart';
+import 'package:swift_control/utils/keymap/buttons.dart';
 
 final mdnsEmulator = MdnsEmulator();
-
-Future<void> main() async {
-  await mdnsEmulator.init();
-}
 
 class MdnsEmulator {
   late ServerSocket _server;
 
+  Socket? _socket;
   var lastMessageId = 0;
 
   Future<void> init() async {
@@ -68,8 +69,6 @@ class MdnsEmulator {
     try {
       await server.start();
       print('Server started - advertising service!');
-
-      await Future.delayed(Duration(seconds: 130));
     } finally {
       await server.stop();
       print('Server stopped');
@@ -139,7 +138,7 @@ class MdnsEmulator {
 
                   // Expected 0101000000100000fc8200001000800000805f9b34fb
                   // Got      0101000000100000fc8200001000800000805f9b34fb
-                  write(socket, bytes);
+                  _write(socket, bytes);
                 case MdnsConstants.DC_MESSAGE_DISCOVER_CHARACTERISTICS:
                   final rawUUID = body.takeBytes(16);
                   final serviceUUID = bytesToHex(rawUUID).toUUID();
@@ -148,15 +147,15 @@ class MdnsEmulator {
                       ...rawUUID,
                       ...hexToBytes(ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID.toNonDash()),
                       ...[
-                        propertyVal(['write']),
+                        _propertyVal(['write']),
                       ],
                       ...hexToBytes(ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID.toNonDash()),
                       ...[
-                        propertyVal(['notify']),
+                        _propertyVal(['notify']),
                       ],
                       ...hexToBytes(ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID.toNonDash()),
                       ...[
-                        propertyVal(['notify']),
+                        _propertyVal(['notify']),
                       ],
                     ];
 
@@ -169,7 +168,7 @@ class MdnsEmulator {
                     ];
 
                     // OK: 0102010000430000fc8200001000800000805f9b34fb0000000319ca465186e5fa29dcdd09d1020000000219ca465186e5fa29dcdd09d1040000000419ca465186e5fa29dcdd09d104
-                    write(socket, responseData);
+                    _write(socket, responseData);
                   }
                 case MdnsConstants.DC_MESSAGE_READ_CHARACTERISTIC:
                   print('Hamlo');
@@ -191,7 +190,7 @@ class MdnsEmulator {
                     ...responseBody,
                   ];
 
-                  write(socket, responseData);
+                  _write(socket, responseData);
 
                   if (characteristicUUID == ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID.toLowerCase()) {
                     final rideOnCommand = ZwiftConstants.RIDE_ON + ZwiftConstants.RESPONSE_START_CLICK_V2;
@@ -220,7 +219,7 @@ class MdnsEmulator {
                       ];
 
                       // 0106050000180000000419ca465186e5fa29dcdd09d1526964654f6e0203
-                      write(socket, responseData);
+                      _write(socket, responseData);
                     }
                   }
                   return;
@@ -241,7 +240,7 @@ class MdnsEmulator {
                     ...responseBody,
                   ];
 
-                  write(socket, responseData);
+                  _write(socket, responseData);
                 case MdnsConstants.DC_MESSAGE_CHARACTERISTIC_NOTIFICATION:
                   print('Hamlo');
                 default:
@@ -257,12 +256,12 @@ class MdnsEmulator {
     );
   }
 
-  void write(Socket socket, List<int> responseData) {
+  void _write(Socket socket, List<int> responseData) {
     print('Sending response: ${bytesToHex(responseData)}');
     socket.add(responseData);
   }
 
-  int propertyVal(List<String> properties) {
+  int _propertyVal(List<String> properties) {
     int res = 0;
 
     if (properties.contains('read')) res |= 0x01;
@@ -270,6 +269,82 @@ class MdnsEmulator {
     if (properties.contains('notify')) res |= 0x04;
 
     return res;
+  }
+
+  Future<String> sendAction(InGameAction inGameAction, int? inGameActionValue) async {
+    final button = switch (inGameAction) {
+      InGameAction.shiftUp => RideButtonMask.SHFT_UP_R_BTN,
+      InGameAction.shiftDown => RideButtonMask.SHFT_UP_L_BTN,
+      InGameAction.uturn => RideButtonMask.DOWN_BTN,
+      InGameAction.steerLeft => RideButtonMask.LEFT_BTN,
+      InGameAction.steerRight => RideButtonMask.RIGHT_BTN,
+      InGameAction.openActionBar => RideButtonMask.UP_BTN,
+      InGameAction.usePowerUp => RideButtonMask.Y_BTN,
+      InGameAction.select => RideButtonMask.A_BTN,
+      InGameAction.back => RideButtonMask.B_BTN,
+      InGameAction.rideOnBomb => RideButtonMask.Z_BTN,
+      _ => null,
+    };
+
+    if (button == null) {
+      return 'Action ${inGameAction.name} not supported by Zwift Emulator';
+    }
+
+    final status = RideKeyPadStatus()
+      ..buttonMap = (~button.mask) & 0xFFFFFFFF
+      ..analogPaddles.clear();
+
+    final bytes = status.writeToBuffer();
+
+    final commandProto = _buildButtonNotify(
+      Uint8List.fromList([
+        Opcode.CONTROLLER_NOTIFICATION.value,
+        ...bytes,
+      ]),
+    );
+
+    _write(_socket!, commandProto);
+
+    //final zero = _buildButtonNotify(Uint8List.fromList([0x23, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F]));
+    //_write(_socket!, zero);
+
+    /*final data = ClickKeyPadStatus()
+      ..buttonMinus = PlayButtonStatus.ON
+      ..buttonPlus = PlayButtonStatus.OFF;
+
+    _write(_socket!, _buildButtonNotify([ZwiftConstants.CLICK_NOTIFICATION_MESSAGE_TYPE, ...data.writeToBuffer()]));*/
+
+    /*final data = PlayKeyPadStatus()
+      ..buttonShift = PlayButtonStatus.ON
+      ..rightPad = PlayButtonStatus.ON;
+
+    _write(_socket!, _buildButtonNotify([ZwiftConstants.PLAY_NOTIFICATION_MESSAGE_TYPE, ...data.writeToBuffer()]));*/
+
+    return 'Sent action: ${inGameAction.name}';
+  }
+
+  List<int> _buildButtonNotify(final List<int> data) {
+    final seqNum = (lastMessageId + 1) % 256;
+    lastMessageId = seqNum;
+
+    final responseBody = [
+      ...hexToBytes(ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID.toLowerCase().toNonDash()),
+      ...data,
+    ];
+    final responseData = [
+      // header
+      ...Uint8List.fromList([
+        0x01,
+        MdnsConstants.DC_MESSAGE_CHARACTERISTIC_NOTIFICATION,
+        seqNum,
+        MdnsConstants.DC_RC_REQUEST_COMPLETED_SUCCESSFULLY,
+        (responseBody.length >> 8) & 0xFF,
+        responseBody.length & 0xFF,
+      ]),
+      // body
+      ...responseBody,
+    ];
+    return responseData;
   }
 }
 

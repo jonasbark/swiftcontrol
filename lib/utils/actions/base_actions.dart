@@ -6,6 +6,7 @@ import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:screen_retriever/screen_retriever.dart';
+import 'package:swift_control/bluetooth/devices/zwift/mdns_emulator.dart';
 import 'package:swift_control/bluetooth/devices/zwift/zwift_emulator.dart';
 import 'package:swift_control/main.dart';
 import 'package:swift_control/utils/actions/android.dart';
@@ -98,6 +99,7 @@ abstract class BaseActions {
 
   Future<String>? handleDirectConnect(KeyPair keyPair) {
     if (keyPair.inGameAction != null) {
+      mdnsEmulator.sendAction(keyPair.inGameAction!, keyPair.inGameActionValue);
       if (whooshLink.isConnected.value) {
         return Future.value(whooshLink.sendAction(keyPair.inGameAction!, keyPair.inGameActionValue));
       } else if (zwiftEmulator.isConnected.value) {
