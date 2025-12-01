@@ -82,6 +82,10 @@ The app connects to your Controller devices (such as Zwift ones) automatically. 
 ## Alternatives
 - [qdomyos-zwift](https://www.qzfitness.com/) directly controls the trainer (as opposed to controlling the trainer app). This can be useful if your trainer app does not support virtual shifting.
 
+## Accessories
+
+- 3D printable models from Zwift [Zwift 3D-printable mounts for Click](https://www.zwift.com/uk/news/33400-zwift-3d-printable-mounts-for-click).
+
 ## Donate
 Please consider donating to support the development of this app :)
 
