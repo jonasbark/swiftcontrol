@@ -29,7 +29,7 @@ Future<void> main() async {
   PackageInfo.setMockInitialValues(
     appName: 'BikeControl',
     packageName: 'de.jonasbark.swiftcontrol',
-    version: '4.0.0',
+    version: '4.0.0+46',
     buildNumber: '1',
     buildSignature: '',
   );
