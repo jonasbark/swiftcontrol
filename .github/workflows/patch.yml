@@ -181,5 +181,5 @@ jobs:
         uses: shorebirdtech/shorebird-patch@v1
         with:
           platform: windows
-          release-version: 3.6.1+45
+          release-version: 3.6.0+43
           args: '--allow-asset-diffs --allow-native-diffs'
