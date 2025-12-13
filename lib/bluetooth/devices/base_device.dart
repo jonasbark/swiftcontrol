@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:swift_control/bluetooth/devices/zwift/constants.dart';
 import 'package:swift_control/utils/actions/desktop.dart';
 import 'package:swift_control/utils/core.dart';
+import 'package:swift_control/utils/iap/iap_manager.dart';
 import 'package:swift_control/utils/keymap/apps/custom_app.dart';
 import 'package:swift_control/utils/keymap/manager.dart';
 
@@ -109,25 +110,60 @@ abstract class BaseDevice {
     }
   }
 
+  String _getCommandLimitMessage() {
+    final remaining = IAPManager.instance.commandsRemainingToday;
+    const dailyLimit = 15; // Should match IAPService.dailyCommandLimit
+    return remaining > 0 
+      ? 'Command limit: $remaining commands remaining today. Upgrade to unlock unlimited commands.'
+      : 'Daily command limit reached (0/$dailyLimit). Upgrade to unlock unlimited commands or try again tomorrow.';
+  }
+
   Future<void> performDown(List<ControllerButton> buttonsClicked) async {
     for (final action in buttonsClicked) {
+      // Check IAP status before executing command
+      if (!IAPManager.instance.canExecuteCommand) {
+        actionStreamInternal.add(LogNotification(_getCommandLimitMessage()));
+        continue;
+      }
+      
       // For repeated actions, don't trigger key down/up events (useful for long press)
       final result = await core.actionHandler.performAction(action, isKeyDown: true, isKeyUp: false);
       actionStreamInternal.add(LogNotification(result.message));
+      
+      // Increment command count after successful execution
+      await IAPManager.instance.incrementCommandCount();
     }
   }
 
   Future<void> performClick(List<ControllerButton> buttonsClicked) async {
     for (final action in buttonsClicked) {
+      // Check IAP status before executing command
+      if (!IAPManager.instance.canExecuteCommand) {
+        actionStreamInternal.add(LogNotification(_getCommandLimitMessage()));
+        continue;
+      }
+      
       final result = await core.actionHandler.performAction(action, isKeyDown: true, isKeyUp: true);
       actionStreamInternal.add(ActionNotification(result));
+      
+      // Increment command count after successful execution
+      await IAPManager.instance.incrementCommandCount();
     }
   }
 
   Future<void> performRelease(List<ControllerButton> buttonsReleased) async {
     for (final action in buttonsReleased) {
+      // Check IAP status before executing command
+      if (!IAPManager.instance.canExecuteCommand) {
+        actionStreamInternal.add(LogNotification(_getCommandLimitMessage()));
+        continue;
+      }
+      
       final result = await core.actionHandler.performAction(action, isKeyDown: false, isKeyUp: true);
       actionStreamInternal.add(ActionNotification(result));
+      
+      // Increment command count after successful execution
+      await IAPManager.instance.incrementCommandCount();
     }
   }
 
