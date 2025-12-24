@@ -1,8 +1,8 @@
 import 'dart:io';
 
+import 'package:bike_control/bluetooth/devices/bluetooth_emulator.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/openbikecontrol_device.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
-import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/devices/zwift/protocol/zp.pbenum.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
@@ -15,12 +15,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../messages/notification.dart' show AlertNotification;
 
-class OpenBikeControlBluetoothEmulator extends TrainerConnection {
-  late final _peripheralManager = PeripheralManager();
+class OpenBikeControlBluetoothEmulator extends BluetoothEmulator {
   final ValueNotifier<AppInfo?> connectedApp = ValueNotifier<AppInfo?>(null);
-  bool _isServiceAdded = false;
-  bool _isSubscribedToEvents = false;
-  Central? _central;
 
   late GATTCharacteristic _buttonCharacteristic;
 
@@ -35,13 +31,13 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
   Future<void> startServer() async {
     isStarted.value = true;
 
-    _peripheralManager.stateChanged.forEach((state) {
-      print('Peripheral manager state: ${state.state}');
-    });
+    subscribeToStateChanges();
 
     if (!kIsWeb && Platform.isAndroid) {
-      _peripheralManager.connectionStateChanged.forEach((state) {
-        print('Peripheral connection state: ${state.state} of ${state.central.uuid}');
+      peripheralManager.connectionStateChanged.forEach((state) {
+        if (kDebugMode) {
+          print('Peripheral connection state: ${state.state} of ${state.central.uuid}');
+        }
         if (state.state == ConnectionState.connected) {
         } else if (state.state == ConnectionState.disconnected) {
           if (connectedApp.value != null) {
@@ -51,14 +47,13 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
           }
           isConnected.value = false;
           connectedApp.value = null;
-          _central = null;
+          central = null;
         }
       });
     }
 
-    while (_peripheralManager.state != BluetoothLowEnergyState.poweredOn && core.settings.getObpBleEnabled()) {
-      print('Waiting for peripheral manager to be powered on...');
-      await Future.delayed(Duration(seconds: 1));
+    if (!await waitForPoweredOn(() => core.settings.getObpBleEnabled())) {
+      return;
     }
 
     _buttonCharacteristic = GATTCharacteristic.mutable(
@@ -70,12 +65,12 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
       permissions: [],
     );
 
-    if (!_isServiceAdded) {
-      await Future.delayed(Duration(seconds: 1));
+    if (!isServiceAdded) {
+      await Future.delayed(const Duration(seconds: 1));
 
-      if (!_isSubscribedToEvents) {
-        _isSubscribedToEvents = true;
-        _peripheralManager.characteristicReadRequested.forEach((eventArgs) async {
+      if (!isSubscribedToEvents) {
+        isSubscribedToEvents = true;
+        peripheralManager.characteristicReadRequested.forEach((eventArgs) async {
           print('Read request for characteristic: ${eventArgs.characteristic.uuid}');
 
           switch (eventArgs.characteristic.uuid.toString().toUpperCase()) {
@@ -85,20 +80,20 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
 
           final request = eventArgs.request;
           final trimmedValue = Uint8List.fromList([]);
-          await _peripheralManager.respondReadRequestWithValue(
+          await peripheralManager.respondReadRequestWithValue(
             request,
             value: trimmedValue,
           );
           // You can respond to read requests here if needed
         });
 
-        _peripheralManager.characteristicNotifyStateChanged.forEach((char) {
-          _central = char.central;
+        peripheralManager.characteristicNotifyStateChanged.forEach((char) {
+          central = char.central;
           print(
             'Notify state changed for characteristic: ${char.characteristic.uuid}: ${char.state}',
           );
         });
-        _peripheralManager.characteristicWriteRequested.forEach((eventArgs) async {
+        peripheralManager.characteristicWriteRequested.forEach((eventArgs) async {
           final characteristic = eventArgs.characteristic;
           final request = eventArgs.request;
           final value = request.value;
@@ -125,13 +120,13 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
               print('Unhandled write request for characteristic: ${eventArgs.characteristic.uuid}');
           }
 
-          await _peripheralManager.respondWriteRequest(request);
+          await peripheralManager.respondWriteRequest(request);
         });
       }
 
       if (!Platform.isWindows) {
         // Device Information
-        await _peripheralManager.addService(
+        await addService(
           GATTService(
             uuid: UUID.fromString('180A'),
             isPrimary: true,
@@ -162,7 +157,7 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
         );
       }
       // Battery Service
-      await _peripheralManager.addService(
+      await addService(
         GATTService(
           uuid: UUID.fromString('180F'),
           isPrimary: true,
@@ -184,7 +179,7 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
       );
 
       // Unknown Service
-      await _peripheralManager.addService(
+      await addService(
         GATTService(
           uuid: UUID.fromString(OpenBikeControlConstants.SERVICE_UUID),
           isPrimary: true,
@@ -206,7 +201,7 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
           includedServices: [],
         ),
       );
-      _isServiceAdded = true;
+      isServiceAdded = true;
     }
 
     final advertisement = Advertisement(
@@ -215,16 +210,14 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
     );
     print('Starting advertising with OpenBikeControl service...');
 
-    await _peripheralManager.startAdvertising(advertisement);
+    await startAdvertising(advertisement);
   }
 
   Future<void> stopServer() async {
     if (kDebugMode) {
       print('Stopping OpenBikeControl BLE server...');
     }
-    await _peripheralManager.stopAdvertising();
-    isStarted.value = false;
-    isConnected.value = false;
+    await stopAdvertising();
     connectedApp.value = null;
   }
 
@@ -238,7 +231,7 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
 
     if (inGameAction == null) {
       return Error('Invalid in-game action for key pair: $keyPair');
-    } else if (_central == null) {
+    } else if (central == null) {
       return Error('No central connected');
     } else if (connectedApp.value == null) {
       return Error('No app info received from central');
@@ -250,16 +243,16 @@ class OpenBikeControlBluetoothEmulator extends TrainerConnection {
       final responseDataDown = OpenBikeProtocolParser.encodeButtonState(
         mappedButtons.map((b) => ButtonState(b, 1)).toList(),
       );
-      await _peripheralManager.notifyCharacteristic(_central!, _buttonCharacteristic, value: responseDataDown);
+      await notifyCharacteristic(central!, _buttonCharacteristic, value: responseDataDown);
       final responseDataUp = OpenBikeProtocolParser.encodeButtonState(
         mappedButtons.map((b) => ButtonState(b, 0)).toList(),
       );
-      await _peripheralManager.notifyCharacteristic(_central!, _buttonCharacteristic, value: responseDataUp);
+      await notifyCharacteristic(central!, _buttonCharacteristic, value: responseDataUp);
     } else {
       final responseData = OpenBikeProtocolParser.encodeButtonState(
         mappedButtons.map((b) => ButtonState(b, isKeyDown ? 1 : 0)).toList(),
       );
-      await _peripheralManager.notifyCharacteristic(_central!, _buttonCharacteristic, value: responseData);
+      await notifyCharacteristic(central!, _buttonCharacteristic, value: responseData);
     }
 
     return Success('Buttons ${inGameAction.title} sent');
