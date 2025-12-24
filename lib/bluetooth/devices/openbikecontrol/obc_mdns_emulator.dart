@@ -1,10 +1,8 @@
 import 'dart:io';
 
+import 'package:bike_control/bluetooth/devices/mdns_emulator.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/openbikecontrol_device.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
-import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
-import 'package:bike_control/bluetooth/devices/zwift/ftms_mdns_emulator.dart';
-import 'package:bike_control/bluetooth/devices/zwift/protocol/zp.pb.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
@@ -14,15 +12,10 @@ import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nsd/nsd.dart';
 
-class OpenBikeControlMdnsEmulator extends TrainerConnection {
-  ServerSocket? _server;
-  Registration? _mdnsRegistration;
-
+class OpenBikeControlMdnsEmulator extends MdnsEmulator {
   static const String connectionTitle = 'OpenBikeControl mDNS Emulator';
 
   final ValueNotifier<AppInfo?> connectedApp = ValueNotifier(null);
-
-  Socket? _socket;
 
   OpenBikeControlMdnsEmulator()
     : super(
@@ -35,18 +28,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection {
     isStarted.value = true;
 
     // Get local IP
-    final interfaces = await NetworkInterface.list();
-    InternetAddress? localIP;
-
-    for (final interface in interfaces) {
-      for (final addr in interface.addresses) {
-        if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
-          localIP = addr;
-          break;
-        }
-      }
-      if (localIP != null) break;
-    }
+    final localIP = await findLocalIP();
 
     if (localIP == null) {
       throw 'Could not find network interface';
@@ -54,15 +36,9 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection {
 
     await _createTcpServer();
 
-    if (kDebugMode) {
-      enableLogging(LogTopic.calls);
-      enableLogging(LogTopic.errors);
-    }
-    disableServiceTypeValidation(true);
-
     try {
       // Create service
-      _mdnsRegistration = await register(
+      await registerMdnsService(
         Service(
           name: 'BikeControl',
           type: '_openbikecontrol._tcp',
@@ -79,7 +55,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection {
           },
         ),
       );
-      print('Service: ${_mdnsRegistration!.id} at ${localIP.address}:$_mdnsRegistration');
+      print('Service: ${mdnsRegistration!.id} at ${localIP.address}:$mdnsRegistration');
       print('Server started - advertising service!');
     } catch (e, s) {
       core.connection.signalNotification(AlertNotification(LogLevel.LOGLEVEL_ERROR, 'Failed to start mDNS server: $e'));
@@ -91,37 +67,17 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection {
     if (kDebugMode) {
       print('Stopping OpenBikeControl mDNS server...');
     }
-    if (_mdnsRegistration != null) {
-      unregister(_mdnsRegistration!);
-      _mdnsRegistration = null;
-    }
-    isStarted.value = false;
-    isConnected.value = false;
+    stop();
     connectedApp.value = null;
-    _socket?.destroy();
-    _socket = null;
   }
 
   Future<void> _createTcpServer() async {
-    try {
-      _server = await ServerSocket.bind(
-        InternetAddress.anyIPv6,
-        36867,
-        shared: true,
-        v6Only: false,
-      );
-    } catch (e) {
-      core.connection.signalNotification(AlertNotification(LogLevel.LOGLEVEL_ERROR, 'Failed to start server: $e'));
-      rethrow;
-    }
-    if (kDebugMode) {
-      print('Server started on port ${_server!.port}');
-    }
+    await createTcpServer(36867);
 
     // Accept connection
-    _server!.listen(
+    tcpServer!.listen(
       (Socket socket) {
-        _socket = socket;
+        this.socket = socket;
 
         if (kDebugMode) {
           print('Client connected: ${socket.remoteAddress.address}:${socket.remotePort}');
@@ -155,7 +111,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection {
             );
             isConnected.value = false;
             connectedApp.value = null;
-            _socket = null;
+            this.socket = null;
           },
         );
       },
@@ -172,7 +128,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection {
 
     if (inGameAction == null) {
       return Error('Invalid in-game action for key pair: $keyPair');
-    } else if (_socket == null) {
+    } else if (socket == null) {
       print('No client connected, cannot send button press');
       return Error('No client connected');
     } else if (connectedApp.value == null) {
@@ -185,23 +141,18 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection {
       final responseDataDown = OpenBikeProtocolParser.encodeButtonState(
         mappedButtons.map((b) => ButtonState(b, 1)).toList(),
       );
-      _write(_socket!, responseDataDown);
+      writeToSocket(socket!, responseDataDown);
       final responseDataUp = OpenBikeProtocolParser.encodeButtonState(
         mappedButtons.map((b) => ButtonState(b, 0)).toList(),
       );
-      _write(_socket!, responseDataUp);
+      writeToSocket(socket!, responseDataUp);
     } else {
       final responseData = OpenBikeProtocolParser.encodeButtonState(
         mappedButtons.map((b) => ButtonState(b, isKeyDown ? 1 : 0)).toList(),
       );
-      _write(_socket!, responseData);
+      writeToSocket(socket!, responseData);
     }
 
     return Success('Sent ${inGameAction.title} button press');
-  }
-
-  void _write(Socket socket, List<int> responseData) {
-    debugPrint('Sending response: ${bytesToHex(responseData)}');
-    socket.add(responseData);
   }
 }

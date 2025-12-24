@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
+import 'package:bike_control/bluetooth/devices/mdns_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/protocol/zp.pbenum.dart';
 import 'package:bike_control/bluetooth/devices/zwift/protocol/zwift.pb.dart' show RideKeyPadStatus;
@@ -15,13 +15,9 @@ import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nsd/nsd.dart';
 
-class FtmsMdnsEmulator extends TrainerConnection {
-  ServerSocket? _tcpServer;
-  Registration? _mdnsRegistration;
-
+class FtmsMdnsEmulator extends MdnsEmulator {
   static const String connectionTitle = 'Zwift Network Emulator';
 
-  Socket? _socket;
   var lastMessageId = 0;
 
   FtmsMdnsEmulator()
@@ -46,18 +42,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
     print('Starting mDNS server...');
 
     // Get local IP
-    final interfaces = await NetworkInterface.list();
-    InternetAddress? localIP;
-
-    for (final interface in interfaces) {
-      for (final addr in interface.addresses) {
-        if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
-          localIP = addr;
-          break;
-        }
-      }
-      if (localIP != null) break;
-    }
+    final localIP = await findLocalIP();
 
     if (localIP == null) {
       throw 'Could not find network interface';
@@ -65,13 +50,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
 
     await _createTcpServer();
 
-    if (kDebugMode) {
-      enableLogging(LogTopic.calls);
-      enableLogging(LogTopic.errors);
-    }
-    disableServiceTypeValidation(true);
-
-    _mdnsRegistration = await register(
+    await registerMdnsService(
       Service(
         name: 'KICKR BIKE PRO 1337',
         addresses: [localIP],
@@ -87,41 +66,13 @@ class FtmsMdnsEmulator extends TrainerConnection {
     print('Server started - advertising service!');
   }
 
-  void stop() {
-    isStarted.value = false;
-    isConnected.value = false;
-    _tcpServer?.close();
-    if (_mdnsRegistration != null) {
-      unregister(_mdnsRegistration!);
-    }
-    _tcpServer = null;
-    _mdnsRegistration = null;
-    _socket = null;
-    print('Stopped FtmsMdnsEmulator');
-  }
-
   Future<void> _createTcpServer() async {
-    try {
-      _tcpServer = await ServerSocket.bind(
-        InternetAddress.anyIPv6,
-        36867,
-        shared: true,
-        v6Only: false,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Failed to start server: $e');
-      }
-      rethrow;
-    }
-    if (kDebugMode) {
-      print('Server started on port ${_tcpServer!.port}');
-    }
+    await createTcpServer(36867);
 
     // Accept connection
-    _tcpServer!.listen(
+    tcpServer!.listen(
       (Socket socket) {
-        _socket = socket;
+        this.socket = socket;
         isConnected.value = true;
         if (kDebugMode) {
           print('Client connected: ${socket.remoteAddress.address}:${socket.remotePort}');
@@ -171,7 +122,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
 
                   // Expected 0101000000100000fc8200001000800000805f9b34fb
                   // Got      0101000000100000fc8200001000800000805f9b34fb
-                  _write(socket, bytes);
+                  writeToSocket(socket, bytes);
                 case FtmsMdnsConstants.DC_MESSAGE_DISCOVER_CHARACTERISTICS:
                   final rawUUID = body.takeBytes(16);
                   final serviceUUID = bytesToHex(rawUUID).toUUID();
@@ -201,7 +152,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
                     ];
 
                     // OK: 0102010000430000fc8200001000800000805f9b34fb0000000319ca465186e5fa29dcdd09d1020000000219ca465186e5fa29dcdd09d1040000000419ca465186e5fa29dcdd09d104
-                    _write(socket, responseData);
+                    writeToSocket(socket, responseData);
                   }
                 case FtmsMdnsConstants.DC_MESSAGE_READ_CHARACTERISTIC:
                   final rawUUID = body.takeBytes(16);
@@ -220,7 +171,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
                     ...responseBody,
                   ];
 
-                  _write(socket, responseData);
+                  writeToSocket(socket, responseData);
                 case FtmsMdnsConstants.DC_MESSAGE_WRITE_CHARACTERISTIC:
                   final rawUUID = body.takeBytes(16);
                   final characteristicUUID = bytesToHex(rawUUID).toUUID();
@@ -239,7 +190,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
                     ...responseBody,
                   ];
 
-                  _write(socket, responseData);
+                  writeToSocket(socket, responseData);
 
                   final response = core.zwiftEmulator.handleWriteRequest(
                     characteristicUUID,
@@ -269,7 +220,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
                     ];
 
                     // 0106050000180000000419ca465186e5fa29dcdd09d1526964654f6e0203
-                    _write(socket, responseData);
+                    writeToSocket(socket, responseData);
 
                     if (response.contentEquals(ZwiftConstants.RIDE_ON)) {
                       _sendKeepAlive();
@@ -293,7 +244,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
                     ...responseBody,
                   ];
 
-                  _write(socket, responseData);
+                  writeToSocket(socket, responseData);
                 case FtmsMdnsConstants.DC_MESSAGE_CHARACTERISTIC_NOTIFICATION:
                   print('Hamlo');
                 default:
@@ -308,18 +259,11 @@ class FtmsMdnsEmulator extends TrainerConnection {
             core.connection.signalNotification(
               AlertNotification(LogLevel.LOGLEVEL_INFO, AppLocalizations.current.disconnected),
             );
-            _socket = null;
+            this.socket = null;
           },
         );
       },
     );
-  }
-
-  void _write(Socket socket, List<int> responseData) {
-    if (kDebugMode) {
-      print('Sending response: ${bytesToHex(responseData)}');
-    }
-    socket.add(responseData);
   }
 
   int _propertyVal(List<String> properties) {
@@ -368,7 +312,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
         ]),
       );
 
-      _write(_socket!, commandProto);
+      writeToSocket(socket!, commandProto);
     }
 
     if (isKeyUp) {
@@ -377,7 +321,7 @@ class FtmsMdnsEmulator extends TrainerConnection {
         Uint8List.fromList([Opcode.CONTROLLER_NOTIFICATION.value, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F]),
       );
 
-      _write(_socket!, zero);
+      writeToSocket(socket!, zero);
     }
     if (kDebugMode) {
       print('Sent action $isKeyUp vs $isKeyDown ${keyPair.inGameAction!.title} to Zwift Emulator');
@@ -411,9 +355,9 @@ class FtmsMdnsEmulator extends TrainerConnection {
 
   Future<void> _sendKeepAlive() async {
     await Future.delayed(const Duration(seconds: 5));
-    if (_socket != null) {
-      _write(
-        _socket!,
+    if (socket != null) {
+      writeToSocket(
+        socket!,
         _buildNotify(
           ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID,
           hexToBytes('B70100002041201C00180004001B4F00B701000020798EC5BDEFCBE4563418269E4926FBE1'),
@@ -462,23 +406,6 @@ extension on List<int> {
     final value = (this[i] << 8) | this[i + 1];
     return value;
   }
-}
-
-String bytesToHex(List<int> bytes, {bool spaced = false}) {
-  return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(spaced ? ' ' : '');
-}
-
-String bytesToReadableHex(List<int> bytes) {
-  return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(' ');
-}
-
-List<int> hexToBytes(String hex) {
-  final bytes = <int>[];
-  for (var i = 0; i < hex.length; i += 2) {
-    final byte = hex.substring(i, i + 2);
-    bytes.add(int.parse(byte, radix: 16));
-  }
-  return bytes;
 }
 
 class FtmsMdnsConstants {

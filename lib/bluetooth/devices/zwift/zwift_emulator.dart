@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/ble.dart';
-import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
+import 'package:bike_control/bluetooth/devices/bluetooth_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/ftms_mdns_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/protocol/zp.pb.dart';
@@ -17,18 +17,10 @@ import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/title.dart';
 import 'package:bluetooth_low_energy/bluetooth_low_energy.dart';
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
 
-class ZwiftEmulator extends TrainerConnection {
-  bool get isLoading => _isLoading;
-
+class ZwiftEmulator extends BluetoothEmulator {
   static const String connectionTitle = 'Zwift BLE Emulator';
 
-  late final _peripheralManager = PeripheralManager();
-  bool _isLoading = false;
-  bool _isServiceAdded = false;
-  bool _isSubscribedToEvents = false;
-  Central? _central;
   GATTCharacteristic? _asyncCharacteristic;
   GATTCharacteristic? _syncTxCharacteristic;
 
@@ -50,51 +42,30 @@ class ZwiftEmulator extends TrainerConnection {
       );
 
   Future<void> reconnect() async {
-    await _peripheralManager.stopAdvertising();
-    await _peripheralManager.removeAllServices();
-    _isServiceAdded = false;
+    await peripheralManager.stopAdvertising();
+    await peripheralManager.removeAllServices();
+    isServiceAdded = false;
     startAdvertising(() {});
   }
 
   Future<void> startAdvertising(VoidCallback onUpdate) async {
-    _isLoading = true;
+    isLoading = true;
     isStarted.value = true;
     onUpdate();
 
-    _peripheralManager.stateChanged.forEach((state) {
-      print('Peripheral manager state: ${state.state}');
-    });
+    subscribeToStateChanges();
+    subscribeToConnectionStateChanges(onUpdate);
 
-    if (!kIsWeb && Platform.isAndroid) {
-      _peripheralManager.connectionStateChanged.forEach((state) {
-        print('Peripheral connection state: ${state.state} of ${state.central.uuid}');
-        if (state.state == ConnectionState.connected) {
-        } else if (state.state == ConnectionState.disconnected) {
-          _central = null;
-          isConnected.value = false;
-          core.connection.signalNotification(
-            AlertNotification(LogLevel.LOGLEVEL_INFO, AppLocalizations.current.disconnected),
-          );
-          onUpdate();
-        }
-      });
-
-      final status = await Permission.bluetoothAdvertise.request();
-      if (!status.isGranted) {
-        print('Bluetooth advertise permission not granted');
-        isStarted.value = false;
-        onUpdate();
-        return;
-      }
+    if (!await requestBluetoothAdvertisePermission()) {
+      isStarted.value = false;
+      onUpdate();
+      return;
     }
 
-    while (_peripheralManager.state != BluetoothLowEnergyState.poweredOn &&
-        core.settings.getZwiftBleEmulatorEnabled()) {
-      print('Waiting for peripheral manager to be powered on...');
+    if (!await waitForPoweredOn(() => core.settings.getZwiftBleEmulatorEnabled())) {
       if (core.settings.getLastTarget() == Target.thisDevice) {
         return;
       }
-      await Future.delayed(Duration(seconds: 1));
     }
 
     _syncTxCharacteristic = GATTCharacteristic.mutable(
@@ -118,12 +89,12 @@ class ZwiftEmulator extends TrainerConnection {
       permissions: [],
     );
 
-    if (!_isServiceAdded) {
-      await Future.delayed(Duration(seconds: 1));
+    if (!isServiceAdded) {
+      await Future.delayed(const Duration(seconds: 1));
 
-      if (!_isSubscribedToEvents) {
-        _isSubscribedToEvents = true;
-        _peripheralManager.characteristicReadRequested.forEach((eventArgs) async {
+      if (!isSubscribedToEvents) {
+        isSubscribedToEvents = true;
+        peripheralManager.characteristicReadRequested.forEach((eventArgs) async {
           print('Read request for characteristic: ${eventArgs.characteristic.uuid}');
 
           switch (eventArgs.characteristic.uuid.toString().toUpperCase()) {
@@ -131,7 +102,7 @@ class ZwiftEmulator extends TrainerConnection {
               print('Handling read request for SYNC TX characteristic');
               break;
             case BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_BATTERY_LEVEL:
-              await _peripheralManager.respondReadRequestWithValue(
+              await peripheralManager.respondReadRequestWithValue(
                 eventArgs.request,
                 value: Uint8List.fromList([100]),
               );
@@ -142,20 +113,20 @@ class ZwiftEmulator extends TrainerConnection {
 
           final request = eventArgs.request;
           final trimmedValue = Uint8List.fromList([]);
-          await _peripheralManager.respondReadRequestWithValue(
+          await peripheralManager.respondReadRequestWithValue(
             request,
             value: trimmedValue,
           );
           // You can respond to read requests here if needed
         });
 
-        _peripheralManager.characteristicNotifyStateChanged.forEach((char) {
+        peripheralManager.characteristicNotifyStateChanged.forEach((char) {
           print(
             'Notify state changed for characteristic: ${char.characteristic.uuid}: ${char.state}',
           );
         });
-        _peripheralManager.characteristicWriteRequested.forEach((eventArgs) async {
-          _central = eventArgs.central;
+        peripheralManager.characteristicWriteRequested.forEach((eventArgs) async {
+          central = eventArgs.central;
           isConnected.value = true;
 
           core.connection.signalNotification(
@@ -165,8 +136,8 @@ class ZwiftEmulator extends TrainerConnection {
           final request = eventArgs.request;
           final response = handleWriteRequest(eventArgs.characteristic.uuid.toString(), request.value);
           if (response != null) {
-            await _peripheralManager.notifyCharacteristic(
-              _central!,
+            await notifyCharacteristic(
+              central!,
               _syncTxCharacteristic!,
               value: response,
             );
@@ -176,13 +147,13 @@ class ZwiftEmulator extends TrainerConnection {
             }
           }
 
-          await _peripheralManager.respondWriteRequest(request);
+          await peripheralManager.respondWriteRequest(request);
         });
       }
 
       if (!Platform.isWindows) {
         // Device Information
-        await _peripheralManager.addService(
+        await addService(
           GATTService(
             uuid: UUID.fromString('180A'),
             isPrimary: true,
@@ -213,7 +184,7 @@ class ZwiftEmulator extends TrainerConnection {
         );
       }
       // Battery Service
-      await _peripheralManager.addService(
+      await addService(
         GATTService(
           uuid: UUID.fromString('180F'),
           isPrimary: true,
@@ -235,7 +206,7 @@ class ZwiftEmulator extends TrainerConnection {
       );
 
       // Unknown Service
-      await _peripheralManager.addService(
+      await addService(
         GATTService(
           uuid: UUID.fromString(ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID),
           isPrimary: true,
@@ -276,7 +247,7 @@ class ZwiftEmulator extends TrainerConnection {
           includedServices: [],
         ),
       );
-      _isServiceAdded = true;
+      isServiceAdded = true;
     }
 
     final advertisement = Advertisement(
@@ -294,23 +265,21 @@ class ZwiftEmulator extends TrainerConnection {
     );
     print('Starting advertising with Zwift service...');
 
-    await _peripheralManager.startAdvertising(advertisement);
-    _isLoading = false;
+    await startAdvertising(advertisement);
+    isLoading = false;
     onUpdate();
   }
 
+  @override
   Future<void> stopAdvertising() async {
-    await _peripheralManager.stopAdvertising();
-    isStarted.value = false;
-    isConnected.value = false;
-    _isLoading = false;
+    await super.stopAdvertising();
   }
 
   Future<void> _sendKeepAlive() async {
     await Future.delayed(const Duration(seconds: 5));
-    if (isConnected.value && _central != null) {
+    if (isConnected.value && central != null) {
       final zero = Uint8List.fromList([Opcode.CONTROLLER_NOTIFICATION.value, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F]);
-      _peripheralManager.notifyCharacteristic(_central!, _syncTxCharacteristic!, value: zero);
+      await notifyCharacteristic(central!, _syncTxCharacteristic!, value: zero);
       _sendKeepAlive();
     }
   }
@@ -347,8 +316,8 @@ class ZwiftEmulator extends TrainerConnection {
         ...bytes,
       ]);
 
-      _peripheralManager.notifyCharacteristic(
-        _central!,
+      await notifyCharacteristic(
+        central!,
         _asyncCharacteristic!,
         value: commandProto,
       );
@@ -356,7 +325,7 @@ class ZwiftEmulator extends TrainerConnection {
 
     if (isKeyUp) {
       final zero = Uint8List.fromList([Opcode.CONTROLLER_NOTIFICATION.value, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F]);
-      _peripheralManager.notifyCharacteristic(_central!, _asyncCharacteristic!, value: zero);
+      await notifyCharacteristic(central!, _asyncCharacteristic!, value: zero);
     }
 
     return Success('Sent action: ${keyPair.inGameAction!.name}');
@@ -462,14 +431,8 @@ class ZwiftEmulator extends TrainerConnection {
     return null;
   }
 
+  @override
   void cleanup() {
-    _peripheralManager.stopAdvertising();
-    _peripheralManager.removeAllServices();
-    _isServiceAdded = false;
-    _isSubscribedToEvents = false;
-    _central = null;
-    isConnected.value = false;
-    isStarted.value = false;
-    _isLoading = false;
+    super.cleanup();
   }
 }

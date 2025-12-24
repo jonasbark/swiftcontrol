@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
+import 'package:bike_control/bluetooth/devices/bluetooth_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/protocol/zp.pb.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
@@ -11,19 +11,10 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bluetooth_low_energy/bluetooth_low_energy.dart';
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import '../utils/keymap/keymap.dart';
 
-class RemotePairing extends TrainerConnection {
-  bool get isLoading => _isLoading;
-
-  late final _peripheralManager = PeripheralManager();
-  bool _isLoading = false;
-  bool _isServiceAdded = false;
-  bool _isSubscribedToEvents = false;
-
-  Central? _central;
+class RemotePairing extends BluetoothEmulator {
   GATTCharacteristic? _inputReport;
 
   static const String connectionTitle = 'Remote Control';
@@ -35,9 +26,9 @@ class RemotePairing extends TrainerConnection {
       );
 
   Future<void> reconnect() async {
-    await _peripheralManager.stopAdvertising();
-    await _peripheralManager.removeAllServices();
-    _isServiceAdded = false;
+    await peripheralManager.stopAdvertising();
+    await peripheralManager.removeAllServices();
+    isServiceAdded = false;
     startAdvertising().catchError((e) {
       core.settings.setRemoteControlEnabled(false);
       core.connection.signalNotification(
@@ -47,40 +38,21 @@ class RemotePairing extends TrainerConnection {
   }
 
   Future<void> startAdvertising() async {
-    _isLoading = true;
+    isLoading = true;
     isStarted.value = true;
 
-    _peripheralManager.stateChanged.forEach((state) {
-      print('Peripheral manager state: ${state.state}');
-    });
+    subscribeToStateChanges();
+    subscribeToConnectionStateChanges(null);
 
-    if (!kIsWeb && Platform.isAndroid) {
-      _peripheralManager.connectionStateChanged.forEach((state) {
-        print('Peripheral connection state: ${state.state} of ${state.central.uuid}');
-        if (state.state == ConnectionState.connected) {
-        } else if (state.state == ConnectionState.disconnected) {
-          _central = null;
-          isConnected.value = false;
-          core.connection.signalNotification(
-            AlertNotification(LogLevel.LOGLEVEL_INFO, AppLocalizations.current.disconnected),
-          );
-        }
-      });
-
-      final status = await Permission.bluetoothAdvertise.request();
-      if (!status.isGranted) {
-        print('Bluetooth advertise permission not granted');
-        isStarted.value = false;
-        return;
-      }
+    if (!await requestBluetoothAdvertisePermission()) {
+      isStarted.value = false;
+      return;
     }
 
-    while (_peripheralManager.state != BluetoothLowEnergyState.poweredOn && core.settings.getRemoteControlEnabled()) {
-      print('Waiting for peripheral manager to be powered on...');
+    if (!await waitForPoweredOn(() => core.settings.getRemoteControlEnabled())) {
       if (core.settings.getLastTarget() == Target.thisDevice) {
         return;
       }
-      await Future.delayed(Duration(seconds: 1));
     }
     final inputReport = GATTCharacteristic.mutable(
       uuid: UUID.fromString('2A4D'),
@@ -95,8 +67,8 @@ class RemotePairing extends TrainerConnection {
       ],
     );
 
-    if (!_isServiceAdded) {
-      await Future.delayed(Duration(seconds: 1));
+    if (!isServiceAdded) {
+      await Future.delayed(const Duration(seconds: 1));
 
       final reportMapDataAbsolute = Uint8List.fromList([
         0x05, 0x01, // Usage Page (Generic Desktop)
@@ -206,21 +178,21 @@ class RemotePairing extends TrainerConnection {
         includedServices: [],
       );
 
-      if (!_isSubscribedToEvents) {
-        _isSubscribedToEvents = true;
-        _peripheralManager.characteristicReadRequested.forEach((char) {
+      if (!isSubscribedToEvents) {
+        isSubscribedToEvents = true;
+        peripheralManager.characteristicReadRequested.forEach((char) {
           print('Read request for characteristic: ${char}');
           // You can respond to read requests here if needed
         });
 
-        _peripheralManager.characteristicNotifyStateChanged.forEach((char) {
+        peripheralManager.characteristicNotifyStateChanged.forEach((char) {
           if (char.characteristic.uuid == inputReport.uuid) {
             if (char.state) {
               _inputReport = char.characteristic;
-              _central = char.central;
+              central = char.central;
             } else {
               _inputReport = null;
-              _central = null;
+              central = null;
             }
           }
           print(
@@ -228,10 +200,10 @@ class RemotePairing extends TrainerConnection {
           );
         });
       }
-      await _peripheralManager.addService(hidService);
+      await addService(hidService);
 
       // 3) Optional Battery service
-      await _peripheralManager.addService(
+      await addService(
         GATTService(
           uuid: UUID.fromString('180F'),
           isPrimary: true,
@@ -245,7 +217,7 @@ class RemotePairing extends TrainerConnection {
           includedServices: [],
         ),
       );
-      _isServiceAdded = true;
+      isServiceAdded = true;
     }
 
     final advertisement = Advertisement(
@@ -259,20 +231,18 @@ class RemotePairing extends TrainerConnection {
     );
     print('Starting advertising with Zwift service...');
 
-    await _peripheralManager.startAdvertising(advertisement);
-    _isLoading = false;
+    await startAdvertising(advertisement);
+    isLoading = false;
   }
 
+  @override
   Future<void> stopAdvertising() async {
-    await _peripheralManager.stopAdvertising();
-    isStarted.value = false;
-    isConnected.value = false;
-    _isLoading = false;
+    await super.stopAdvertising();
   }
 
   Future<void> notifyCharacteristic(Uint8List value) async {
-    if (_inputReport != null && _central != null) {
-      await _peripheralManager.notifyCharacteristic(_central!, _inputReport!, value: value);
+    if (_inputReport != null && central != null) {
+      await peripheralManager.notifyCharacteristic(central!, _inputReport!, value: value);
     }
   }
 
