@@ -13,13 +13,21 @@
 
 # Check if API keys are set
 if [ -z "$REVENUECAT_IOS_API_KEY" ]; then
-    echo "WARNING: REVENUECAT_IOS_API_KEY is not set"
+    echo "ERROR: REVENUECAT_IOS_API_KEY is not set"
     echo "Set it with: export REVENUECAT_IOS_API_KEY=appl_xxxxxxxxxxxxx"
+    echo ""
+    echo "Build will continue but iOS/macOS builds may not work correctly without API keys."
+    echo "Press Ctrl+C to cancel or wait 5 seconds to continue..."
+    sleep 5
 fi
 
 if [ -z "$REVENUECAT_ANDROID_API_KEY" ]; then
-    echo "WARNING: REVENUECAT_ANDROID_API_KEY is not set"
+    echo "ERROR: REVENUECAT_ANDROID_API_KEY is not set"
     echo "Set it with: export REVENUECAT_ANDROID_API_KEY=goog_xxxxxxxxxxxxx"
+    echo ""
+    echo "Build will continue but Android builds may not work correctly without API keys."
+    echo "Press Ctrl+C to cancel or wait 5 seconds to continue..."
+    sleep 5
 fi
 
 # Build for iOS

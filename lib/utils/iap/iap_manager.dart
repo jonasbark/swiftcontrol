@@ -160,6 +160,8 @@ class IAPManager {
     _windowsIapService?.dispose();
   }
 
+  /// Reset IAP state
+  /// Note: Windows reset is synchronous (simple delete), RevenueCat reset is async (includes reinit)
   Future<void> reset(bool fullReset) async {
     _windowsIapService?.reset();
     await _revenueCatService?.reset(fullReset);

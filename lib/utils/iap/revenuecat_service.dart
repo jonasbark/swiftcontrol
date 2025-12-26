@@ -7,6 +7,7 @@ import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -223,7 +224,7 @@ class RevenueCatService {
   Future<void> _checkRevenueCatEntitlements() async {
     try {
       final customerInfo = await Purchases.getCustomerInfo();
-      _updatePurchaseStatus(customerInfo);
+      await _updatePurchaseStatus(customerInfo);
     } catch (e) {
       debugPrint('Error checking RevenueCat entitlements: $e');
       core.connection.signalNotification(
@@ -233,22 +234,22 @@ class RevenueCatService {
   }
 
   /// Handle customer info updates from RevenueCat
-  void _onCustomerInfoUpdate(CustomerInfo customerInfo) {
+  Future<void> _onCustomerInfoUpdate(CustomerInfo customerInfo) async {
     core.connection.signalNotification(
       LogNotification('RevenueCat customer info updated'),
     );
-    _updatePurchaseStatus(customerInfo);
+    await _updatePurchaseStatus(customerInfo);
   }
 
   /// Update purchase status based on customer info
-  void _updatePurchaseStatus(CustomerInfo customerInfo) {
+  Future<void> _updatePurchaseStatus(CustomerInfo customerInfo) async {
     // Check if the user has the "full_access" entitlement
     final hasFullAccess = customerInfo.entitlements.active.containsKey('full_access');
     
     if (hasFullAccess) {
       IAPManager.instance.isPurchased.value = true;
-      _prefs.write(key: _hasPurchasedKey, value: "true");
-      _prefs.write(key: _purchaseStatusKey, value: "true");
+      await _prefs.write(key: _hasPurchasedKey, value: "true");
+      await _prefs.write(key: _purchaseStatusKey, value: "true");
       debugPrint('RevenueCat: User has full access');
     } else {
       debugPrint('RevenueCat: User does not have full access');
@@ -259,7 +260,7 @@ class RevenueCatService {
   Future<void> restorePurchases() async {
     try {
       final customerInfo = await Purchases.restorePurchases();
-      _updatePurchaseStatus(customerInfo);
+      await _updatePurchaseStatus(customerInfo);
       core.connection.signalNotification(
         LogNotification('Purchases restored successfully'),
       );
@@ -292,7 +293,9 @@ class RevenueCatService {
 
       // Get the lifetime package or the first available package
       final package = offerings.current!.lifetime ?? 
-                     offerings.current!.availablePackages.firstOrNull;
+                     (offerings.current!.availablePackages.isNotEmpty 
+                         ? offerings.current!.availablePackages.first 
+                         : null);
       
       if (package == null) {
         debugPrint('No package available');
@@ -304,7 +307,7 @@ class RevenueCatService {
 
       // Purchase the package
       final purchaseResult = await Purchases.purchasePackage(package);
-      _updatePurchaseStatus(purchaseResult.customerInfo);
+      await _updatePurchaseStatus(purchaseResult.customerInfo);
       
       core.connection.signalNotification(
         LogNotification('Purchase completed successfully'),
