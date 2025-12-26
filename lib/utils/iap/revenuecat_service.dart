@@ -23,6 +23,8 @@ import 'package:version/version.dart';
 ///   - REVENUECAT_ANDROID_API_KEY for Android
 class RevenueCatService {
   static const int trialDays = 5;
+  // Version threshold for legacy user detection (users before this version get full access)
+  static const String legacyVersionThreshold = '4.2.0';
 
   static const String _trialStartDateKey = 'iap_trial_start_date';
   static const String _purchaseStatusKey = 'iap_purchase_status';
@@ -185,11 +187,12 @@ class RevenueCatService {
       final lastSeenVersion = core.settings.getLastSeenVersion();
       if (lastSeenVersion != null && lastSeenVersion.isNotEmpty) {
         Version lastVersion = Version.parse(lastSeenVersion);
-        if (Platform.isIOS && lastVersion < Version(4, 2, 0)) {
+        final legacyVersion = Version.parse(legacyVersionThreshold);
+        if (Platform.isIOS && lastVersion < legacyVersion) {
           IAPManager.instance.isPurchased.value = true;
           await _prefs.write(key: _purchaseStatusKey, value: "true");
           debugPrint('Legacy iOS user detected - granting full access');
-        } else if (Platform.isMacOS && lastVersion < Version(4, 2, 0)) {
+        } else if (Platform.isMacOS && lastVersion < legacyVersion) {
           IAPManager.instance.isPurchased.value = true;
           await _prefs.write(key: _purchaseStatusKey, value: "true");
           debugPrint('Legacy macOS user detected - granting full access');
@@ -207,8 +210,9 @@ class RevenueCatService {
       core.connection.signalNotification(LogNotification('Android last seen version: $lastSeenVersion'));
       if (lastSeenVersion != null && lastSeenVersion.isNotEmpty) {
         Version lastVersion = Version.parse(lastSeenVersion);
+        final legacyVersion = Version.parse(legacyVersionThreshold);
         // If they had a previous version, they're an existing paid user
-        IAPManager.instance.isPurchased.value = lastVersion < Version(4, 2, 0);
+        IAPManager.instance.isPurchased.value = lastVersion < legacyVersion;
         if (IAPManager.instance.isPurchased.value) {
           await _prefs.write(key: _purchaseStatusKey, value: "true");
         }
@@ -364,8 +368,8 @@ class RevenueCatService {
     return (!IAPManager.instance.isPurchased.value && hasTrialStarted && trialDaysRemaining <= 0);
   }
 
-  /// Get the number of commands executed today
-  int get dailyCommandCount {
+  /// Check if we need to reset the daily counter (new day)
+  void _checkDayReset() {
     final lastDate = _lastCommandDate;
     final today = DateTime.now().toIso8601String().split('T')[0];
 
@@ -374,7 +378,11 @@ class RevenueCatService {
       _lastCommandDate = today;
       _dailyCommandCount = 0;
     }
+  }
 
+  /// Get the number of commands executed today
+  int get dailyCommandCount {
+    _checkDayReset();
     return _dailyCommandCount ?? 0;
   }
 
@@ -417,9 +425,9 @@ class RevenueCatService {
 
   Future<void> reset(bool fullReset) async {
     if (fullReset) {
-      _prefs.deleteAll();
+      await _prefs.deleteAll();
     } else {
-      _prefs.delete(key: _purchaseStatusKey);
+      await _prefs.delete(key: _purchaseStatusKey);
       _isInitialized = false;
       await initialize();
     }
