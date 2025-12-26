@@ -1,12 +1,26 @@
 #!/bin/bash
 
-# Build script example for BikeControl with RevenueCat API keys
+# Build script for BikeControl with RevenueCat API keys
 # This script demonstrates how to build the app with the required environment variables
+#
+# IMPORTANT: DO NOT commit actual API keys to version control!
+# Set them as environment variables instead:
+#   export REVENUECAT_IOS_API_KEY="appl_xxxxxxxxxxxxx"
+#   export REVENUECAT_ANDROID_API_KEY="goog_xxxxxxxxxxxxx"
+#
+# Or create a local .env file (git-ignored) and source it:
+#   source .env
 
-# Set your RevenueCat API keys here
-# Get these from the RevenueCat dashboard: https://app.revenuecat.com/
-REVENUECAT_IOS_API_KEY="appl_xxxxxxxxxxxxx"  # Replace with your actual iOS API key
-REVENUECAT_ANDROID_API_KEY="goog_xxxxxxxxxxxxx"  # Replace with your actual Android API key
+# Check if API keys are set
+if [ -z "$REVENUECAT_IOS_API_KEY" ]; then
+    echo "WARNING: REVENUECAT_IOS_API_KEY is not set"
+    echo "Set it with: export REVENUECAT_IOS_API_KEY=appl_xxxxxxxxxxxxx"
+fi
+
+if [ -z "$REVENUECAT_ANDROID_API_KEY" ]; then
+    echo "WARNING: REVENUECAT_ANDROID_API_KEY is not set"
+    echo "Set it with: export REVENUECAT_ANDROID_API_KEY=goog_xxxxxxxxxxxxx"
+fi
 
 # Build for iOS
 build_ios() {

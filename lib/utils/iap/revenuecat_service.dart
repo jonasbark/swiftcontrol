@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:bike_control/bluetooth/devices/zwift/protocol/zp.pb.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/core.dart';
@@ -150,8 +149,8 @@ class RevenueCatService {
 
     if (storedStatus == "true") {
       if (Platform.isAndroid) {
-        if (lastPurchaseCheck == todayDate || hasPurchased == null) {
-          // hasPurchased means it was redeemed manually, so we skip the daily check
+        if (lastPurchaseCheck == todayDate || hasPurchased != null) {
+          // hasPurchased != null means it was redeemed manually, so we skip the daily check
           IAPManager.instance.isPurchased.value = true;
         }
       } else {
@@ -413,13 +412,13 @@ class RevenueCatService {
     _subscription?.cancel();
   }
 
-  void reset(bool fullReset) {
+  Future<void> reset(bool fullReset) async {
     if (fullReset) {
       _prefs.deleteAll();
     } else {
       _prefs.delete(key: _purchaseStatusKey);
       _isInitialized = false;
-      initialize();
+      await initialize();
     }
   }
 

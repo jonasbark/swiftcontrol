@@ -35,7 +35,9 @@ dependencies:
   ios_receipt:
     path: ios_receipt
   flutter_secure_storage: ^10.0.0
+  # Note: in_app_purchase kept for backward compatibility with legacy code
   in_app_purchase: ^3.2.1
+  # RevenueCat SDK for improved IAP management on iOS, Android, and macOS
   purchases_flutter: ^8.4.0
   windows_iap:
     path: windows_iap

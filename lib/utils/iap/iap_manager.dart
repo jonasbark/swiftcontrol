@@ -160,9 +160,9 @@ class IAPManager {
     _windowsIapService?.dispose();
   }
 
-  void reset(bool fullReset) {
+  Future<void> reset(bool fullReset) async {
     _windowsIapService?.reset();
-    _revenueCatService?.reset(fullReset);
+    await _revenueCatService?.reset(fullReset);
   }
 
   Future<void> redeem() async {
