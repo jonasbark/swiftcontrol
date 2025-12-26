@@ -1,3 +1,12 @@
+### 4.2.3 (26-12-2025)
+
+**Technical Updates**:
+- Integrated RevenueCat SDK for improved in-app purchase management on iOS, Android, and macOS
+  - Better cross-platform purchase synchronization
+  - More reliable purchase restoration
+  - Server-side receipt validation for enhanced security
+- Existing users: Your previous purchases are automatically recognized and honored
+
 ### 4.2.0 (20-12-2025)
 
 BikeControl now offers a free trial period of 5 days for all features, so you can test everything before deciding to purchase a license. Please contact the support if you experience any issues!

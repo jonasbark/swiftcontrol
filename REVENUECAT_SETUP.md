@@ -50,17 +50,26 @@ BikeControl now uses RevenueCat SDK for managing in-app purchases across iOS, An
 
 Set the API keys as environment variables or build arguments:
 
-#### For iOS/macOS:
+#### Using the build script (recommended):
+```bash
+# Edit scripts/build_with_revenuecat.sh and set your API keys
+# Then run:
+./scripts/build_with_revenuecat.sh [ios|android|appbundle|macos|all]
+```
+
+#### Manual build commands:
+
+For iOS/macOS:
 ```bash
 flutter build ios --dart-define=REVENUECAT_IOS_API_KEY=your_ios_api_key_here
 ```
 
-#### For Android:
+For Android:
 ```bash
 flutter build apk --dart-define=REVENUECAT_ANDROID_API_KEY=your_android_api_key_here
 ```
 
-#### For all platforms (example):
+For all platforms (example):
 ```bash
 flutter build ios --dart-define=REVENUECAT_IOS_API_KEY=appl_xxxxx
 flutter build appbundle --dart-define=REVENUECAT_ANDROID_API_KEY=goog_xxxxx
