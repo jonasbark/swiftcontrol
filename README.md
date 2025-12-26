@@ -102,3 +102,8 @@ Please consider donating to support the development of this app :)
 - [via PayPal](https://paypal.me/boni)
 - [via Credit Card, Google Pay, Apple Pay, etc. (USD)](https://donate.stripe.com/8x24gzc5c4ZE3VJdt36J201)
 - [via Credit Card, Google Pay, Apple Pay, etc. (EUR)](https://donate.stripe.com/9B6aEX0muajY8bZ1Kl6J200)
+
+## For Developers
+
+### In-App Purchases
+BikeControl uses [RevenueCat](https://www.revenuecat.com/) for managing in-app purchases on iOS, Android, and macOS platforms. See [REVENUECAT_SETUP.md](REVENUECAT_SETUP.md) for configuration instructions.

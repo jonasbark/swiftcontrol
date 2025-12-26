@@ -14,6 +14,13 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:version/version.dart';
 
 /// Service to handle in-app purchase functionality using RevenueCat SDK
+/// 
+/// Configuration requirements:
+/// - RevenueCat entitlement: 'full_access'
+/// - Product ID (App Store/Google Play): 'full_access_unlock'
+/// - API keys must be provided via environment variables:
+///   - REVENUECAT_IOS_API_KEY for iOS and macOS
+///   - REVENUECAT_ANDROID_API_KEY for Android
 class RevenueCatService {
   static const int trialDays = 5;
 
