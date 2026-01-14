@@ -116,17 +116,23 @@ class AccessibilityService : AccessibilityService(), Listener {
     override fun simulateKeyPress(keyCode: Int, isKeyDown: Boolean, isKeyUp: Boolean) {
         Log.d("AccessibilityService", "simulateKeyPress: keyCode=$keyCode isKeyDown=$isKeyDown isKeyUp=$isKeyUp")
         
-        // Send key events to the system
-        if (isKeyDown) {
-            val downEvent = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.dispatchMediaKeyEvent(downEvent)
-        }
-        
-        if (isKeyUp) {
-            val upEvent = KeyEvent(KeyEvent.ACTION_UP, keyCode)
-            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.dispatchMediaKeyEvent(upEvent)
+        try {
+            // Android's AccessibilityService doesn't have a direct API to inject arbitrary keyboard events
+            // We use the input command via shell, which doesn't require special permissions
+            // This is the standard approach for keyboard simulation on Android
+            if (isKeyDown && isKeyUp) {
+                // Single key press
+                Runtime.getRuntime().exec(arrayOf("input", "keyevent", keyCode.toString()))
+            } else {
+                // For long press support, we need to send separate down/up events
+                if (isKeyDown) {
+                    Runtime.getRuntime().exec(arrayOf("input", "keyevent", "--longpress", keyCode.toString()))
+                }
+                // Note: Separate keyup is not easily achievable with the input command
+                // The input command sends both down and up events together
+            }
+        } catch (e: Exception) {
+            Log.e("AccessibilityService", "Failed to simulate key press: ${e.message}")
         }
     }
 }
