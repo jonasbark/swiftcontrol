@@ -116,6 +116,12 @@ class AccessibilityService : AccessibilityService(), Listener {
     override fun simulateKeyPress(keyCode: Int, isKeyDown: Boolean, isKeyUp: Boolean) {
         Log.d("AccessibilityService", "simulateKeyPress: keyCode=$keyCode isKeyDown=$isKeyDown isKeyUp=$isKeyUp")
         
+        // Validate keyCode to prevent potential command injection
+        if (keyCode < 0 || keyCode > 300) {
+            Log.e("AccessibilityService", "Invalid keyCode: $keyCode")
+            return
+        }
+        
         try {
             // Android's AccessibilityService doesn't have a direct API to inject arbitrary keyboard events
             // We use the input command via shell, which doesn't require special permissions
@@ -125,15 +131,11 @@ class AccessibilityService : AccessibilityService(), Listener {
             // It doesn't support sending only one or the other, which is a limitation of this approach
             // For most use cases (button clicks), this works fine as we want a complete key press
             
-            if (isKeyDown && isKeyUp) {
-                // Normal key press - send key event
-                Runtime.getRuntime().exec(arrayOf("input", "keyevent", keyCode.toString()))
-            } else if (isKeyDown) {
-                // Key down only - we still need to send a complete event as that's all the command supports
-                // This will result in both down and up, but it's the best we can do with the input command
+            // Only send the key event on key down to avoid duplicate events
+            // We ignore separate key up events since the input command handles both
+            if (isKeyDown) {
                 Runtime.getRuntime().exec(arrayOf("input", "keyevent", keyCode.toString()))
             }
-            // For isKeyUp only, we do nothing as the key down already sent both events
         } catch (e: Exception) {
             Log.e("AccessibilityService", "Failed to simulate key press: ${e.message}")
         }
