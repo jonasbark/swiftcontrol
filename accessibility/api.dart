@@ -15,6 +15,8 @@ abstract class Accessibility {
   void ignoreHidDevices();
 
   void setHandledKeys(List<String> keys);
+
+  void simulateKeyPress(int keyCode, {bool isKeyDown = true, bool isKeyUp = false});
 }
 
 enum MediaAction { playPause, next, volumeUp, volumeDown }

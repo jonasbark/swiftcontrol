@@ -217,6 +217,7 @@ interface Accessibility {
   fun isRunning(): Boolean
   fun ignoreHidDevices()
   fun setHandledKeys(keys: List<String>)
+  fun simulateKeyPress(keyCode: Long, isKeyDown: Boolean, isKeyUp: Boolean)
 
   companion object {
     /** The codec used by Accessibility. */
@@ -336,6 +337,26 @@ interface Accessibility {
             val keysArg = args[0] as List<String>
             val wrapped: List<Any?> = try {
               api.setHandledKeys(keysArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              AccessibilityApiPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.accessibility.Accessibility.simulateKeyPress$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val keyCodeArg = args[0].let { num -> if (num is Int) num.toLong() else num as Long }
+            val isKeyDownArg = args[1] as Boolean
+            val isKeyUpArg = args[2] as Boolean
+            val wrapped: List<Any?> = try {
+              api.simulateKeyPress(keyCodeArg, isKeyDownArg, isKeyUpArg)
               listOf(null)
             } catch (exception: Throwable) {
               AccessibilityApiPigeonUtils.wrapError(exception)

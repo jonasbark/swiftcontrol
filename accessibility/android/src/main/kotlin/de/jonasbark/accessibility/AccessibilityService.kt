@@ -112,4 +112,21 @@ class AccessibilityService : AccessibilityService(), Listener {
 
         dispatchGesture(gestureBuilder.build(), null, null)
     }
+
+    override fun simulateKeyPress(keyCode: Int, isKeyDown: Boolean, isKeyUp: Boolean) {
+        Log.d("AccessibilityService", "simulateKeyPress: keyCode=$keyCode isKeyDown=$isKeyDown isKeyUp=$isKeyUp")
+        
+        // Send key events to the system
+        if (isKeyDown) {
+            val downEvent = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.dispatchMediaKeyEvent(downEvent)
+        }
+        
+        if (isKeyUp) {
+            val upEvent = KeyEvent(KeyEvent.ACTION_UP, keyCode)
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.dispatchMediaKeyEvent(upEvent)
+        }
+    }
 }

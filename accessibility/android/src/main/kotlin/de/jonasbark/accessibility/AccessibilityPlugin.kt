@@ -95,6 +95,10 @@ class AccessibilityPlugin: FlutterPlugin, Accessibility {
     Observable.handledKeys = keys.toSet()
   }
 
+  override fun simulateKeyPress(keyCode: Long, isKeyDown: Boolean, isKeyUp: Boolean) {
+    Observable.toService?.simulateKeyPress(keyCode = keyCode.toInt(), isKeyDown = isKeyDown, isKeyUp = isKeyUp) ?: error("Service not running")
+  }
+
 }
 
 class WindowEventListener : StreamEventsStreamHandler(), Receiver {
