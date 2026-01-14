@@ -120,17 +120,20 @@ class AccessibilityService : AccessibilityService(), Listener {
             // Android's AccessibilityService doesn't have a direct API to inject arbitrary keyboard events
             // We use the input command via shell, which doesn't require special permissions
             // This is the standard approach for keyboard simulation on Android
+            
+            // Note: The input keyevent command always sends both key down and key up events
+            // It doesn't support sending only one or the other, which is a limitation of this approach
+            // For most use cases (button clicks), this works fine as we want a complete key press
+            
             if (isKeyDown && isKeyUp) {
-                // Single key press
+                // Normal key press - send key event
                 Runtime.getRuntime().exec(arrayOf("input", "keyevent", keyCode.toString()))
-            } else {
-                // For long press support, we need to send separate down/up events
-                if (isKeyDown) {
-                    Runtime.getRuntime().exec(arrayOf("input", "keyevent", "--longpress", keyCode.toString()))
-                }
-                // Note: Separate keyup is not easily achievable with the input command
-                // The input command sends both down and up events together
+            } else if (isKeyDown) {
+                // Key down only - we still need to send a complete event as that's all the command supports
+                // This will result in both down and up, but it's the best we can do with the input command
+                Runtime.getRuntime().exec(arrayOf("input", "keyevent", keyCode.toString()))
             }
+            // For isKeyUp only, we do nothing as the key down already sent both events
         } catch (e: Exception) {
             Log.e("AccessibilityService", "Failed to simulate key press: ${e.message}")
         }
