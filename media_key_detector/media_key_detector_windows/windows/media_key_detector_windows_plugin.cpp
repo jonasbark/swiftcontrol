@@ -12,6 +12,9 @@
 #include <map>
 #include <memory>
 #include <atomic>
+
+// HID usage constants - requires Windows SDK 8.0 or later
+// If building with an older SDK, these constants can be defined manually
 #include <hidusage.h>
 
 namespace {
@@ -232,6 +235,7 @@ void MediaKeyDetectorWindows::UnregisterRawInput() {
   rid[0].dwFlags = RIDEV_REMOVE;
   rid[0].hwndTarget = nullptr;
   
+  // Always mark as unregistered, even if the API call fails during cleanup
   RegisterRawInputDevices(rid, 1, sizeof(rid[0]));
   raw_input_registered_ = false;
 }
@@ -246,9 +250,6 @@ void MediaKeyDetectorWindows::HandleRawInput(HRAWINPUT lParam) {
   
   // Allocate buffer for raw input data
   std::unique_ptr<BYTE[]> lpb = std::make_unique<BYTE[]>(dwSize);
-  if (!lpb) {
-    return;
-  }
   
   // Get the raw input data
   if (GetRawInputData(lParam, RID_INPUT, lpb.get(), &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
