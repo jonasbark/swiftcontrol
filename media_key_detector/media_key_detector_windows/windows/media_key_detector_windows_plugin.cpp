@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <atomic>
+#include <hidusage.h>
 
 namespace {
 
@@ -44,6 +45,15 @@ class MediaKeyDetectorWindows : public flutter::Plugin {
   // Unregister global hotkeys
   void UnregisterHotkeys();
   
+  // Register for raw input (keyboard events from HID devices)
+  void RegisterRawInput();
+  
+  // Unregister raw input
+  void UnregisterRawInput();
+  
+  // Handle raw input data
+  void HandleRawInput(HRAWINPUT lParam);
+  
   // Handle Windows messages
   std::optional<LRESULT> HandleWindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
   
@@ -52,6 +62,7 @@ class MediaKeyDetectorWindows : public flutter::Plugin {
   std::atomic<bool> is_playing_{false};
   int window_proc_id_ = -1;
   bool hotkeys_registered_ = false;
+  bool raw_input_registered_ = false;
 };
 
 // static
@@ -105,6 +116,7 @@ MediaKeyDetectorWindows::MediaKeyDetectorWindows(flutter::PluginRegistrarWindows
 
 MediaKeyDetectorWindows::~MediaKeyDetectorWindows() {
   UnregisterHotkeys();
+  UnregisterRawInput();
   if (window_proc_id_ != -1) {
     registrar_->UnregisterTopLevelWindowProcDelegate(window_proc_id_);
   }
@@ -126,8 +138,10 @@ void MediaKeyDetectorWindows::HandleMethodCall(
           is_playing_.store(*is_playing);
           if (*is_playing) {
             RegisterHotkeys();
+            RegisterRawInput();
           } else {
             UnregisterHotkeys();
+            UnregisterRawInput();
           }
           result->Success();
           return;
@@ -185,8 +199,109 @@ void MediaKeyDetectorWindows::UnregisterHotkeys() {
   hotkeys_registered_ = false;
 }
 
+void MediaKeyDetectorWindows::RegisterRawInput() {
+  if (raw_input_registered_) {
+    return;
+  }
+
+  HWND hwnd = registrar_->GetView()->GetNativeWindow();
+  
+  // Register for raw input from keyboard devices (including HID devices like BT remotes)
+  RAWINPUTDEVICE rid[1];
+  
+  // HID usage page 1 (Generic Desktop Controls), usage 6 (Keyboard)
+  rid[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+  rid[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;
+  rid[0].dwFlags = RIDEV_INPUTSINK;  // Receive input even when not in foreground
+  rid[0].hwndTarget = hwnd;
+  
+  if (RegisterRawInputDevices(rid, 1, sizeof(rid[0]))) {
+    raw_input_registered_ = true;
+  }
+}
+
+void MediaKeyDetectorWindows::UnregisterRawInput() {
+  if (!raw_input_registered_) {
+    return;
+  }
+
+  // Unregister raw input device
+  RAWINPUTDEVICE rid[1];
+  rid[0].usUsagePage = HID_USAGE_PAGE_GENERIC;
+  rid[0].usUsage = HID_USAGE_GENERIC_KEYBOARD;
+  rid[0].dwFlags = RIDEV_REMOVE;
+  rid[0].hwndTarget = nullptr;
+  
+  RegisterRawInputDevices(rid, 1, sizeof(rid[0]));
+  raw_input_registered_ = false;
+}
+
+void MediaKeyDetectorWindows::HandleRawInput(HRAWINPUT lParam) {
+  UINT dwSize;
+  
+  // Get the size of the raw input data
+  if (GetRawInputData(lParam, RID_INPUT, nullptr, &dwSize, sizeof(RAWINPUTHEADER)) == (UINT)-1) {
+    return;
+  }
+  
+  // Allocate buffer for raw input data
+  std::unique_ptr<BYTE[]> lpb = std::make_unique<BYTE[]>(dwSize);
+  if (!lpb) {
+    return;
+  }
+  
+  // Get the raw input data
+  if (GetRawInputData(lParam, RID_INPUT, lpb.get(), &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
+    return;
+  }
+  
+  RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(lpb.get());
+  
+  // Only process keyboard input
+  if (raw->header.dwType != RIM_TYPEKEYBOARD) {
+    return;
+  }
+  
+  // Only process key down events
+  if (raw->data.keyboard.Message != WM_KEYDOWN) {
+    return;
+  }
+  
+  int key_index = -1;
+  
+  // Map virtual key codes to media keys
+  switch (raw->data.keyboard.VKey) {
+    case VK_MEDIA_PLAY_PAUSE:
+      key_index = 0;  // MediaKey.playPause
+      break;
+    case VK_MEDIA_PREV_TRACK:
+      key_index = 1;  // MediaKey.rewind
+      break;
+    case VK_MEDIA_NEXT_TRACK:
+      key_index = 2;  // MediaKey.fastForward
+      break;
+    case VK_VOLUME_UP:
+      key_index = 3;  // MediaKey.volumeUp
+      break;
+    case VK_VOLUME_DOWN:
+      key_index = 4;  // MediaKey.volumeDown
+      break;
+  }
+  
+  if (key_index >= 0 && event_sink_) {
+    event_sink_->Success(EncodableValue(key_index));
+  }
+}
+
 std::optional<LRESULT> MediaKeyDetectorWindows::HandleWindowProc(
     HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+  // Handle raw input messages for keyboard events from HID devices
+  if (message == WM_INPUT) {
+    HandleRawInput(reinterpret_cast<HRAWINPUT>(lparam));
+    return 0;
+  }
+  
+  // Handle hotkey messages for media keys
   if (message == WM_HOTKEY && event_sink_) {
     int key_index = -1;
     
