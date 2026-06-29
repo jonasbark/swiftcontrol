@@ -147,6 +147,13 @@ Future<void> _recordFlutterError(FlutterErrorDetails details) async {
   );
 }
 
+/// Whether an error [context] represents a genuinely uncaught failure (caught
+/// only by the app's top-level guards) rather than an error that was handled in
+/// a try/catch and merely funneled through [recordError]. Controls only the log
+/// label: a handled error must not read as "App crashed" in support logs.
+bool isFatalErrorContext(String context) =>
+    const {'Zone', 'PlatformDispatcher', 'Isolate'}.contains(context);
+
 /// Record a handled error. Funnels through [Logger.recordError]; the listener
 /// installed by [installLoggerErrorListener] prints and persists the entry
 /// (which also feeds the debug log support chats attach).
@@ -179,6 +186,7 @@ void installLoggerErrorListener() {
     unawaited(
       _persistCrash(
         type: 'dart',
+        fatal: isFatalErrorContext(message),
         error: error.toString(),
         stack: stack,
         information: 'Context: $message',
@@ -190,11 +198,16 @@ void installLoggerErrorListener() {
 Future<void> _persistCrash({
   required String type,
   required String error,
+  bool fatal = false,
   StackTrace? stack,
   String? information,
 }) async {
   try {
-    core.connection.signalNotification(LogNotification('App crashed $type: $error${stack != null ? '\n$stack' : ''}'));
+    // Only genuinely-uncaught errors read as "App crashed"; handled errors
+    // (caught + recorded) read as "Handled error" so support logs aren't
+    // misread as crashes.
+    final label = fatal ? 'App crashed' : 'Handled error';
+    core.connection.signalNotification(LogNotification('$label $type: $error${stack != null ? '\n$stack' : ''}'));
 
     final timestamp = DateTime.now().toIso8601String();
     String debugTextValue;
