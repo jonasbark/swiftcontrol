@@ -6,6 +6,7 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
+import 'package:bike_control/gen/l10n.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Which steer direction is active for [angle] given [threshold]. Mirrors
@@ -133,7 +134,7 @@ class SteeringWheelGauge extends StatelessWidget {
                                     children: [
                                       SmallProgressIndicator(),
                                       const SizedBox(width: 6),
-                                      const Text('Calibrating…').xSmall.muted,
+                                      Text(AppLocalizations.of(context).steeringCalibrating).xSmall.muted,
                                     ],
                                   ),
                           ),
