@@ -107,6 +107,10 @@ Future<List<File>> captureWidget(
   Brightness brightness = Brightness.light,
   double pixelRatio = 3.0,
   String outputDir = 'build/snapshots',
+  /// If false, use pump(duration) instead of pumpAndSettle — needed when the
+  /// widget contains an infinite animation (e.g. a CircularProgressIndicator)
+  /// that would cause pumpAndSettle to time out.
+  bool settle = true,
 }) async {
   await ensureSnapshotHarness();
 
@@ -186,7 +190,13 @@ Future<List<File>> captureWidget(
     // (Geist etc.); the second pump re-renders with real glyphs, not Ahem boxes.
     await tester.pump();
     await tester.loadAssets();
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      // For widgets with infinite animations (spinners, etc.) pumpAndSettle
+      // would time out. Pump a fixed frame so the widget is rendered.
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     final fileName = locales.length == 1 ? '$name.png' : '$name-$loc.png';
     files.add(
