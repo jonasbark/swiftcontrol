@@ -78,68 +78,66 @@ class SteeringWheelGauge extends StatelessWidget {
                 valueListenable: angle,
                 builder: (context, liveAngle, _) {
                   final side = isCalibrated ? steerSideFor(liveAngle, threshold) : SteerSide.none;
-                  return Stack(
-                    fit: StackFit.expand,
+                  return Column(
                     children: [
-                      // Smoothly eases the wheel between sensor frames.
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(end: liveAngle.clamp(-displayRange, displayRange)),
-                        duration: const Duration(milliseconds: 120),
-                        curve: Curves.easeOut,
-                        builder: (context, animatedAngle, _) => CustomPaint(
-                          painter: _SteeringWheelPainter(
-                            angle: animatedAngle,
-                            threshold: threshold,
-                            displayRange: displayRange,
-                            side: side,
-                            dimmed: !isCalibrated,
-                            wheelColor: cs.mutedForeground,
-                            scaleColor: cs.border,
-                            zoneColor: cs.mutedForeground.withValues(alpha: 0.12),
-                            activeColor: cs.primary,
-                          ),
-                        ),
-                      ),
-                      // Tap-to-remap halves (transparent).
-                      if (_canEdit)
-                        Row(
+                      Expanded(
+                        child: Stack(
+                          fit: StackFit.expand,
                           children: [
-                            Expanded(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => _edit(context, leftButton),
+                            // Smoothly eases the wheel between sensor frames.
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(end: liveAngle.clamp(-displayRange, displayRange)),
+                              duration: const Duration(milliseconds: 120),
+                              curve: Curves.easeOut,
+                              builder: (context, animatedAngle, _) => CustomPaint(
+                                painter: _SteeringWheelPainter(
+                                  angle: animatedAngle,
+                                  threshold: threshold,
+                                  displayRange: displayRange,
+                                  side: side,
+                                  dimmed: !isCalibrated,
+                                  wheelColor: cs.mutedForeground,
+                                  scaleColor: cs.border,
+                                  zoneColor: cs.mutedForeground.withValues(alpha: 0.12),
+                                  activeColor: cs.primary,
+                                ),
                               ),
                             ),
-                            Expanded(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => _edit(context, rightButton),
+                            // Tap-to-remap halves (transparent).
+                            if (_canEdit)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _edit(context, leftButton),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _edit(context, rightButton),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
                           ],
                         ),
-                      // Numeric readout / calibrating hint.
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: IgnorePointer(
-                          child: Center(
-                            child: isCalibrated
-                                ? Text(
-                                    '${liveAngle.toStringAsFixed(0)}°  ·  ±${threshold.toStringAsFixed(0)}°',
-                                  ).xSmall.muted
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SmallProgressIndicator(),
-                                      const SizedBox(width: 6),
-                                      Text(AppLocalizations.of(context).steeringCalibrating).xSmall.muted,
-                                    ],
-                                  ),
-                          ),
-                        ),
                       ),
+                      const SizedBox(height: 4),
+                      // Numeric readout / calibrating hint, below the wheel (no overlap).
+                      isCalibrated
+                          ? Text(
+                              '${liveAngle.toStringAsFixed(0)}°  ·  ±${threshold.toStringAsFixed(0)}°',
+                            ).xSmall.muted
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SmallProgressIndicator(),
+                                const SizedBox(width: 6),
+                                Text(AppLocalizations.of(context).steeringCalibrating).xSmall.muted,
+                              ],
+                            ),
                     ],
                   );
                 },
@@ -184,7 +182,7 @@ class _SteeringWheelPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.62);
+    final center = Offset(size.width / 2, size.height * 0.55);
     final radius = math.min(size.width, size.height) * 0.30;
     final scaleR = radius * 1.45;
     final opacity = dimmed ? 0.4 : 1.0;
