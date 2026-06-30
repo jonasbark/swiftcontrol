@@ -1,10 +1,12 @@
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/customize.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/help_article.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
+import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:bike_control/widgets/device_script_drawer.dart';
 import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
@@ -105,6 +107,22 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
   }
 
   Widget _buildDeviceCard(BaseDevice device) {
+    Widget? footer;
+    if (device is GyroscopeSteering) {
+      footer = Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: SteeringGauge(
+          angle: device.steeringAngle,
+          calibrated: device.isCalibratedNotifier,
+          threshold: core.settings.getPhoneSteeringThreshold(),
+          device: device,
+          leftButton: GyroscopeSteeringButtons.leftSteer,
+          rightButton: GyroscopeSteeringButtons.rightSteer,
+          keymap: core.actionHandler.supportedApp?.keymap,
+          onUpdate: () => setState(() {}),
+        ),
+      );
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
@@ -113,7 +131,7 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Theme.of(context).colorScheme.border),
       ),
-      child: device.showInformation(context, showFull: true),
+      child: device.showInformation(context, showFull: true, footer: footer),
     );
   }
 
