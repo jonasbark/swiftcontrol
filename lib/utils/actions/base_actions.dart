@@ -172,6 +172,36 @@ abstract class BaseActions {
     return false;
   }
 
+  /// Whether an internally-handled trainer action — one the active
+  /// [FitnessBikeDefinition] accepted, i.e. [handledInternally] — should be
+  /// exempt from the daily command count. Free testers (neither Pro on this
+  /// device, [isProForDevice], nor the full version, [hasFullVersion]) changing
+  /// gears on the bridge while the 20-minute budget is still ticking down
+  /// ([bridgeCountingDown]) don't spend their daily command budget on commands
+  /// the trainer handles locally. Pure for testability; call sites pass the live
+  /// values from [IAPManager] and `core.bridgeUsageTracker`.
+  @visibleForTesting
+  static bool isExemptInternalTrainerAction({
+    required bool handledInternally,
+    required bool isProForDevice,
+    required bool hasFullVersion,
+    required bool bridgeCountingDown,
+  }) {
+    return handledInternally && !isProForDevice && !hasFullVersion && bridgeCountingDown;
+  }
+
+  /// Reads the live entitlement / bridge state and decides whether the daily
+  /// command count should be skipped for a trainer action whose [result] came
+  /// back from [ProxyDevice.handleTrainerAction].
+  bool _shouldSkipCommandCountFor(ActionResult result) {
+    return isExemptInternalTrainerAction(
+      handledInternally: result is Ignored || result is Success,
+      isProForDevice: IAPManager.instance.isProEnabledForCurrentDevice,
+      hasFullVersion: IAPManager.instance.isPurchased.value,
+      bridgeCountingDown: core.bridgeUsageTracker.isCountingDown,
+    );
+  }
+
   /// Dispatch [action] as if a mapped button fired it, with no physical button.
   /// Used by the both-shifters combo (this file's coincidence detector and the
   /// same-frame detector in base_device.dart) to emit a frontShift.
@@ -187,8 +217,10 @@ abstract class BaseActions {
     if (trainerActions.contains(action)) {
       final proxy = core.connection.proxyDevices.where((d) => d.isConnected).firstOrNull;
       if (proxy != null) {
-        await IAPManager.instance.incrementCommandCount();
         final result = proxy.handleTrainerAction(synthButton, action);
+        if (!_shouldSkipCommandCountFor(result)) {
+          await IAPManager.instance.incrementCommandCount();
+        }
         if (result is Ignored || result is Success) return result;
       }
     }
@@ -341,8 +373,14 @@ abstract class BaseActions {
             button: keyPair.buttons.firstOrNull ?? button,
           );
         }
-        await IAPManager.instance.incrementCommandCount();
         final result = proxy.handleTrainerAction(keyPair.buttons.firstOrNull ?? button, keyPair.inGameAction!);
+        // Free testers changing gears on the bridge during their 20-minute
+        // window don't spend their daily command budget on actions the active
+        // FitnessBikeDefinition handles internally — see
+        // [isExemptInternalTrainerAction].
+        if (!_shouldSkipCommandCountFor(result)) {
+          await IAPManager.instance.incrementCommandCount();
+        }
         // Ignored e.g. when already in highest gear
         // Success when action was executed and the action should not be sent to connected trainer
         // NotHandled means the e.g. gear changes should still be sent to the trainer, so we continue with the regular flow
