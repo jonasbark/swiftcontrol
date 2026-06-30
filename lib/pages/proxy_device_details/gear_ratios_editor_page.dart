@@ -139,49 +139,7 @@ class _GearRatiosEditorPageState extends State<GearRatiosEditorPage> {
 
   Widget _heroCurve(BuildContext context) => GearRatioCurve(definition: def);
 
-  Widget _vsModeCard() {
-    return AnimatedBuilder(
-      animation: Listenable.merge([def.virtualShiftingMode, def.trainerFeature]),
-      builder: (context, _) {
-        final mode = def.virtualShiftingMode.value;
-        return SettingTile(
-          title: AppLocalizations.of(context).virtualShiftingMode,
-          subtitle: AppLocalizations.of(context).virtualShiftingModeDesc,
-          child: RadioGroup<VirtualShiftingMode>(
-            value: mode,
-            onChanged: (v) async {
-              def.setVirtualShiftingMode(v);
-              await _updateActive((c) => c.copyWith(mode: v));
-            },
-            child: Row(
-              spacing: 6,
-              children: [
-                _vsRadioCard(AppLocalizations.of(context).targetPowerMode, VirtualShiftingMode.targetPower),
-                _vsRadioCard(AppLocalizations.of(context).trackResistanceMode, VirtualShiftingMode.trackResistance),
-                _vsRadioCard(AppLocalizations.of(context).basicMode, VirtualShiftingMode.basicResistance),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _vsRadioCard(String label, VirtualShiftingMode value) {
-    final supported = def.supportsVirtualShiftingMode(value);
-    return Expanded(
-      child: RadioCard<VirtualShiftingMode>(
-        value: value,
-        enabled: supported,
-        child: Center(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _vsModeCard() => VirtualShiftingModeCard(definition: def, device: widget.device);
 
   Widget _gearCountCard(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -555,4 +513,68 @@ class _Preset {
   final String range;
   final List<double> values;
   _Preset({required this.label, required this.range, required this.values});
+}
+
+/// The Virtual Shifting mode selector (Target Power / Track Resistance / Basic),
+/// extracted from [GearRatiosEditorPage] so it can be rendered standalone (e.g.
+/// for a widget snapshot). It reads/writes the same [core.shiftingConfigs] and
+/// the passed [definition], so behaviour inside the page is unchanged.
+class VirtualShiftingModeCard extends StatelessWidget {
+  final FitnessBikeDefinition definition;
+  final ProxyDevice device;
+  const VirtualShiftingModeCard({
+    super.key,
+    required this.definition,
+    required this.device,
+  });
+
+  Future<void> _updateActive(ShiftingConfig Function(ShiftingConfig) mutate) async {
+    final current = core.shiftingConfigs.activeFor(device.trainerKey);
+    await core.shiftingConfigs.upsert(mutate(current));
+  }
+
+  Widget _vsRadioCard(String label, VirtualShiftingMode value) {
+    final supported = definition.supportsVirtualShiftingMode(value);
+    return Expanded(
+      child: RadioCard<VirtualShiftingMode>(
+        value: value,
+        enabled: supported,
+        child: Center(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([definition.virtualShiftingMode, definition.trainerFeature]),
+      builder: (context, _) {
+        final mode = definition.virtualShiftingMode.value;
+        return SettingTile(
+          title: AppLocalizations.of(context).virtualShiftingMode,
+          subtitle: AppLocalizations.of(context).virtualShiftingModeDesc,
+          child: RadioGroup<VirtualShiftingMode>(
+            value: mode,
+            onChanged: (v) async {
+              definition.setVirtualShiftingMode(v);
+              await _updateActive((c) => c.copyWith(mode: v));
+            },
+            child: Row(
+              spacing: 6,
+              children: [
+                _vsRadioCard(AppLocalizations.of(context).targetPowerMode, VirtualShiftingMode.targetPower),
+                _vsRadioCard(AppLocalizations.of(context).trackResistanceMode, VirtualShiftingMode.trackResistance),
+                _vsRadioCard(AppLocalizations.of(context).basicMode, VirtualShiftingMode.basicResistance),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
