@@ -21,7 +21,7 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/blog_posts_widget.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
-import 'package:bike_control/widgets/controller/steering_wheel_gauge.dart';
+import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/iap_status_widget.dart';
@@ -479,7 +479,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
                   }
 
                   if (device is GyroscopeSteering) {
-                    return SteeringWheelGauge(
+                    return SteeringGauge(
                       angle: device.steeringAngle,
                       calibrated: device.isCalibratedNotifier,
                       threshold: core.settings.getPhoneSteeringThreshold(),

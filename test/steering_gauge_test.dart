@@ -1,4 +1,4 @@
-import 'package:bike_control/widgets/controller/steering_wheel_gauge.dart';
+import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
