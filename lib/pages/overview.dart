@@ -19,7 +19,9 @@ import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/blog_posts_widget.dart';
+import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
+import 'package:bike_control/widgets/controller/steering_wheel_gauge.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/iap_status_widget.dart';
@@ -469,6 +471,22 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
                       keymap: keymap,
                       device: device,
                       size: size,
+                      onUpdate: () {
+                        _clearErrorBanner();
+                        setState(() {});
+                      },
+                    );
+                  }
+
+                  if (device is GyroscopeSteering) {
+                    return SteeringWheelGauge(
+                      angle: device.steeringAngle,
+                      calibrated: device.isCalibratedNotifier,
+                      threshold: core.settings.getPhoneSteeringThreshold(),
+                      device: device,
+                      leftButton: GyroscopeSteeringButtons.leftSteer,
+                      rightButton: GyroscopeSteeringButtons.rightSteer,
+                      keymap: keymap,
                       onUpdate: () {
                         _clearErrorBanner();
                         setState(() {});
