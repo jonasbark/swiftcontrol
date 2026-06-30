@@ -78,6 +78,7 @@ enum InGameAction {
   dFlyChannel4('D-Fly Channel 4', icon: LucideIcons.circleDot),
 
   // device / system
+  calibratePhoneSteering('Calibrate Steering', icon: BootstrapIcons.wrenchAdjustable, isOutsideTrainerApp: true),
   screenRecording('Record Screen', icon: LucideIcons.video, isOutsideTrainerApp: true);
 
   final String englishTitle;
@@ -151,6 +152,7 @@ enum InGameAction {
       InGameAction.dFlyChannel2 => l.actionDFlyChannel2,
       InGameAction.dFlyChannel3 => l.actionDFlyChannel3,
       InGameAction.dFlyChannel4 => l.actionDFlyChannel4,
+      InGameAction.calibratePhoneSteering => l.actionCalibratePhoneSteering,
       InGameAction.screenRecording => l.actionScreenRecording,
     };
   }
