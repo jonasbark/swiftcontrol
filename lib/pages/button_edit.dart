@@ -634,6 +634,26 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                       widget.onUpdate();
                     },
                   ),
+                  if (core.settings.getPhoneSteeringEnabled())
+                    SelectableCard(
+                      icon: BootstrapIcons.wrenchAdjustable,
+                      title: Text(context.i18n.actionCalibratePhoneSteering),
+                      isActive: _keyPair.inGameAction == InGameAction.calibratePhoneSteering,
+                      onPressed: () {
+                        _keyPair.inGameAction = InGameAction.calibratePhoneSteering;
+                        _keyPair.inGameActionValue = null;
+                        _keyPair.physicalKey = null;
+                        _keyPair.logicalKey = null;
+                        _keyPair.modifiers = [];
+                        _keyPair.touchPosition = Offset.zero;
+                        _keyPair.androidAction = null;
+                        _keyPair.androidIntentAction = null;
+                        _keyPair.command = null;
+                        _keyPair.screenshotPath = null;
+                        setState(() {});
+                        widget.onUpdate();
+                      },
+                    ),
                 ],
 
                 if (core.connection.accessories.isNotEmpty) ...[
