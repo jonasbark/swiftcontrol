@@ -22,6 +22,11 @@ import 'package:bike_control/pages/overview.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/proxy_device_details/front_shift_card.dart';
 import 'package:bike_control/pages/proxy_device_details/gear_ratios_editor_page.dart';
+import 'package:bike_control/pages/proxy_device_details/overlay_settings_section.dart';
+import 'package:bike_control/pages/proxy_device_details/shifting_config_picker.dart';
+import 'package:bike_control/pages/proxy_device_details/trainer_settings_section.dart';
+import 'package:bike_control/models/shifting_config.dart';
+import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/utils/core.dart' show core;
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -47,6 +52,7 @@ import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/overlay/trainer_overlay_view.dart';
 import 'package:bike_control/widgets/ui/animated_button_widget.dart';
 import 'package:flutter/material.dart' as ma;
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_screenshot/golden_screenshot.dart' hide testGoldens;
@@ -354,8 +360,13 @@ Future<void> main() async {
     Finder Function()? capture,
     Future<void> Function(WidgetTester tester)? afterPump,
     TargetPlatform platform = TargetPlatform.android,
+    // Override the (frameless) render resolution. Defaults to the noFrame size
+    // (~367 logical px wide); pass a wider Size for widgets that need more room
+    // (e.g. a Row whose Select would collapse at phone-narrow widths).
+    Size? size,
   }) async {
     final nf = sizes.firstWhere((s) => s.type == DeviceType.noFrame);
+    final res = size ?? nf.size;
     await AppLocalizations.load(const Locale('en'));
     screenshotLocale = const Locale('en');
     await tester.pumpWidget(
@@ -366,7 +377,7 @@ Future<void> main() async {
           // queries the Windows accent colour via advapi32.dll, which can't load
           // on a macOS test host.
           platform: platform,
-          resolution: nf.size,
+          resolution: res,
           pixelRatio: 3,
           goldenSubFolder: 'iphoneScreenshots/',
           frameBuilder:
@@ -1090,5 +1101,142 @@ Future<void> main() async {
 
   testGoldens('overview-thinkrider-vs200', (WidgetTester tester) async {
     await shootOverview(tester, 'overview-thinkrider-vs200', thinkriderVs200);
+  });
+
+  // --- Virtual-shifting settings widget snapshots (settings video) -------------
+  // Tight single-widget captures of the virtual-shifting settings controls, each
+  // rendered standalone inside a keyed RepaintBoundary (English, light) so the
+  // golden captures ONLY that widget (no page chrome).
+
+  // Seed a few NAMED shifting configs for the proxy trainer, with "Climb day"
+  // active, so the picker and the settings sections show genuine content.
+  Future<void> seedShiftingConfigs() async {
+    final key = proxy.trainerKey;
+    await core.shiftingConfigs.upsert(
+      ShiftingConfig.defaults(trainerKey: key, name: 'Default', isActive: false),
+    );
+    await core.shiftingConfigs.upsert(
+      ShiftingConfig.defaults(trainerKey: key, name: 'Sprint', isActive: false)
+          .copyWith(riderWeightKg: 72, bikeWeightKg: 7.5),
+    );
+    await core.shiftingConfigs.upsert(
+      ShiftingConfig.defaults(trainerKey: key, name: 'Climb day', isActive: true)
+          .copyWith(riderWeightKg: 78, bikeWeightKg: 8.5),
+    );
+  }
+
+  // 1) The named-config picker (active "Climb day" + New / Manage buttons).
+  testGoldens('shifting-config-picker', (WidgetTester tester) async {
+    await seedShiftingConfigs();
+    const k = ValueKey('shot');
+    await shootOne(
+      tester,
+      'shifting-config-picker',
+      () => BikeControlApp(
+        customChild: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: RepaintBoundary(
+              key: k,
+              child: ShiftingConfigPicker(trainerKey: proxy.trainerKey),
+            ),
+          ),
+        ),
+      ),
+      capture: () => find.byKey(k),
+      size: const Size(1980, 2390),
+    );
+  });
+
+  // 2) Ride-feel / trainer settings: the config picker + gear settings card +
+  // bike-weight + rider-weight steppers.
+  testGoldens('ride-feel', (WidgetTester tester) async {
+    await seedShiftingConfigs();
+    proxy.debugAttachFitnessBike(fbd);
+    const k = ValueKey('shot');
+    await shootOne(
+      tester,
+      'ride-feel',
+      () => BikeControlApp(
+        customChild: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: RepaintBoundary(
+              key: k,
+              child: TrainerSettingsSection(definition: fbd, device: proxy),
+            ),
+          ),
+        ),
+      ),
+      capture: () => find.byKey(k),
+      // Wide enough that the embedded config picker's Select shows the active
+      // config name on one line (it sizes to its Expanded slot, which collapses
+      // at phone-narrow widths).
+      size: const Size(1980, 2390),
+    );
+  });
+
+  // 3) Overlay settings: the enable tile + the display-field toggles (Power /
+  // Cadence / ERG / Gear / Controls). The field list only renders while the
+  // overlay is "showing", so flip the platform controller (the same singleton
+  // the section reads in initState) on up front.
+  testGoldens('overlay-settings', (WidgetTester tester) async {
+    proxy.debugAttachFitnessBike(fbd);
+    // The desktop overlay controller opens a native window via this method
+    // channel; stub it so show() (used below to expand the field list) doesn't
+    // throw MissingPluginException in the host test VM.
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('com.coditas.multi_window_native/pluginChannel'),
+      (call) async => null,
+    );
+    await core.settings.setOverlayFields({
+      OverlayField.power,
+      OverlayField.cadence,
+      OverlayField.gearRatio,
+    });
+    await TrainerOverlayService.forCurrentPlatform()
+        .show(fbd, core.settings.getOverlayFields());
+    const k = ValueKey('shot');
+    await shootOne(
+      tester,
+      'overlay-settings',
+      () => BikeControlApp(
+        customChild: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: RepaintBoundary(
+              key: k,
+              child: OverlaySettingsSection(definition: fbd, device: proxy),
+            ),
+          ),
+        ),
+      ),
+      capture: () => find.byKey(k),
+    );
+  });
+
+  // 4) The Virtual Shifting mode selector (Target Power / Track Resistance /
+  // Basic radio group), extracted from GearRatiosEditorPage as a public widget.
+  testGoldens('vs-mode', (WidgetTester tester) async {
+    await seedShiftingConfigs();
+    proxy.debugAttachFitnessBike(fbd);
+    fbd.setVirtualShiftingMode(VirtualShiftingMode.targetPower);
+    const k = ValueKey('shot');
+    await shootOne(
+      tester,
+      'vs-mode',
+      () => BikeControlApp(
+        customChild: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: RepaintBoundary(
+              key: k,
+              child: VirtualShiftingModeCard(definition: fbd, device: proxy),
+            ),
+          ),
+        ),
+      ),
+      capture: () => find.byKey(k),
+    );
   });
 }
