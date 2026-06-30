@@ -356,6 +356,25 @@ abstract class BaseActions {
       );
     }
 
+    // Handle phone-steering calibration — local device action, no trainer needed.
+    if (keyPair.inGameAction == InGameAction.calibratePhoneSteering) {
+      if (!isKeyDown) {
+        return Ignored('', button: keyPair.buttons.firstOrNull ?? button);
+      }
+      final steering = core.connection.gyroscopeDevices.firstOrNull;
+      if (steering == null) {
+        return Ignored(
+          AppLocalizations.current.phoneSteeringNotEnabled,
+          button: keyPair.buttons.firstOrNull ?? button,
+        );
+      }
+      steering.recalibrate();
+      return Success(
+        AppLocalizations.current.steeringRecalibrating,
+        button: keyPair.buttons.firstOrNull ?? button,
+      );
+    }
+
     // Handle trainer-control actions
     if (trainerActions.contains(keyPair.inGameAction)) {
       final proxy = core.connection.proxyDevices.where((d) => d.isConnected).firstOrNull;
