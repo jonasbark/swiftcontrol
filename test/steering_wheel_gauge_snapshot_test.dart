@@ -48,6 +48,7 @@ Future<void> main() async {
 
   testWidgets('SteeringWheelGauge (calibrating) → PNG', (tester) async {
     calibrated.value = false;
+    angle.value = 0.0;
     await captureWidget(
       tester,
       name: 'steering_wheel_gauge_calibrating',
