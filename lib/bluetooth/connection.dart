@@ -753,7 +753,7 @@ class Connection {
   /// Test seam: run the inactivity battery-saver disconnect directly instead of
   /// waiting out the real idle timer.
   @visibleForTesting
-  void debugTriggerInactivityTimeout([Duration timeout = const Duration(minutes: 30)]) =>
+  void debugTriggerInactivityTimeout([Duration timeout = const Duration(minutes: 60)]) =>
       _onInactivityTimeout(timeout);
 
   /// Called by [_inactivityDisconnector] when the idle timeout elapses.
