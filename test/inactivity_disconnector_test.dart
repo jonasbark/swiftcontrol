@@ -104,6 +104,26 @@ void main() {
       });
     });
 
+    test('default Local timeout is 60 minutes (production wiring)', () {
+      fakeAsync((async) {
+        onlyLocalActive = true;
+        // Build WITHOUT overriding localTimeout so this pins the constructor
+        // default that Connection relies on (issue #349).
+        final d = InactivityDisconnector(
+          isTrainerAppConnected: () => trainerAppConnected,
+          isOnlyLocalActive: () => onlyLocalActive,
+          hasEligibleControllers: () => hasControllers,
+          onTimeout: (dur) => firedTimeouts.add(dur),
+        );
+        d.onDeviceConnectionChanged();
+        async.elapse(const Duration(minutes: 59));
+        expect(firedTimeouts, isEmpty, reason: 'must not fire before 60 min');
+        async.elapse(const Duration(minutes: 1));
+        expect(firedTimeouts, [const Duration(minutes: 60)]);
+        d.dispose();
+      });
+    });
+
     test('button activity slides the 30-minute Local timer', () {
       fakeAsync((async) {
         onlyLocalActive = true;
