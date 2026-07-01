@@ -1,24 +1,24 @@
 import 'dart:async';
 
-import 'package:bike_control/bluetooth/climb/climb_incline_sink.dart';
-import 'package:prop/utils/wahoo_climb.dart';
+import 'package:bike_control/bluetooth/incline/incline_sink.dart';
+import 'package:bike_control/bluetooth/incline/incline_manual_state.dart';
 
 /// Runs a ~1 Hz loop: read the active bridge's sim grade, pick a sink, and
 /// write the clamped incline while the sink follows grade (auto). Flattens once
-/// when the grade source disappears after having driven the Climb.
-class ClimbController {
-  ClimbController({
+/// when the grade source disappears after having driven an incline device.
+class InclineController {
+  InclineController({
     required int? Function() gradeProvider,
-    required ClimbInclineSink? Function() sinkProvider,
+    required InclineSink? Function() sinkProvider,
   })  : _gradeProvider = gradeProvider,
         _sinkProvider = sinkProvider;
 
   final int? Function() _gradeProvider;
-  final ClimbInclineSink? Function() _sinkProvider;
+  final InclineSink? Function() _sinkProvider;
 
   Timer? _timer;
   int? _lastWritten;
-  ClimbInclineSink? _lastSink;
+  InclineSink? _lastSink;
   bool _ticking = false;
 
   void start() {
@@ -58,7 +58,7 @@ class ClimbController {
 
       if (!sink.followsGrade) return; // manual hold — device owns the value
 
-      final clamped = grade.clamp(kWahooClimbMinGrade001, kWahooClimbMaxGrade001);
+      final clamped = grade.clamp(kInclineManualMinGrade001, kInclineManualMaxGrade001);
       if (clamped == _lastWritten) return;
       if (await sink.writeInclineRaw(clamped)) _lastWritten = clamped;
     } finally {

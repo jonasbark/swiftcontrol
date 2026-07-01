@@ -1,5 +1,5 @@
-/// A destination that can set the Climb incline (0.01% signed).
-abstract class ClimbInclineSink {
+/// A destination that can set the incline (0.01% signed).
+abstract class InclineSink {
   /// Writes the incline. Returns true if a write was issued.
   Future<bool> writeInclineRaw(int grade001Pct);
 

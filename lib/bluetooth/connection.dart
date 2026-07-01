@@ -6,8 +6,8 @@ import 'package:bike_control/bluetooth/devices/gamepad/gamepad_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/hid/hid_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
-import 'package:bike_control/bluetooth/climb/climb_controller.dart';
-import 'package:bike_control/bluetooth/climb/climb_incline_sink.dart';
+import 'package:bike_control/bluetooth/incline/incline_controller.dart';
+import 'package:bike_control/bluetooth/incline/incline_sink.dart';
 import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
@@ -74,7 +74,7 @@ class Connection {
   /// Created in [initialize] once `core` is ready.
   InactivityDisconnector? _inactivityDisconnector;
 
-  ClimbController? _climbController;
+  InclineController? _inclineController;
   _ClimbRelaySink? _relaySink;
   FitnessBikeDefinition? _relaySinkFbd;
 
@@ -109,7 +109,7 @@ class Connection {
       onTimeout: _onInactivityTimeout,
     );
 
-    _climbController ??= ClimbController(
+    _inclineController ??= InclineController(
       gradeProvider: () => ftmsEmulator.fitnessBike?.simGrade.value,
       sinkProvider: () {
         final climb = climbAccessories.where((c) => c.isConnected).firstOrNull;
@@ -842,7 +842,7 @@ class Connection {
 /// Relay sink that forwards incline writes upstream through the active
 /// [FitnessBikeDefinition] (e.g. to a Wahoo app connected over DirCon).
 /// Always reports [followsGrade] == true — the relay has no manual-hold state.
-class _ClimbRelaySink implements ClimbInclineSink {
+class _ClimbRelaySink implements InclineSink {
   _ClimbRelaySink(this._fbd);
   final FitnessBikeDefinition _fbd;
   @override
