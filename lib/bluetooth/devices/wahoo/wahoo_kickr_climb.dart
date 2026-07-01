@@ -1,5 +1,5 @@
-import 'package:bike_control/bluetooth/climb/climb_incline_sink.dart';
-import 'package:bike_control/bluetooth/climb/climb_manual_state.dart';
+import 'package:bike_control/bluetooth/incline/incline_sink.dart';
+import 'package:bike_control/bluetooth/incline/incline_manual_state.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
@@ -13,19 +13,19 @@ import '../bluetooth_device.dart';
 
 /// Wahoo KICKR Climb — a beta accessory driven by the active bridge's sim grade
 /// (auto) or by manual button actions (manual hold). Direct-to-Climb BLE sink.
-class WahooKickrClimb extends BluetoothDevice with Accessory implements ClimbInclineSink {
+class WahooKickrClimb extends BluetoothDevice with Accessory implements InclineSink {
   WahooKickrClimb(super.scanResult) : super(availableButtons: const [], isBeta: true);
 
-  final ClimbManualState state = ClimbManualState();
+  final InclineManualState state = InclineManualState();
 
   /// Test seam: overridable to capture writes without real BLE.
   @visibleForTesting
   Future<void> Function(Uint8List bytes)? debugWriteSink;
 
-  ClimbMode get mode => state.mode;
+  InclineMode get mode => state.mode;
 
   @override
-  bool get followsGrade => state.mode == ClimbMode.auto;
+  bool get followsGrade => state.mode == InclineMode.auto;
 
   @override
   Future<void> handleServices(List<BleService> services) async {
@@ -83,7 +83,7 @@ class WahooKickrClimb extends BluetoothDevice with Accessory implements ClimbInc
   }
 
   /// Handles the manual Climb actions. Auto is restored by
-  /// [InGameAction.climbAutoMode]; the ClimbController resumes pushing grade.
+  /// [InGameAction.climbAutoMode]; the InclineController resumes pushing grade.
   Future<ActionResult> handleKeypair(KeyPair keyPair, {required bool isKeyDown}) async {
     if (!isKeyDown) return NotHandled('', button: keyPair.buttons.firstOrNull);
     try {
