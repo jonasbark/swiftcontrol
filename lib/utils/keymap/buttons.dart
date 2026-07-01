@@ -46,11 +46,11 @@ enum InGameAction {
   headwindSpeedCyclicDec('Headwind Speed Cyclic Decrease', icon: Icons.air, isOutsideTrainerApp: true),
   headwindHeartRateMode('Headwind HR Mode', icon: Icons.favorite, isOutsideTrainerApp: true),
 
-  // KICKR Climb (accessory)
-  climbInclineIncrease('Climb Incline Up', icon: LucideIcons.trendingUp, isOutsideTrainerApp: true),
-  climbInclineDecrease('Climb Incline Down', icon: LucideIcons.trendingDown, isOutsideTrainerApp: true),
-  climbInclineZero('Climb Flatten (0%)', icon: LucideIcons.minus, isOutsideTrainerApp: true),
-  climbAutoMode('Climb Auto (Follow Grade)', icon: LucideIcons.mountain, isOutsideTrainerApp: true),
+  // Incline devices (KICKR Climb, Elite Rizer)
+  inclineIncrease('Incline Up', icon: LucideIcons.trendingUp, isOutsideTrainerApp: true),
+  inclineDecrease('Incline Down', icon: LucideIcons.trendingDown, isOutsideTrainerApp: true),
+  inclineZero('Incline Flatten (0%)', icon: LucideIcons.minus, isOutsideTrainerApp: true),
+  inclineAutoMode('Incline Auto (Follow Grade)', icon: LucideIcons.mountain, isOutsideTrainerApp: true),
 
   // openbikecontrol
   up('Up', icon: RadixIcons.arrowUp),
@@ -133,10 +133,10 @@ enum InGameAction {
       InGameAction.headwindSpeedCyclicInc => l.actionHeadwindSpeedCyclicInc,
       InGameAction.headwindSpeedCyclicDec => l.actionHeadwindSpeedCyclicDec,
       InGameAction.headwindHeartRateMode => l.actionHeadwindHeartRateMode,
-      InGameAction.climbInclineIncrease => l.actionClimbInclineIncrease,
-      InGameAction.climbInclineDecrease => l.actionClimbInclineDecrease,
-      InGameAction.climbInclineZero => l.actionClimbInclineZero,
-      InGameAction.climbAutoMode => l.actionClimbAutoMode,
+      InGameAction.inclineIncrease => l.actionInclineIncrease,
+      InGameAction.inclineDecrease => l.actionInclineDecrease,
+      InGameAction.inclineZero => l.actionInclineZero,
+      InGameAction.inclineAutoMode => l.actionInclineAutoMode,
       InGameAction.up => l.actionUp,
       InGameAction.down => l.actionDown,
       InGameAction.home => l.actionHome,

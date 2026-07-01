@@ -782,10 +782,10 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                       title: Text(context.i18n.kickrClimb),
                       isActive: _keyPair.inGameAction != null &&
                           [
-                            InGameAction.climbInclineIncrease,
-                            InGameAction.climbInclineDecrease,
-                            InGameAction.climbInclineZero,
-                            InGameAction.climbAutoMode,
+                            InGameAction.inclineIncrease,
+                            InGameAction.inclineDecrease,
+                            InGameAction.inclineZero,
+                            InGameAction.inclineAutoMode,
                           ].contains(_keyPair.inGameAction),
                       value: _keyPair.inGameAction != null
                           ? '${_keyPair.inGameAction} ${_keyPair.inGameActionValue ?? ""}'.trim()
@@ -796,9 +796,9 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                           builder: (c) => DropdownMenu(
                             children: [
                               MenuButton(
-                                child: Text(context.i18n.actionClimbInclineIncrease),
+                                child: Text(context.i18n.actionInclineIncrease),
                                 onPressed: (_) {
-                                  _keyPair.inGameAction = InGameAction.climbInclineIncrease;
+                                  _keyPair.inGameAction = InGameAction.inclineIncrease;
                                   _keyPair.inGameActionValue = null;
                                   _keyPair.androidAction = null;
                                   _keyPair.androidIntentAction = null;
@@ -809,9 +809,9 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                 },
                               ),
                               MenuButton(
-                                child: Text(context.i18n.actionClimbInclineDecrease),
+                                child: Text(context.i18n.actionInclineDecrease),
                                 onPressed: (_) {
-                                  _keyPair.inGameAction = InGameAction.climbInclineDecrease;
+                                  _keyPair.inGameAction = InGameAction.inclineDecrease;
                                   _keyPair.inGameActionValue = null;
                                   _keyPair.androidAction = null;
                                   _keyPair.androidIntentAction = null;
@@ -822,9 +822,9 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                 },
                               ),
                               MenuButton(
-                                child: Text(context.i18n.actionClimbInclineZero),
+                                child: Text(context.i18n.actionInclineZero),
                                 onPressed: (_) {
-                                  _keyPair.inGameAction = InGameAction.climbInclineZero;
+                                  _keyPair.inGameAction = InGameAction.inclineZero;
                                   _keyPair.inGameActionValue = null;
                                   _keyPair.androidAction = null;
                                   _keyPair.androidIntentAction = null;
@@ -835,9 +835,9 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                 },
                               ),
                               MenuButton(
-                                child: Text(context.i18n.actionClimbAutoMode),
+                                child: Text(context.i18n.actionInclineAutoMode),
                                 onPressed: (_) {
-                                  _keyPair.inGameAction = InGameAction.climbAutoMode;
+                                  _keyPair.inGameAction = InGameAction.inclineAutoMode;
                                   _keyPair.inGameActionValue = null;
                                   _keyPair.androidAction = null;
                                   _keyPair.androidIntentAction = null;
