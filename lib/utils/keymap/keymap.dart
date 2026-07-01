@@ -300,6 +300,10 @@ class KeyPair {
                   [
                     InGameAction.headwindHeartRateMode,
                     InGameAction.headwindSpeed,
+                    InGameAction.climbInclineIncrease,
+                    InGameAction.climbInclineDecrease,
+                    InGameAction.climbInclineZero,
+                    InGameAction.climbAutoMode,
                     ...trainerActions,
                   ].contains(inGameAction!)) =>
         inGameAction!.icon,
@@ -402,6 +406,14 @@ class KeyPair {
       (inGameAction != null &&
           [InGameAction.headwindHeartRateMode, InGameAction.headwindSpeed].contains(inGameAction) &&
           (core.connection.accessories.isNotEmpty || kDebugMode)) ||
+      (inGameAction != null &&
+          [
+            InGameAction.climbInclineIncrease,
+            InGameAction.climbInclineDecrease,
+            InGameAction.climbInclineZero,
+            InGameAction.climbAutoMode,
+          ].contains(inGameAction) &&
+          (core.connection.climbAccessories.isNotEmpty || kDebugMode)) ||
       (screenshotPath != null && screenshotPath!.trim().isNotEmpty) ||
       (command != null && command!.trim().isNotEmpty);
 
