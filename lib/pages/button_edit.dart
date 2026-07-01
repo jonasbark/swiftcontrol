@@ -774,6 +774,8 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
 
                 if (core.connection.climbAccessories.isNotEmpty) ...[
                   SizedBox(height: 8),
+                  if (core.connection.accessories.isEmpty)
+                    ColoredTitle(text: context.i18n.accessoryActions),
                   Builder(
                     builder: (context) => SelectableCard(
                       icon: LucideIcons.mountain,
