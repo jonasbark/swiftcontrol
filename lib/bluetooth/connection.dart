@@ -6,7 +6,10 @@ import 'package:bike_control/bluetooth/devices/gamepad/gamepad_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/hid/hid_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/climb/climb_controller.dart';
+import 'package:bike_control/bluetooth/climb/climb_incline_sink.dart';
 import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -71,6 +74,10 @@ class Connection {
   /// Created in [initialize] once `core` is ready.
   InactivityDisconnector? _inactivityDisconnector;
 
+  ClimbController? _climbController;
+  _ClimbRelaySink? _relaySink;
+  FitnessBikeDefinition? _relaySinkFbd;
+
   /// Devices whose in-place ("No connection") disconnect is currently in
   /// flight. UniversalBle.disconnect resolves only after the platform's
   /// disconnect event has fired — while our connectionStream listener is
@@ -101,6 +108,25 @@ class Connection {
           controllerDevices.whereType<BluetoothDevice>().any((d) => d.isConnected),
       onTimeout: _onInactivityTimeout,
     );
+
+    _climbController ??= ClimbController(
+      gradeProvider: () => ftmsEmulator.fitnessBike?.simGrade.value,
+      sinkProvider: () {
+        final climb = climbAccessories.where((c) => c.isConnected).firstOrNull;
+        if (climb != null) return climb;
+        final fbd = ftmsEmulator.fitnessBike;
+        if (fbd != null && fbd.supportsClimbRelay) {
+          if (!identical(_relaySinkFbd, fbd)) {
+            _relaySinkFbd = fbd;
+            _relaySink = _ClimbRelaySink(fbd);
+          }
+          return _relaySink;
+        }
+        _relaySink = null;
+        _relaySinkFbd = null;
+        return null;
+      },
+    )..start();
 
     // A trainer app attaching/leaving any non-Local connection method drives
     // the battery saver. These emulator singletons live for the app lifetime,
@@ -811,4 +837,16 @@ class Connection {
       );
     }
   }
+}
+
+/// Relay sink that forwards incline writes upstream through the active
+/// [FitnessBikeDefinition] (e.g. to a Wahoo app connected over DirCon).
+/// Always reports [followsGrade] == true — the relay has no manual-hold state.
+class _ClimbRelaySink implements ClimbInclineSink {
+  _ClimbRelaySink(this._fbd);
+  final FitnessBikeDefinition _fbd;
+  @override
+  bool get followsGrade => true;
+  @override
+  Future<bool> writeInclineRaw(int g) => _fbd.writeClimbInclineUpstream(g);
 }
