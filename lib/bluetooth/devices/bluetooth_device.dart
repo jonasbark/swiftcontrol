@@ -8,7 +8,9 @@ import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_pro.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
+import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
+import 'package:prop/utils/wahoo_climb.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -71,6 +73,7 @@ abstract class BluetoothDevice extends BaseDevice {
     SquareConstants.SERVICE_UUID,
     WahooKickrBikeShiftConstants.SERVICE_UUID,
     WahooKickrHeadwindConstants.SERVICE_UUID,
+    wahooClimbServiceUuid,
     SterzoConstants.SERVICE_UUID,
     CycplusBc2Constants.SERVICE_UUID,
     ShimanoDi2Constants.SERVICE_UUID,
@@ -100,6 +103,7 @@ abstract class BluetoothDevice extends BaseDevice {
         'SQUARE' => EliteSquare(scanResult),
         'OpenBike' => OpenBikeControlDevice(scanResult),
         null => null,
+        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') => WahooKickrClimb(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE SHIFT') => WahooKickrBikeShift(scanResult),
@@ -119,6 +123,7 @@ abstract class BluetoothDevice extends BaseDevice {
         // https://www.makinolo.com/blog/2024/07/26/zwift-ride-protocol/
         //'Zwift Play' => ZwiftPlay(scanResult),
         //'Zwift Click' => ZwiftClick(scanResult), special case for Zwift Click v2: we must only connect to the left controller
+        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') => WahooKickrClimb(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('SQUARE') => EliteSquare(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
@@ -141,6 +146,7 @@ abstract class BluetoothDevice extends BaseDevice {
           OpenBikeControlDevice(scanResult),
         _ when scanResult.services.contains(WahooKickrHeadwindConstants.SERVICE_UUID.toLowerCase()) =>
           WahooKickrHeadwind(scanResult),
+        _ when scanResult.services.contains(wahooClimbServiceUuid.toLowerCase()) => WahooKickrClimb(scanResult),
         // otherwise the service UUIDs will be used
         _ => null,
       };

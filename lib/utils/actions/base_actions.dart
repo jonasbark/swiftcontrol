@@ -297,6 +297,25 @@ abstract class BaseActions {
       return await headwind.handleKeypair(keyPair, isKeyDown: isKeyDown);
     }
 
+    // Handle KICKR Climb manual actions
+    if (keyPair.inGameAction == InGameAction.climbInclineIncrease ||
+        keyPair.inGameAction == InGameAction.climbInclineDecrease ||
+        keyPair.inGameAction == InGameAction.climbInclineZero ||
+        keyPair.inGameAction == InGameAction.climbAutoMode) {
+      final climb = core.connection.climbAccessories.where((c) => c.isConnected).firstOrNull;
+      if (climb == null) {
+        return Error(
+          'No KICKR Climb connected',
+          button: keyPair.buttons.firstOrNull ?? button,
+        );
+      }
+      final result = await climb.handleKeypair(keyPair, isKeyDown: isKeyDown);
+      if (result is Success) {
+        await IAPManager.instance.incrementCommandCount();
+      }
+      return result;
+    }
+
     // Handle workout pause/resume — local recorder, no trainer required.
     if (keyPair.inGameAction == InGameAction.workoutPauseResume) {
       if (!isKeyDown) {
