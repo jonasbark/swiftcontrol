@@ -772,6 +772,87 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                   ),
                 ],
 
+                if (core.connection.climbAccessories.isNotEmpty) ...[
+                  SizedBox(height: 8),
+                  Builder(
+                    builder: (context) => SelectableCard(
+                      icon: LucideIcons.mountain,
+                      title: Text(context.i18n.kickrClimb),
+                      isActive: _keyPair.inGameAction != null &&
+                          [
+                            InGameAction.climbInclineIncrease,
+                            InGameAction.climbInclineDecrease,
+                            InGameAction.climbInclineZero,
+                            InGameAction.climbAutoMode,
+                          ].contains(_keyPair.inGameAction),
+                      value: _keyPair.inGameAction != null
+                          ? '${_keyPair.inGameAction} ${_keyPair.inGameActionValue ?? ""}'.trim()
+                          : null,
+                      onPressed: () {
+                        showDropdown(
+                          context: context,
+                          builder: (c) => DropdownMenu(
+                            children: [
+                              MenuButton(
+                                child: Text(context.i18n.actionClimbInclineIncrease),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.climbInclineIncrease;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                              MenuButton(
+                                child: Text(context.i18n.actionClimbInclineDecrease),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.climbInclineDecrease;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                              MenuButton(
+                                child: Text(context.i18n.actionClimbInclineZero),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.climbInclineZero;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                              MenuButton(
+                                child: Text(context.i18n.actionClimbAutoMode),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.climbAutoMode;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+
                 SizedBox(height: 8),
                 DestructiveButton(
                   onPressed: () {
