@@ -25,13 +25,13 @@ mixin ManualInclineDevice on BluetoothDevice implements InclineSink {
     if (!isKeyDown) return NotHandled('', button: keyPair.buttons.firstOrNull);
     try {
       switch (keyPair.inGameAction) {
-        case InGameAction.climbInclineIncrease:
+        case InGameAction.inclineIncrease:
           inclineState.increase();
-        case InGameAction.climbInclineDecrease:
+        case InGameAction.inclineDecrease:
           inclineState.decrease();
-        case InGameAction.climbInclineZero:
+        case InGameAction.inclineZero:
           inclineState.zero();
-        case InGameAction.climbAutoMode:
+        case InGameAction.inclineAutoMode:
           inclineState.setAuto();
           return Success('Incline: follow grade', button: keyPair.buttons.firstOrNull);
         default:

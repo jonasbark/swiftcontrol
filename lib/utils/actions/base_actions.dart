@@ -297,11 +297,11 @@ abstract class BaseActions {
       return await headwind.handleKeypair(keyPair, isKeyDown: isKeyDown);
     }
 
-    // Handle KICKR Climb manual actions
-    if (keyPair.inGameAction == InGameAction.climbInclineIncrease ||
-        keyPair.inGameAction == InGameAction.climbInclineDecrease ||
-        keyPair.inGameAction == InGameAction.climbInclineZero ||
-        keyPair.inGameAction == InGameAction.climbAutoMode) {
+    // Handle incline device manual actions (KICKR Climb, Elite Rizer)
+    if (keyPair.inGameAction == InGameAction.inclineIncrease ||
+        keyPair.inGameAction == InGameAction.inclineDecrease ||
+        keyPair.inGameAction == InGameAction.inclineZero ||
+        keyPair.inGameAction == InGameAction.inclineAutoMode) {
       final climb = core.connection.climbAccessories.where((c) => c.isConnected).firstOrNull;
       if (climb == null) {
         return Error(
