@@ -420,3 +420,7 @@ abstract class BluetoothDevice extends BaseDevice {
     }
   }
 }
+
+/// Marker for devices that react to trainer/game state rather than acting as a
+/// controller (e.g. Headwind fan, KICKR Climb). Excluded from [controllerDevices].
+mixin Accessory on BluetoothDevice {}
