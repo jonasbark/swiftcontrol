@@ -413,7 +413,7 @@ class KeyPair {
             InGameAction.inclineZero,
             InGameAction.inclineAutoMode,
           ].contains(inGameAction) &&
-          (core.connection.climbAccessories.isNotEmpty || kDebugMode)) ||
+          (core.connection.inclineDevices.isNotEmpty || kDebugMode)) ||
       (screenshotPath != null && screenshotPath!.trim().isNotEmpty) ||
       (command != null && command!.trim().isNotEmpty);
 

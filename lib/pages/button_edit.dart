@@ -772,14 +772,14 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                   ),
                 ],
 
-                if (core.connection.climbAccessories.isNotEmpty) ...[
+                if (core.connection.inclineDevices.isNotEmpty) ...[
                   SizedBox(height: 8),
                   if (core.connection.accessories.isEmpty)
                     ColoredTitle(text: context.i18n.accessoryActions),
                   Builder(
                     builder: (context) => SelectableCard(
                       icon: LucideIcons.mountain,
-                      title: Text(context.i18n.kickrClimb),
+                      title: Text(context.i18n.inclineActions),
                       isActive: _keyPair.inGameAction != null &&
                           [
                             InGameAction.inclineIncrease,

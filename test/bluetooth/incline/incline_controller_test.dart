@@ -103,5 +103,17 @@ void main() {
       sink.gate.complete();
       await first;
     });
+
+    test('re-asserts grade after returning from manual hold to auto', () async {
+      final sink = _FakeSink(true);
+      final c = InclineController(gradeProvider: () => 600, sinkProvider: () => sink);
+      await c.tick(); // auto: writes 600
+      expect(sink.writes, [600]);
+      sink.followsGrade = false;
+      await c.tick(); // manual hold: no write, dedup baseline reset
+      sink.followsGrade = true;
+      await c.tick(); // auto again: re-asserts 600 despite unchanged grade
+      expect(sink.writes, [600, 600]);
+    });
   });
 }

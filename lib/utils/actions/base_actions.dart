@@ -297,19 +297,19 @@ abstract class BaseActions {
       return await headwind.handleKeypair(keyPair, isKeyDown: isKeyDown);
     }
 
-    // Handle incline device manual actions (KICKR Climb, Elite Rizer)
+    // Handle incline device (KICKR Climb / Elite Rizer) manual actions
     if (keyPair.inGameAction == InGameAction.inclineIncrease ||
         keyPair.inGameAction == InGameAction.inclineDecrease ||
         keyPair.inGameAction == InGameAction.inclineZero ||
         keyPair.inGameAction == InGameAction.inclineAutoMode) {
-      final climb = core.connection.climbAccessories.where((c) => c.isConnected).firstOrNull;
-      if (climb == null) {
+      final incline = core.connection.inclineDevices.where((d) => d.isConnected).firstOrNull;
+      if (incline == null) {
         return Error(
-          'No KICKR Climb connected',
+          'No incline device connected',
           button: keyPair.buttons.firstOrNull ?? button,
         );
       }
-      final result = await climb.handleKeypair(keyPair, isKeyDown: isKeyDown);
+      final result = await incline.handleKeypair(keyPair, isKeyDown: isKeyDown);
       if (result is Success) {
         await IAPManager.instance.incrementCommandCount();
       }
