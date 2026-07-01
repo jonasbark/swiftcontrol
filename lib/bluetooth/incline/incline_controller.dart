@@ -56,7 +56,12 @@ class InclineController {
         return;
       }
 
-      if (!sink.followsGrade) return; // manual hold — device owns the value
+      if (!sink.followsGrade) {
+        // Manual hold: device owns the value. Drop the dedup baseline so returning
+        // to auto re-asserts the grade even if it equals the last auto-written value.
+        _lastWritten = null;
+        return;
+      }
 
       final clamped = grade.clamp(kInclineManualMinGrade001, kInclineManualMaxGrade001);
       if (clamped == _lastWritten) return;

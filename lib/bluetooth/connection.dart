@@ -8,6 +8,7 @@ import 'package:bike_control/bluetooth/devices/hid/hid_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/incline/incline_controller.dart';
 import 'package:bike_control/bluetooth/incline/incline_sink.dart';
+import 'package:bike_control/bluetooth/incline/manual_incline_device.dart';
 import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
@@ -40,6 +41,7 @@ class Connection {
   List<GyroscopeSteering> get gyroscopeDevices => devices.whereType<GyroscopeSteering>().toList();
   List<WahooKickrHeadwind> get accessories => devices.whereType<WahooKickrHeadwind>().toList();
   List<WahooKickrClimb> get climbAccessories => devices.whereType<WahooKickrClimb>().toList();
+  List<ManualInclineDevice> get inclineDevices => devices.whereType<ManualInclineDevice>().toList();
   List<BaseDevice> get controllerDevices => [
     ...bluetoothDevices.where((d) => d is! Accessory && d is! ProxyDevice),
     ...gamepadDevices,
@@ -112,8 +114,10 @@ class Connection {
     _inclineController ??= InclineController(
       gradeProvider: () => ftmsEmulator.fitnessBike?.simGrade.value,
       sinkProvider: () {
-        final climb = climbAccessories.where((c) => c.isConnected).firstOrNull;
-        if (climb != null) return climb;
+        final direct = devices.whereType<InclineSink>().firstOrNullWhere(
+          (d) => (d as BaseDevice).isConnected,
+        );
+        if (direct != null) return direct;
         final fbd = ftmsEmulator.fitnessBike;
         if (fbd != null && fbd.supportsClimbRelay) {
           if (!identical(_relaySinkFbd, fbd)) {
