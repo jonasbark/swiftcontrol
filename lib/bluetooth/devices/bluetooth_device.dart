@@ -30,6 +30,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 import 'cycplus/cycplus_bc2.dart';
+import 'elite/elite_rizer.dart';
 import 'elite/elite_square.dart';
 import 'elite/elite_sterzo.dart';
 import 'thinkrider/thinkrider_vs200.dart';
@@ -106,6 +107,7 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') => WahooKickrClimb(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('RIZER') => EliteRizer(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE SHIFT') => WahooKickrBikeShift(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE PRO') => WahooKickrBikePro(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE') => WahooKickrBikeShift(scanResult),
@@ -127,6 +129,7 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('SQUARE') => EliteSquare(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('RIZER') => EliteRizer(scanResult),
         _ when scanResult.name!.toUpperCase().contains('KICKR BIKE SHIFT') => WahooKickrBikeShift(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE PRO') => WahooKickrBikePro(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE') => WahooKickrBikeShift(scanResult),
