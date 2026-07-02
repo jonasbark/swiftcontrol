@@ -19,7 +19,7 @@ import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/blog_posts_widget.dart';
-import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
+import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
@@ -478,14 +478,15 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
                     );
                   }
 
-                  if (device is GyroscopeSteering) {
+                  if (device is SteeringDevice) {
+                    final steering = device as SteeringDevice;
                     return SteeringGauge(
-                      angle: device.steeringAngle,
-                      calibrated: device.isCalibratedNotifier,
-                      threshold: core.settings.getPhoneSteeringThreshold(),
+                      angle: steering.steeringAngle,
+                      calibrated: steering.steeringCalibrated,
+                      threshold: steering.steeringThreshold,
                       device: device,
-                      leftButton: GyroscopeSteeringButtons.leftSteer,
-                      rightButton: GyroscopeSteeringButtons.rightSteer,
+                      leftButton: steering.steerLeftButton,
+                      rightButton: steering.steerRightButton,
                       keymap: keymap,
                       onUpdate: () {
                         _clearErrorBanner();

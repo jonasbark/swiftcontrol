@@ -7,13 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
+import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/controller/controller_layout.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 import '../../messages/notification.dart';
 
-class EliteSterzo extends BluetoothDevice {
+class EliteSterzo extends BluetoothDevice implements SteeringDevice {
   EliteSterzo(super.scanResult) : super(availableButtons: SterzoButtons.values);
 
   @override
@@ -43,6 +44,20 @@ class EliteSterzo extends BluetoothDevice {
   // Debounce timer for PWM-like keypress behavior
   Timer? _keypressTimer;
   bool _isProcessingKeypresses = false;
+
+  // SteeringDevice listenable state
+  final ValueNotifier<double> steeringAngle = ValueNotifier(0.0);
+  final ValueNotifier<bool> steeringCalibratedN = ValueNotifier(false);
+
+  // SteeringDevice interface
+  @override
+  ValueListenable<bool> get steeringCalibrated => steeringCalibratedN;
+  @override
+  double get steeringThreshold => SterzoConstants.STEERING_THRESHOLD;
+  @override
+  ControllerButton get steerLeftButton => SterzoButtons.leftSteer;
+  @override
+  ControllerButton get steerRightButton => SterzoButtons.rightSteer;
 
   @override
   Future<void> handleServices(List<BleService> services) async {
@@ -254,6 +269,7 @@ class EliteSterzo extends BluetoothDevice {
           // Compute average offset from collected samples
           _calibrationOffset = _calibrationSamples.reduce((a, b) => a + b) / _calibrationSamples.length;
           _isCalibrated = true;
+          steeringCalibratedN.value = true;
           actionStreamInternal.add(
             LogNotification('Elite Sterzo: Calibration complete, offset: ${_calibrationOffset.toStringAsFixed(2)}°'),
           );
@@ -263,6 +279,11 @@ class EliteSterzo extends BluetoothDevice {
 
       // Apply calibration offset
       final calibratedAngle = rawAngle - _calibrationOffset;
+
+      // Update gauge notifier unconditionally for smooth live feedback.
+      // Gauge convention is positive ⇒ left; the Sterzo's positive physical
+      // angle steers right, so negate for the gauge (actions use roundedAngle).
+      steeringAngle.value = -calibratedAngle;
 
       // Round to whole degrees to reduce noise
       final roundedAngle = calibratedAngle.round();

@@ -1,6 +1,6 @@
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
-import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
+import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/customize.dart';
 import 'package:bike_control/utils/core.dart';
@@ -121,16 +121,17 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
 
   Widget _buildDeviceCard(BaseDevice device) {
     Widget? footer;
-    if (device is GyroscopeSteering) {
+    if (device is SteeringDevice) {
+      final steering = device as SteeringDevice;
       footer = Padding(
         padding: const EdgeInsets.only(top: 4),
         child: SteeringGauge(
-          angle: device.steeringAngle,
-          calibrated: device.isCalibratedNotifier,
-          threshold: core.settings.getPhoneSteeringThreshold(),
+          angle: steering.steeringAngle,
+          calibrated: steering.steeringCalibrated,
+          threshold: steering.steeringThreshold,
           device: device,
-          leftButton: GyroscopeSteeringButtons.leftSteer,
-          rightButton: GyroscopeSteeringButtons.rightSteer,
+          leftButton: steering.steerLeftButton,
+          rightButton: steering.steerRightButton,
           keymap: core.actionHandler.supportedApp?.keymap,
           onUpdate: () => setState(() {}),
         ),
