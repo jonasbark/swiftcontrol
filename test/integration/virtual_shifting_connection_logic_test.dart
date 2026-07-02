@@ -4,8 +4,6 @@ import 'dart:typed_data';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
-import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
-import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
@@ -16,6 +14,8 @@ import 'package:prop/utils/constants.dart' show BikeControlMdnsMarkers;
 import 'package:prop/utils/self_advertisement_registry.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import 'harness/fake_ble_platform.dart';
+import 'harness/fake_peripherals.dart';
 import 'harness/test_env.dart';
 
 /// Real [BaseActions] pipeline (keymap → pro guard → trainer routing) with no
