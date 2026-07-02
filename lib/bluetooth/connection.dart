@@ -723,6 +723,13 @@ class Connection {
       _connectionSubscriptions[device]?.cancel();
       _connectionSubscriptions.remove(device);
 
+      // Forgetting an emulated device tears down its fake peripheral and clears
+      // the scan-result dedupe cache so the same profile can be re-added later.
+      if (forget && core.emulation.isEmulated(device.device.deviceId)) {
+        core.emulation.stop(device.device.deviceId);
+        _lastScanResult.removeWhere((d) => d.deviceId == device.device.deviceId);
+      }
+
       // Remove device from the list — unless it is rebooting due to an
       // automatic reset and will be back in a few seconds, or this is an
       // in-place disconnect (keepInList) where the open details page still
