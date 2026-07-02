@@ -1,5 +1,7 @@
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
@@ -9,8 +11,6 @@ import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop/prop.dart' hide RideButtonMask;
 
-import '../integration/harness/fake_ble_platform.dart';
-import '../integration/harness/fake_peripherals.dart';
 import '../integration/harness/test_env.dart';
 
 /// Test-local StubActions subclass that exposes the combo hooks with full
