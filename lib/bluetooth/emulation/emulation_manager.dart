@@ -4,6 +4,9 @@ import 'package:universal_ble/universal_ble.dart';
 import 'emulated_ble_platform.dart';
 import 'emulation_profile.dart';
 
+/// Retained entry cap for [EmulationSession.writeLog].
+const _maxWriteLogEntries = 100;
+
 /// A live emulated device: its peripheral, profile, decoded write log and the
 /// interactive inputs bound to it.
 class EmulationSession {
@@ -13,7 +16,14 @@ class EmulationSession {
     peripheral.onWrite = (service, characteristic, value) {
       scripted?.call(service, characteristic, value);
       final decoded = profile.decodeWrite?.call(characteristic.toLowerCase(), value);
-      if (decoded != null) writeLog.value = [...writeLog.value, decoded];
+      if (decoded != null) {
+        final updated = [...writeLog.value, decoded];
+        // Incline writes stream continuously for the ride's duration; cap
+        // retained entries so a long ride doesn't grow this unbounded.
+        writeLog.value = updated.length > _maxWriteLogEntries
+            ? updated.sublist(updated.length - _maxWriteLogEntries)
+            : updated;
+      }
     };
     inputs = profile.inputs?.call(this) ?? const [];
   }

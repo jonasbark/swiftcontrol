@@ -26,8 +26,13 @@ class RoutingBlePlatform extends UniversalBlePlatform {
     child.onPairingStateChange = updatePairingState;
   }
 
+  // A forgotten (unregistered) emulated peripheral no longer has a fake
+  // entry, but the app can still address it briefly afterwards (Sterzo's
+  // 1s-delayed activation write, Connection's disconnect for an unknown
+  // device) — those stray calls must still land on the fake, not leak to the
+  // real OS BLE stack, so fall back on the id prefix once the lookup misses.
   UniversalBlePlatform _forDevice(String deviceId) =>
-      fake.peripherals.containsKey(deviceId) ? fake : real;
+      fake.peripherals.containsKey(deviceId) || deviceId.startsWith('emulated:') ? fake : real;
 
   @override
   Future<AvailabilityState> getBluetoothAvailabilityState() => real.getBluetoothAvailabilityState();

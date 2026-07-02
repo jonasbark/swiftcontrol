@@ -160,8 +160,9 @@ final openBikeControlProfile = EmulationProfile(
   ],
 );
 
-// Shimano Di2 — D-Fly channel bitmasks over indications; the first frame only
-// initializes the app-side state, so a baseline precedes the first press.
+// Shimano Di2 — D-Fly channel bitmasks over indications; a fresh app-side
+// device instance treats its first frame as baseline, so every press leads
+// with one to guard against a mid-ride reconnect resetting that state.
 const _di2DFlyChannelUuid = '00002ac2-5348-494d-414e-4f5f424c4500';
 
 final shimanoDi2Profile = EmulationProfile(
@@ -169,21 +170,19 @@ final shimanoDi2Profile = EmulationProfile(
   category: EmulationCategory.controller,
   build: () => buildShimanoDi2(deviceId: 'emulated:di2'),
   inputs: (session) {
-    var initialized = false;
     void send(List<int> channels) => session.notify(_di2DFlyChannelUuid, [0x00, ...channels]);
     List<int> single(int index, int value) => [for (var i = 0; i < 3; i++) i == index ? value : 0x00];
-    void ensureBaseline() {
-      if (initialized) return;
-      send(const [0x00, 0x00, 0x00]);
-      initialized = true;
-    }
 
     return [
       for (var channel = 0; channel < 3; channel++)
         EmulatedButton(
           'D-Fly Channel ${channel + 1}',
+          // A fresh ShimanoDi2 instance (built on every connect, including a
+          // drop-connection/auto-reconnect) treats its first-ever frame as
+          // baseline and swallows it — lead every press with the idle frame
+          // so the press frame right after it always reads as a change.
           onDown: () {
-            ensureBaseline();
+            send(const [0x00, 0x00, 0x00]);
             send(single(channel, 0x10)); // 0x10 = short press
           },
           onUp: () => send(single(channel, 0x00)),

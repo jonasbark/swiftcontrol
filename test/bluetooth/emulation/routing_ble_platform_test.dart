@@ -12,6 +12,16 @@ class _ThrowingScanPlatform extends FakeUniversalBlePlatform {
   }
 }
 
+// A `real` double whose connect() throws a message distinct from
+// FakeUniversalBlePlatform's own `_require` error, so a test can tell which
+// side actually handled a call instead of both sides looking identical.
+class _UnreachableRealPlatform extends FakeUniversalBlePlatform {
+  @override
+  Future<void> connect(String deviceId, {Duration? connectionTimeout, bool autoConnect = false}) async {
+    throw StateError('real must not be reached for emulated: ids');
+  }
+}
+
 void main() {
   late FakeUniversalBlePlatform real;
   late FakeUniversalBlePlatform fake;
@@ -91,5 +101,21 @@ void main() {
     final routing2 = RoutingBlePlatform(real: throwing, fake: FakeUniversalBlePlatform());
 
     expect(routing2.startScan(), throwsStateError);
+  });
+
+  test('routes a stray call for an unregistered emulated: id to the fake, not the real stack', () async {
+    // Simulates a post-forget stray call: the id was never (re-)registered
+    // on either side. `real` is a double that throws a distinguishable error
+    // from its connect(), so if routing fell back to `real` on the
+    // containsKey miss, the assertion below would fail on the wrong message.
+    final unreachableReal = _UnreachableRealPlatform();
+    final routing2 = RoutingBlePlatform(real: unreachableReal, fake: FakeUniversalBlePlatform());
+
+    await expectLater(
+      routing2.connect('emulated:gone'),
+      throwsA(
+        isA<StateError>().having((e) => e.message, 'message', 'FakePeripheral emulated:gone is not registered'),
+      ),
+    );
   });
 }
