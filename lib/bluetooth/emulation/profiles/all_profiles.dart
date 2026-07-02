@@ -1,4 +1,5 @@
 import '../emulation_profile.dart';
+import 'elite_profiles.dart';
 import 'zwift_profiles.dart';
 
 /// Every device the debug "Emulate device" menu can add. Extended per family
@@ -11,4 +12,7 @@ List<EmulationProfile> get allEmulationProfiles => [
       zwiftPlayRightProfile,
       zwiftPlayFw2Profile,
       zwiftRideProfile,
+      eliteSquareProfile,
+      eliteSterzoProfile,
+      eliteRizerProfile,
     ];
