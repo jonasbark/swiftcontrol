@@ -1,3 +1,8 @@
+### 6.3.0 (02-07-2026)
+**Features**:
+- Wahoo KICKR Climb (beta): your Climb now follows the grade from your training app, rising and falling with the terrain. Controller buttons can also raise, lower, flatten, or hand it back to auto.
+- Elite Rizer (beta): incline + steering support. It connects directly and works with any trainer – following the road grade for tilt and steering you in‑game.
+
 ### 6.2.0 (26-06-2026)
 **Features**:
 - Virtual front derailleur: adds a second chainring (2× drivetrain) for more realism. The new assignable "Front Shift (Chainring)" action toggles between your small and large rings, changing resistance by the exact chainring ratio while staying on the same rear cog.
