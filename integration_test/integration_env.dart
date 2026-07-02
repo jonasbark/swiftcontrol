@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter/widgets.dart' show Locale;
@@ -10,8 +11,6 @@ import 'package:flutter_local_notifications_platform_interface/flutter_local_not
 import 'package:prop/emulators/dircon_emulator.dart' show debugSetDirconPortBase;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
-
-import '../test/integration/harness/fake_ble_platform.dart';
 
 /// Notifications are irrelevant here and the plugin is not initialize()d the
 /// way the real main() does it — swallow show() instead of throwing.
