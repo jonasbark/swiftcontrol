@@ -1,5 +1,7 @@
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
@@ -11,8 +13,6 @@ import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_ble/universal_ble.dart';
 
-import 'harness/fake_ble_platform.dart';
-import 'harness/fake_peripherals.dart';
 import 'harness/test_env.dart';
 
 /// Controller connection lifecycle through the REAL Connection class: BLE
