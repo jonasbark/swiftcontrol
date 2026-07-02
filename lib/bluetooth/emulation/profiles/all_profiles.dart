@@ -1,10 +1,11 @@
 import '../emulation_profile.dart';
 import 'elite_profiles.dart';
+import 'misc_profiles.dart';
 import 'wahoo_profiles.dart';
 import 'zwift_profiles.dart';
 
-/// Every device the debug "Emulate device" menu can add. Extended per family
-/// in later tasks; keep controllers first, then steering, then accessories.
+/// Every device the debug "Emulate device" menu can add: controllers first,
+/// then steering, then accessories.
 List<EmulationProfile> get allEmulationProfiles => [
       zwiftClickProfile,
       zwiftClickV2LeftProfile,
@@ -14,9 +15,14 @@ List<EmulationProfile> get allEmulationProfiles => [
       zwiftPlayFw2Profile,
       zwiftRideProfile,
       eliteSquareProfile,
+      wahooKickrBikeShiftProfile,
+      cycplusBc2Profile,
+      thinkRiderVs200Profile,
+      sramAxsProfile,
+      openBikeControlProfile,
+      shimanoDi2Profile,
       eliteSterzoProfile,
       eliteRizerProfile,
-      wahooKickrBikeShiftProfile,
       wahooKickrClimbProfile,
       wahooKickrHeadwindProfile,
     ];
