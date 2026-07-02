@@ -65,6 +65,29 @@ void main() {
     expect(session.writeLog.value, ['wrote 2 bytes']);
   });
 
+  test('writeLog caps retained entries at 100, keeping the most recent', () async {
+    final profile = EmulationProfile(
+      name: 'Sink',
+      category: EmulationCategory.accessory,
+      build: () => FakePeripheral(deviceId: 'emulated:sink', name: 'Sink'),
+      decodeWrite: (characteristicUuid, value) => 'wrote ${value.first}',
+    );
+    final session = manager.start(profile);
+
+    for (var i = 0; i < 120; i++) {
+      await ble.writeValue(
+        'emulated:sink',
+        'service',
+        'char',
+        Uint8List.fromList([i]),
+        BleOutputProperty.withResponse,
+      );
+    }
+
+    expect(session.writeLog.value.length, 100);
+    expect(session.writeLog.value.last, 'wrote 119');
+  });
+
   test('stop unregisters the peripheral', () {
     manager.start(zwiftClickProfile);
     manager.stop('emulated:zwift-click');
