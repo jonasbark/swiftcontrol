@@ -317,6 +317,19 @@ class CoreLogic {
       core.actionHandler.supportedModes.isNotEmpty &&
       (showLocalControl || isRemoteControlEnabled || isRemoteKeyboardControlEnabled);
 
+  /// The "Simulate keyboard shortcut" card is shown when the keyboard mode is
+  /// supported and either Local is available (may be disabled — tapping then
+  /// prompts to enable it) or remote-keyboard control is already enabled.
+  bool get showLocalKeyboardCard =>
+      core.actionHandler.supportedModes.contains(SupportedMode.keyboard) &&
+      (showLocalControl || isRemoteKeyboardControlEnabled);
+
+  /// The "Simulate touch / mouse" card is shown when the touch mode is
+  /// supported and either Local is available or remote control is enabled.
+  bool get showLocalTouchCard =>
+      core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
+      (showLocalControl || isRemoteControlEnabled);
+
   bool get hasNoConnectionMethod =>
       !screenshotMode &&
       !isZwiftBleEnabled &&
