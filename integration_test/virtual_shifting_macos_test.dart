@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
-import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
