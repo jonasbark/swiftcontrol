@@ -19,6 +19,7 @@ import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/ui/button_widget.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
 import 'package:bike_control/widgets/ui/colors.dart';
+import 'package:bike_control/widgets/ui/connection_method.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
@@ -270,8 +271,7 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                   SizedBox(height: 8),
                   ColoredTitle(text: context.i18n.localRemoteSetting),
 
-                  if (core.actionHandler.supportedModes.contains(SupportedMode.keyboard) &&
-                      (core.settings.getLocalEnabled() || core.settings.getRemoteKeyboardControlEnabled()))
+                  if (core.logic.showLocalKeyboardCard)
                     Builder(
                       builder: (context) {
                         return SelectableCard(
@@ -288,8 +288,7 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                         );
                       },
                     ),
-                  if (core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
-                      (core.settings.getLocalEnabled() || core.settings.getRemoteControlEnabled()))
+                  if (core.logic.showLocalTouchCard)
                     Builder(
                       builder: (context) {
                         return SelectableCard(
@@ -326,13 +325,12 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                             launchUrlString('https://youtube.com/shorts/ClY1eTnmAv0?feature=share');
                           },
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           if (!core.settings.getLocalEnabled()) {
-                            buildToast(
-                              title: AppLocalizations.of(context).enableLocalConnectionMethodFirst,
-                            );
-                          } else {
-                            showDropdown(
+                            final enabled = await _promptEnableLocal(context);
+                            if (!enabled || !context.mounted) return;
+                          }
+                          showDropdown(
                               context: context,
                               builder: (c) => DropdownMenu(
                                 children: [
@@ -483,7 +481,6 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                 ],
                               ),
                             );
-                          }
                         },
                       ),
                     ),
@@ -505,11 +502,12 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                             launchUrlString('https://youtube.com/shorts/zqD5ARGIVmE?feature=share');
                           },
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           if (!core.settings.getLocalEnabled()) {
-                            buildToast(title: context.i18n.enableLocalConnectionMethodFirst);
-                          } else {
-                            showDropdown(
+                            final enabled = await _promptEnableLocal(context);
+                            if (!enabled || !context.mounted) return;
+                          }
+                          showDropdown(
                               context: context,
                               builder: (c) => DropdownMenu(
                                 children: AndroidSystemAction.values
@@ -540,7 +538,6 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                     .toList(),
                               ),
                             );
-                          }
                         },
                       ),
                     ),
@@ -1319,6 +1316,33 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
     );
   }
 
+  /// Asks the user whether to enable the Local connection method; on confirm,
+  /// runs [enableLocalControl] and rebuilds so the local action cards reflect
+  /// the new enabled state. Returns whether Local ended up enabled.
+  Future<bool> _promptEnableLocal(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.i18n.enableLocalConnectionMethodTitle),
+        content: Text(context.i18n.enableLocalConnectionMethodDescription),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.i18n.cancel),
+          ),
+          PrimaryButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.i18n.enable),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return false;
+    final enabled = await enableLocalControl(context);
+    if (enabled && mounted) setState(() {});
+    return enabled;
+  }
+
   Future<void> _showModeDropdown(BuildContext context, SupportedMode supportedMode) async {
     final trainerApp = core.settings.getTrainerApp();
 
@@ -1349,10 +1373,10 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
         supportedMode == SupportedMode.media && core.settings.getLocalEnabled();
 
     if (!isEnabled) {
-      return buildToast(
-        title: AppLocalizations.of(context).enableLocalConnectionMethodFirst,
-      );
-    } else if (actionsWithInGameAction.isNotEmpty) {
+      final enabled = await _promptEnableLocal(context);
+      if (!enabled || !context.mounted) return;
+    }
+    if (actionsWithInGameAction.isNotEmpty) {
       showDropdown(
         context: context,
         builder: (c) => DropdownMenu(
