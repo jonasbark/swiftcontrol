@@ -8,6 +8,7 @@ import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/devices/zwift/ftms_mdns_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/rouvy_mdns_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_emulator.dart';
+import 'package:bike_control/bluetooth/emulation/emulation_manager.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/bluetooth/remote_keyboard_pairing.dart';
 import 'package:bike_control/bluetooth/remote_pairing.dart';
@@ -77,6 +78,7 @@ class Core {
   late final remotePairing = RemotePairing();
   late final remoteKeyboardPairing = RemoteKeyboardPairing();
   late final di2Emulator = Di2Emulator();
+  late final emulation = EmulationManager();
 
   late final mediaKeyHandler = MediaKeyHandler();
   late final logic = CoreLogic();
