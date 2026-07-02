@@ -8,28 +8,28 @@ import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/prop.dart' hide RideButtonMask;
 import 'package:universal_ble/universal_ble.dart';
 
-import 'emulated_ble_platform.dart';
+import 'fake_ble_platform.dart';
 
-String lcUuid(String uuid) => uuid.toLowerCase();
+String _lc(String uuid) => uuid.toLowerCase();
 
-BleCharacteristic bleChar(String uuid, List<CharacteristicProperty> properties) =>
-    BleCharacteristic(lcUuid(uuid), properties, []);
+BleCharacteristic _char(String uuid, List<CharacteristicProperty> properties) =>
+    BleCharacteristic(_lc(uuid), properties, []);
 
 /// Standard device-information + battery services shared by the builders.
-List<BleService> deviceInfoServices(FakePeripheral peripheral, {String firmware = '1.0.0', int battery = 88}) {
-  peripheral.readValues[lcUuid(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_FIRMWARE_REVISION)] =
+List<BleService> _deviceInfoServices(FakePeripheral peripheral, {String firmware = '1.0.0', int battery = 88}) {
+  peripheral.readValues[_lc(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_FIRMWARE_REVISION)] =
       Uint8List.fromList(firmware.codeUnits);
-  peripheral.readValues[lcUuid(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_MANUFACTURER_NAME)] =
+  peripheral.readValues[_lc(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_MANUFACTURER_NAME)] =
       Uint8List.fromList('FakeWorks'.codeUnits);
-  peripheral.readValues[lcUuid(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_BATTERY_LEVEL)] =
+  peripheral.readValues[_lc(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_BATTERY_LEVEL)] =
       Uint8List.fromList([battery]);
   return [
-    BleService(lcUuid(BleUuid.DEVICE_INFORMATION_SERVICE_UUID), [
-      bleChar(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_FIRMWARE_REVISION, [CharacteristicProperty.read]),
-      bleChar(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_MANUFACTURER_NAME, [CharacteristicProperty.read]),
+    BleService(_lc(BleUuid.DEVICE_INFORMATION_SERVICE_UUID), [
+      _char(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_FIRMWARE_REVISION, [CharacteristicProperty.read]),
+      _char(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_MANUFACTURER_NAME, [CharacteristicProperty.read]),
     ]),
-    BleService(lcUuid(BleUuid.DEVICE_BATTERY_SERVICE_UUID), [
-      bleChar(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_BATTERY_LEVEL, [
+    BleService(_lc(BleUuid.DEVICE_BATTERY_SERVICE_UUID), [
+      _char(BleUuid.DEVICE_INFORMATION_CHARACTERISTIC_BATTERY_LEVEL, [
         CharacteristicProperty.read,
         CharacteristicProperty.notify,
       ]),
@@ -44,22 +44,22 @@ FakePeripheral buildZwiftClick({String deviceId = 'fake-zwift-click', String nam
   final peripheral = FakePeripheral(
     deviceId: deviceId,
     name: name,
-    advertisedServices: [lcUuid(ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID)],
+    advertisedServices: [_lc(ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID)],
     manufacturerData: ManufacturerData(
       ZwiftConstants.ZWIFT_MANUFACTURER_ID,
       Uint8List.fromList([ZwiftConstants.BC1]),
     ),
   );
   peripheral.services.addAll([
-    BleService(lcUuid(ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID), [
-      bleChar(ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID, [CharacteristicProperty.notify]),
-      bleChar(ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID, [CharacteristicProperty.indicate]),
-      bleChar(ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID, [
+    BleService(_lc(ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID), [
+      _char(ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID, [CharacteristicProperty.notify]),
+      _char(ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID, [CharacteristicProperty.indicate]),
+      _char(ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID, [
         CharacteristicProperty.write,
         CharacteristicProperty.writeWithoutResponse,
       ]),
     ]),
-    ...deviceInfoServices(peripheral, firmware: '1.1.0'),
+    ..._deviceInfoServices(peripheral, firmware: '1.1.0'),
   ]);
   return peripheral;
 }
@@ -87,13 +87,13 @@ FakePeripheral buildShimanoDi2({String deviceId = 'fake-di2', String name = 'RDR
   final peripheral = FakePeripheral(
     deviceId: deviceId,
     name: name,
-    advertisedServices: [lcUuid(ShimanoDi2Constants.SERVICE_UUID)],
+    advertisedServices: [_lc(ShimanoDi2Constants.SERVICE_UUID)],
   );
   peripheral.services.addAll([
-    BleService(lcUuid(ShimanoDi2Constants.SERVICE_UUID), [
-      bleChar(ShimanoDi2Constants.D_FLY_CHANNEL_UUID, [CharacteristicProperty.notify]),
+    BleService(_lc(ShimanoDi2Constants.SERVICE_UUID), [
+      _char(ShimanoDi2Constants.D_FLY_CHANNEL_UUID, [CharacteristicProperty.notify]),
     ]),
-    ...deviceInfoServices(peripheral),
+    ..._deviceInfoServices(peripheral),
   ]);
   return peripheral;
 }
@@ -113,19 +113,19 @@ FakePeripheral buildFtmsTrainer({String deviceId = 'fake-kickr', String name = '
       Uint8List.fromList([0x8a, 0x40, 0x00, 0x00, 0x0c, 0xe0, 0x00, 0x00]);
   peripheral.services.addAll([
     BleService(FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID, [
-      bleChar(FitnessBikeDefinition.FITNESS_MACHINE_FEATURE_UUID, [CharacteristicProperty.read]),
-      bleChar(FitnessBikeDefinition.INDOOR_BIKE_DATA_UUID, [CharacteristicProperty.notify]),
-      bleChar(FitnessBikeDefinition.FITNESS_MACHINE_CONTROL_POINT_UUID, [
+      _char(FitnessBikeDefinition.FITNESS_MACHINE_FEATURE_UUID, [CharacteristicProperty.read]),
+      _char(FitnessBikeDefinition.INDOOR_BIKE_DATA_UUID, [CharacteristicProperty.notify]),
+      _char(FitnessBikeDefinition.FITNESS_MACHINE_CONTROL_POINT_UUID, [
         CharacteristicProperty.write,
         CharacteristicProperty.indicate,
       ]),
-      bleChar(FitnessBikeDefinition.FITNESS_MACHINE_STATUS_UUID, [CharacteristicProperty.notify]),
+      _char(FitnessBikeDefinition.FITNESS_MACHINE_STATUS_UUID, [CharacteristicProperty.notify]),
     ]),
     BleService(FitnessBikeDefinition.CYCLING_POWER_SERVICE_UUID, [
-      bleChar(FitnessBikeDefinition.CYCLING_POWER_MEASUREMENT_UUID, [CharacteristicProperty.notify]),
-      bleChar(FitnessBikeDefinition.CYCLING_POWER_FEATURE_UUID, [CharacteristicProperty.read]),
+      _char(FitnessBikeDefinition.CYCLING_POWER_MEASUREMENT_UUID, [CharacteristicProperty.notify]),
+      _char(FitnessBikeDefinition.CYCLING_POWER_FEATURE_UUID, [CharacteristicProperty.read]),
     ]),
-    ...deviceInfoServices(peripheral, firmware: '4.2.0'),
+    ..._deviceInfoServices(peripheral, firmware: '4.2.0'),
   ]);
   return peripheral;
 }
@@ -146,7 +146,7 @@ void autoRespondToZwiftHandshake(
   }
 
   peripheral.onWrite = (service, characteristic, value) {
-    final isSyncRx = characteristic.toLowerCase() == lcUuid(ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID);
+    final isSyncRx = characteristic.toLowerCase() == _lc(ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID);
     if (isSyncRx && startsWithRideOn(value)) {
       ble.notify(peripheral.deviceId, ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID, [
         ...ZwiftConstants.RIDE_ON,
