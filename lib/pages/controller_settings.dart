@@ -1,4 +1,5 @@
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/customize.dart';
@@ -8,10 +9,12 @@ import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:bike_control/widgets/device_script_drawer.dart';
+import 'package:bike_control/widgets/emulation_card.dart';
 import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/trainer_label.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -94,6 +97,16 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                   const Gap(16),
                   device.buildPreferences(context)!,
                   const Gap(24),
+                ],
+
+                // Emulation (debug-only controls for an emulated device)
+                if (kDebugMode && device is BluetoothDevice && core.emulation.isAvailable) ...[
+                  if (core.emulation.sessionFor(device.scanResult.deviceId) case final session?) ...[
+                    _buildSectionHeader('Emulation'),
+                    const Gap(16),
+                    EmulationCard(session: session),
+                    const Gap(24),
+                  ],
                 ],
 
                 // Actions
