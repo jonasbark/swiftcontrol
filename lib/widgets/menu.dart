@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/emulation/profiles/all_profiles.dart';
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/subscription.dart';
@@ -20,9 +22,7 @@ import 'package:keypress_simulator/keypress_simulator.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show Purchases;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:universal_ble/universal_ble.dart';
 
-import '../bluetooth/devices/zwift/zwift_clickv2.dart';
 import '../utils/iap/iap_manager.dart';
 import 'package:bike_control/services/debug_diagnostics.dart';
 import 'package:bike_control/main.dart' show recordError;
@@ -185,40 +185,17 @@ class BKMenuButton extends StatelessWidget {
           children: [
             if (kDebugMode) ...[
               MenuButton(
-                child: Text(context.i18n.continueAction),
-                onPressed: (c) {
-                  //IAPManager.instance.purchaseFullVersion(context);
-                  core.connection.addDevices([
-                    ZwiftClickV2(
-                        BleDevice(
-                          name: 'Controller',
-                          deviceId: '00:11:22:33:44:55',
-                        ),
-                      )
-                      ..firmwareVersion = '1.2.0'
-                      ..rssi = -51
-                      ..batteryLevel = 81,
-                  ]);
-                  /*final service = TrainerOverlayService.forCurrentPlatform();
-                  final fitness = FitnessBikeDefinition(
-                    connectedDevice: BleDevice(deviceId: 'das', name: 'name'),
-                    connectedDeviceServices: [],
-                    data: ValueNotifier('_value'),
-                  );
-                  service.show(
-                    fitness,
-                    {
-                      OverlayField.gearRatio,
-                      OverlayField.power,
-                      OverlayField.cadence,
-                      OverlayField.controls,
-                    },
-                  );
-                  Future.delayed(Duration(seconds: 10), () {
-                    fitness.data.value = DateTime.now().toIso8601String();
-                    fitness.shiftUp();
-                  });*/
-                },
+                subMenu: [
+                  for (final profile in allEmulationProfiles)
+                    MenuButton(
+                      onPressed: (c) {
+                        core.emulation.start(profile);
+                        unawaited(core.connection.performScanning());
+                      },
+                      child: Text(profile.name),
+                    ),
+                ],
+                child: const Text('Emulate device'),
               ),
               MenuButton(
                 child: Text(context.i18n.reset),
