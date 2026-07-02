@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
@@ -12,8 +14,6 @@ import 'package:nsd/nsd.dart' as nsd;
 import 'package:prop/emulators/dircon_emulator.dart' show RetrofitMode;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-import '../test/integration/harness/fake_ble_platform.dart';
-import '../test/integration/harness/fake_peripherals.dart';
 import 'integration_env.dart';
 
 /// On-device (macOS) smoke tests for the parts the fast faked suite in
