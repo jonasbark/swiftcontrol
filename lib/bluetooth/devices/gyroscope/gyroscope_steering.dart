@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/steering_estimator.dart';
+import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
@@ -15,7 +16,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Gyroscope and Accelerometer based steering device
 /// Detects handlebar movement when the phone is mounted on the handlebar
-class GyroscopeSteering extends BaseDevice {
+class GyroscopeSteering extends BaseDevice implements SteeringDevice {
   GyroscopeSteering()
     : super(
         'Phone Steering',
@@ -51,6 +52,16 @@ class GyroscopeSteering extends BaseDevice {
 
   /// Mirrors [_isCalibrated] for the UI gauge.
   final ValueNotifier<bool> isCalibratedNotifier = ValueNotifier(false);
+
+  // SteeringDevice interface
+  @override
+  ValueListenable<bool> get steeringCalibrated => isCalibratedNotifier;
+  @override
+  double get steeringThreshold => core.settings.getPhoneSteeringThreshold();
+  @override
+  ControllerButton get steerLeftButton => GyroscopeSteeringButtons.leftSteer;
+  @override
+  ControllerButton get steerRightButton => GyroscopeSteeringButtons.rightSteer;
 
   // Accelerometer raw data
   bool _hasAccelData = false;

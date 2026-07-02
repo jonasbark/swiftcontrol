@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/elite/elite_rizer_protocol.dart';
+import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/bluetooth/incline/manual_incline_device.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
@@ -42,7 +43,7 @@ class RizerButtons {
 /// grade, via [ManualInclineDevice]) and steering (angle float from the
 /// steering characteristic). It is a standalone BLE device, so it works
 /// with any trainer.
-class EliteRizer extends BluetoothDevice with ManualInclineDevice {
+class EliteRizer extends BluetoothDevice with ManualInclineDevice implements SteeringDevice {
   EliteRizer(super.scanResult) : super(availableButtons: RizerButtons.values, isBeta: true);
 
   @visibleForTesting
@@ -64,6 +65,20 @@ class EliteRizer extends BluetoothDevice with ManualInclineDevice {
   bool _isCalibrated = false;
   int? _lastRoundedAngle;
   bool _isProcessingKeypresses = false;
+
+  // SteeringDevice listenable state
+  final ValueNotifier<double> steeringAngle = ValueNotifier(0.0);
+  final ValueNotifier<bool> steeringCalibratedN = ValueNotifier(false);
+
+  // SteeringDevice interface
+  @override
+  ValueListenable<bool> get steeringCalibrated => steeringCalibratedN;
+  @override
+  double get steeringThreshold => _rizerSteerThreshold;
+  @override
+  ControllerButton get steerLeftButton => RizerButtons.leftSteer;
+  @override
+  ControllerButton get steerRightButton => RizerButtons.rightSteer;
 
   @override
   Future<void> handleServices(List<BleService> services) async {
@@ -119,10 +134,15 @@ class EliteRizer extends BluetoothDevice with ManualInclineDevice {
       if (_calibrationSamples.length >= _rizerCalibrationSamples) {
         _calibrationOffset = _calibrationSamples.reduce((a, b) => a + b) / _calibrationSamples.length;
         _isCalibrated = true;
+        steeringCalibratedN.value = true;
       }
       return;
     }
-    final rounded = (raw - _calibrationOffset).round();
+    final calibrated = raw - _calibrationOffset;
+    // Gauge convention is positive ⇒ left; the Rizer's positive angle steers
+    // right, so negate for the gauge (steering actions use `rounded` below).
+    steeringAngle.value = -calibrated;
+    final rounded = calibrated.round();
     if (_lastRoundedAngle == rounded) return;
     _lastRoundedAngle = rounded;
     final decision = rizerSteerDecision(rounded);
