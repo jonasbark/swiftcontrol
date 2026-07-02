@@ -298,6 +298,9 @@
       }
     }
   },
+  "enable": "Enable",
+  "enableLocalConnectionMethodDescription": "This action uses the Local connection method, which isn't enabled yet. Enable it to use this action.",
+  "enableLocalConnectionMethodTitle": "Enable Local connection method?",
   "enableLocalConnectionMethodFirst": "Enable Local Connection method, first.",
   "enableMediaKeyDetection": "Enable Bluetooth Media remotes",
   "enableMywhooshLinkInTheConnectionSettingsFirst": "Enable MyWhoosh Link in the connection settings first.",
