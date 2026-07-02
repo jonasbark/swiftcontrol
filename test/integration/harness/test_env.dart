@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -15,7 +16,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
-import 'fake_ble_platform.dart';
 import 'fake_nsd_platform.dart';
 
 /// No-op local-notifications backend. The plugin's static platform instance
