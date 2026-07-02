@@ -67,6 +67,15 @@ class FakeUniversalBlePlatform extends UniversalBlePlatform {
     if (scanning) updateScanResult(peripheral.scanResult);
   }
 
+  /// Unregister a peripheral, dropping its connection first if needed.
+  void removePeripheral(String deviceId) {
+    final peripheral = peripherals.remove(deviceId);
+    if (peripheral != null && peripheral.isConnected) {
+      peripheral.isConnected = false;
+      updateConnection(deviceId, false, 'peripheral removed');
+    }
+  }
+
   /// Push a characteristic notification from [deviceId] to the app.
   void notify(String deviceId, String characteristicUuid, List<int> value) {
     updateCharacteristicValue(

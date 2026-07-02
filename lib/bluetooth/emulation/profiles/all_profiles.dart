@@ -1,0 +1,9 @@
+import '../emulation_profile.dart';
+import 'zwift_profiles.dart';
+
+/// Every device the debug "Emulate device" menu can add. Extended per family
+/// in later tasks; keep controllers first, then steering, then accessories.
+List<EmulationProfile> get allEmulationProfiles => [
+      zwiftClickProfile,
+      zwiftRideProfile,
+    ];
