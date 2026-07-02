@@ -5,5 +5,10 @@ import 'zwift_profiles.dart';
 /// in later tasks; keep controllers first, then steering, then accessories.
 List<EmulationProfile> get allEmulationProfiles => [
       zwiftClickProfile,
+      zwiftClickV2LeftProfile,
+      zwiftClickV2RightProfile,
+      zwiftPlayLeftProfile,
+      zwiftPlayRightProfile,
+      zwiftPlayFw2Profile,
       zwiftRideProfile,
     ];
