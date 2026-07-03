@@ -1,7 +1,7 @@
 {
   "reconnect": "Riconnetti",
   "batterySaverTitle": "Risparmio batteria",
-  "controllersDisconnectedInactivity": "Controller disconnessi dopo {minutes} minuti di inattività per risparmiare batteria",
+  "controllersDisconnectedInactivity": "Controller disconnessi dopo {minutes} minuti di inattività per risparmiare batteria. Riaccendi un controller per riconnetterlo.",
   "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
   "overlayDisabledIos": "Durante la sessione, l'Overlay del rullo galleggia sopra la tua app di allenamento (o sulla Dynamic Island sugli iPhone supportati) e sulla schermata di blocco.",
   "overlayUsePip": "Finestra mobile (Picture-in-Picture)",

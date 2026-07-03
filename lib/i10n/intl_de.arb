@@ -1,7 +1,7 @@
 {
   "reconnect": "Erneut verbinden",
   "batterySaverTitle": "Energiesparmodus",
-  "controllersDisconnectedInactivity": "Controller nach {minutes} Minuten Inaktivität getrennt, um Akku zu sparen",
+  "controllersDisconnectedInactivity": "Controller nach {minutes} Minuten Inaktivität getrennt, um Akku zu sparen. Schalte einen Controller wieder ein, um ihn neu zu verbinden.",
   "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
   "overlayDisabledIos": "Während der Fahrt schwebt das Trainer-Overlay über deiner Trainer-App – oder auf der Dynamic Island bei unterstützten iPhones – sowie auf dem Sperrbildschirm.",
   "overlayUsePip": "Schwebendes Fenster (Bild-in-Bild)",

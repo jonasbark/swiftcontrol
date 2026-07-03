@@ -183,7 +183,7 @@
   "connection": "Connection",
   "reconnect": "Reconnect",
   "batterySaverTitle": "Battery saver",
-  "controllersDisconnectedInactivity": "Controllers disconnected after {minutes} minutes of inactivity to save battery",
+  "controllersDisconnectedInactivity": "Controllers disconnected after {minutes} minutes of inactivity to save battery. Turn a controller back on to reconnect it.",
   "@controllersDisconnectedInactivity": {
     "placeholders": {
       "minutes": {

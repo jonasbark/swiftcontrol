@@ -1,7 +1,7 @@
 {
   "reconnect": "Połącz ponownie",
   "batterySaverTitle": "Oszczędzanie baterii",
-  "controllersDisconnectedInactivity": "Kontrolery rozłączone po {minutes} minutach bezczynności, aby oszczędzać baterię",
+  "controllersDisconnectedInactivity": "Kontrolery rozłączone po {minutes} minutach bezczynności, aby oszczędzać baterię. Włącz ponownie kontroler, aby go połączyć.",
   "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
   "overlayDisabledIos": "Podczas jazdy Overlay trenażera unosi się nad aplikacją treningową (lub na Dynamic Island w obsługiwanych iPhone'ach) oraz na ekranie blokady.",
   "overlayUsePip": "Pływające okno (Picture-in-Picture)",
