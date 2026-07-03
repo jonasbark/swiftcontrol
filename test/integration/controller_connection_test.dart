@@ -286,6 +286,86 @@ Future<void> main() async {
         description: 'controller reconnects after tapping Reconnect',
       );
     });
+
+    test('after the reconnect cooldown a rediscovered controller auto-reconnects', () async {
+      final click = buildZwiftClick();
+      autoRespondToZwiftHandshake(env.ble, click);
+      env.ble.addPeripheral(click);
+
+      await core.connection.performScanning();
+      final device = await waitForDevice<ZwiftClick>();
+      await IntegrationEnv.waitFor(() => device.isConnected, description: 'connect');
+
+      // Shrink the cooldown so the test doesn't wait 90 real seconds (still
+      // generous: the fake disconnect flow takes a few hundred ms).
+      // core.connection is shared across the file — restore the default so
+      // later tests keep the real suppression behavior.
+      core.connection.inactivityReconnectCooldown = const Duration(seconds: 1);
+      addTearDown(() => core.connection.inactivityReconnectCooldown = const Duration(seconds: 90));
+      core.connection.debugTriggerInactivityTimeout();
+      await IntegrationEnv.waitFor(
+        () => core.connection.devices.whereType<ZwiftClick>().isEmpty,
+        description: 'controller removed after inactivity disconnect',
+      );
+
+      // Inside the cooldown window the suppression still holds.
+      core.connection.addDevices([BluetoothDevice.fromScanResult(click.scanResult)!]);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(
+        core.connection.devices.whereType<ZwiftClick>(),
+        isEmpty,
+        reason: 'controller reconnected during the cooldown window',
+      );
+
+      // Once the cooldown elapsed, rediscovery must reconnect normally again.
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      core.connection.addDevices([BluetoothDevice.fromScanResult(click.scanResult)!]);
+      await IntegrationEnv.waitFor(
+        () => core.connection.devices.whereType<ZwiftClick>().any((d) => d.isConnected),
+        description: 'controller reconnects after the cooldown',
+      );
+    });
+
+    test('a woken controller reconnects via the scan path after the cooldown', () async {
+      final click = buildZwiftClick();
+      autoRespondToZwiftHandshake(env.ble, click);
+      env.ble.addPeripheral(click);
+
+      await core.connection.performScanning();
+      final device = await waitForDevice<ZwiftClick>();
+      await IntegrationEnv.waitFor(() => device.isConnected, description: 'connect');
+
+      core.connection.inactivityReconnectCooldown = const Duration(seconds: 1);
+      addTearDown(() => core.connection.inactivityReconnectCooldown = const Duration(seconds: 90));
+      core.connection.debugTriggerInactivityTimeout();
+      await IntegrationEnv.waitFor(
+        () => core.connection.devices.whereType<ZwiftClick>().isEmpty,
+        description: 'controller removed after inactivity disconnect',
+      );
+
+      // Right after the disconnect the controller is still awake and
+      // advertises: the advertisement lands in the _lastScanResult dedup list
+      // while the suppression drops the device. This stale entry used to block
+      // every later advertisement from ever reaching addDevices (issue #329,
+      // zerkms's repro: stuck "scanning" until an app restart).
+      env.ble.updateScanResult(click.scanResult);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(
+        core.connection.devices.whereType<ZwiftClick>(),
+        isEmpty,
+        reason: 'controller reconnected during the cooldown window',
+      );
+
+      // The controller sleeps, the cooldown elapses, the rider wakes it with a
+      // button press -> a fresh advertisement must reconnect it via the scan
+      // path (no explicit Reconnect tap, no app restart).
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      env.ble.updateScanResult(click.scanResult);
+      await IntegrationEnv.waitFor(
+        () => core.connection.devices.whereType<ZwiftClick>().any((d) => d.isConnected),
+        description: 'controller reconnects via scan after the cooldown',
+      );
+    });
   });
 
   group('characteristic error handling', () {

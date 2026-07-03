@@ -93,8 +93,16 @@ class Connection {
   /// but must not be auto-reconnected when rediscovered (via scan results,
   /// getSystemDevices or the disconnect listener's performScanning) — otherwise
   /// they reconnect right after the battery-saver disconnect. Cleared on an
-  /// explicit reconnect or a successful (re)connect.
+  /// explicit reconnect, a successful (re)connect, or automatically once
+  /// [inactivityReconnectCooldown] has elapsed — after that a rediscovered
+  /// (woken) controller auto-reconnects normally again.
   final _suppressedAutoReconnect = <String>{};
+
+  /// How long after the battery-saver disconnect a controller stays suppressed.
+  /// Long enough for the controller to stop advertising and fall asleep;
+  /// afterwards any advertisement means the rider woke it and wants it back.
+  /// Mutable as a test seam (the integration tests shrink it to milliseconds).
+  Duration inactivityReconnectCooldown = const Duration(seconds: 90);
 
   void initialize() {
     actionStream.listen((log) {
@@ -488,7 +496,8 @@ class Connection {
           return false;
         }
         // A controller the battery saver disconnected must not silently
-        // reconnect when rediscovered; only an explicit reconnect clears this.
+        // reconnect when rediscovered until the reconnect cooldown has passed
+        // or the user explicitly reconnects it.
         if (_suppressedAutoReconnect.contains(device.device.deviceId)) {
           return false;
         }
@@ -807,7 +816,8 @@ class Connection {
     for (final device in controllers) {
       // Suppress auto-reconnect so the rediscovery that follows the disconnect
       // doesn't immediately bring the controller back (the whole point is to
-      // let its battery rest). The explicit Reconnect action below clears it.
+      // let its battery rest). Lifted by the Reconnect action below or by the
+      // cooldown timer once the controller had time to fall asleep.
       _suppressedAutoReconnect.add(device.device.deviceId);
       unawaited(
         disconnect(device, forget: true, persistForget: false).catchError((Object error, StackTrace stackTrace) {
@@ -817,6 +827,19 @@ class Connection {
         }),
       );
     }
+
+    // Lift the suppression once the controller had time to power down. The
+    // stale _lastScanResult entry must go too: the controller's last
+    // advertisement right after the disconnect re-entered the dedup list, and
+    // it would block every future advertisement from reaching addDevices —
+    // leaving a woken controller unconnectable until an app restart.
+    final suppressedIds = controllers.map((d) => d.device.deviceId).toList();
+    Timer(inactivityReconnectCooldown, () {
+      for (final id in suppressedIds) {
+        _suppressedAutoReconnect.remove(id);
+        _lastScanResult.removeWhere((d) => d.deviceId == id);
+      }
+    });
 
     _actionStreams.add(
       AlertNotification(
