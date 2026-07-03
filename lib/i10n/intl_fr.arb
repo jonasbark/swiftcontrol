@@ -1,7 +1,7 @@
 {
   "reconnect": "Reconnecter",
   "batterySaverTitle": "Économiseur de batterie",
-  "controllersDisconnectedInactivity": "Manettes déconnectées après {minutes} minutes d'inactivité pour économiser la batterie",
+  "controllersDisconnectedInactivity": "Manettes déconnectées après {minutes} minutes d'inactivité pour économiser la batterie. Rallumez une manette pour la reconnecter.",
   "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
   "overlayDisabledIos": "Pendant la séance, l'Overlay du home-trainer flotte au-dessus de ton app d'entraînement (ou sur la Dynamic Island sur les iPhone compatibles) et sur l'écran verrouillé.",
   "overlayUsePip": "Fenêtre flottante (Picture-in-Picture)",
