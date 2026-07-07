@@ -32,7 +32,7 @@ void main() {
     expect(device.buildPreferences(tester.element(find.byType(Scaffold))), isNull);
   });
 
-  testWidgets('tapping setup opens the interactive authorize-gesture dialog', (tester) async {
+  testWidgets('tapping setup opens the guided confirm dialog', (tester) async {
     final device = SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
     await tester.pumpWidget(
       ShadcnApp(
@@ -47,10 +47,9 @@ void main() {
     await tester.tap(find.textContaining('Set up SRAM control'));
     await tester.pumpAndSettle();
 
-    // The dialog guides the press-and-hold authorize gesture instead of failing
-    // silently to the console.
-    expect(find.textContaining('Press and hold the AXS button'), findsOneWidget);
-    // A Continue affordance is present (the button; the word also appears in the body copy).
+    // The guided dialog opens with a confirm step (it tries first and only asks
+    // to press-and-hold the AXS button if a fresh bond turns out to be needed).
+    expect(find.textContaining('back up your current shifter configuration'), findsOneWidget);
     expect(find.widgetWithText(PrimaryButton, 'Continue'), findsOneWidget);
   });
 }
