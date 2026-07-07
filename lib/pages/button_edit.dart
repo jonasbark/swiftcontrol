@@ -128,25 +128,30 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   spacing: 8,
                   children: [
-                    TweenAnimationBuilder<double>(
-                      // One-shot entrance: button pops in from 70% on drawer open.
-                      // No reverse — `tween.begin` is only consulted on first build.
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      duration: const Duration(milliseconds: 320),
-                      curve: Curves.easeOutBack,
-                      builder: (context, t, child) => Opacity(
-                        opacity: t.clamp(0.0, 1.0),
-                        child: Transform.scale(scale: 0.7 + 0.3 * t, child: child),
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeOut,
-                        width: baseHeight,
-                        height: baseHeight,
-                        padding: EdgeInsets.all(_bumped ? 0 : 6.0),
-                        constraints: BoxConstraints(maxWidth: 120),
-                        child: ButtonWidget(button: _keyPair.buttons.first),
-                      ),
+                    Row(
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          // One-shot entrance: button pops in from 70% on drawer open.
+                          // No reverse — `tween.begin` is only consulted on first build.
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOutBack,
+                          builder: (context, t, child) => Opacity(
+                            opacity: t.clamp(0.0, 1.0),
+                            child: Transform.scale(scale: 0.7 + 0.3 * t, child: child),
+                          ),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 600),
+                            curve: Curves.easeOut,
+                            width: baseHeight,
+                            height: baseHeight,
+                            padding: EdgeInsets.all(_bumped ? 0 : 6.0),
+                            constraints: BoxConstraints(maxWidth: 120),
+                            child: ButtonWidget(button: _keyPair.buttons.first),
+                          ),
+                        ),
+                        Text(_keyPair.buttons.first.name).small,
+                      ],
                     ),
                     Expanded(child: SizedBox()),
                     IconButton(

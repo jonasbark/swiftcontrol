@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/customize.dart';
@@ -23,6 +25,24 @@ class ControllerSettingsPage extends StatefulWidget {
 }
 
 class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
+  late final StreamSubscription<BaseDevice> _connectionStateSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild when a device signals a state change (e.g. SRAM setup/restore
+    // completing) so the device card's panels reflect the new state.
+    _connectionStateSubscription = core.connection.connectionStream.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectionStateSubscription.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
