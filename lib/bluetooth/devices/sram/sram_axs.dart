@@ -249,10 +249,84 @@ class SramAxs extends BluetoothDevice {
   List<Widget> showAdditionalInformation(BuildContext context) => const [];
 
   @override
-  Widget? buildPreferences(BuildContext context) => _buildPreferences(context);
-}
+  Widget? buildPreferences(BuildContext context) {
+    final windowMs = core.settings.getSramAxsDoubleClickWindowMs();
+    return StatefulBuilder(
+      builder: (context, setState) {
+        Future<void> run(Future<void> Function() op) async {
+          try {
+            await op();
+          } catch (_) {
+            // Errors are logged via LogNotification in setupControl/restoreShifting.
+          }
+          if (context.mounted) setState(() {});
+        }
 
-Widget? _buildPreferences(BuildContext context) => null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isShiftingDisabled
+                  ? 'On-device shifting is disabled — BikeControl controls your gears. '
+                      'Each shifter button is a controller input you can map below.'
+                  : 'Set up automatic control: BikeControl backs up your current shifter '
+                      'configuration, then disables the derailleur\'s own shifting so it '
+                      'only sends button presses. You can restore it anytime.',
+            ).xSmall,
+            const Gap(8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                PrimaryButton(
+                  size: ButtonSize.small,
+                  onPressed: () => run(setupControl),
+                  child: Text(isShiftingDisabled ? 'Re-run SRAM setup' : 'Set up SRAM control'),
+                ),
+                if (core.settings.getSramBackup(_serialKey) != null)
+                  SecondaryButton(
+                    size: ButtonSize.small,
+                    onPressed: () => run(restoreShifting),
+                    child: const Text('Restore original shifting'),
+                  ),
+              ],
+            ),
+            const Gap(8),
+            PrimaryButton(
+              size: ButtonSize.small,
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text('${windowMs}ms'),
+              ),
+              onPressed: () {
+                final values = [for (var v = 150; v <= 600; v += 50) v];
+                showDropdown(
+                  context: context,
+                  builder: (b) => DropdownMenu(
+                    children: values
+                        .map((v) => MenuButton(
+                              child: Text('${v}ms'),
+                              onPressed: (c) async {
+                                await core.settings.setSramAxsDoubleClickWindowMs(v);
+                                setState(() {});
+                              },
+                            ))
+                        .toList(),
+                  ),
+                );
+              },
+              child: const Text('Double-click window:'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
 
 class SramAxsConstants {
   static const String SERVICE_UUID = "0000fe51-0000-1000-8000-00805f9b34fb";
