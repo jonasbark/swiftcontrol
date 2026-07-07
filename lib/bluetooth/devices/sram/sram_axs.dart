@@ -42,16 +42,35 @@ class SramAxs extends BluetoothDevice {
     return String.fromCharCode('A'.codeUnitAt(0) + idx);
   }
 
+  /// Look up a pressing shifter's advertised type/model by serial (from scan adverts).
+  SramDeviceInfo? _shifterInfo(int? serial) {
+    if (serial == null) return null;
+    for (final info in core.connection.sramShifterAdverts) {
+      if (info.serial == serial) return info;
+    }
+    return null;
+  }
+
+  /// Pure naming from an (optional) advert + serial + mask. Exposed for tests.
+  String buttonNameFor(SramDeviceInfo? info, int? serial, int? mask) {
+    if (serial == null && mask == null) return 'SRAM Button';
+    final side = _sideLabel(info, serial); // 'Left'/'Right' (type 0/1), else 'Shifter A/B', else ''
+    if (mask == null) return side.isEmpty ? 'SRAM Button' : 'SRAM $side';
+    final role = SramShifterButtons.nameFor(info?.deviceType, info?.model, mask);
+    // Drop-bar mask-1 names already encode the side ("Left Shifter"/"Right Shifter").
+    if (role.startsWith('Left ') || role.startsWith('Right ')) return 'SRAM $role';
+    return side.isEmpty ? 'SRAM $role' : 'SRAM $side – $role';
+  }
+
   /// Stable name for one physical (shifter, button). Single vs double click is
   /// handled by the base device from the keymap, not encoded in the name.
-  String logicalButtonName(int? serial, int? mask) {
-    if (serial == null && mask == null) return 'SRAM Button';
-    final button = mask == null
-        ? null
-        : (mask == sram_proto.SramAxs.paddleMask ? 'Paddle' : 'Button 0x${mask.toRadixString(16)}');
-    if (serial == null) return 'SRAM $button'; // button known, shifter not yet identified
-    final shifter = 'SRAM Shifter ${_shifterLabel(serial)}';
-    return mask == null ? shifter : '$shifter – $button';
+  String logicalButtonName(int? serial, int? mask) => buttonNameFor(_shifterInfo(serial), serial, mask);
+
+  String _sideLabel(SramDeviceInfo? info, int? serial) {
+    if (info?.deviceType == 0) return 'Left';
+    if (info?.deviceType == 1) return 'Right';
+    if (serial != null) return 'Shifter ${_shifterLabel(serial)}';
+    return '';
   }
 
   // -1 is the persisted sentinel for "null" (see Settings.addSramButton).
@@ -92,6 +111,15 @@ class SramAxs extends BluetoothDevice {
     // The `-1` sentinel is mapped back to null so it never yields "Button 0x-1".
     for (final b in core.settings.getSramButtons(_serialKey)) {
       _registerButton(_fromStored(b.serial), _fromStored(b.mask));
+    }
+
+    // Pre-register buttons for nearby SRAM shifters (§6.4) so they show up in the
+    // keymap without needing a press.
+    for (final info in core.connection.sramShifterAdverts) {
+      for (final mask in SramShifterButtons.masksFor(info.deviceType, info.model)) {
+        final name = buttonNameFor(info, info.serial, mask);
+        getOrAddButton(name, () => ControllerButton(name, action: InGameAction.shiftUp, sourceDeviceId: device.deviceId));
+      }
     }
   }
 
