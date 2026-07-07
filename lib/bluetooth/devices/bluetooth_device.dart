@@ -34,6 +34,7 @@ import 'elite/elite_rizer.dart';
 import 'elite/elite_square.dart';
 import 'elite/elite_sterzo.dart';
 import 'thinkrider/thinkrider_vs200.dart';
+import 'wheeltop/wheeltop_eds.dart';
 
 abstract class BluetoothDevice extends BaseDevice {
   final BleDevice scanResult;
@@ -188,6 +189,10 @@ abstract class BluetoothDevice extends BaseDevice {
         };
       }
     }
+
+    // WHEELTOP EDS shifters advertise no usable name and no service UUIDs —
+    // they are recognized by their manufacturer-data prefix alone.
+    device ??= WheeltopEds.tryFrom(scanResult);
 
     if (scanResult.name == 'Zwift Ride' &&
         device == null &&

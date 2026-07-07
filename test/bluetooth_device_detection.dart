@@ -7,6 +7,7 @@ import 'package:bike_control/bluetooth/devices/elite/elite_sterzo.dart';
 import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
+import 'package:bike_control/bluetooth/devices/wheeltop/wheeltop_eds.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -134,6 +135,91 @@ void main() {
     test('Skip QUARQ', () {
       final device = _createBleDevice(name: 'QUARQ 133', services: [SramAxsConstants.SERVICE_UUID]);
       expect(BluetoothDevice.fromScanResult(device), isNull);
+    });
+  });
+
+  group('Detect WHEELTOP EDS shifters', () {
+    // Full advertisement: 07 0f 00 14 55 6a 84 | type | fw(2) | battery(2) | rest.
+    // universal_ble splits the first two little-endian bytes off as the
+    // company id (0x0F07), leaving the payload below.
+    Uint8List payloadFor(int typeByte) => Uint8List.fromList([
+      0x00, 0x14, 0x55, 0x6a, 0x84, typeByte, 0x02, 0x3a, 0x01, 0x24, 0x00, 0x00, 0x00,
+    ]);
+
+    BleDevice edsDevice(List<ManufacturerData> manufacturerData) =>
+        BleDevice(deviceId: '1337', name: null, manufacturerDataList: manufacturerData);
+
+    test('Detect OX with firmware and battery from the advertisement', () {
+      final result = BluetoothDevice.fromScanResult(
+        edsDevice([ManufacturerData(0x0F07, payloadFor(0x37))]),
+      );
+      expect(result, isInstanceOf<WheeltopEds>());
+      final eds = result as WheeltopEds;
+      expect(eds.edsType, WheeltopEdsType.ox);
+      expect(eds.name, 'WHEELTOP EDS OX');
+      expect(eds.firmwareVersion, '2.58');
+      expect(eds.batteryCentivolts, 292);
+    });
+
+    test('Detect TX variants from the type byte', () {
+      expect(
+        (BluetoothDevice.fromScanResult(edsDevice([ManufacturerData(0x0F07, payloadFor(0x36))]))
+                as WheeltopEds)
+            .edsType,
+        WheeltopEdsType.txLeft,
+      );
+      expect(
+        (BluetoothDevice.fromScanResult(edsDevice([ManufacturerData(0x0F07, payloadFor(0x38))]))
+                as WheeltopEds)
+            .edsType,
+        WheeltopEdsType.txRight,
+      );
+      expect(
+        (BluetoothDevice.fromScanResult(edsDevice([ManufacturerData(0x0F07, payloadFor(0x39))]))
+                as WheeltopEds)
+            .edsType,
+        WheeltopEdsType.txFront,
+      );
+    });
+
+    test('Detect when the platform left the full prefix in the payload', () {
+      final fullBytes = Uint8List.fromList([
+        0x07, 0x0f, 0x00, 0x14, 0x55, 0x6a, 0x84, 0x37, 0x02, 0x3a, 0x01, 0x24, 0x00, 0x00, 0x00,
+      ]);
+      final result = BluetoothDevice.fromScanResult(
+        edsDevice([ManufacturerData(0x0000, fullBytes)]),
+      );
+      expect(result, isInstanceOf<WheeltopEds>());
+      expect((result as WheeltopEds).edsType, WheeltopEdsType.ox);
+    });
+
+    test('Reject wrong prefix, wrong company id, unknown type byte', () {
+      final wrongPrefix = Uint8List.fromList([
+        0x00, 0x99, 0x55, 0x6a, 0x84, 0x37, 0x02, 0x3a, 0x01, 0x24,
+      ]);
+      expect(
+        BluetoothDevice.fromScanResult(edsDevice([ManufacturerData(0x0F07, wrongPrefix)])),
+        isNull,
+      );
+      expect(
+        BluetoothDevice.fromScanResult(edsDevice([ManufacturerData(0x1234, payloadFor(0x37))])),
+        isNull,
+      );
+      expect(
+        BluetoothDevice.fromScanResult(edsDevice([ManufacturerData(0x0F07, payloadFor(0x99))])),
+        isNull,
+      );
+    });
+
+    test('Detect from a truncated advertisement without firmware bytes', () {
+      final truncated = Uint8List.fromList([0x00, 0x14, 0x55, 0x6a, 0x84, 0x37]);
+      final result = BluetoothDevice.fromScanResult(
+        edsDevice([ManufacturerData(0x0F07, truncated)]),
+      );
+      expect(result, isInstanceOf<WheeltopEds>());
+      final eds = result as WheeltopEds;
+      expect(eds.firmwareVersion, isNull);
+      expect(eds.batteryCentivolts, isNull);
     });
   });
 }

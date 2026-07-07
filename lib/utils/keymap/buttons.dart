@@ -4,6 +4,7 @@ import 'package:bike_control/bluetooth/devices/elite/elite_sterzo.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
+import 'package:bike_control/bluetooth/devices/wheeltop/wheeltop_eds.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/widgets/keymap_explanation.dart';
@@ -284,6 +285,7 @@ class ControllerButton {
     ...EliteSquareButtons.values,
     ...WahooKickrShiftButtons.values,
     ...CycplusBc2Buttons.values,
+    ...WheeltopEdsButtons.values,
     ...OpenBikeProtocolParser.BUTTON_NAMES.values,
   ].distinct().toList();
 }
