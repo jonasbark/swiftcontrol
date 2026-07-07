@@ -307,6 +307,25 @@ Future<void> main() async {
     expect(device.availableButtons.any((b) => b.name.contains('Shifter B')), isTrue);
   });
 
+  test('a rapid multishift burst is suppressed to at most two presses (§7)', () async {
+    final (derailleur, device) = await connectSram();
+    await device.setupControl();
+
+    // A held paddle makes the derailleur emit a rapid burst of triggers.
+    for (var i = 0; i < 6; i++) {
+      derailleur.pressPaddle(0x33333333);
+    }
+
+    await IntegrationEnv.waitFor(
+      () => stubActions.performedActions.isNotEmpty,
+      description: 'at least one press from the burst',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    // The 3rd+ rapid trigger is dropped, so a hold can't spam presses in a loop.
+    expect(stubActions.performedActions.length, lessThanOrEqualTo(2));
+  });
+
   // Advert filter (§6.4): only button-bearing SRAM controllers surface in
   // `sramShifterAdverts`. A front derailleur (type 128) / dropper post (type
   // 132) advertise 0xFE51 too but must NOT leak in and mint a phantom button.

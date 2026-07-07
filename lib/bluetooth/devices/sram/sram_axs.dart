@@ -26,6 +26,14 @@ class SramAxs extends BluetoothDevice {
   /// from the logs whether the session key is active this session.
   bool _loggedDegradedPress = false;
 
+  /// Multishift/hold guard (protocol §7): while the paddle is held, the
+  /// derailleur emits a rapid burst of triggers. We forward the first two (so a
+  /// genuine double-click still reaches the base device) and drop the 3rd+ rapid
+  /// trigger — otherwise a hold spams presses in a runaway loop.
+  DateTime? _lastTriggerAt;
+  int _rapidTriggerCount = 0;
+  static const Duration _multishiftWindow = Duration(milliseconds: 350);
+
   /// Stable "Shifter A/B/..." labels assigned to controller serials in the
   /// order they are first seen.
   final List<int> _serialOrder = [];
@@ -153,6 +161,16 @@ class SramAxs extends BluetoothDevice {
     }
 
     if (lc == sram_proto.SramAxs.controlTriggerChar.toLowerCase()) {
+      // Multishift/hold guard (§7): a held paddle makes the derailleur emit a
+      // rapid burst of triggers. Forward the first two (a real double-click
+      // still reaches the base device) and drop the 3rd+ rapid one so a hold
+      // doesn't spam presses in a loop.
+      final now = DateTime.now();
+      final rapid = _lastTriggerAt != null && now.difference(_lastTriggerAt!) < _multishiftWindow;
+      _lastTriggerAt = now;
+      _rapidTriggerCount = rapid ? _rapidTriggerCount + 1 : 0;
+      if (_rapidTriggerCount >= 2) return;
+
       // 0xFF edge → resolve identity (may read+decrypt), then emit a single
       // physical press. Single vs double click is handled by the base device.
       final press = await _logic?.handleTrigger() ?? const SramPress();
@@ -266,9 +284,7 @@ class SramAxs extends BluetoothDevice {
                 onPressed: () => unawaited(_runGuidedOperation(
                   context,
                   title: 'Set up SRAM control',
-                  intro: 'Press and hold the AXS button on your derailleur until its light flashes '
-                      'to authorize BikeControl, then tap Continue.\n\n'
-                      'BikeControl will back up your current shifter configuration and disable the '
+                  intro: 'BikeControl will back up your current shifter configuration and disable the '
                       "derailleur's own shifting so it only sends button presses. You can restore it "
                       'anytime.',
                   successMessage: 'BikeControl now controls your gears. Each shifter button is a '
@@ -283,9 +299,7 @@ class SramAxs extends BluetoothDevice {
                 onPressed: () => unawaited(_runGuidedOperation(
                   context,
                   title: 'Restore original shifting',
-                  intro: "This puts your derailleur's original shifting back.\n\n"
-                      'If the derailleur has disconnected since setup, press and hold its AXS button '
-                      'until the light flashes to re-authorize BikeControl first, then tap Continue.',
+                  intro: "This restores your derailleur's original shifting.",
                   successMessage: 'Your original shifter configuration has been restored.',
                   operation: restoreShifting,
                 )),
@@ -312,7 +326,7 @@ class SramAxs extends BluetoothDevice {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        var stage = _SramSetupStage.instructions;
+        var stage = _SramSetupStage.confirm;
         String? errorMessage;
         return StatefulBuilder(
           builder: (context, setState) {
@@ -324,13 +338,10 @@ class SramAxs extends BluetoothDevice {
               try {
                 await operation();
                 if (dialogContext.mounted) setState(() => stage = _SramSetupStage.success);
-              } on SramBondException catch (e) {
-                if (dialogContext.mounted) {
-                  setState(() {
-                    errorMessage = e.message;
-                    stage = _SramSetupStage.error;
-                  });
-                }
+              } on SramBondException {
+                // A fresh bond is needed (no valid key). Only NOW do we ask the
+                // user to authorize — when already bonded this never shows.
+                if (dialogContext.mounted) setState(() => stage = _SramSetupStage.authorize);
               } catch (e) {
                 if (dialogContext.mounted) {
                   setState(() {
@@ -342,7 +353,7 @@ class SramAxs extends BluetoothDevice {
             }
 
             final (String dialogTitle, String body, List<Widget> actions) = switch (stage) {
-              _SramSetupStage.instructions => (
+              _SramSetupStage.confirm => (
                 title,
                 intro,
                 [
@@ -357,6 +368,18 @@ class SramAxs extends BluetoothDevice {
                 title,
                 'Talking to your derailleur — keep it close and awake.',
                 <Widget>[],
+              ),
+              _SramSetupStage.authorize => (
+                'Authorize BikeControl',
+                'Your derailleur needs to authorize BikeControl. Press and hold the AXS button on '
+                    'the derailleur until its light flashes, then tap Retry.',
+                [
+                  Button.secondary(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  PrimaryButton(onPressed: attempt, child: const Text('Retry')),
+                ],
               ),
               _SramSetupStage.success => (
                 'Done',
@@ -397,7 +420,7 @@ class SramAxs extends BluetoothDevice {
   }
 }
 
-enum _SramSetupStage { instructions, running, success, error }
+enum _SramSetupStage { confirm, running, authorize, success, error }
 
 class SramAxsConstants {
   static const String SERVICE_UUID = "0000fe51-0000-1000-8000-00805f9b34fb";
