@@ -603,6 +603,52 @@ class Settings {
     await prefs.setInt('sram_axs_double_click_window_ms', v);
   }
 
+  String? getSramKey(String serial) => prefs.getString('sram_key_$serial');
+
+  Future<void> setSramKey(String serial, String? hexKey) async {
+    if (hexKey == null) {
+      await prefs.remove('sram_key_$serial');
+    } else {
+      await prefs.setString('sram_key_$serial', hexKey);
+    }
+  }
+
+  Map<String, SramReactionTrigger>? getSramBackup(String serial) {
+    final raw = prefs.getString('sram_config_backup_$serial');
+    if (raw == null) return null;
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map((k, v) => MapEntry(k, SramReactionTrigger.fromJson(v as Map<String, dynamic>)));
+  }
+
+  Future<void> setSramBackup(String serial, Map<String, SramReactionTrigger> backup) async {
+    await prefs.setString(
+      'sram_config_backup_$serial',
+      jsonEncode(backup.map((k, v) => MapEntry(k, v.toJson()))),
+    );
+  }
+
+  bool getSramShiftingDisabled(String serial) => prefs.getBool('sram_disabled_$serial') ?? false;
+
+  Future<void> setSramShiftingDisabled(String serial, bool disabled) async =>
+      prefs.setBool('sram_disabled_$serial', disabled);
+
+  List<({int serial, int mask})> getSramButtons(String serial) {
+    final raw = prefs.getStringList('sram_buttons_$serial') ?? const [];
+    return raw.map((e) {
+      final parts = e.split(':');
+      return (serial: int.parse(parts[0]), mask: int.parse(parts[1]));
+    }).toList();
+  }
+
+  Future<void> addSramButton(String serial, int controllerSerial, int mask) async {
+    final entry = '$controllerSerial:$mask';
+    final list = prefs.getStringList('sram_buttons_$serial') ?? <String>[];
+    if (!list.contains(entry)) {
+      list.add(entry);
+      await prefs.setStringList('sram_buttons_$serial', list);
+    }
+  }
+
   bool hasAskedPermissions() {
     return prefs.getBool('asked_permissions') ?? false;
   }
