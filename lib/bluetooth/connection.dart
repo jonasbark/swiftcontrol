@@ -62,6 +62,31 @@ class Connection {
   final ValueNotifier<bool> hasDevices = ValueNotifier(false);
   final ValueNotifier<bool> isScanning = ValueNotifier(false);
 
+  /// Parsed adverts of nearby SRAM controllers (shifters/blips/pods — NOT the RD),
+  /// used to name and pre-register their buttons. Deduped by serial (last wins).
+  Iterable<SramDeviceInfo> get sramShifterAdverts {
+    final byserial = <int, SramDeviceInfo>{};
+    for (final adv in _lastScanResult) {
+      final record = _sramServiceDataRecord(adv.serviceData);
+      if (record == null) continue;
+      final info = SramAdvertisement.parse(record);
+      if (info == null || info.isRearDerailleur) continue; // controllers only
+      final t = info.deviceType;
+      // Only controllers that have buttons: drop/Reverb/Blipbox shifters (0..4) and blips/pods (96..125).
+      final hasButtons = t != null && ((t >= 0 && t <= 4) || (t >= 96 && t <= 125));
+      if (!hasButtons && info.model == null) continue;
+      byserial[info.serial] = info;
+    }
+    return byserial.values;
+  }
+
+  static Uint8List? _sramServiceDataRecord(Map<String, Uint8List> serviceData) {
+    for (final e in serviceData.entries) {
+      if (e.key.toLowerCase().contains('fe51')) return e.value;
+    }
+    return null;
+  }
+
   Timer? _gamePadSearchTimer;
   WifiTrainerScanner? _wifiTrainerScanner;
 

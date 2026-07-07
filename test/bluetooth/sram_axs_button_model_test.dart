@@ -2,6 +2,7 @@ import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/prop.dart' show SramDeviceInfo;
 import 'package:universal_ble/universal_ble.dart';
 
 SramAxs _device() => SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
@@ -43,5 +44,15 @@ void main() {
     final d = _device();
     expect(d.storedButtonName(100, -1), 'SRAM Shifter A');
     expect(d.storedButtonName(-1, -1), 'SRAM Button');
+  });
+
+  test('§6.4: names buttons from an advertised shifter type/model, degrades without one', () {
+    final d = _device();
+    final leftLever = SramDeviceInfo(serial: 100, model: 1007, deviceType: 0);
+    final rightLever = SramDeviceInfo(serial: 200, model: 1007, deviceType: 1);
+    expect(d.buttonNameFor(leftLever, 100, 1), 'SRAM Left Shifter');
+    expect(d.buttonNameFor(leftLever, 100, 2), 'SRAM Left – Aux Top');
+    expect(d.buttonNameFor(rightLever, 200, 1), 'SRAM Right Shifter');
+    expect(d.buttonNameFor(null, 100, 1), 'SRAM Shifter A – Paddle'); // no advert → fallback
   });
 }

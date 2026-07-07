@@ -24,6 +24,10 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
+// `SramAdvertisement` clashes with nothing here, but the prop package also
+// exports a `SramAxs` constants class that collides with this file's `SramAxs`
+// app device import above — pull in only what's needed to avoid the clash.
+import 'package:prop/prop.dart' show SramAdvertisement;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -83,6 +87,25 @@ abstract class BluetoothDevice extends BaseDevice {
 
   List<BleService>? services;
 
+  /// §2.1: BikeControl should only connect to the SRAM AXS rear derailleur —
+  /// bare shifters/blips/pods also advertise service 0xFE51 but aren't
+  /// connectable targets. Uses the advertised device-type record to tell them
+  /// apart; when it's absent or unparsable, falls back to the previous
+  /// behavior (connect).
+  static bool _sramIsConnectable(BleDevice scanResult) {
+    Uint8List? record;
+    for (final e in scanResult.serviceData.entries) {
+      if (e.key.toLowerCase().contains('fe51')) {
+        record = e.value;
+        break;
+      }
+    }
+    if (record == null) return true; // no service data → can't tell; keep current behavior
+    final info = SramAdvertisement.parse(record);
+    if (info == null) return true;
+    return info.isRearDerailleur; // connect only to the rear derailleur
+  }
+
   static BluetoothDevice? fromScanResult(BleDevice scanResult) {
     // skip devices with ignored names
     if (scanResult.name != null &&
@@ -109,7 +132,9 @@ abstract class BluetoothDevice extends BaseDevice {
           CycplusBc2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('THINK VS') => ThinkRiderVs200(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('RDR') => ShimanoDi2(scanResult),
-        _ when scanResult.name!.toUpperCase().startsWith('SRAM') => SramAxs(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('SRAM') && _sramIsConnectable(scanResult) => SramAxs(
+          scanResult,
+        ),
         _ => null,
       };
     } else {
@@ -134,9 +159,9 @@ abstract class BluetoothDevice extends BaseDevice {
           scanResult,
         ),
         _ when scanResult.services.containsAny(ProxyDevice.proxyServiceUUIDs) => ProxyDevice(scanResult),
-        _ when scanResult.services.contains(SramAxsConstants.SERVICE_UUID.toLowerCase()) => SramAxs(
-          scanResult,
-        ),
+        _ when scanResult.services.contains(SramAxsConstants.SERVICE_UUID.toLowerCase()) &&
+            _sramIsConnectable(scanResult) =>
+          SramAxs(scanResult),
         _ when scanResult.services.contains(OpenBikeControlConstants.SERVICE_UUID.toLowerCase()) =>
           OpenBikeControlDevice(scanResult),
         _ when scanResult.services.contains(WahooKickrHeadwindConstants.SERVICE_UUID.toLowerCase()) =>
