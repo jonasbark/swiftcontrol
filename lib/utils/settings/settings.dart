@@ -614,6 +614,8 @@ class Settings {
     );
   }
 
+  Future<void> clearSramBackup(String serial) async => prefs.remove('sram_config_backup_$serial');
+
   bool getSramShiftingDisabled(String serial) => prefs.getBool('sram_disabled_$serial') ?? false;
 
   Future<void> setSramShiftingDisabled(String serial, bool disabled) async =>

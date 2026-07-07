@@ -137,12 +137,16 @@ class SramAxs extends BluetoothDevice {
     final logic = _logic;
     if (logic == null) return;
     try {
-      if (!logic.isBonded) {
-        final key = await logic.bond();
-        await core.settings.setSramKey(_serialKey, _bytesToHex(key));
+      // Ensure a working bond (re-bonds if a persisted key went stale).
+      await logic.ensureBonded();
+      await core.settings.setSramKey(_serialKey, _bytesToHex(logic.sessionKey!));
+      // Capture the ORIGINAL config exactly once. Never overwrite a saved backup:
+      // a re-run (or a mid-unassign failure retry) reads the already-cleared
+      // device and would otherwise wipe the only copy of the user's config.
+      if (core.settings.getSramBackup(_serialKey) == null) {
+        final backup = await logic.backupConfig();
+        await core.settings.setSramBackup(_serialKey, backup);
       }
-      final backup = await logic.backupConfig();
-      await core.settings.setSramBackup(_serialKey, backup);
       await logic.disableShifting();
       await core.settings.setSramShiftingDisabled(_serialKey, true);
       core.connection.signalChange(this);
@@ -158,7 +162,9 @@ class SramAxs extends BluetoothDevice {
     if (logic == null || backup == null) return;
     try {
       await logic.restoreConfig(backup);
+      await core.settings.setSramKey(_serialKey, _bytesToHex(logic.sessionKey!)); // persist any re-bond
       await core.settings.setSramShiftingDisabled(_serialKey, false);
+      await core.settings.clearSramBackup(_serialKey); // next setup captures fresh
       core.connection.signalChange(this);
     } catch (e, st) {
       actionStreamInternal.add(LogNotification('SramAxs restore failed: $e\n$st'));

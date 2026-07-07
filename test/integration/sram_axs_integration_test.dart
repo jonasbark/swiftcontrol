@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart' show SramAxs, SramAxsConstants;
@@ -27,6 +28,18 @@ const String _reactionChar1 = 'd9050028$_uuidBase';
 const String _reactionChar2 = 'd9050029$_uuidBase';
 
 String _lc(String uuid) => uuid.toLowerCase();
+
+/// True iff [d] is the 16-byte srambond init token (0,1,2,...,15). A random DH
+/// public key `A` could coincidentally start with 0x00 0x01 (~1/65536), so the
+/// fake derailleur must compare the FULL token rather than just its first two
+/// bytes to avoid misrouting the app's public-key write as an init.
+bool _isInit(Uint8List d) {
+  if (d.length != 16) return false;
+  for (var i = 0; i < 16; i++) {
+    if (d[i] != i) return false;
+  }
+  return true;
+}
 
 BleCharacteristic _char(String uuid, List<CharacteristicProperty> properties) =>
     BleCharacteristic(_lc(uuid), properties, []);
@@ -98,7 +111,7 @@ class FakeSramDerailleur {
   }
 
   void _handleBondWrite(Uint8List value) {
-    if (value.length == 16 && value[0] == 0 && value[1] == 1) {
+    if (_isInit(value)) {
       // Step 1: init token -> answer with our DH public key B = g^devicePrivate mod N.
       final devicePublic = SramBond.bigIntTo16(BigInt.from(prop.SramAxs.dhG).modPow(devicePrivate, prop.SramAxs.dhN));
       env.ble.notify(peripheral.deviceId, prop.SramAxs.bondChar, devicePublic);
@@ -212,6 +225,36 @@ Future<void> main() async {
     final action = stubActions.performedActions.single;
     expect(action.button.name, contains('Shifter A'));
     expect(action.trigger, ButtonTrigger.singleClick);
+  });
+
+  test('re-running setup does not wipe the saved backup', () async {
+    final (derailleur, device) = await connectSram();
+
+    await device.setupControl();
+    expect(device.isShiftingDisabled, isTrue);
+
+    final backupAfterFirstRun = core.settings.getSramBackup(derailleur.deviceId);
+    expect(backupAfterFirstRun, isNotNull);
+    expect(backupAfterFirstRun, isNotEmpty, reason: 'the original (still-assigned) config should have been captured');
+
+    // "Re-run SRAM setup": shifting is already disabled, so the derailleur's
+    // reaction slots are already cleared — backupConfig() would read an EMPTY
+    // config here if setupControl() blindly re-captured it.
+    await device.setupControl();
+    expect(device.isShiftingDisabled, isTrue);
+
+    final backupAfterSecondRun = core.settings.getSramBackup(derailleur.deviceId);
+    expect(backupAfterSecondRun, isNotNull);
+    expect(
+      jsonEncode(backupAfterSecondRun!.map((k, v) => MapEntry(k, v.toJson()))),
+      jsonEncode(backupAfterFirstRun!.map((k, v) => MapEntry(k, v.toJson()))),
+      reason: 'the stored backup must survive a re-run of setup unchanged',
+    );
+
+    // And the surviving backup is real: restoring re-writes the reaction char.
+    await device.restoreShifting();
+    expect(device.isShiftingDisabled, isFalse);
+    expect(core.settings.getSramBackup(derailleur.deviceId), isNull, reason: 'restore clears the backup for a fresh future capture');
   });
 
   // NOTE on trigger semantics: SramAxs no longer resolves its own tap-count
