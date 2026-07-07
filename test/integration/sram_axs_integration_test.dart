@@ -326,6 +326,27 @@ Future<void> main() async {
     expect(stubActions.performedActions.length, lessThanOrEqualTo(2));
   });
 
+  test('a read-response echoed on the trigger characteristic is not a press (§6.1)', () async {
+    final (derailleur, device) = await connectSram();
+    await device.setupControl();
+
+    derailleur.pressPaddle(0x44444444);
+    await IntegrationEnv.waitFor(
+      () => stubActions.performedActions.isNotEmpty,
+      description: 'the real 0xFF-edge press',
+    );
+    final countAfterPress = stubActions.performedActions.length;
+
+    // Simulate iOS/CoreBluetooth delivering the READ response of d9050054
+    // through the notify callback — a multi-byte encrypted value, not the 0xFF
+    // edge. Treating it as a press would spin an infinite read loop.
+    final echoed = derailleur.peripheral.readValues[_lc(prop.SramAxs.controlTriggerChar)]!;
+    env.ble.notify(derailleur.peripheral.deviceId, prop.SramAxs.controlTriggerChar, echoed);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    expect(stubActions.performedActions.length, countAfterPress, reason: 'the multi-byte echo must be ignored');
+  });
+
   // Advert filter (§6.4): only button-bearing SRAM controllers surface in
   // `sramShifterAdverts`. A front derailleur (type 128) / dropper post (type
   // 132) advertise 0xFE51 too but must NOT leak in and mint a phantom button.

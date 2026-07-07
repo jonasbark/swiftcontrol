@@ -161,6 +161,13 @@ class SramAxs extends BluetoothDevice {
     }
 
     if (lc == sram_proto.SramAxs.controlTriggerChar.toLowerCase()) {
+      // Only the 1-byte 0xFF edge is a press (§6.1). handleTrigger() READS the
+      // encrypted button event from this same characteristic; on iOS/CoreBluetooth
+      // a read response is also delivered through the notify callback, so that
+      // multi-byte value re-enters here — treating it as a new press would read
+      // again and spin an infinite loop. Ignore anything that isn't the 0xFF edge.
+      if (bytes.length != 1 || bytes[0] != 0xFF) return;
+
       // Multishift/hold guard (§7): a held paddle makes the derailleur emit a
       // rapid burst of triggers. Forward the first two (a real double-click
       // still reaches the base device) and drop the 3rd+ rapid one so a hold
