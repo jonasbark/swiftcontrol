@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
-import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 // The prop package exports a `SramAxs` constants class with the same name as
@@ -22,6 +21,10 @@ class SramAxs extends BluetoothDevice {
 
   SramBleTransport? _transport;
   SramAxsLogic? _logic;
+
+  /// Logged once per connection when a press can't be decoded, so it's clear
+  /// from the logs whether the session key is active this session.
+  bool _loggedDegradedPress = false;
 
   /// Stable "Shifter A/B/..." labels assigned to controller serials in the
   /// order they are first seen.
@@ -117,6 +120,16 @@ class SramAxs extends BluetoothDevice {
       }
       final serial = press.controllerSerial;
       final mask = press.buttonMask;
+      if (mask == null && !_loggedDegradedPress) {
+        _loggedDegradedPress = true;
+        actionStreamInternal.add(
+          LogNotification(
+            'SramAxs: press received but not decoded — the bond session key is not active this '
+            'session (using plaintext). Full per-button decoding and setup/restore need '
+            're-authorizing (Set up SRAM control → press and hold the AXS button).',
+          ),
+        );
+      }
       if (serial != null || mask != null) {
         await core.settings.addSramButton(_serialKey, serial ?? -1, mask ?? -1);
       }
@@ -202,15 +215,38 @@ class SramAxs extends BluetoothDevice {
           spacing: 8,
           runSpacing: 8,
           children: [
-            PrimaryButton(
-              size: ButtonSize.small,
-              onPressed: () => unawaited(_openSetupDialog(context)),
-              child: Text(isShiftingDisabled ? 'Re-run SRAM setup' : 'Set up SRAM control'),
-            ),
+            // Once shifting is disabled, re-running setup is a no-op (the backup
+            // is already saved and the device is already unassigned), so the only
+            // meaningful action left is Restore.
+            if (!isShiftingDisabled)
+              PrimaryButton(
+                size: ButtonSize.small,
+                onPressed: () => unawaited(_runGuidedOperation(
+                  context,
+                  title: 'Set up SRAM control',
+                  intro: 'Press and hold the AXS button on your derailleur until its light flashes '
+                      'to authorize BikeControl, then tap Continue.\n\n'
+                      'BikeControl will back up your current shifter configuration and disable the '
+                      "derailleur's own shifting so it only sends button presses. You can restore it "
+                      'anytime.',
+                  successMessage: 'BikeControl now controls your gears. Each shifter button is a '
+                      'controller input you can map in the app.',
+                  operation: setupControl,
+                )),
+                child: const Text('Set up SRAM control'),
+              ),
             if (hasBackup)
               SecondaryButton(
                 size: ButtonSize.small,
-                onPressed: () => unawaited(_runRestore(context)),
+                onPressed: () => unawaited(_runGuidedOperation(
+                  context,
+                  title: 'Restore original shifting',
+                  intro: "This puts your derailleur's original shifting back.\n\n"
+                      'If the derailleur has disconnected since setup, press and hold its AXS button '
+                      'until the light flashes to re-authorize BikeControl first, then tap Continue.',
+                  successMessage: 'Your original shifter configuration has been restored.',
+                  operation: restoreShifting,
+                )),
                 child: const Text('Restore original shifting'),
               ),
           ],
@@ -219,9 +255,17 @@ class SramAxs extends BluetoothDevice {
     );
   }
 
-  /// Interactive, staged setup: guide the authorize gesture, show progress, and
-  /// surface any error (e.g. the bond-authorization failure) with a Retry.
-  Future<void> _openSetupDialog(BuildContext context) async {
+  /// Interactive, staged runner for setup/restore: guide the AXS authorize
+  /// gesture, show progress, and surface any error (notably the bond-
+  /// authorization failure — which happens when the session key didn't survive
+  /// a reconnect and a fresh bond is needed) with a Retry.
+  Future<void> _runGuidedOperation(
+    BuildContext context, {
+    required String title,
+    required String intro,
+    required String successMessage,
+    required Future<void> Function() operation,
+  }) async {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -236,7 +280,7 @@ class SramAxs extends BluetoothDevice {
                 errorMessage = null;
               });
               try {
-                await setupControl();
+                await operation();
                 if (dialogContext.mounted) setState(() => stage = _SramSetupStage.success);
               } on SramBondException catch (e) {
                 if (dialogContext.mounted) {
@@ -248,21 +292,17 @@ class SramAxs extends BluetoothDevice {
               } catch (e) {
                 if (dialogContext.mounted) {
                   setState(() {
-                    errorMessage = 'Setup failed: $e';
+                    errorMessage = 'Something went wrong: $e';
                     stage = _SramSetupStage.error;
                   });
                 }
               }
             }
 
-            final (String title, String body, List<Widget> actions) = switch (stage) {
+            final (String dialogTitle, String body, List<Widget> actions) = switch (stage) {
               _SramSetupStage.instructions => (
-                'Set up SRAM control',
-                'Press and hold the AXS button on your derailleur until its light flashes to '
-                    'authorize BikeControl, then tap Continue.\n\n'
-                    'BikeControl will back up your current shifter configuration and disable the '
-                    "derailleur's own shifting so it only sends button presses. You can restore it "
-                    'anytime.',
+                title,
+                intro,
                 [
                   Button.secondary(
                     onPressed: () => Navigator.of(dialogContext).pop(),
@@ -272,14 +312,13 @@ class SramAxs extends BluetoothDevice {
                 ],
               ),
               _SramSetupStage.running => (
-                'Setting up…',
+                title,
                 'Talking to your derailleur — keep it close and awake.',
                 <Widget>[],
               ),
               _SramSetupStage.success => (
-                'All set',
-                'BikeControl now controls your gears. Each shifter button is a controller input '
-                    'you can map in the app.',
+                'Done',
+                successMessage,
                 [
                   PrimaryButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
@@ -288,7 +327,7 @@ class SramAxs extends BluetoothDevice {
                 ],
               ),
               _SramSetupStage.error => (
-                "Setup didn't complete",
+                "That didn't work",
                 errorMessage ?? 'Something went wrong. Please try again.',
                 [
                   Button.secondary(
@@ -303,7 +342,7 @@ class SramAxs extends BluetoothDevice {
             return Container(
               constraints: const BoxConstraints(maxWidth: 480),
               child: AlertDialog(
-                title: Text(title),
+                title: Text(dialogTitle),
                 content: Text(body),
                 actions: actions,
               ),
@@ -312,18 +351,6 @@ class SramAxs extends BluetoothDevice {
         );
       },
     );
-    core.connection.signalChange(this);
-  }
-
-  Future<void> _runRestore(BuildContext context) async {
-    try {
-      await restoreShifting();
-      buildToast(title: 'Original shifting restored');
-    } on SramBondException catch (e) {
-      buildToast(title: 'Restore failed', subtitle: e.message, level: LogLevel.LOGLEVEL_ERROR);
-    } catch (e) {
-      buildToast(title: 'Restore failed', subtitle: '$e', level: LogLevel.LOGLEVEL_ERROR);
-    }
     core.connection.signalChange(this);
   }
 }
