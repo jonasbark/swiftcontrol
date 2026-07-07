@@ -638,6 +638,28 @@ class Settings {
     }
   }
 
+  /// Persisted shifter adverts (serial → "deviceType:model") for stable button
+  /// naming across sessions, scoped to the parent device.
+  void setSramShifter(String serial, int shifterSerial, int? deviceType, int? model) {
+    if (!_initialized) return; // no prefs (e.g. pure naming unit tests) → nothing to persist
+    final list = prefs.getStringList('sram_shifters_$serial') ?? <String>[];
+    final entry = '$shifterSerial:${deviceType ?? ''}:${model ?? ''}';
+    list.removeWhere((e) => e.startsWith('$shifterSerial:'));
+    list.add(entry);
+    prefs.setStringList('sram_shifters_$serial', list);
+  }
+
+  ({int? deviceType, int? model})? getSramShifter(String serial, int shifterSerial) {
+    if (!_initialized) return null;
+    for (final e in prefs.getStringList('sram_shifters_$serial') ?? const <String>[]) {
+      final p = e.split(':');
+      if (p.isNotEmpty && int.tryParse(p[0]) == shifterSerial) {
+        return (deviceType: p.length > 1 ? int.tryParse(p[1]) : null, model: p.length > 2 ? int.tryParse(p[2]) : null);
+      }
+    }
+    return null;
+  }
+
   bool hasAskedPermissions() {
     return prefs.getBool('asked_permissions') ?? false;
   }

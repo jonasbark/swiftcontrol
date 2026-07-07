@@ -3,11 +3,14 @@ import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop/prop.dart' show SramDeviceInfo;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 SramAxs _device() => SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   // Constructing a BluetoothDevice touches `core.actionHandler` (BaseDevice's
   // constructor checks `supportedApp`), so it must be initialized before any
   // test builds a SramAxs, even though `logicalButtonName` itself is pure.
@@ -54,5 +57,19 @@ void main() {
     expect(d.buttonNameFor(leftLever, 100, 2), 'SRAM Left – Aux Top');
     expect(d.buttonNameFor(rightLever, 200, 1), 'SRAM Right Shifter');
     expect(d.buttonNameFor(null, 100, 1), 'SRAM Shifter A – Paddle'); // no advert → fallback
+  });
+
+  test('§6.4 naming is stable across sessions via a persisted shifter advert', () async {
+    SharedPreferences.setMockInitialValues({});
+    core.settings.prefs = await SharedPreferences.getInstance();
+    // A left drop-bar lever (type 0, model 1007) seen in a PRIOR session, with
+    // no live advert this session — naming must still resolve from persistence.
+    core.settings.setSramShifter('dev1', 500, 0, 1007);
+
+    final d = _device(); // deviceId 'dev1' → matches the persisted scope
+    expect(d.logicalButtonName(500, 1), 'SRAM Left Shifter');
+    expect(d.logicalButtonName(500, 2), 'SRAM Left – Aux Top');
+    // An un-persisted serial still degrades to the legacy label.
+    expect(d.logicalButtonName(600, 1), 'SRAM Shifter A – Paddle');
   });
 }
