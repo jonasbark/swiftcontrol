@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
@@ -270,12 +271,7 @@ class SramAxs extends BluetoothDevice {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          isShiftingDisabled
-              ? 'On-device shifting is disabled — BikeControl controls your gears. '
-                  'Each shifter button is a controller input you can map in the app.'
-              : 'Let BikeControl control your shifting: it backs up your current shifter '
-                  'configuration, then disables the derailleur\'s own shifting so it only '
-                  'sends button presses. You can restore it anytime.',
+          isShiftingDisabled ? context.i18n.sramPanelDisabled : context.i18n.sramPanelIntro,
         ).xSmall,
         const Gap(8),
         Wrap(
@@ -290,27 +286,24 @@ class SramAxs extends BluetoothDevice {
                 size: ButtonSize.small,
                 onPressed: () => unawaited(_runGuidedOperation(
                   context,
-                  title: 'Set up SRAM control',
-                  intro: 'BikeControl will back up your current shifter configuration and disable the '
-                      "derailleur's own shifting so it only sends button presses. You can restore it "
-                      'anytime.',
-                  successMessage: 'BikeControl now controls your gears. Each shifter button is a '
-                      'controller input you can map in the app.',
+                  title: context.i18n.sramSetup,
+                  intro: context.i18n.sramSetupIntro,
+                  successMessage: context.i18n.sramSetupSuccess,
                   operation: setupControl,
                 )),
-                child: const Text('Set up SRAM control'),
+                child: Text(context.i18n.sramSetup),
               ),
             if (hasBackup)
               SecondaryButton(
                 size: ButtonSize.small,
                 onPressed: () => unawaited(_runGuidedOperation(
                   context,
-                  title: 'Restore original shifting',
-                  intro: "This restores your derailleur's original shifting.",
-                  successMessage: 'Your original shifter configuration has been restored.',
+                  title: context.i18n.sramRestore,
+                  intro: context.i18n.sramRestoreIntro,
+                  successMessage: context.i18n.sramRestoreSuccess,
                   operation: restoreShifting,
                 )),
-                child: const Text('Restore original shifting'),
+                child: Text(context.i18n.sramRestore),
               ),
           ],
         ),
@@ -329,19 +322,16 @@ class SramAxs extends BluetoothDevice {
     required String successMessage,
     required Future<void> Function() operation,
   }) async {
+    final l = context.i18n;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
         var stage = _SramSetupStage.confirm;
-        String? errorMessage;
         return StatefulBuilder(
           builder: (context, setState) {
             Future<void> attempt() async {
-              setState(() {
-                stage = _SramSetupStage.running;
-                errorMessage = null;
-              });
+              setState(() => stage = _SramSetupStage.running);
               try {
                 await operation();
                 if (dialogContext.mounted) setState(() => stage = _SramSetupStage.success);
@@ -349,13 +339,8 @@ class SramAxs extends BluetoothDevice {
                 // A fresh bond is needed (no valid key). Only NOW do we ask the
                 // user to authorize — when already bonded this never shows.
                 if (dialogContext.mounted) setState(() => stage = _SramSetupStage.authorize);
-              } catch (e) {
-                if (dialogContext.mounted) {
-                  setState(() {
-                    errorMessage = 'Something went wrong: $e';
-                    stage = _SramSetupStage.error;
-                  });
-                }
+              } catch (_) {
+                if (dialogContext.mounted) setState(() => stage = _SramSetupStage.error);
               }
             }
 
@@ -366,47 +351,46 @@ class SramAxs extends BluetoothDevice {
                 [
                   Button.secondary(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
+                    child: Text(l.cancel),
                   ),
-                  PrimaryButton(onPressed: attempt, child: const Text('Continue')),
+                  PrimaryButton(onPressed: attempt, child: Text(l.continueAction)),
                 ],
               ),
               _SramSetupStage.running => (
                 title,
-                'Talking to your derailleur — keep it close and awake.',
+                l.sramDialogRunning,
                 <Widget>[],
               ),
               _SramSetupStage.authorize => (
-                'Authorize BikeControl',
-                'Your derailleur needs to authorize BikeControl. Press and hold the AXS button on '
-                    'the derailleur until its light flashes, then tap Retry.',
+                l.sramAuthorizeTitle,
+                l.sramAuthorizeBody,
                 [
                   Button.secondary(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
+                    child: Text(l.cancel),
                   ),
-                  PrimaryButton(onPressed: attempt, child: const Text('Retry')),
+                  PrimaryButton(onPressed: attempt, child: Text(l.retry)),
                 ],
               ),
               _SramSetupStage.success => (
-                'Done',
+                l.done,
                 successMessage,
                 [
                   PrimaryButton(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Done'),
+                    child: Text(l.done),
                   ),
                 ],
               ),
               _SramSetupStage.error => (
-                "That didn't work",
-                errorMessage ?? 'Something went wrong. Please try again.',
+                l.sramErrorTitle,
+                l.sramGenericError,
                 [
                   Button.secondary(
                     onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
+                    child: Text(l.cancel),
                   ),
-                  PrimaryButton(onPressed: attempt, child: const Text('Retry')),
+                  PrimaryButton(onPressed: attempt, child: Text(l.retry)),
                 ],
               ),
             };

@@ -1009,5 +1009,19 @@
   "frontShiftEnableLabel": "Dérailleur avant virtuel",
   "frontShiftEnableDesc": "Ajoute un second plateau (transmission 2×). Appuyez sur les deux manettes en même temps pour changer de plateau, comme sur SRAM AXS.",
   "frontShiftSmallRingLabel": "Petit plateau (dents)",
-  "frontShiftLargeRingLabel": "Grand plateau (dents)"
+  "frontShiftLargeRingLabel": "Grand plateau (dents)",
+  "done": "Terminé",
+  "sramSetup": "Configurer le contrôle SRAM",
+  "sramRestore": "Restaurer le fonctionnement d'origine",
+  "sramPanelDisabled": "Le passage des vitesses par le dérailleur est désactivé – BikeControl contrôle vos vitesses. Chaque bouton de manette est une entrée de contrôleur que vous pouvez attribuer dans l'application.",
+  "sramPanelIntro": "Laissez BikeControl gérer votre transmission : il sauvegarde la configuration actuelle de vos manettes, puis désactive le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pouvez la restaurer à tout moment.",
+  "sramSetupIntro": "BikeControl va sauvegarder la configuration actuelle de vos manettes et désactiver le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pourrez la restaurer à tout moment.",
+  "sramSetupSuccess": "BikeControl contrôle désormais vos vitesses. Chaque bouton de manette est une entrée de contrôleur que vous pouvez attribuer dans l'application.",
+  "sramRestoreIntro": "Cela restaure le fonctionnement d'origine de votre dérailleur.",
+  "sramRestoreSuccess": "La configuration d'origine de vos manettes a été restaurée.",
+  "sramDialogRunning": "Communication avec votre dérailleur… gardez-le à proximité et actif.",
+  "sramAuthorizeTitle": "Autoriser BikeControl",
+  "sramAuthorizeBody": "Votre dérailleur doit autoriser BikeControl. Appuyez longuement sur le bouton AXS du dérailleur jusqu'à ce que son voyant clignote, puis appuyez sur Réessayer.",
+  "sramErrorTitle": "Ça n'a pas fonctionné",
+  "sramGenericError": "Une erreur s'est produite. Veuillez réessayer."
 }

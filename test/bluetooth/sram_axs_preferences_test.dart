@@ -1,4 +1,5 @@
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
+import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,17 +16,26 @@ void main() {
     core.actionHandler = StubActions();
   });
 
-  testWidgets('the setup action is shown on the main device card', (tester) async {
-    final device = SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
-    await tester.pumpWidget(
-      ShadcnApp(
+  // The panel reads localized strings via context.i18n, so the tree needs the
+  // AppLocalizations delegate (mirrors how main.dart wires ShadcnApp).
+  Widget wrap(SramAxs device) => ShadcnApp(
+        locale: const Locale('en'),
+        localizationsDelegates: [
+          ...ShadcnLocalizations.localizationsDelegates,
+          AppLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.delegate.supportedLocales,
         home: Scaffold(
           child: Builder(
             builder: (c) => Column(children: device.showAdditionalInformation(c)),
           ),
         ),
-      ),
-    );
+      );
+
+  testWidgets('the setup action is shown on the main device card', (tester) async {
+    final device = SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
+    await tester.pumpWidget(wrap(device));
+
     // The panel lives on the main card now (showAdditionalInformation), not a
     // separate preferences view.
     expect(find.textContaining('Set up SRAM control'), findsOneWidget);
@@ -34,15 +44,7 @@ void main() {
 
   testWidgets('tapping setup opens the guided confirm dialog', (tester) async {
     final device = SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
-    await tester.pumpWidget(
-      ShadcnApp(
-        home: Scaffold(
-          child: Builder(
-            builder: (c) => Column(children: device.showAdditionalInformation(c)),
-          ),
-        ),
-      ),
-    );
+    await tester.pumpWidget(wrap(device));
 
     await tester.tap(find.textContaining('Set up SRAM control'));
     await tester.pumpAndSettle();

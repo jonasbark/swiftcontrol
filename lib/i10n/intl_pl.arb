@@ -1008,5 +1008,19 @@
   "frontShiftEnableLabel": "Wirtualna przerzutka przednia",
   "frontShiftEnableDesc": "Dodaje drugą tarczę (napęd 2×). Aby zmienić tarczę, naciśnij obie manetki jednocześnie – jak w SRAM AXS.",
   "frontShiftSmallRingLabel": "Mała tarcza (zęby)",
-  "frontShiftLargeRingLabel": "Duża tarcza (zęby)"
+  "frontShiftLargeRingLabel": "Duża tarcza (zęby)",
+  "done": "Gotowe",
+  "sramSetup": "Skonfiguruj sterowanie SRAM",
+  "sramRestore": "Przywróć oryginalne przełączanie",
+  "sramPanelDisabled": "Przełączanie w urządzeniu jest wyłączone — BikeControl steruje biegami. Każdy przycisk manetki to wejście kontrolera, które możesz przypisać w aplikacji.",
+  "sramPanelIntro": "Pozwól BikeControl sterować przełączaniem: utworzy kopię zapasową bieżącej konfiguracji manetek, a następnie wyłączy własne przełączanie przerzutki, tak aby wysyłała tylko naciśnięcia przycisków. Możesz ją przywrócić w dowolnej chwili.",
+  "sramSetupIntro": "BikeControl utworzy kopię zapasową bieżącej konfiguracji manetek i wyłączy własne przełączanie przerzutki, tak aby wysyłała tylko naciśnięcia przycisków. Możesz ją przywrócić w dowolnej chwili.",
+  "sramSetupSuccess": "BikeControl steruje teraz Twoimi biegami. Każdy przycisk manetki to wejście kontrolera, które możesz przypisać w aplikacji.",
+  "sramRestoreIntro": "Spowoduje to przywrócenie oryginalnego przełączania przerzutki.",
+  "sramRestoreSuccess": "Przywrócono oryginalną konfigurację manetek.",
+  "sramDialogRunning": "Łączenie z przerzutką… trzymaj ją blisko i aktywną.",
+  "sramAuthorizeTitle": "Autoryzuj BikeControl",
+  "sramAuthorizeBody": "Przerzutka musi autoryzować BikeControl. Naciśnij i przytrzymaj przycisk AXS na przerzutce, aż zamiga dioda, a następnie dotknij Ponów.",
+  "sramErrorTitle": "Nie udało się",
+  "sramGenericError": "Coś poszło nie tak. Spróbuj ponownie."
 }
