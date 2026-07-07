@@ -151,6 +151,76 @@ void main() async {
     });
   });
 
+  group('WHEELTOP EDS reconnect state reset', () {
+    test('resetConnectionState clears stale pressed-button state so the next press fires', () async {
+      final device = createDevice();
+
+      // Simulate a mid-hold BLE drop: a press arrives but the connection
+      // drops before the release packet, so the button is stuck "pressed".
+      await device.processCharacteristic(characteristic, _packet(0x02));
+      expect(stubActions.performedActions, isEmpty);
+
+      // disconnect() calls this before reaching the real BLE platform channel
+      // (UniversalBle.disconnect throws MissingPluginException in a unit
+      // test), so exercise the reset logic it wraps directly.
+      device.resetConnectionState();
+
+      // Reconnect, then press the same button again. Without the reset,
+      // Set.add would return false (already "pressed") and this press would
+      // be silently swallowed, only firing a spurious release later.
+      await device.processCharacteristic(characteristic, _packet(0x02));
+      await device.processCharacteristic(characteristic, _packet(0x0a));
+
+      expect(stubActions.performedActions.length, 1);
+      expect(
+        stubActions.performedActions.single,
+        PerformedAction(WheeltopEdsButtons.shiftUp, isDown: true, isUp: true),
+      );
+    });
+  });
+
+  group('WHEELTOP EDS notify-capable characteristic selection', () {
+    // selectSubscriptionTargets is pure (no BLE platform channel involved),
+    // so it is tested directly rather than through handleServices.
+    const rxCharacteristic = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+    test('prefers 6e400002 when it is notify-capable', () {
+      final targets = WheeltopEds.selectSubscriptionTargets([
+        BleCharacteristic(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [CharacteristicProperty.notify], []),
+        BleCharacteristic(rxCharacteristic, [CharacteristicProperty.notify], []),
+      ]);
+      expect(targets, [WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase()]);
+    });
+
+    test('falls back to the notify-capable characteristic when 6e400002 is write-only', () {
+      // Regression case: a stock Nordic UART layout where 6e400002 exists but
+      // is write-only, and notifications actually arrive on 6e400003.
+      final targets = WheeltopEds.selectSubscriptionTargets([
+        BleCharacteristic(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [CharacteristicProperty.write], []),
+        BleCharacteristic(rxCharacteristic, [CharacteristicProperty.notify], []),
+      ]);
+      expect(targets, [rxCharacteristic]);
+    });
+
+    test('subscribes to every notify/indicate characteristic when 6e400002 does not qualify', () {
+      const otherUuid = '6e400004-b5a3-f393-e0a9-e50e24dcca9e';
+      final targets = WheeltopEds.selectSubscriptionTargets([
+        BleCharacteristic(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [CharacteristicProperty.write], []),
+        BleCharacteristic(rxCharacteristic, [CharacteristicProperty.notify], []),
+        BleCharacteristic(otherUuid, [CharacteristicProperty.indicate], []),
+      ]);
+      expect(targets, containsAll([rxCharacteristic, otherUuid]));
+      expect(targets, isNot(contains(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase())));
+    });
+
+    test('still attempts 6e400002 when nothing in the service is notify-capable', () {
+      final targets = WheeltopEds.selectSubscriptionTargets([
+        BleCharacteristic(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [CharacteristicProperty.write], []),
+      ]);
+      expect(targets, [WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase()]);
+    });
+  });
+
   group('WHEELTOP EDS identity', () {
     test('name derives from the variant', () {
       expect(createDevice().name, 'WHEELTOP EDS OX');

@@ -11,7 +11,7 @@ This means BikeControl does NOT see the device via Bluetooth.
 You may need to update the firmware in Zwift Companion app.
 
 ## WHEELTOP EDS shifter cannot be found
-
+*
 The shifter only accepts one connection: if your rear derailleur is awake and paired to it, BikeControl cannot see it. Let the derailleur go to sleep (or power it down), then press a shifter button while BikeControl is scanning — the shifter only advertises for a short time after a button press.
 
 ## My Click v2 disconnects after a minute or buttons do not work
