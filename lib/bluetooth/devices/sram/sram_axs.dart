@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 // The prop package exports a `SramAxs` constants class with the same name as
@@ -176,56 +177,158 @@ class SramAxs extends BluetoothDevice {
   bool get isShiftingDisabled => core.settings.getSramShiftingDisabled(_serialKey);
 
   @override
-  List<Widget> showAdditionalInformation(BuildContext context) => const [];
+  List<Widget> showAdditionalInformation(BuildContext context) => [_buildSetupPanel(context)];
 
+  // The setup panel lives on the main device card (showAdditionalInformation),
+  // so there's no separate preferences view.
   @override
-  Widget? buildPreferences(BuildContext context) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        Future<void> run(Future<void> Function() op) async {
-          try {
-            await op();
-          } catch (_) {
-            // Errors are logged via LogNotification in setupControl/restoreShifting.
-          }
-          if (context.mounted) setState(() {});
-        }
+  Widget? buildPreferences(BuildContext context) => null;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildSetupPanel(BuildContext context) {
+    final hasBackup = core.settings.getSramBackup(_serialKey) != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isShiftingDisabled
+              ? 'On-device shifting is disabled — BikeControl controls your gears. '
+                  'Each shifter button is a controller input you can map in the app.'
+              : 'Let BikeControl control your shifting: it backs up your current shifter '
+                  'configuration, then disables the derailleur\'s own shifting so it only '
+                  'sends button presses. You can restore it anytime.',
+        ).xSmall,
+        const Gap(8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Text(
-              isShiftingDisabled
-                  ? 'On-device shifting is disabled — BikeControl controls your gears. '
-                      'Each shifter button is a controller input you can map below.'
-                  : 'Set up automatic control: BikeControl backs up your current shifter '
-                      'configuration, then disables the derailleur\'s own shifting so it '
-                      'only sends button presses. You can restore it anytime.',
-            ).xSmall,
-            const Gap(8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                PrimaryButton(
-                  size: ButtonSize.small,
-                  onPressed: () => run(setupControl),
-                  child: Text(isShiftingDisabled ? 'Re-run SRAM setup' : 'Set up SRAM control'),
-                ),
-                if (core.settings.getSramBackup(_serialKey) != null)
-                  SecondaryButton(
-                    size: ButtonSize.small,
-                    onPressed: () => run(restoreShifting),
-                    child: const Text('Restore original shifting'),
-                  ),
-              ],
+            PrimaryButton(
+              size: ButtonSize.small,
+              onPressed: () => unawaited(_openSetupDialog(context)),
+              child: Text(isShiftingDisabled ? 'Re-run SRAM setup' : 'Set up SRAM control'),
             ),
+            if (hasBackup)
+              SecondaryButton(
+                size: ButtonSize.small,
+                onPressed: () => unawaited(_runRestore(context)),
+                child: const Text('Restore original shifting'),
+              ),
           ],
+        ),
+      ],
+    );
+  }
+
+  /// Interactive, staged setup: guide the authorize gesture, show progress, and
+  /// surface any error (e.g. the bond-authorization failure) with a Retry.
+  Future<void> _openSetupDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var stage = _SramSetupStage.instructions;
+        String? errorMessage;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            Future<void> attempt() async {
+              setState(() {
+                stage = _SramSetupStage.running;
+                errorMessage = null;
+              });
+              try {
+                await setupControl();
+                if (dialogContext.mounted) setState(() => stage = _SramSetupStage.success);
+              } on SramBondException catch (e) {
+                if (dialogContext.mounted) {
+                  setState(() {
+                    errorMessage = e.message;
+                    stage = _SramSetupStage.error;
+                  });
+                }
+              } catch (e) {
+                if (dialogContext.mounted) {
+                  setState(() {
+                    errorMessage = 'Setup failed: $e';
+                    stage = _SramSetupStage.error;
+                  });
+                }
+              }
+            }
+
+            final (String title, String body, List<Widget> actions) = switch (stage) {
+              _SramSetupStage.instructions => (
+                'Set up SRAM control',
+                'Press and hold the AXS button on your derailleur until its light flashes to '
+                    'authorize BikeControl, then tap Continue.\n\n'
+                    'BikeControl will back up your current shifter configuration and disable the '
+                    "derailleur's own shifting so it only sends button presses. You can restore it "
+                    'anytime.',
+                [
+                  Button.secondary(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  PrimaryButton(onPressed: attempt, child: const Text('Continue')),
+                ],
+              ),
+              _SramSetupStage.running => (
+                'Setting up…',
+                'Talking to your derailleur — keep it close and awake.',
+                <Widget>[],
+              ),
+              _SramSetupStage.success => (
+                'All set',
+                'BikeControl now controls your gears. Each shifter button is a controller input '
+                    'you can map in the app.',
+                [
+                  PrimaryButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+              _SramSetupStage.error => (
+                "Setup didn't complete",
+                errorMessage ?? 'Something went wrong. Please try again.',
+                [
+                  Button.secondary(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  PrimaryButton(onPressed: attempt, child: const Text('Retry')),
+                ],
+              ),
+            };
+
+            return Container(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: AlertDialog(
+                title: Text(title),
+                content: Text(body),
+                actions: actions,
+              ),
+            );
+          },
         );
       },
     );
+    core.connection.signalChange(this);
+  }
+
+  Future<void> _runRestore(BuildContext context) async {
+    try {
+      await restoreShifting();
+      buildToast(title: 'Original shifting restored');
+    } on SramBondException catch (e) {
+      buildToast(title: 'Restore failed', subtitle: e.message, level: LogLevel.LOGLEVEL_ERROR);
+    } catch (e) {
+      buildToast(title: 'Restore failed', subtitle: '$e', level: LogLevel.LOGLEVEL_ERROR);
+    }
+    core.connection.signalChange(this);
   }
 }
+
+enum _SramSetupStage { instructions, running, success, error }
 
 class SramAxsConstants {
   static const String SERVICE_UUID = "0000fe51-0000-1000-8000-00805f9b34fb";
