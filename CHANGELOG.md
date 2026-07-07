@@ -1,3 +1,7 @@
+### Unreleased
+**Features**:
+- SRAM AXS shifters (beta): pair BikeControl directly with your AXS derailleur to use each shifter paddle as a controller. BikeControl identifies which shifter and which button you pressed, can automatically back up and disable the derailleur's own shifting so it only sends button presses (restore your original setup anytime), and each button maps to single- and double-click actions like any other controller.
+
 ### 6.2.0 (26-06-2026)
 **Features**:
 - Virtual front derailleur: adds a second chainring (2× drivetrain) for more realism. The new assignable "Front Shift (Chainring)" action — or pressing both shifters together, SRAM-AXS style — toggles between your small and large rings, changing resistance by the exact chainring ratio while staying on the same rear cog. While it's active your current gear reads as head-unit-style position notation (e.g. 2×14) in the app, the gear overlay, and the iOS Live Activity. Set your chainring sizes per trainer in the gear settings.
