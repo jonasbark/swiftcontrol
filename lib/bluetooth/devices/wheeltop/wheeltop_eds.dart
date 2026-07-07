@@ -133,6 +133,55 @@ class WheeltopEds extends BluetoothDevice {
   final Set<ControllerButton> _pressedButtons = {};
   final Set<String> _subscribedCharacteristics = {};
 
+  /// Clears the per-connection button/subscription state. Extracted from
+  /// [disconnect] so it can be exercised directly in tests that cannot reach
+  /// the real BLE platform channels that [disconnect] otherwise hits via
+  /// `super.disconnect()`.
+  @visibleForTesting
+  void resetConnectionState() {
+    _pressedButtons.clear();
+    _subscribedCharacteristics.clear();
+  }
+
+  @override
+  Future<void> disconnect() async {
+    // Without this, a mid-hold BLE drop that never delivers a release packet
+    // leaves the button "pressed" (and its characteristic "subscribed") on
+    // this instance; a reconnect would then silently swallow the next press
+    // via Set.add returning false.
+    resetConnectionState();
+    await super.disconnect();
+  }
+
+  /// Button events are notified on 6e400002 (the slot standard NUS uses for
+  /// writes), but some firmware follows the stock Nordic UART layout where
+  /// that characteristic is write-only and notifications actually arrive on
+  /// 6e400003. Filter candidates by notify/indicate capability, preferring
+  /// 6e400002 among them, and fall back to every notify/indicate-capable
+  /// characteristic of the service otherwise — the strict packet validation
+  /// makes stray notifications harmless. If the service advertises no
+  /// notify/indicate characteristic at all, still attempt 6e400002 so we at
+  /// least log a subscribe failure instead of silently doing nothing.
+  ///
+  /// Extracted from [handleServices] so the selection logic can be tested
+  /// directly, without reaching the real BLE platform channel.
+  @visibleForTesting
+  static List<String> selectSubscriptionTargets(List<BleCharacteristic> characteristics) {
+    final txUuid = WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase();
+    final notifiable = characteristics
+        .where(
+          (c) =>
+              c.properties.contains(CharacteristicProperty.notify) ||
+              c.properties.contains(CharacteristicProperty.indicate),
+        )
+        .toList();
+    final preferred = notifiable.where((c) => c.uuid.toLowerCase() == txUuid).toList();
+
+    if (preferred.isNotEmpty) return [preferred.first.uuid];
+    if (notifiable.isNotEmpty) return notifiable.map((c) => c.uuid).toList();
+    return [WheeltopEdsConstants.TX_CHARACTERISTIC_UUID];
+  }
+
   @override
   Future<void> handleServices(List<BleService> services) async {
     final service = services.firstWhere(
@@ -140,22 +189,12 @@ class WheeltopEds extends BluetoothDevice {
       orElse: () => throw Exception('Service not found: ${WheeltopEdsConstants.SERVICE_UUID}'),
     );
 
-    // Button events are notified on 6e400002 (the slot standard NUS uses for
-    // writes). Prefer it, but fall back to every characteristic of the
-    // service in case a firmware notifies elsewhere — the strict packet
-    // validation makes stray notifications harmless.
-    final preferred = service.characteristics
-        .where((c) => c.uuid.toLowerCase() == WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase())
-        .toList();
-    final targets = preferred.isNotEmpty ? preferred : service.characteristics;
-    for (final characteristic in targets) {
+    for (final uuid in selectSubscriptionTargets(service.characteristics)) {
       try {
-        await UniversalBle.subscribeNotifications(device.deviceId, service.uuid, characteristic.uuid);
-        _subscribedCharacteristics.add(characteristic.uuid.toLowerCase());
+        await UniversalBle.subscribeNotifications(device.deviceId, service.uuid, uuid);
+        _subscribedCharacteristics.add(uuid.toLowerCase());
       } catch (e, st) {
-        actionStreamInternal.add(
-          LogNotification('WHEELTOP EDS: could not subscribe to ${characteristic.uuid}: $e\n$st'),
-        );
+        actionStreamInternal.add(LogNotification('WHEELTOP EDS: could not subscribe to $uuid: $e\n$st'));
       }
     }
   }
