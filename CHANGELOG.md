@@ -2,6 +2,7 @@
 **Features**:
 - Wahoo KICKR Climb (beta): your Climb now follows the grade from your training app, rising and falling with the terrain. Controller buttons can also raise, lower, flatten, or hand it back to auto.
 - Elite Rizer (beta): incline + steering support. It connects directly and works with any trainer – following the road grade for tilt and steering you in‑game.
+- WHEELTOP EDS shifters (beta): use your EDS OX or TX shifter as a controller — top/bottom buttons shift up/down by default and are fully remappable. Flip the slide switch to T for two extra assignable buttons.
 
 ### 6.2.0 (26-06-2026)
 **Features**:

@@ -58,6 +58,21 @@ class WheeltopEds extends BluetoothDevice {
   @override
   String get name => 'WHEELTOP EDS ${edsType.label}';
 
+  @override
+  List<Widget> showAdditionalInformation(BuildContext context) {
+    return [
+      if (batteryCentivolts != null)
+        Text('Shifter battery: ${(batteryCentivolts! / 100).toStringAsFixed(2)} V').xSmall,
+      const Text(
+        'The shifter can only connect here while its rear derailleur is not claiming it — '
+        'power the derailleur down (or let it sleep) and press a shifter button to wake the '
+        'shifter while scanning.\n'
+        'Slide switch on R: top/bottom buttons shift. Slide switch on T: the buttons become '
+        'two extra assignable buttons.',
+      ).xSmall,
+    ];
+  }
+
   /// Returns a [WheeltopEds] when [scanResult] carries the EDS shifter
   /// advertisement, else null.
   ///
