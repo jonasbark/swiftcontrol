@@ -214,59 +214,53 @@ Future<void> main() async {
     expect(action.trigger, ButtonTrigger.singleClick);
   });
 
-  // NOTE on trigger semantics: SramAxs resolves its own tap-count gesture
-  // (single vs double tap) into TWO DIFFERENT logical buttons — e.g. "...
-  // Paddle" (default action shiftUp) vs "... Paddle (double)" (default action
-  // shiftDown) — before ever calling into BaseDevice.handleButtonsClicked.
-  // That base-class machinery always fires ButtonTrigger.singleClick for a
-  // plain click/release pair (SramAxs sets supportsLongPress: false, so no
-  // long-press or generic double-click detection ever engages there). So the
-  // observable signal for "a double tap happened" is which BUTTON fired
-  // (name contains "(double)"), not PerformedAction.trigger.
-  test('same-identity double tap resolves to one double-tap action, not two singles', () async {
+  // NOTE on trigger semantics: SramAxs no longer resolves its own tap-count
+  // gesture. It emits ONE physical button press (down + release) per 0xFF
+  // trigger, identified by (serial, mask), and lets BaseDevice's shared
+  // single-vs-double-click machinery (`_handleSingleButtonTap`, a 320ms
+  // window) decide the trigger. The integration harness's Zwift keymap has
+  // no double-click mapping for a freshly-discovered SRAM button, so
+  // `_hasTriggerAction(button, ButtonTrigger.doubleClick)` is false and every
+  // press — even two in a row on the same identity — resolves to its own
+  // immediate `ButtonTrigger.singleClick` (see base_device.dart:277-279).
+  test('two presses on the same identity each resolve to an immediate single click', () async {
     final (derailleur, device) = await connectSram();
     await device.setupControl();
 
-    // Two taps on the SAME controller serial, back to back, well inside the
-    // (default 350ms) double-click window.
+    // Two taps on the SAME controller serial, back to back.
     derailleur.pressPaddle(0x11111111);
     derailleur.pressPaddle(0x11111111);
 
     await IntegrationEnv.waitFor(
-      () => stubActions.performedActions.isNotEmpty,
-      description: 'double-tap action',
+      () => stubActions.performedActions.length >= 2,
+      description: 'two single-click actions',
     );
-    // Wait past the window to be sure no extra single fires afterwards.
-    await Future<void>.delayed(const Duration(milliseconds: 450));
 
-    expect(stubActions.performedActions.length, 1);
-    expect(stubActions.performedActions.single.button.name, contains('(double)'));
-    expect(stubActions.performedActions.single.trigger, ButtonTrigger.singleClick);
+    expect(stubActions.performedActions.length, 2);
+    expect(stubActions.performedActions.every((a) => a.trigger == ButtonTrigger.singleClick), isTrue);
+    expect(stubActions.performedActions.every((a) => a.button.name.contains('Shifter A')), isTrue);
+    // Only one physical button was ever discovered for this identity.
+    expect(device.availableButtons.where((b) => b.name.contains('Shifter A')).length, 1);
   });
 
-  test('a press from a different identity flushes the pending single instead of merging into a double', () async {
+  test('presses from two different identities discover two distinct shifter buttons', () async {
     final (derailleur, device) = await connectSram();
     await device.setupControl();
 
-    // serialA's press starts a pending single-click window; serialB's press
-    // (different identity, same paddle mask) arrives before that window
-    // elapses. It must NOT be merged into a double attributed to serialB —
-    // serialA's press flushes immediately as its own single, and serialB
-    // starts its own fresh window.
     derailleur.pressPaddle(0x11111111);
     derailleur.pressPaddle(0x22222222);
 
     await IntegrationEnv.waitFor(
       () => stubActions.performedActions.length >= 2,
-      timeout: const Duration(seconds: 2),
       description: 'two independent single-click actions',
     );
 
     expect(stubActions.performedActions.length, 2);
-    expect(stubActions.performedActions.every((a) => !a.button.name.contains('(double)')), isTrue);
     expect(stubActions.performedActions.every((a) => a.trigger == ButtonTrigger.singleClick), isTrue);
     // Different serials => different "Shifter" labels, assigned in first-seen order.
     expect(stubActions.performedActions[0].button.name, contains('Shifter A'));
     expect(stubActions.performedActions[1].button.name, contains('Shifter B'));
+    expect(device.availableButtons.any((b) => b.name.contains('Shifter A')), isTrue);
+    expect(device.availableButtons.any((b) => b.name.contains('Shifter B')), isTrue);
   });
 }

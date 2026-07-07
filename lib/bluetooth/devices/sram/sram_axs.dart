@@ -22,11 +22,6 @@ class SramAxs extends BluetoothDevice {
   SramBleTransport? _transport;
   SramAxsLogic? _logic;
 
-  Timer? _singleClickTimer;
-  int _tapCount = 0;
-  int? _pendingSerial;
-  int? _pendingMask;
-
   /// Stable "Shifter A/B/..." labels assigned to controller serials in the
   /// order they are first seen.
   final List<int> _serialOrder = [];
@@ -43,23 +38,16 @@ class SramAxs extends BluetoothDevice {
     return String.fromCharCode('A'.codeUnitAt(0) + idx);
   }
 
-  /// Pure naming used for both discovery and the gesture emit. Exposed for tests.
-  String logicalButtonName(int? serial, int? mask, {required bool doubleTap}) {
-    if (serial == null && mask == null) {
-      return doubleTap ? 'SRAM Double Tap' : 'SRAM Tap';
-    }
+  /// Stable name for one physical (shifter, button). Single vs double click is
+  /// handled by the base device from the keymap, not encoded in the name.
+  String logicalButtonName(int? serial, int? mask) {
+    if (serial == null && mask == null) return 'SRAM Button';
     final button = mask == null
         ? null
         : (mask == sram_proto.SramAxs.paddleMask ? 'Paddle' : 'Button 0x${mask.toRadixString(16)}');
-    if (serial == null) {
-      // Button known, shifter not yet identified (press decoded before componentEvent).
-      return doubleTap ? 'SRAM $button (double)' : 'SRAM $button';
-    }
+    if (serial == null) return 'SRAM $button'; // button known, shifter not yet identified
     final shifter = 'SRAM Shifter ${_shifterLabel(serial)}';
-    if (mask == null) {
-      return doubleTap ? '$shifter – Double Tap' : '$shifter – Tap';
-    }
-    return doubleTap ? '$shifter – $button (double)' : '$shifter – $button';
+    return mask == null ? shifter : '$shifter – $button';
   }
 
   // -1 is the persisted sentinel for "null" (see Settings.addSramButton).
@@ -68,16 +56,8 @@ class SramAxs extends BluetoothDevice {
   /// Names a persisted (stored) button, mapping the `-1` sentinel back to null
   /// so re-registration never yields `"Button 0x-1"` or a phantom shifter slot.
   /// Exposed for tests.
-  String storedButtonName(int storedSerial, int storedMask, {required bool doubleTap}) =>
-      logicalButtonName(_fromStored(storedSerial), _fromStored(storedMask), doubleTap: doubleTap);
-
-  @override
-  Future<void> disconnect() async {
-    _singleClickTimer?.cancel();
-    _singleClickTimer = null;
-    _tapCount = 0;
-    await super.disconnect();
-  }
+  String storedButtonName(int storedSerial, int storedMask) =>
+      logicalButtonName(_fromStored(storedSerial), _fromStored(storedMask));
 
   @override
   Future<void> handleServices(List<BleService> services) async {
@@ -112,72 +92,8 @@ class SramAxs extends BluetoothDevice {
   }
 
   ControllerButton _registerButton(int? serial, int? mask) {
-    final name = logicalButtonName(serial, mask, doubleTap: false);
-    final doubleName = logicalButtonName(serial, mask, doubleTap: true);
-    getOrAddButton(doubleName, () => ControllerButton(doubleName, action: InGameAction.shiftDown, sourceDeviceId: device.deviceId));
+    final name = logicalButtonName(serial, mask);
     return getOrAddButton(name, () => ControllerButton(name, action: InGameAction.shiftUp, sourceDeviceId: device.deviceId));
-  }
-
-  Future<void> _emitClick(ControllerButton button) async {
-    await handleButtonsClicked([button]);
-    await handleButtonsClicked([]);
-  }
-
-  bool _isPendingIdentity(int? serial, int? mask) => serial == _pendingSerial && mask == _pendingMask;
-
-  /// Debounce a decoded press per `(serial, mask)` identity. The double-click
-  /// window is scoped to a single physical button: a press from a DIFFERENT
-  /// identity flushes the currently-pending single immediately, then starts a
-  /// fresh window for the new identity (so two different buttons pressed close
-  /// together never merge into a spurious double-click on one of them).
-  void _onPress(int? serial, int? mask) {
-    final windowMs = core.settings.getSramAxsDoubleClickWindowMs();
-
-    // A press from a different physical button flushes the pending single first.
-    if (_tapCount > 0 && !_isPendingIdentity(serial, mask)) {
-      final s = _pendingSerial, m = _pendingMask;
-      _singleClickTimer?.cancel();
-      _singleClickTimer = null;
-      _tapCount = 0;
-      unawaited(_emitResolved(serial: s, mask: m, doubleTap: false));
-    }
-
-    _pendingSerial = serial;
-    _pendingMask = mask;
-    _tapCount++;
-
-    if (_tapCount == 1) {
-      _singleClickTimer?.cancel();
-      _singleClickTimer = Timer(Duration(milliseconds: windowMs), () {
-        final fired = _tapCount == 1;
-        final s = _pendingSerial, m = _pendingMask;
-        _tapCount = 0;
-        _singleClickTimer = null;
-        if (fired) unawaited(_emitResolved(serial: s, mask: m, doubleTap: false));
-      });
-      return;
-    }
-
-    // 2+ taps on the SAME identity within the window → double click.
-    _singleClickTimer?.cancel();
-    _singleClickTimer = null;
-    final s = _pendingSerial, m = _pendingMask;
-    _tapCount = 0;
-    unawaited(_emitResolved(serial: s, mask: m, doubleTap: true));
-  }
-
-  Future<void> _emitResolved({required int? serial, required int? mask, required bool doubleTap}) async {
-    if (serial != null || mask != null) {
-      await core.settings.addSramButton(_serialKey, serial ?? -1, mask ?? -1);
-    }
-    final name = logicalButtonName(serial, mask, doubleTap: doubleTap);
-    final button = getOrAddButton(
-      name,
-      () => ControllerButton(name,
-          action: doubleTap ? InGameAction.shiftDown : InGameAction.shiftUp,
-          sourceDeviceId: device.deviceId),
-    );
-    await _emitClick(button);
   }
 
   @override
@@ -191,13 +107,21 @@ class SramAxs extends BluetoothDevice {
     }
 
     if (lc == sram_proto.SramAxs.controlTriggerChar.toLowerCase()) {
-      // 0xFF edge → resolve identity (may read+decrypt), then run the gesture layer.
+      // 0xFF edge → resolve identity (may read+decrypt), then emit a single
+      // physical press. Single vs double click is handled by the base device.
       final press = await _logic?.handleTrigger() ?? const SramPress();
       // Persist a re-bond if the key was just dropped.
       if (_logic != null && !_logic!.isBonded && core.settings.getSramKey(_serialKey) != null) {
         await core.settings.setSramKey(_serialKey, null);
       }
-      _onPress(press.controllerSerial, press.buttonMask);
+      final serial = press.controllerSerial;
+      final mask = press.buttonMask;
+      if (serial != null || mask != null) {
+        await core.settings.addSramButton(_serialKey, serial ?? -1, mask ?? -1);
+      }
+      final button = _registerButton(serial, mask);
+      await handleButtonsClicked([button]);
+      await handleButtonsClicked([]);
     }
   }
 
@@ -250,7 +174,6 @@ class SramAxs extends BluetoothDevice {
 
   @override
   Widget? buildPreferences(BuildContext context) {
-    final windowMs = core.settings.getSramAxsDoubleClickWindowMs();
     return StatefulBuilder(
       builder: (context, setState) {
         Future<void> run(Future<void> Function() op) async {
@@ -290,36 +213,6 @@ class SramAxs extends BluetoothDevice {
                     child: const Text('Restore original shifting'),
                   ),
               ],
-            ),
-            const Gap(8),
-            PrimaryButton(
-              size: ButtonSize.small,
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text('${windowMs}ms'),
-              ),
-              onPressed: () {
-                final values = [for (var v = 150; v <= 600; v += 50) v];
-                showDropdown(
-                  context: context,
-                  builder: (b) => DropdownMenu(
-                    children: values
-                        .map((v) => MenuButton(
-                              child: Text('${v}ms'),
-                              onPressed: (c) async {
-                                await core.settings.setSramAxsDoubleClickWindowMs(v);
-                                setState(() {});
-                              },
-                            ))
-                        .toList(),
-                  ),
-                );
-              },
-              child: const Text('Double-click window:'),
             ),
           ],
         );

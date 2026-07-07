@@ -589,19 +589,6 @@ class Settings {
   }
 
   // SRAM AXS Settings
-  static const int _sramAxsDoubleClickWindowDefaultMs = 350;
-  static const int _sramAxsDoubleClickWindowMinMs = 150;
-  static const int _sramAxsDoubleClickWindowMaxMs = 800;
-
-  int getSramAxsDoubleClickWindowMs() {
-    final v = prefs.getInt('sram_axs_double_click_window_ms') ?? _sramAxsDoubleClickWindowDefaultMs;
-    return v.clamp(_sramAxsDoubleClickWindowMinMs, _sramAxsDoubleClickWindowMaxMs);
-  }
-
-  Future<void> setSramAxsDoubleClickWindowMs(int ms) async {
-    final v = ms.clamp(_sramAxsDoubleClickWindowMinMs, _sramAxsDoubleClickWindowMaxMs);
-    await prefs.setInt('sram_axs_double_click_window_ms', v);
-  }
 
   String? getSramKey(String serial) => prefs.getString('sram_key_$serial');
 
