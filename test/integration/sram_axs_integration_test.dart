@@ -306,4 +306,44 @@ Future<void> main() async {
     expect(device.availableButtons.any((b) => b.name.contains('Shifter A')), isTrue);
     expect(device.availableButtons.any((b) => b.name.contains('Shifter B')), isTrue);
   });
+
+  // Advert filter (§6.4): only button-bearing SRAM controllers surface in
+  // `sramShifterAdverts`. A front derailleur (type 128) / dropper post (type
+  // 132) advertise 0xFE51 too but must NOT leak in and mint a phantom button.
+  test('sramShifterAdverts includes button-bearing shifters but excludes FD/POST', () async {
+    // Advertising device records (§2.2). Layout: flags 0x01 (flags2 present),
+    // flags2 0x02 (deviceType byte present), 4-byte little-endian serial, then
+    // the deviceType byte last.
+    Uint8List record(int serial, int deviceType) => Uint8List.fromList([
+          0x01, 0x02, serial & 0xff, (serial >> 8) & 0xff, (serial >> 16) & 0xff, (serial >> 24) & 0xff, deviceType,
+        ]);
+    const fe51 = '0000fe51-0000-1000-8000-00805f9b34fb';
+
+    // A drop-bar shifter (type 0) and a front derailleur (type 128).
+    env.ble.addPeripheral(FakePeripheral(
+      deviceId: 'fake-sram-shifter',
+      name: 'SRAM Shifter',
+      advertisedServices: [_lc(SramAxsConstants.SERVICE_UUID)],
+      serviceData: {fe51: record(170, 0)},
+    ));
+    env.ble.addPeripheral(FakePeripheral(
+      deviceId: 'fake-sram-fd',
+      name: 'SRAM FD',
+      advertisedServices: [_lc(SramAxsConstants.SERVICE_UUID)],
+      serviceData: {fe51: record(187, 128)},
+    ));
+
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.sramShifterAdverts.any((i) => i.serial == 170),
+      description: 'shifter advert retained in sramShifterAdverts',
+    );
+
+    final serials = core.connection.sramShifterAdverts.map((i) => i.serial).toSet();
+    expect(serials, contains(170), reason: 'the type-0 drop-bar shifter has buttons and must surface');
+    expect(serials, isNot(contains(187)), reason: 'the front derailleur (type 128) has no buttons and must be excluded');
+
+    // Neither is a rear derailleur, so neither becomes a connectable SramAxs.
+    expect(core.connection.devices.whereType<SramAxs>(), isEmpty);
+  });
 }

@@ -42,11 +42,21 @@ class SramAxs extends BluetoothDevice {
     return String.fromCharCode('A'.codeUnitAt(0) + idx);
   }
 
-  /// Look up a pressing shifter's advertised type/model by serial (from scan adverts).
+  /// Look up a pressing shifter's advertised type/model by serial. Prefers a
+  /// live scan advert (which it also persists for future sessions); falls back
+  /// to the persisted (deviceType, model) so a button's §6.4 name stays stable
+  /// once the shifter's advert has been seen at least once.
   SramDeviceInfo? _shifterInfo(int? serial) {
     if (serial == null) return null;
     for (final info in core.connection.sramShifterAdverts) {
-      if (info.serial == serial) return info;
+      if (info.serial == serial) {
+        core.settings.setSramShifter(_serialKey, serial, info.deviceType, info.model); // remember for later sessions
+        return info;
+      }
+    }
+    final stored = core.settings.getSramShifter(_serialKey, serial);
+    if (stored != null) {
+      return SramDeviceInfo(serial: serial, deviceType: stored.deviceType, model: stored.model);
     }
     return null;
   }
@@ -57,8 +67,9 @@ class SramAxs extends BluetoothDevice {
     final side = _sideLabel(info, serial); // 'Left'/'Right' (type 0/1), else 'Shifter A/B', else ''
     if (mask == null) return side.isEmpty ? 'SRAM Button' : 'SRAM $side';
     final role = SramShifterButtons.nameFor(info?.deviceType, info?.model, mask);
-    // Drop-bar mask-1 names already encode the side ("Left Shifter"/"Right Shifter").
-    if (role.startsWith('Left ') || role.startsWith('Right ')) return 'SRAM $role';
+    // Some roles already encode the side (drop-bar "Left/Right Shifter", "Vuka L/R
+    // Shifter") — don't prefix a redundant side.
+    if (role.startsWith('Left ') || role.startsWith('Right ') || role.startsWith('Vuka ')) return 'SRAM $role';
     return side.isEmpty ? 'SRAM $role' : 'SRAM $side – $role';
   }
 
@@ -114,8 +125,11 @@ class SramAxs extends BluetoothDevice {
     }
 
     // Pre-register buttons for nearby SRAM shifters (§6.4) so they show up in the
-    // keymap without needing a press.
+    // keymap without needing a press. Persist each advert (serial → type/model)
+    // so its buttons keep the same §6.4 name in future sessions even when the
+    // shifter isn't advertising.
     for (final info in core.connection.sramShifterAdverts) {
+      core.settings.setSramShifter(_serialKey, info.serial, info.deviceType, info.model);
       for (final mask in SramShifterButtons.masksFor(info.deviceType, info.model)) {
         final name = buttonNameFor(info, info.serial, mask);
         getOrAddButton(name, () => ControllerButton(name, action: InGameAction.shiftUp, sourceDeviceId: device.deviceId));

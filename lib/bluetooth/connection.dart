@@ -71,10 +71,12 @@ class Connection {
       if (record == null) continue;
       final info = SramAdvertisement.parse(record);
       if (info == null || info.isRearDerailleur) continue; // controllers only
-      final t = info.deviceType;
+      final t = info.effectiveType;
       // Only controllers that have buttons: drop/Reverb/Blipbox shifters (0..4) and blips/pods (96..125).
+      // `effectiveType` falls back through the model→type map, so a shifter model
+      // resolves to type 0 and a front derailleur (128) / dropper post (132) is excluded.
       final hasButtons = t != null && ((t >= 0 && t <= 4) || (t >= 96 && t <= 125));
-      if (!hasButtons && info.model == null) continue;
+      if (!hasButtons) continue;
       byserial[info.serial] = info;
     }
     return byserial.values;
