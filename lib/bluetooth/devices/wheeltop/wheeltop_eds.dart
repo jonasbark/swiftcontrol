@@ -58,6 +58,63 @@ class WheeltopEds extends BluetoothDevice {
   @override
   String get name => 'WHEELTOP EDS ${edsType.label}';
 
+  /// Returns a [WheeltopEds] when [scanResult] carries the EDS shifter
+  /// advertisement, else null.
+  ///
+  /// The advertisement is a fixed 7-byte prefix followed by a type byte,
+  /// firmware version, and battery voltage. Depending on the platform, the
+  /// first two bytes may have been split off as a little-endian company id or
+  /// left in the payload — both shapes are matched.
+  static WheeltopEds? tryFrom(BleDevice scanResult) {
+    for (final manufacturerData in scanResult.manufacturerDataList) {
+      final adv = _matchedAdvBytes(manufacturerData);
+      if (adv == null) continue;
+
+      final type = WheeltopEdsType.fromTypeByte(adv[WheeltopEdsConstants.ADV_TYPE_INDEX]);
+      if (type == null) continue;
+
+      String? firmware;
+      int? centivolts;
+      if (adv.length > WheeltopEdsConstants.ADV_BATTERY_INDEX + 1) {
+        firmware =
+            '${adv[WheeltopEdsConstants.ADV_FIRMWARE_INDEX]}.${adv[WheeltopEdsConstants.ADV_FIRMWARE_INDEX + 1]}';
+        centivolts =
+            (adv[WheeltopEdsConstants.ADV_BATTERY_INDEX] << 8) |
+            adv[WheeltopEdsConstants.ADV_BATTERY_INDEX + 1];
+      }
+      return WheeltopEds(
+        scanResult,
+        edsType: type,
+        advertisedFirmware: firmware,
+        batteryCentivolts: centivolts,
+      );
+    }
+    return null;
+  }
+
+  /// The full advertisement bytes (prefix included) when [manufacturerData]
+  /// matches, else null.
+  static Uint8List? _matchedAdvBytes(ManufacturerData manufacturerData) {
+    final reconstructed = Uint8List.fromList([
+      manufacturerData.companyId & 0xff,
+      (manufacturerData.companyId >> 8) & 0xff,
+      ...manufacturerData.payload,
+    ]);
+    if (_startsWithAdvPrefix(reconstructed)) return reconstructed;
+    if (_startsWithAdvPrefix(manufacturerData.payload)) return manufacturerData.payload;
+    return null;
+  }
+
+  static bool _startsWithAdvPrefix(Uint8List bytes) {
+    final prefix = WheeltopEdsConstants.ADV_PREFIX;
+    // Must at least contain the prefix and the type byte.
+    if (bytes.length <= prefix.length) return false;
+    for (var i = 0; i < prefix.length; i++) {
+      if (bytes[i] != prefix[i]) return false;
+    }
+    return true;
+  }
+
   final Set<ControllerButton> _pressedButtons = {};
   final Set<String> _subscribedCharacteristics = {};
 
