@@ -589,18 +589,75 @@ class Settings {
   }
 
   // SRAM AXS Settings
-  static const int _sramAxsDoubleClickWindowDefaultMs = 350;
-  static const int _sramAxsDoubleClickWindowMinMs = 150;
-  static const int _sramAxsDoubleClickWindowMaxMs = 800;
 
-  int getSramAxsDoubleClickWindowMs() {
-    final v = prefs.getInt('sram_axs_double_click_window_ms') ?? _sramAxsDoubleClickWindowDefaultMs;
-    return v.clamp(_sramAxsDoubleClickWindowMinMs, _sramAxsDoubleClickWindowMaxMs);
+  String? getSramKey(String serial) => prefs.getString('sram_key_$serial');
+
+  Future<void> setSramKey(String serial, String? hexKey) async {
+    if (hexKey == null) {
+      await prefs.remove('sram_key_$serial');
+    } else {
+      await prefs.setString('sram_key_$serial', hexKey);
+    }
   }
 
-  Future<void> setSramAxsDoubleClickWindowMs(int ms) async {
-    final v = ms.clamp(_sramAxsDoubleClickWindowMinMs, _sramAxsDoubleClickWindowMaxMs);
-    await prefs.setInt('sram_axs_double_click_window_ms', v);
+  Map<String, SramReactionTrigger>? getSramBackup(String serial) {
+    final raw = prefs.getString('sram_config_backup_$serial');
+    if (raw == null) return null;
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map((k, v) => MapEntry(k, SramReactionTrigger.fromJson(v as Map<String, dynamic>)));
+  }
+
+  Future<void> setSramBackup(String serial, Map<String, SramReactionTrigger> backup) async {
+    await prefs.setString(
+      'sram_config_backup_$serial',
+      jsonEncode(backup.map((k, v) => MapEntry(k, v.toJson()))),
+    );
+  }
+
+  Future<void> clearSramBackup(String serial) async => prefs.remove('sram_config_backup_$serial');
+
+  bool getSramShiftingDisabled(String serial) => prefs.getBool('sram_disabled_$serial') ?? false;
+
+  Future<void> setSramShiftingDisabled(String serial, bool disabled) async =>
+      prefs.setBool('sram_disabled_$serial', disabled);
+
+  List<({int serial, int mask})> getSramButtons(String serial) {
+    final raw = prefs.getStringList('sram_buttons_$serial') ?? const [];
+    return raw.map((e) {
+      final parts = e.split(':');
+      return (serial: int.parse(parts[0]), mask: int.parse(parts[1]));
+    }).toList();
+  }
+
+  Future<void> addSramButton(String serial, int controllerSerial, int mask) async {
+    final entry = '$controllerSerial:$mask';
+    final list = prefs.getStringList('sram_buttons_$serial') ?? <String>[];
+    if (!list.contains(entry)) {
+      list.add(entry);
+      await prefs.setStringList('sram_buttons_$serial', list);
+    }
+  }
+
+  /// Persisted shifter adverts (serial → "deviceType:model") for stable button
+  /// naming across sessions, scoped to the parent device.
+  void setSramShifter(String serial, int shifterSerial, int? deviceType, int? model) {
+    if (!_initialized) return; // no prefs (e.g. pure naming unit tests) → nothing to persist
+    final list = prefs.getStringList('sram_shifters_$serial') ?? <String>[];
+    final entry = '$shifterSerial:${deviceType ?? ''}:${model ?? ''}';
+    list.removeWhere((e) => e.startsWith('$shifterSerial:'));
+    list.add(entry);
+    prefs.setStringList('sram_shifters_$serial', list);
+  }
+
+  ({int? deviceType, int? model})? getSramShifter(String serial, int shifterSerial) {
+    if (!_initialized) return null;
+    for (final e in prefs.getStringList('sram_shifters_$serial') ?? const <String>[]) {
+      final p = e.split(':');
+      if (p.isNotEmpty && int.tryParse(p[0]) == shifterSerial) {
+        return (deviceType: p.length > 1 ? int.tryParse(p[1]) : null, model: p.length > 2 ? int.tryParse(p[2]) : null);
+      }
+    }
+    return null;
   }
 
   bool hasAskedPermissions() {

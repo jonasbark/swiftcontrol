@@ -33,6 +33,7 @@ class IAPManager {
   static const String premiumMonthlyProductKey = 'premium_monthly';
   static const String premiumYearlyProductKey = 'premium_yearly';
   static const String fullVersionProductKey = 'full_version';
+  static const String betaAccessProductKey = 'beta_access';
   static int dailyCommandLimit = 15;
 
   RevenueCatService? _revenueCatService;
@@ -56,6 +57,12 @@ class IAPManager {
   IAPManager._();
 
   bool get isLoggedIn => core.supabase.auth.currentSession != null;
+
+  /// Whether the logged-in user is flagged for the Shorebird beta update
+  /// track (a manual `beta_access` entitlement granted from the admin
+  /// dashboard). Reads the cached entitlements; false when logged out or
+  /// before the first entitlements fetch.
+  bool get isBetaTester => isLoggedIn && entitlements.hasActive(betaAccessProductKey);
 
   bool get hasActiveSubscription =>
       (isLoggedIn && (entitlements.hasActive(premiumMonthlyProductKey)) ||

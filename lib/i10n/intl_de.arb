@@ -1012,5 +1012,19 @@
   "frontShiftEnableLabel": "Virtueller Umwerfer",
   "frontShiftEnableDesc": "Fügt ein zweites Kettenblatt hinzu (2×-Antrieb). Zum Wechseln beide Schalthebel gleichzeitig drücken – wie bei SRAM AXS.",
   "frontShiftSmallRingLabel": "Kleines Kettenblatt (Zähne)",
-  "frontShiftLargeRingLabel": "Großes Kettenblatt (Zähne)"
+  "frontShiftLargeRingLabel": "Großes Kettenblatt (Zähne)",
+  "done": "Fertig",
+  "sramSetup": "SRAM-Steuerung einrichten",
+  "sramRestore": "Ursprüngliche Schaltung wiederherstellen",
+  "sramPanelDisabled": "Das geräteinterne Schalten ist deaktiviert – BikeControl steuert deine Gänge. Jede Schalthebeltaste ist eine Controller-Eingabe, die du in der App zuweisen kannst.",
+  "sramPanelIntro": "Lass BikeControl deine Schaltung steuern: Es sichert deine aktuelle Schaltkonfiguration und deaktiviert dann das eigene Schalten des Schaltwerks, sodass es nur noch Tastendrücke sendet. Du kannst sie jederzeit wiederherstellen.",
+  "sramSetupIntro": "BikeControl sichert deine aktuelle Schaltkonfiguration und deaktiviert das eigene Schalten des Schaltwerks, sodass es nur noch Tastendrücke sendet. Du kannst sie jederzeit wiederherstellen.",
+  "sramSetupSuccess": "BikeControl steuert jetzt deine Gänge. Jede Schalthebeltaste ist eine Controller-Eingabe, die du in der App zuweisen kannst.",
+  "sramRestoreIntro": "Dadurch wird das ursprüngliche Schalten deines Schaltwerks wiederhergestellt.",
+  "sramRestoreSuccess": "Deine ursprüngliche Schaltkonfiguration wurde wiederhergestellt.",
+  "sramDialogRunning": "Verbindung mit deinem Schaltwerk … halte es in der Nähe und aktiv.",
+  "sramAuthorizeTitle": "BikeControl autorisieren",
+  "sramAuthorizeBody": "Dein Schaltwerk muss BikeControl autorisieren. Halte die AXS-Taste am Schaltwerk gedrückt, bis die LED blinkt, und tippe dann auf Wiederholen.",
+  "sramErrorTitle": "Das hat nicht geklappt",
+  "sramGenericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
 }

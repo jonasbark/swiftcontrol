@@ -114,6 +114,7 @@ Future<String> debugText({bool includeDiscovery = true}) async {
 
 ---
 App Version: ${packageInfoValue?.version}${shorebirdPatch?.number != null ? '+${shorebirdPatch!.number}' : ''}
+Update Track: ${IAPManager.instance.isBetaTester ? 'beta' : 'stable'}
 Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}
 Target: ${core.settings.getLastTarget()?.name ?? '-'}
 Trainer App: ${core.settings.getTrainerApp()?.name ?? '-'}
