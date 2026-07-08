@@ -500,22 +500,32 @@ class _SramGuidedSheetState extends State<_SramGuidedSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // The bottom sheet spans the full width of the window; on a wide display
+    // (desktop) that stretches the content unpleasantly. Cap it and centre it
+    // horizontally. `heightFactor: 1` keeps the sheet shrink-wrapped to its
+    // content height — without it, Center would expand to the full window.
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: 20 + MediaQuery.of(context).viewInsets.bottom),
-        child: _sramGuidedBody(
-          context,
-          stage: _stage,
-          confirmIcon: widget.confirmIcon,
-          title: widget.title,
-          intro: widget.intro,
-          successMessage: widget.successMessage,
-          runningTitle: widget.runningTitle,
-          successTitle: widget.successTitle,
-          checklistItems: widget.checklistItems,
-          onClose: () => closeSheet(context),
-          onProceed: _attempt,
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: 20 + MediaQuery.of(context).viewInsets.bottom),
+            child: _sramGuidedBody(
+              context,
+              stage: _stage,
+              confirmIcon: widget.confirmIcon,
+              title: widget.title,
+              intro: widget.intro,
+              successMessage: widget.successMessage,
+              runningTitle: widget.runningTitle,
+              successTitle: widget.successTitle,
+              checklistItems: widget.checklistItems,
+              onClose: () => closeSheet(context),
+              onProceed: _attempt,
+            ),
+          ),
         ),
       ),
     );
