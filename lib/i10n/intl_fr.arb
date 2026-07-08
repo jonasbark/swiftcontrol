@@ -1013,7 +1013,6 @@
   "done": "Terminé",
   "sramSetup": "Configurer le contrôle SRAM",
   "sramRestore": "Restaurer le fonctionnement d'origine",
-  "sramPanelDisabled": "Le passage des vitesses par le dérailleur est désactivé – BikeControl contrôle vos vitesses. Chaque bouton de manette est une entrée de contrôleur que vous pouvez attribuer dans l'application.",
   "sramPanelIntro": "Laissez BikeControl gérer votre transmission : il sauvegarde la configuration actuelle de vos manettes, puis désactive le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pouvez la restaurer à tout moment.",
   "sramSetupIntro": "BikeControl va sauvegarder la configuration actuelle de vos manettes et désactiver le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pourrez la restaurer à tout moment.",
   "sramSetupSuccess": "BikeControl contrôle désormais vos vitesses. Chaque bouton de manette est une entrée de contrôleur que vous pouvez attribuer dans l'application.",
@@ -1024,13 +1023,6 @@
   "sramAuthorizeBody": "Votre dérailleur doit autoriser BikeControl. Appuyez longuement sur le bouton AXS du dérailleur jusqu'à ce que son voyant clignote, puis appuyez sur Réessayer.",
   "sramErrorTitle": "Ça n'a pas fonctionné",
   "sramGenericError": "Une erreur s'est produite. Veuillez réessayer.",
-  "sramDeviceSubtitle": "Dérailleur arrière · Connecté",
-  "sramNotSetUp": "Non configuré",
-  "sramActive": "Actif",
-  "sramStepBackUp": "Sauvegarder la config",
-  "sramStepDisable": "Désactiver le passage des vitesses",
-  "sramStepMap": "Attribuer les palettes",
-  "sramMappableControls": "Commandes attribuables",
   "sramShiftingOff": "Le passage des vitesses du dérailleur est désactivé – BikeControl contrôle vos vitesses.",
   "sramSettingUp": "Configuration en cours",
   "sramRestoringShifting": "Restauration en cours",
@@ -1040,8 +1032,5 @@
   "sramChecklistBackingUp": "Sauvegarde de votre configuration",
   "sramChecklistDisabling": "Désactivation du passage des vitesses",
   "sramChecklistRestoring": "Restauration du fonctionnement d'origine",
-  "sramPressHold": "Appui long sur le dérailleur",
-  "sramHintPaddle": "Palette",
-  "sramHintAux": "Bouton auxiliaire",
-  "sramNoControls": "Aucune commande détectée pour l'instant — appuyez sur une manette."
+  "sramPressHold": "Appui long sur le dérailleur"
 }

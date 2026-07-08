@@ -1012,7 +1012,6 @@
   "done": "Fertig",
   "sramSetup": "SRAM-Steuerung einrichten",
   "sramRestore": "Ursprüngliche Schaltung wiederherstellen",
-  "sramPanelDisabled": "Das geräteinterne Schalten ist deaktiviert – BikeControl steuert deine Gänge. Jede Schalthebeltaste ist eine Controller-Eingabe, die du in der App zuweisen kannst.",
   "sramPanelIntro": "Lass BikeControl deine Schaltung steuern: Es sichert deine aktuelle Schaltkonfiguration und deaktiviert dann das eigene Schalten des Schaltwerks, sodass es nur noch Tastendrücke sendet. Du kannst sie jederzeit wiederherstellen.",
   "sramSetupIntro": "BikeControl sichert deine aktuelle Schaltkonfiguration und deaktiviert das eigene Schalten des Schaltwerks, sodass es nur noch Tastendrücke sendet. Du kannst sie jederzeit wiederherstellen.",
   "sramSetupSuccess": "BikeControl steuert jetzt deine Gänge. Jede Schalthebeltaste ist eine Controller-Eingabe, die du in der App zuweisen kannst.",
@@ -1023,13 +1022,6 @@
   "sramAuthorizeBody": "Dein Schaltwerk muss BikeControl autorisieren. Halte die AXS-Taste am Schaltwerk gedrückt, bis die LED blinkt, und tippe dann auf Wiederholen.",
   "sramErrorTitle": "Das hat nicht geklappt",
   "sramGenericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
-  "sramDeviceSubtitle": "Schaltwerk · Verbunden",
-  "sramNotSetUp": "Nicht eingerichtet",
-  "sramActive": "Aktiv",
-  "sramStepBackUp": "Konfiguration sichern",
-  "sramStepDisable": "Geräte-Schalten deaktivieren",
-  "sramStepMap": "Paddles zuweisen",
-  "sramMappableControls": "Zuweisbare Tasten",
   "sramShiftingOff": "Geräteinternes Schalten ist aus – BikeControl steuert deine Gänge.",
   "sramSettingUp": "Wird eingerichtet",
   "sramRestoringShifting": "Schaltung wird wiederhergestellt",
@@ -1039,8 +1031,5 @@
   "sramChecklistBackingUp": "Konfiguration wird gesichert",
   "sramChecklistDisabling": "Geräte-Schalten wird deaktiviert",
   "sramChecklistRestoring": "Ursprüngliche Schaltung wird wiederhergestellt",
-  "sramPressHold": "Am Schaltwerk gedrückt halten",
-  "sramHintPaddle": "Paddle",
-  "sramHintAux": "Zusatztaste",
-  "sramNoControls": "Noch keine Tasten erkannt – drücke einen Schalthebel."
+  "sramPressHold": "Am Schaltwerk gedrückt halten"
 }

@@ -1185,7 +1185,6 @@
   "done": "Done",
   "sramSetup": "Set up SRAM control",
   "sramRestore": "Restore original shifting",
-  "sramPanelDisabled": "On-device shifting is disabled — BikeControl controls your gears. Each shifter button is a controller input you can map in the app.",
   "sramPanelIntro": "Let BikeControl control your shifting: it backs up your current shifter configuration, then disables the derailleur's own shifting so it only sends button presses. You can restore it anytime.",
   "sramSetupIntro": "BikeControl will back up your current shifter configuration and disable the derailleur's own shifting so it only sends button presses. You can restore it anytime.",
   "sramSetupSuccess": "BikeControl now controls your gears. Each shifter button is a controller input you can map in the app.",
@@ -1196,13 +1195,6 @@
   "sramAuthorizeBody": "Your derailleur needs to authorize BikeControl. Press and hold the AXS button on the derailleur until its light flashes, then tap Retry.",
   "sramErrorTitle": "That didn't work",
   "sramGenericError": "Something went wrong. Please try again.",
-  "sramDeviceSubtitle": "Rear derailleur · Connected",
-  "sramNotSetUp": "Not set up",
-  "sramActive": "Active",
-  "sramStepBackUp": "Back up config",
-  "sramStepDisable": "Disable on-device shifting",
-  "sramStepMap": "Map paddles",
-  "sramMappableControls": "Mappable controls",
   "sramShiftingOff": "On-device shifting is off — BikeControl controls your gears.",
   "sramSettingUp": "Setting up",
   "sramRestoringShifting": "Restoring shifting",
@@ -1212,8 +1204,5 @@
   "sramChecklistBackingUp": "Backing up your configuration",
   "sramChecklistDisabling": "Disabling on-device shifting",
   "sramChecklistRestoring": "Restoring original shifting",
-  "sramPressHold": "Press & hold on the derailleur",
-  "sramHintPaddle": "Paddle",
-  "sramHintAux": "Auxiliary button",
-  "sramNoControls": "No controls detected yet — press a shifter."
+  "sramPressHold": "Press & hold on the derailleur"
 }
