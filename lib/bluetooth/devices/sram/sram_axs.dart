@@ -269,121 +269,87 @@ class SramAxs extends BluetoothDevice {
     final scheme = Theme.of(context).colorScheme;
     final l = context.i18n;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final active = isShiftingDisabled;
     final hasBackup = core.settings.getSramBackup(_serialKey) != null;
 
-    return Card(
-      child: Column(
+    // This renders inside the device card, which already shows the device header
+    // and the mappable-button list — so keep it to just the current status and
+    // the setup/restore action. The rich flow lives in the guided sheet.
+    if (!isShiftingDisabled) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SramDeviceHeader(deviceName: device.name ?? 'SRAM', active: active),
-          const Gap(18),
-          if (!active) ...[
-            // What setup will do, in three steps.
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _SramStepChip(icon: LucideIcons.save, label: l.sramStepBackUp)),
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Icon(LucideIcons.chevronRight, size: 16, color: scheme.mutedForeground),
-                ),
-                Expanded(child: _SramStepChip(icon: LucideIcons.power, label: l.sramStepDisable)),
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Icon(LucideIcons.chevronRight, size: 16, color: scheme.mutedForeground),
-                ),
-                Expanded(child: _SramStepChip(icon: LucideIcons.gamepad2, label: l.sramStepMap)),
-              ],
+          Text(
+            l.sramPanelIntro,
+            style: TextStyle(fontSize: 13.5, height: 1.4, color: scheme.mutedForeground),
+          ),
+          const Gap(12),
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryButton(
+              leading: const Icon(LucideIcons.slidersHorizontal, size: 16),
+              onPressed: () => unawaited(_runGuidedOperation(
+                context,
+                title: l.sramSetup,
+                intro: l.sramSetupIntro,
+                successMessage: l.sramSetupSuccess,
+                confirmIcon: LucideIcons.slidersHorizontal,
+                runningTitle: l.sramSettingUp,
+                successTitle: l.sramAllSet,
+                checklistItems: [l.sramChecklistPairing, l.sramChecklistBackingUp, l.sramChecklistDisabling],
+                operation: setupControl,
+              )),
+              child: Text(l.sramSetup),
             ),
-            const Gap(18),
-            Text(
-              l.sramPanelIntro,
-              style: TextStyle(fontSize: 13.5, height: 1.5, color: scheme.mutedForeground),
-            ),
-            const Gap(16),
-            SizedBox(
-              width: double.infinity,
-              child: PrimaryButton(
-                leading: const Icon(LucideIcons.slidersHorizontal, size: 16),
-                onPressed: () => unawaited(_runGuidedOperation(
-                  context,
-                  title: l.sramSetup,
-                  intro: l.sramSetupIntro,
-                  successMessage: l.sramSetupSuccess,
-                  confirmIcon: LucideIcons.slidersHorizontal,
-                  runningTitle: l.sramSettingUp,
-                  successTitle: l.sramAllSet,
-                  checklistItems: [l.sramChecklistPairing, l.sramChecklistBackingUp, l.sramChecklistDisabling],
-                  operation: setupControl,
-                )),
-                child: Text(l.sramSetup),
-              ),
-            ),
-          ] else ...[
-            // Shifting is off — surface status + the discovered mappable controls.
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: dark ? const Color(0x1A22C55E) : _sramSuccessWash,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.circleCheck, size: 18, color: _sramSuccess),
-                  const Gap(10),
-                  Expanded(
-                    child: Text(
-                      l.sramShiftingOff,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.35),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Gap(18),
-            Text(
-              l.sramMappableControls.toUpperCase(),
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: scheme.mutedForeground),
-            ),
-            const Gap(8),
-            if (availableButtons.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(l.sramNoControls, style: TextStyle(fontSize: 13.5, color: scheme.mutedForeground)),
-              )
-            else
-              for (var i = 0; i < availableButtons.length; i++)
-                _SramControlRow(
-                  name: availableButtons[i].name,
-                  hint: availableButtons[i].name.contains('Aux') ? l.sramHintAux : l.sramHintPaddle,
-                  showTopBorder: i > 0,
-                ),
-            if (hasBackup) ...[
-              const Gap(16),
-              SizedBox(
-                width: double.infinity,
-                child: SecondaryButton(
-                  leading: const Icon(LucideIcons.rotateCcw, size: 16),
-                  onPressed: () => unawaited(_runGuidedOperation(
-                    context,
-                    title: l.sramRestore,
-                    intro: l.sramRestoreIntro,
-                    successMessage: l.sramRestoreSuccess,
-                    confirmIcon: LucideIcons.rotateCcw,
-                    runningTitle: l.sramRestoringShifting,
-                    successTitle: l.sramRestoredTitle,
-                    checklistItems: [l.sramChecklistPairing, l.sramChecklistRestoring],
-                    operation: restoreShifting,
-                  )),
-                  child: Text(l.sramRestore),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: dark ? const Color(0x1A22C55E) : _sramSuccessWash,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              const Icon(LucideIcons.circleCheck, size: 18, color: _sramSuccess),
+              const Gap(10),
+              Expanded(
+                child: Text(
+                  l.sramShiftingOff,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.35),
                 ),
               ),
             ],
-          ],
+          ),
+        ),
+        if (hasBackup) ...[
+          const Gap(12),
+          SizedBox(
+            width: double.infinity,
+            child: SecondaryButton(
+              leading: const Icon(LucideIcons.rotateCcw, size: 16),
+              onPressed: () => unawaited(_runGuidedOperation(
+                context,
+                title: l.sramRestore,
+                intro: l.sramRestoreIntro,
+                successMessage: l.sramRestoreSuccess,
+                confirmIcon: LucideIcons.rotateCcw,
+                runningTitle: l.sramRestoringShifting,
+                successTitle: l.sramRestoredTitle,
+                checklistItems: [l.sramChecklistPairing, l.sramChecklistRestoring],
+                operation: restoreShifting,
+              )),
+              child: Text(l.sramRestore),
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -439,16 +405,6 @@ class SramAxs extends BluetoothDevice {
   @visibleForTesting
   static const int debugStageError = 4;
 
-  /// Adds a discovered control [name] to [availableButtons] so the active
-  /// panel's "Mappable controls" list renders it. Mirrors the shape produced by
-  /// discovery without needing a live BLE session or a bound keymap.
-  @visibleForTesting
-  void debugSeedButton(String name) {
-    if (availableButtons.none((e) => e.name == name)) {
-      availableButtons.add(ControllerButton(name, action: InGameAction.shiftUp, sourceDeviceId: device.deviceId));
-    }
-  }
-
   /// The exact per-stage sheet body the guided operation renders, as a
   /// standalone widget (actions are inert). [runningStep] seeds the running
   /// checklist's current index (that item spins, earlier items are done).
@@ -491,177 +447,8 @@ const Color _sramSuccessWash = Color(0xFFF0FDFA);
 const Color _sramAmber = Color(0xFFF59E0B);
 const Color _sramAmberWash = Color(0xFFFFFBEB);
 const Color _sramErrorWash = Color(0xFFFEF2F2);
-const Color _sramGradientStart = Color(0xFF0E74B7);
-const Color _sramGradientEnd = Color(0xFF0E9297);
 const Color _sramChipDark = Color(0xFF1B2430);
 const Color _sramWhite = Color(0xFFFFFFFF);
-
-/// The 44×44 device tile + name/subtitle/status badge shown atop the panel.
-class _SramDeviceHeader extends StatelessWidget {
-  final String deviceName;
-  final bool active;
-  const _SramDeviceHeader({required this.deviceName, required this.active});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final l = context.i18n;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-
-    return Row(
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                gradient: active
-                    ? const LinearGradient(
-                        colors: [_sramGradientStart, _sramGradientEnd],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: active ? null : scheme.muted,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(LucideIcons.cog, size: 22, color: active ? _sramWhite : scheme.mutedForeground),
-            ),
-            Positioned(
-              top: -2,
-              right: -2,
-              child: Container(
-                width: 13,
-                height: 13,
-                decoration: BoxDecoration(
-                  color: _sramSuccess,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: scheme.card, width: 2),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const Gap(12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                deviceName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              const Gap(2),
-              Text(l.sramDeviceSubtitle, style: TextStyle(fontSize: 12.5, color: scheme.mutedForeground)),
-            ],
-          ),
-        ),
-        const Gap(8),
-        if (active)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: ShapeDecoration(
-              color: dark ? const Color(0x1A22C55E) : _sramSuccessWash,
-              shape: const StadiumBorder(),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(LucideIcons.check, size: 13, color: _sramSuccess),
-                const Gap(4),
-                Text(l.sramActive, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _sramSuccess)),
-              ],
-            ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: ShapeDecoration(color: scheme.muted, shape: const StadiumBorder()),
-            child: Text(
-              l.sramNotSetUp,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.mutedForeground),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// One of the three brand-tinted "what setup does" steps.
-class _SramStepChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _SramStepChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-          child: Icon(icon, size: 19, color: scheme.primary),
-        ),
-        const Gap(8),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: scheme.foreground),
-        ),
-      ],
-    );
-  }
-}
-
-/// A discovered SRAM control row in the active panel.
-class _SramControlRow extends StatelessWidget {
-  final String name;
-  final String hint;
-  final bool showTopBorder;
-  const _SramControlRow({required this.name, required this.hint, required this.showTopBorder});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: showTopBorder
-          ? BoxDecoration(border: Border(top: BorderSide(color: scheme.border, width: 0.5)))
-          : null,
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: scheme.muted, borderRadius: BorderRadius.circular(8)),
-            child: Icon(LucideIcons.gamepad2, size: 16, color: scheme.mutedForeground),
-          ),
-          const Gap(12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                const Gap(2),
-                Text(hint, style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
-              ],
-            ),
-          ),
-          Icon(LucideIcons.chevronRight, size: 16, color: scheme.mutedForeground),
-        ],
-      ),
-    );
-  }
-}
 
 /// The staged guided-operation body inside the bottom sheet. Holds the
 /// stage machine (confirm → running → success | authorize | error) exactly
