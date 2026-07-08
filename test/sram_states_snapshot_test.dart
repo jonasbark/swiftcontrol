@@ -13,6 +13,11 @@ import 'widget_snapshot.dart';
 /// Output: `build/snapshots/sram_*-<locale>.png`.
 /// Run: `flutter test test/sram_states_snapshot_test.dart`
 /// (run on its own — do not co-run with integration tests: app_links poison.)
+///
+/// The guided setup/restore flow is a bottom-sheet overlay route, which this
+/// widget-snapshot harness can't capture directly. Instead each stage's body is
+/// rendered via [SramAxs.debugGuidedSheetBody] — the very same builder the live
+/// sheet uses — so what's captured here is exactly what ships.
 Future<void> main() async {
   await ensureSnapshotHarness();
 
@@ -20,75 +25,99 @@ Future<void> main() async {
   const key = 'sram-snap';
   final device = SramAxs(BleDevice(deviceId: key, name: 'SRAM Rival AXS'));
 
-  // A dialog card the way _runGuidedOperation shows it (Container + AlertDialog).
-  Widget dialog(BuildContext context, {required String title, required String body, required List<Widget> actions}) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: AlertDialog(title: Text(title), content: Text(body), actions: actions),
-      ),
-    );
-  }
-
-  List<Widget> cancelPrimary(BuildContext context, String primaryLabel) => [
-        Button.secondary(onPressed: () {}, child: Text(context.i18n.cancel)),
-        PrimaryButton(onPressed: () {}, child: Text(primaryLabel)),
-      ];
-
   Widget panel(BuildContext context) => Card(child: Column(children: device.showAdditionalInformation(context)));
+
+  // Wrap a stage body so it reads like the bottom sheet (surface + padding).
+  Widget sheet(Widget body) => Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: body,
+        ),
+      );
+
+  // The exact params the panel's setup / restore buttons pass to the sheet.
+  Widget setupBody(BuildContext c, int stage, {int runningStep = 1}) => sheet(device.debugGuidedSheetBody(
+        c,
+        stage: stage,
+        confirmIcon: LucideIcons.slidersHorizontal,
+        title: c.i18n.sramSetup,
+        intro: c.i18n.sramSetupIntro,
+        successMessage: c.i18n.sramSetupSuccess,
+        runningTitle: c.i18n.sramSettingUp,
+        successTitle: c.i18n.sramAllSet,
+        checklistItems: [c.i18n.sramChecklistPairing, c.i18n.sramChecklistBackingUp, c.i18n.sramChecklistDisabling],
+        runningStep: runningStep,
+      ));
+
+  Widget restoreBody(BuildContext c, int stage) => sheet(device.debugGuidedSheetBody(
+        c,
+        stage: stage,
+        confirmIcon: LucideIcons.rotateCcw,
+        title: c.i18n.sramRestore,
+        intro: c.i18n.sramRestoreIntro,
+        successMessage: c.i18n.sramRestoreSuccess,
+        runningTitle: c.i18n.sramRestoringShifting,
+        successTitle: c.i18n.sramRestoredTitle,
+        checklistItems: [c.i18n.sramChecklistPairing, c.i18n.sramChecklistRestoring],
+      ));
 
   // ── Panel states ─────────────────────────────────────────────────────────
   testWidgets('panel — not yet set up', (tester) async {
     await core.settings.setSramShiftingDisabled(key, false);
     await core.settings.clearSramBackup(key);
+    // (No controls seeded — the setup state shows the 3-step preview, not a list.)
     await captureWidget(tester, name: 'sram_panel_setup', width: 380, locales: locales, builder: panel);
   });
 
-  testWidgets('panel — shifting disabled', (tester) async {
+  testWidgets('panel — shifting disabled (populated controls)', (tester) async {
     await core.settings.setSramShiftingDisabled(key, true);
     await core.settings.setSramBackup(key, {
       'd9050028-90aa-4c7c-b036-1e01fb8eb7ee': const SramReactionTrigger([0], [1]),
     });
+    // Seed the four real §6.4 controls so the "Mappable controls" list renders.
+    device.debugSeedButton('SRAM Left Shifter');
+    device.debugSeedButton('SRAM Left – Aux Top');
+    device.debugSeedButton('SRAM Right Shifter');
+    device.debugSeedButton('SRAM Right – Aux Top');
     await captureWidget(tester, name: 'sram_panel_disabled', width: 380, locales: locales, builder: panel);
   });
 
-  // ── Guided setup/restore dialog stages ───────────────────────────────────
-  testWidgets('dialog — setup confirm', (tester) async {
-    await captureWidget(tester, name: 'sram_dialog_setup_confirm', width: 440, locales: locales,
-        builder: (c) => dialog(c, title: c.i18n.sramSetup, body: c.i18n.sramSetupIntro, actions: cancelPrimary(c, c.i18n.continueAction)));
+  // ── Guided sheet stages (real widget via debugGuidedSheetBody) ────────────
+  testWidgets('sheet — setup confirm', (tester) async {
+    await captureWidget(tester, name: 'sram_sheet_setup_confirm', width: 440, locales: locales,
+        builder: (c) => setupBody(c, SramAxs.debugStageConfirm));
   });
 
-  testWidgets('dialog — running', (tester) async {
-    await captureWidget(tester, name: 'sram_dialog_running', width: 440, locales: locales,
-        builder: (c) => dialog(c, title: c.i18n.sramSetup, body: c.i18n.sramDialogRunning, actions: const []));
+  // running: item 0 done, item 1 spinning → infinite spinner, so settle:false.
+  testWidgets('sheet — running', (tester) async {
+    await captureWidget(tester, name: 'sram_sheet_running', width: 440, locales: locales, settle: false,
+        builder: (c) => setupBody(c, SramAxs.debugStageRunning, runningStep: 1));
   });
 
-  testWidgets('dialog — authorize (bond needed)', (tester) async {
-    await captureWidget(tester, name: 'sram_dialog_authorize', width: 440, locales: locales,
-        builder: (c) => dialog(c, title: c.i18n.sramAuthorizeTitle, body: c.i18n.sramAuthorizeBody, actions: cancelPrimary(c, c.i18n.retry)));
+  // authorize: pulsing AXS rings + blinking LED are infinite, so settle:false.
+  testWidgets('sheet — authorize', (tester) async {
+    await captureWidget(tester, name: 'sram_sheet_authorize', width: 440, locales: locales, settle: false,
+        builder: (c) => setupBody(c, SramAxs.debugStageAuthorize));
   });
 
-  testWidgets('dialog — setup success', (tester) async {
-    await captureWidget(tester, name: 'sram_dialog_setup_success', width: 440, locales: locales,
-        builder: (c) => dialog(c, title: c.i18n.done, body: c.i18n.sramSetupSuccess,
-            actions: [PrimaryButton(onPressed: () {}, child: Text(c.i18n.done))]));
+  testWidgets('sheet — setup success', (tester) async {
+    await captureWidget(tester, name: 'sram_sheet_setup_success', width: 440, locales: locales,
+        builder: (c) => setupBody(c, SramAxs.debugStageSuccess));
   });
 
-  testWidgets('dialog — error', (tester) async {
-    await captureWidget(tester, name: 'sram_dialog_error', width: 440, locales: locales,
-        builder: (c) => dialog(c, title: c.i18n.sramErrorTitle, body: c.i18n.sramGenericError, actions: cancelPrimary(c, c.i18n.retry)));
+  testWidgets('sheet — error', (tester) async {
+    await captureWidget(tester, name: 'sram_sheet_error', width: 440, locales: locales,
+        builder: (c) => setupBody(c, SramAxs.debugStageError));
   });
 
-  testWidgets('dialog — restore confirm', (tester) async {
-    await captureWidget(tester, name: 'sram_dialog_restore_confirm', width: 440, locales: locales,
-        builder: (c) => dialog(c, title: c.i18n.sramRestore, body: c.i18n.sramRestoreIntro, actions: cancelPrimary(c, c.i18n.continueAction)));
+  testWidgets('sheet — restore confirm', (tester) async {
+    await captureWidget(tester, name: 'sram_sheet_restore_confirm', width: 440, locales: locales,
+        builder: (c) => restoreBody(c, SramAxs.debugStageConfirm));
   });
 
-  testWidgets('dialog — restore success', (tester) async {
-    await captureWidget(tester, name: 'sram_dialog_restore_success', width: 440, locales: locales,
-        builder: (c) => dialog(c, title: c.i18n.done, body: c.i18n.sramRestoreSuccess,
-            actions: [PrimaryButton(onPressed: () {}, child: Text(c.i18n.done))]));
+  testWidgets('sheet — restore success', (tester) async {
+    await captureWidget(tester, name: 'sram_sheet_restore_success', width: 440, locales: locales,
+        builder: (c) => restoreBody(c, SramAxs.debugStageSuccess));
   });
 
   // ── Discovered button names (§6.4) ───────────────────────────────────────
