@@ -1012,7 +1012,6 @@
   "done": "Listo",
   "sramSetup": "Configurar el control SRAM",
   "sramRestore": "Restaurar el cambio original",
-  "sramPanelDisabled": "El cambio en el propio dispositivo está desactivado: BikeControl controla tus marchas. Cada botón del mando es una entrada de controlador que puedes asignar en la app.",
   "sramPanelIntro": "Deja que BikeControl controle tu cambio: hace una copia de seguridad de tu configuración actual del cambio y luego desactiva el cambio propio del desviador para que solo envíe pulsaciones de botón. Puedes restaurarla en cualquier momento.",
   "sramSetupIntro": "BikeControl hará una copia de seguridad de tu configuración actual del cambio y desactivará el cambio propio del desviador para que solo envíe pulsaciones de botón. Puedes restaurarla en cualquier momento.",
   "sramSetupSuccess": "BikeControl ahora controla tus marchas. Cada botón del mando es una entrada de controlador que puedes asignar en la app.",
@@ -1023,13 +1022,6 @@
   "sramAuthorizeBody": "Tu desviador necesita autorizar BikeControl. Mantén pulsado el botón AXS del desviador hasta que su luz parpadee y luego toca Reintentar.",
   "sramErrorTitle": "No ha funcionado",
   "sramGenericError": "Algo ha salido mal. Inténtalo de nuevo.",
-  "sramDeviceSubtitle": "Desviador trasero · Conectado",
-  "sramNotSetUp": "Sin configurar",
-  "sramActive": "Activo",
-  "sramStepBackUp": "Copia de la configuración",
-  "sramStepDisable": "Desactivar cambio del dispositivo",
-  "sramStepMap": "Asignar levas",
-  "sramMappableControls": "Controles asignables",
   "sramShiftingOff": "El cambio del dispositivo está desactivado: BikeControl controla tus marchas.",
   "sramSettingUp": "Configurando",
   "sramRestoringShifting": "Restaurando el cambio",
@@ -1039,8 +1031,5 @@
   "sramChecklistBackingUp": "Copiando tu configuración",
   "sramChecklistDisabling": "Desactivando el cambio del dispositivo",
   "sramChecklistRestoring": "Restaurando el cambio original",
-  "sramPressHold": "Mantén pulsado en el desviador",
-  "sramHintPaddle": "Leva",
-  "sramHintAux": "Botón auxiliar",
-  "sramNoControls": "Aún no se han detectado controles: pulsa un mando."
+  "sramPressHold": "Mantén pulsado en el desviador"
 }

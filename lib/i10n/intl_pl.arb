@@ -1012,7 +1012,6 @@
   "done": "Gotowe",
   "sramSetup": "Skonfiguruj sterowanie SRAM",
   "sramRestore": "Przywróć oryginalne przełączanie",
-  "sramPanelDisabled": "Przełączanie w urządzeniu jest wyłączone — BikeControl steruje biegami. Każdy przycisk manetki to wejście kontrolera, które możesz przypisać w aplikacji.",
   "sramPanelIntro": "Pozwól BikeControl sterować przełączaniem: utworzy kopię zapasową bieżącej konfiguracji manetek, a następnie wyłączy własne przełączanie przerzutki, tak aby wysyłała tylko naciśnięcia przycisków. Możesz ją przywrócić w dowolnej chwili.",
   "sramSetupIntro": "BikeControl utworzy kopię zapasową bieżącej konfiguracji manetek i wyłączy własne przełączanie przerzutki, tak aby wysyłała tylko naciśnięcia przycisków. Możesz ją przywrócić w dowolnej chwili.",
   "sramSetupSuccess": "BikeControl steruje teraz Twoimi biegami. Każdy przycisk manetki to wejście kontrolera, które możesz przypisać w aplikacji.",
@@ -1023,13 +1022,6 @@
   "sramAuthorizeBody": "Przerzutka musi autoryzować BikeControl. Naciśnij i przytrzymaj przycisk AXS na przerzutce, aż zamiga dioda, a następnie dotknij Ponów.",
   "sramErrorTitle": "Nie udało się",
   "sramGenericError": "Coś poszło nie tak. Spróbuj ponownie.",
-  "sramDeviceSubtitle": "Tylna przerzutka · Połączono",
-  "sramNotSetUp": "Nieskonfigurowane",
-  "sramActive": "Aktywne",
-  "sramStepBackUp": "Kopia konfiguracji",
-  "sramStepDisable": "Wyłącz przełączanie w urządzeniu",
-  "sramStepMap": "Przypisz manetki",
-  "sramMappableControls": "Przypisywalne przyciski",
   "sramShiftingOff": "Przełączanie w urządzeniu jest wyłączone — BikeControl steruje biegami.",
   "sramSettingUp": "Konfigurowanie",
   "sramRestoringShifting": "Przywracanie przełączania",
@@ -1039,8 +1031,5 @@
   "sramChecklistBackingUp": "Tworzenie kopii konfiguracji",
   "sramChecklistDisabling": "Wyłączanie przełączania w urządzeniu",
   "sramChecklistRestoring": "Przywracanie oryginalnego przełączania",
-  "sramPressHold": "Naciśnij i przytrzymaj na przerzutce",
-  "sramHintPaddle": "Manetka",
-  "sramHintAux": "Przycisk pomocniczy",
-  "sramNoControls": "Nie wykryto jeszcze przycisków — naciśnij manetkę."
+  "sramPressHold": "Naciśnij i przytrzymaj na przerzutce"
 }

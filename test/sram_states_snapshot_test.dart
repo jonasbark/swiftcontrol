@@ -65,20 +65,17 @@ Future<void> main() async {
   testWidgets('panel — not yet set up', (tester) async {
     await core.settings.setSramShiftingDisabled(key, false);
     await core.settings.clearSramBackup(key);
-    // (No controls seeded — the setup state shows the 3-step preview, not a list.)
+    // The unconfigured panel is just the intro + "Set up SRAM control" button.
     await captureWidget(tester, name: 'sram_panel_setup', width: 380, locales: locales, builder: panel);
   });
 
-  testWidgets('panel — shifting disabled (populated controls)', (tester) async {
+  testWidgets('panel — shifting disabled (restore available)', (tester) async {
     await core.settings.setSramShiftingDisabled(key, true);
     await core.settings.setSramBackup(key, {
       'd9050028-90aa-4c7c-b036-1e01fb8eb7ee': const SramReactionTrigger([0], [1]),
     });
-    // Seed the four real §6.4 controls so the "Mappable controls" list renders.
-    device.debugSeedButton('SRAM Left Shifter');
-    device.debugSeedButton('SRAM Left – Aux Top');
-    device.debugSeedButton('SRAM Right Shifter');
-    device.debugSeedButton('SRAM Right – Aux Top');
+    // The panel is now just status + restore — the discovered controls live in
+    // the device card's own button list, not here.
     await captureWidget(tester, name: 'sram_panel_disabled', width: 380, locales: locales, builder: panel);
   });
 
