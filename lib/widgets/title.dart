@@ -6,6 +6,7 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
+import 'package:bike_control/utils/update_track.dart';
 import 'package:bike_control/widgets/ui/gradient_text.dart';
 import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
@@ -92,10 +93,11 @@ class _AppTitleState extends State<AppTitle> with WidgetsBindingObserver {
     if (screenshotMode) {
       return;
     } else if (updater.isAvailable) {
-      final updateStatus = await updater.checkForUpdate();
+      final track = updateTrackFor(isBetaTester: IAPManager.instance.isBetaTester);
+      final updateStatus = await updater.checkForUpdate(track: track);
       if (updateStatus == UpdateStatus.outdated) {
         updater
-            .update()
+            .update(track: track)
             .then((value) async {
               setState(() {
                 _updateType = UpdateType.shorebird;

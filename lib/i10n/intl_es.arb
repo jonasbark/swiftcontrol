@@ -1012,5 +1012,19 @@
   "frontShiftEnableLabel": "Desviador delantero virtual",
   "frontShiftEnableDesc": "Añade un segundo plato (transmisión 2×). Pulsa ambos mandos a la vez para cambiar de plato, como en SRAM AXS.",
   "frontShiftSmallRingLabel": "Plato pequeño (dientes)",
-  "frontShiftLargeRingLabel": "Plato grande (dientes)"
+  "frontShiftLargeRingLabel": "Plato grande (dientes)",
+  "done": "Listo",
+  "sramSetup": "Configurar el control SRAM",
+  "sramRestore": "Restaurar el cambio original",
+  "sramPanelDisabled": "El cambio en el propio dispositivo está desactivado: BikeControl controla tus marchas. Cada botón del mando es una entrada de controlador que puedes asignar en la app.",
+  "sramPanelIntro": "Deja que BikeControl controle tu cambio: hace una copia de seguridad de tu configuración actual del cambio y luego desactiva el cambio propio del desviador para que solo envíe pulsaciones de botón. Puedes restaurarla en cualquier momento.",
+  "sramSetupIntro": "BikeControl hará una copia de seguridad de tu configuración actual del cambio y desactivará el cambio propio del desviador para que solo envíe pulsaciones de botón. Puedes restaurarla en cualquier momento.",
+  "sramSetupSuccess": "BikeControl ahora controla tus marchas. Cada botón del mando es una entrada de controlador que puedes asignar en la app.",
+  "sramRestoreIntro": "Esto restaura el cambio original de tu desviador.",
+  "sramRestoreSuccess": "Se ha restaurado tu configuración original del cambio.",
+  "sramDialogRunning": "Comunicando con tu desviador: mantenlo cerca y activo.",
+  "sramAuthorizeTitle": "Autorizar BikeControl",
+  "sramAuthorizeBody": "Tu desviador necesita autorizar BikeControl. Mantén pulsado el botón AXS del desviador hasta que su luz parpadee y luego toca Reintentar.",
+  "sramErrorTitle": "No ha funcionado",
+  "sramGenericError": "Algo ha salido mal. Inténtalo de nuevo."
 }

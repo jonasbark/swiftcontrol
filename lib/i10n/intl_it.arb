@@ -1012,5 +1012,19 @@
   "frontShiftEnableLabel": "Deragliatore anteriore virtuale",
   "frontShiftEnableDesc": "Aggiunge una seconda corona (trasmissione 2×). Premi entrambe le leve insieme per cambiare corona, come su SRAM AXS.",
   "frontShiftSmallRingLabel": "Corona piccola (denti)",
-  "frontShiftLargeRingLabel": "Corona grande (denti)"
+  "frontShiftLargeRingLabel": "Corona grande (denti)",
+  "done": "Fatto",
+  "sramSetup": "Configura il controllo SRAM",
+  "sramRestore": "Ripristina il cambio originale",
+  "sramPanelDisabled": "Il cambio a bordo è disattivato: BikeControl controlla i tuoi rapporti. Ogni pulsante del comando è un ingresso del controller che puoi assegnare nell'app.",
+  "sramPanelIntro": "Lascia che BikeControl controlli il cambio: esegue il backup della configurazione attuale dei comandi, poi disattiva il cambio del deragliatore in modo che invii solo la pressione dei pulsanti. Puoi ripristinarla in qualsiasi momento.",
+  "sramSetupIntro": "BikeControl eseguirà il backup della configurazione attuale dei comandi e disattiverà il cambio del deragliatore in modo che invii solo la pressione dei pulsanti. Puoi ripristinarla in qualsiasi momento.",
+  "sramSetupSuccess": "Ora BikeControl controlla i tuoi rapporti. Ogni pulsante del comando è un ingresso del controller che puoi assegnare nell'app.",
+  "sramRestoreIntro": "Questa operazione ripristina il cambio originale del deragliatore.",
+  "sramRestoreSuccess": "La configurazione originale dei comandi è stata ripristinata.",
+  "sramDialogRunning": "Comunicazione con il deragliatore… tienilo vicino e attivo.",
+  "sramAuthorizeTitle": "Autorizza BikeControl",
+  "sramAuthorizeBody": "Il deragliatore deve autorizzare BikeControl. Tieni premuto il pulsante AXS sul deragliatore finché la spia lampeggia, poi tocca Riprova.",
+  "sramErrorTitle": "Non ha funzionato",
+  "sramGenericError": "Qualcosa è andato storto. Riprova."
 }
