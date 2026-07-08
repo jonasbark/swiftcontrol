@@ -54,4 +54,26 @@ void main() {
     expect(find.textContaining('back up your current shifter configuration'), findsOneWidget);
     expect(find.widgetWithText(PrimaryButton, 'Continue'), findsOneWidget);
   });
+
+  testWidgets('the guided sheet is width-capped and centred on wide displays', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final device = SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
+    await tester.pumpWidget(wrap(device));
+
+    await tester.tap(find.textContaining('Set up SRAM control'));
+    await tester.pumpAndSettle();
+
+    // On a 1440px-wide window the sheet body must not stretch: it's capped at
+    // 480 by the ConstrainedBox and centred, not spread across the full width.
+    final capped = find.byWidgetPredicate(
+      (w) => w is ConstrainedBox && w.constraints.maxWidth == 480,
+    );
+    expect(capped, findsOneWidget);
+    expect(tester.getSize(capped).width, lessThanOrEqualTo(480));
+    expect(tester.getCenter(capped).dx, closeTo(720, 1)); // centred in 1440px
+  });
 }
