@@ -621,21 +621,46 @@ class Settings {
   Future<void> setSramShiftingDisabled(String serial, bool disabled) async =>
       prefs.setBool('sram_disabled_$serial', disabled);
 
-  List<({int serial, int mask})> getSramButtons(String serial) {
+  List<({int serial, int mask, int? deviceType})> getSramButtons(String serial) {
     final raw = prefs.getStringList('sram_buttons_$serial') ?? const [];
     return raw.map((e) {
       final parts = e.split(':');
-      return (serial: int.parse(parts[0]), mask: int.parse(parts[1]));
+      // Records are "serial:mask" (legacy) or "serial:mask:deviceType". The
+      // device_type distinguishes the left/right paddle when no serial was seen.
+      return (
+        serial: int.parse(parts[0]),
+        mask: int.parse(parts[1]),
+        deviceType: parts.length > 2 && parts[2].isNotEmpty ? int.tryParse(parts[2]) : null,
+      );
     }).toList();
   }
 
-  Future<void> addSramButton(String serial, int controllerSerial, int mask) async {
-    final entry = '$controllerSerial:$mask';
+  Future<void> addSramButton(String serial, int controllerSerial, int mask, [int? deviceType]) async {
+    final entry = '$controllerSerial:$mask:${deviceType ?? ''}';
     final list = prefs.getStringList('sram_buttons_$serial') ?? <String>[];
-    if (!list.contains(entry)) {
+    if (list.contains(entry)) return; // exact record already present
+
+    // A button's identity is (serial, mask, deviceType) — the left and right
+    // paddles share serial+mask and differ ONLY by device_type, so they must
+    // stay separate records. A device_type-less record ("serial:mask" legacy,
+    // or "serial:mask:") is the "side unknown" form.
+    bool sameSerialMask(String e) => e == '$controllerSerial:$mask' || e.startsWith('$controllerSerial:$mask:');
+    bool sideless(String e) => e == '$controllerSerial:$mask' || e == '$controllerSerial:$mask:';
+
+    if (deviceType == null) {
+      // Side unknown: don't duplicate a button we already have in any form.
+      if (list.any(sameSerialMask)) return;
       list.add(entry);
-      await prefs.setStringList('sram_buttons_$serial', list);
+    } else {
+      // Side known: upgrade a side-less record in place, else add a new side.
+      final idx = list.indexWhere(sideless);
+      if (idx == -1) {
+        list.add(entry);
+      } else {
+        list[idx] = entry;
+      }
     }
+    await prefs.setStringList('sram_buttons_$serial', list);
   }
 
   /// Persisted shifter adverts (serial → "deviceType:model") for stable button

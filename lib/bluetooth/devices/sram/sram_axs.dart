@@ -83,9 +83,34 @@ class SramAxs extends BluetoothDevice {
     return side.isEmpty ? 'SRAM $role' : 'SRAM $side – $role';
   }
 
-  /// Stable name for one physical (shifter, button). Single vs double click is
-  /// handled by the base device from the keymap, not encoded in the name.
-  String logicalButtonName(int? serial, int? mask) => buttonNameFor(_shifterInfo(serial), serial, mask);
+  /// Stable name for one physical (shifter, button). [deviceType] is the value
+  /// decoded from the button event (field 2) when available — it's the
+  /// authoritative pressing side and, crucially, tells the left and right
+  /// paddles apart (both report mask 1) even when no d9050003 serial was seen.
+  /// Single vs double click is handled by the base device from the keymap, not
+  /// encoded in the name.
+  String logicalButtonName(int? serial, int? mask, {int? deviceType}) =>
+      buttonNameFor(_infoFor(serial, deviceType), serial, mask);
+
+  /// Advert/persisted info for [serial], augmented with a decoded press
+  /// [deviceType] when the advert supplied none (or there's no serial at all).
+  /// The button event's device_type is authoritative for the pressing side, so
+  /// it fills in the side even before any advert/serial has been observed.
+  SramDeviceInfo? _infoFor(int? serial, int? deviceType) {
+    final info = _shifterInfo(serial);
+    if (deviceType == null || (info != null && info.deviceType != null)) return info;
+    // buttonNameFor only reads deviceType/model, never serial — a placeholder
+    // serial here is harmless and keeps SramDeviceInfo's required field happy.
+    return SramDeviceInfo(serial: serial ?? info?.serial ?? 0, deviceType: deviceType, model: info?.model);
+  }
+
+  /// Default in-game action for a freshly discovered button. So the two shifters
+  /// aren't identical out of the box (and "one lever changes down" works without
+  /// hunting through the keymap), the LEFT shifter's paddle defaults to shift
+  /// DOWN and everything else to shift UP. Any button remains freely remappable.
+  /// Exposed for tests.
+  InGameAction defaultAction(int? deviceType, int? mask) =>
+      (mask == sram_proto.SramAxs.paddleMask && deviceType == 0) ? InGameAction.shiftDown : InGameAction.shiftUp;
 
   String _sideLabel(SramDeviceInfo? info, int? serial) {
     if (info?.deviceType == 0) return 'Left';
@@ -99,9 +124,10 @@ class SramAxs extends BluetoothDevice {
 
   /// Names a persisted (stored) button, mapping the `-1` sentinel back to null
   /// so re-registration never yields `"Button 0x-1"` or a phantom shifter slot.
-  /// Exposed for tests.
-  String storedButtonName(int storedSerial, int storedMask) =>
-      logicalButtonName(_fromStored(storedSerial), _fromStored(storedMask));
+  /// [storedDeviceType] (null for pre-side records) keeps a serial-less press's
+  /// name stable across restarts. Exposed for tests.
+  String storedButtonName(int storedSerial, int storedMask, {int? storedDeviceType}) =>
+      logicalButtonName(_fromStored(storedSerial), _fromStored(storedMask), deviceType: storedDeviceType);
 
   @override
   Future<void> handleServices(List<BleService> services) async {
@@ -130,8 +156,10 @@ class SramAxs extends BluetoothDevice {
 
     // Re-register any previously-discovered buttons so they persist in the keymap.
     // The `-1` sentinel is mapped back to null so it never yields "Button 0x-1".
+    // The stored device_type reproduces the same left/right name (and default)
+    // as the live press did, so a restart doesn't spawn a duplicate entry.
     for (final b in core.settings.getSramButtons(_serialKey)) {
-      _registerButton(_fromStored(b.serial), _fromStored(b.mask));
+      _registerButton(_fromStored(b.serial), _fromStored(b.mask), deviceType: b.deviceType);
     }
 
     // Pre-register buttons for nearby SRAM shifters (§6.4) so they show up in the
@@ -142,14 +170,14 @@ class SramAxs extends BluetoothDevice {
       core.settings.setSramShifter(_serialKey, info.serial, info.deviceType, info.model);
       for (final mask in SramShifterButtons.masksFor(info.deviceType, info.model)) {
         final name = buttonNameFor(info, info.serial, mask);
-        getOrAddButton(name, () => ControllerButton(name, action: InGameAction.shiftUp, sourceDeviceId: device.deviceId));
+        getOrAddButton(name, () => ControllerButton(name, action: defaultAction(info.deviceType, mask), sourceDeviceId: device.deviceId));
       }
     }
   }
 
-  ControllerButton _registerButton(int? serial, int? mask) {
-    final name = logicalButtonName(serial, mask);
-    return getOrAddButton(name, () => ControllerButton(name, action: InGameAction.shiftUp, sourceDeviceId: device.deviceId));
+  ControllerButton _registerButton(int? serial, int? mask, {int? deviceType}) {
+    final name = logicalButtonName(serial, mask, deviceType: deviceType);
+    return getOrAddButton(name, () => ControllerButton(name, action: defaultAction(deviceType, mask), sourceDeviceId: device.deviceId));
   }
 
   @override
@@ -189,6 +217,7 @@ class SramAxs extends BluetoothDevice {
       }
       final serial = press.controllerSerial;
       final mask = press.buttonMask;
+      final deviceType = press.deviceType; // field 2: pressing side (0=left, 1=right)
       if (mask == null && !_loggedDegradedPress) {
         _loggedDegradedPress = true;
         actionStreamInternal.add(
@@ -200,9 +229,16 @@ class SramAxs extends BluetoothDevice {
         );
       }
       if (serial != null || mask != null) {
-        await core.settings.addSramButton(_serialKey, serial ?? -1, mask ?? -1);
+        await core.settings.addSramButton(_serialKey, serial ?? -1, mask ?? -1, deviceType);
       }
-      final button = _registerButton(serial, mask);
+      // If this press revealed a shifter's side, remember it against its serial
+      // (preserving any known model) so the shifter's other buttons — and future
+      // sessions — resolve the same §6.4 name.
+      if (serial != null && deviceType != null) {
+        final known = core.settings.getSramShifter(_serialKey, serial);
+        if (known?.deviceType == null) core.settings.setSramShifter(_serialKey, serial, deviceType, known?.model);
+      }
+      final button = _registerButton(serial, mask, deviceType: deviceType);
       await handleButtonsClicked([button]);
       await handleButtonsClicked([]);
     }

@@ -47,6 +47,27 @@ void main() {
 
     // Degraded -1 serial/mask round-trips through the "serial:mask" encoding.
     await s.addSramButton('SRAM 42', -1, 5);
-    expect(s.getSramButtons('SRAM 42'), contains((serial: -1, mask: 5)));
+    expect(s.getSramButtons('SRAM 42'), contains((serial: -1, mask: 5, deviceType: null)));
+  });
+
+  test('device_type round-trips and upgrades a pre-side record in place', () async {
+    final s = Settings();
+    s.prefs = await SharedPreferences.getInstance();
+
+    // Two serial-less paddle presses that only differ by side must NOT collapse.
+    await s.addSramButton('SRAM 42', -1, 1, 0); // left paddle
+    await s.addSramButton('SRAM 42', -1, 1, 1); // right paddle
+    final both = s.getSramButtons('SRAM 42');
+    expect(both.length, 2);
+    expect(both, contains((serial: -1, mask: 1, deviceType: 0)));
+    expect(both, contains((serial: -1, mask: 1, deviceType: 1)));
+
+    // A legacy side-less record is upgraded in place (not duplicated) once the
+    // device_type becomes known.
+    await s.addSramButton('SRAM 99', 5, 2); // legacy: no device_type
+    await s.addSramButton('SRAM 99', 5, 2, 1); // now with a side
+    final upgraded = s.getSramButtons('SRAM 99');
+    expect(upgraded.length, 1);
+    expect(upgraded.single.deviceType, 1);
   });
 }
