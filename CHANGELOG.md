@@ -2,6 +2,7 @@
 **Features**:
 - SRAM AXS: After a lot of tinkering, SRAM AXS levers are now fully supported - all individual buttons are supported now. Read more in our blog!
 - WHEELTOP EDS shifters (beta): use your EDS OX or TX shifter as a controller — top/bottom buttons shift up/down by default and are fully remappable.
+- The Strappo Trainer app is now officially supported
 
 ### 6.2.0 (26-06-2026)
 **Features**:
