@@ -911,6 +911,7 @@
   "proxyFeatureMiniWorkout": "Uruchomić mini-trening",
   "proxyFeatureWifiProxy": "Proxy przez WiFi",
   "trainerErgTarget": "Cel ERG: {watts} W",
+  "trainerErgTargetGameControlled": "Cel ERG jest kontrolowany przez aplikację",
   "trainerShiftedUp": "Wyższy bieg: {gear}",
   "trainerShiftedDown": "Niższy bieg: {gear}",
   "trainerAlreadyHighestGear": "Już na najwyższym biegu",

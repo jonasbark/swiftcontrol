@@ -1109,6 +1109,7 @@
       "watts": {"type": "int"}
     }
   },
+  "trainerErgTargetGameControlled": "ERG target is controlled by the app",
   "trainerShiftedUp": "Shifted up to gear {gear}",
   "@trainerShiftedUp": {
     "placeholders": {

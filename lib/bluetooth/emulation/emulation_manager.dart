@@ -34,8 +34,14 @@ class EmulationSession {
   final ValueNotifier<List<String>> writeLog = ValueNotifier(const []);
   late final List<EmulatedInput> inputs;
 
-  void notify(String characteristicUuid, List<int> bytes) =>
-      ble.notify(peripheral.deviceId, characteristicUuid, bytes);
+  /// Delivers a notification unless the peripheral has been removed — profiles
+  /// fire DELAYED notifies (e.g. the SRAM double-tap's second edge, 100ms
+  /// late), and a dangling one must not reach the app after the session was
+  /// stopped: it would register a phantom press post-teardown.
+  void notify(String characteristicUuid, List<int> bytes) {
+    if (!ble.peripherals.containsKey(peripheral.deviceId)) return;
+    ble.notify(peripheral.deviceId, characteristicUuid, bytes);
+  }
 
   void dropConnection() => ble.dropConnection(peripheral.deviceId);
 

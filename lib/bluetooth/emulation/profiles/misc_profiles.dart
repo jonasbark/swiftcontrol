@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:universal_ble/universal_ble.dart';
 
+import '../../devices/sram/sram_axs.dart' show SramAxsConstants;
 import '../emulated_ble_platform.dart';
 import '../emulated_peripherals.dart';
 import '../emulation_profile.dart';
@@ -99,13 +100,15 @@ final sramAxsProfile = EmulationProfile(
     return peripheral;
   },
   inputs: (session) => [
-    EmulatedAction('Tap', run: () => session.notify(_sramTriggerUuid, const [0xFF])),
+    EmulatedAction('Tap', run: () => session.notify(_sramTriggerUuid, const [SramAxsConstants.triggerEdge])),
     EmulatedAction('Double tap', run: () {
-      session.notify(_sramTriggerUuid, const [0xFF]);
+      session.notify(_sramTriggerUuid, const [SramAxsConstants.triggerEdge]);
+      // The delayed second edge is dropped by session.notify if the session
+      // was stopped in the meantime.
       unawaited(
         Future<void>.delayed(
           const Duration(milliseconds: 100),
-          () => session.notify(_sramTriggerUuid, const [0xFF]),
+          () => session.notify(_sramTriggerUuid, const [SramAxsConstants.triggerEdge]),
         ),
       );
     }),

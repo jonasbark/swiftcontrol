@@ -48,6 +48,39 @@ Future<void> main() async {
       final result = device.handleTrainerAction(ZwiftButtons.shiftDownLeft, InGameAction.shiftUp);
       expect(result, isA<Success>());
       expect(def.ergTargetPower.value, 155);
+      // The result must carry the pressed button — overview.dart drops
+      // null-button ActionNotifications, which silently hid all +5W feedback.
+      expect(result.button, isNotNull);
+    });
+
+    test('trainerUp in erg mode is a no-op at the 500W manual ceiling', () {
+      def.setManualErgPower(500);
+      final result = device.handleTrainerAction(ZwiftButtons.shiftDownLeft, InGameAction.shiftUp);
+      expect(result, isA<Ignored>());
+      expect(def.ergTargetPower.value, 500);
+    });
+
+    test('trainerUp never yanks a >500W game-set target down to the manual ceiling', () {
+      // FTMS setTargetPower can legitimately set targets above the manual
+      // 500W cap (the definition accepts up to 2000W). A press must not
+      // slash it — up is a no-op there, down steps relative.
+      def.setManualErgPower(600);
+      expect(def.ergTargetPower.value, 600);
+
+      final up = device.handleTrainerAction(ZwiftButtons.shiftDownLeft, InGameAction.shiftUp);
+      expect(up, isA<Ignored>());
+      expect(def.ergTargetPower.value, 600);
+
+      final down = device.handleTrainerAction(ZwiftButtons.shiftDownLeft, InGameAction.shiftDown);
+      expect(down, isA<Success>());
+      expect(def.ergTargetPower.value, 595);
+    });
+
+    test('trainerDown in erg mode is a no-op at 0W', () {
+      def.setManualErgPower(0);
+      final result = device.handleTrainerAction(ZwiftButtons.shiftDownLeft, InGameAction.shiftDown);
+      expect(result, isA<Ignored>());
+      expect(def.ergTargetPower.value, 0);
     });
 
     test('trainerDown in sim mode shifts down', () {

@@ -156,7 +156,7 @@ class FakeSramDerailleur {
 
     peripheral.readValues[_lc(prop.SramAxs.controlTriggerChar)] =
         SramEax.encrypt(sessionKey, Uint8List.fromList([0x18, 0x01]), SramEax.randomNonce());
-    env.ble.notify(peripheral.deviceId, prop.SramAxs.controlTriggerChar, [0xFF]);
+    env.ble.notify(peripheral.deviceId, prop.SramAxs.controlTriggerChar, const [SramAxsConstants.triggerEdge]);
   }
 }
 
@@ -264,14 +264,17 @@ Future<void> main() async {
   // window) decide the trigger. The integration harness's Zwift keymap has
   // no double-click mapping for a freshly-discovered SRAM button, so
   // `_hasTriggerAction(button, ButtonTrigger.doubleClick)` is false and every
-  // press — even two in a row on the same identity — resolves to its own
-  // immediate `ButtonTrigger.singleClick` (see base_device.dart:277-279).
+  // press resolves to its own immediate `ButtonTrigger.singleClick` (see
+  // base_device.dart:277-279). Same-name edges inside the 90ms combo window
+  // coalesce as duplicates (the iOS read-response echo of one tap), so the two
+  // taps here are spaced beyond it — as any two real presses of one lever are.
   test('two presses on the same identity each resolve to an immediate single click', () async {
     final (derailleur, device) = await connectSram();
     await device.setupControl();
 
-    // Two taps on the SAME controller serial, back to back.
+    // Two taps on the SAME controller serial, spaced past the combo window.
     derailleur.pressPaddle(0x11111111);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
     derailleur.pressPaddle(0x11111111);
 
     await IntegrationEnv.waitFor(
@@ -307,13 +310,17 @@ Future<void> main() async {
     expect(device.availableButtons.any((b) => b.name.contains('Shifter B')), isTrue);
   });
 
-  test('a rapid multishift burst is suppressed to at most two presses (§7)', () async {
+  test('a rapid multishift burst is suppressed to at most two presses while shifting is enabled (§7)', () async {
     final (derailleur, device) = await connectSram();
-    await device.setupControl();
-
-    // A held paddle makes the derailleur emit a rapid burst of triggers.
-    for (var i = 0; i < 6; i++) {
+    // Deliberately NO setupControl: with shifting still enabled the derailleur
+    // multishifts while held and bursts triggers — the one state the §7 guard
+    // protects. (Post-setup a held lever emits exactly ONE edge — 16fad263's
+    // --observe capture — so the guard doesn't run there; see the test below.)
+    // Edges are spaced past the 90ms combo window so they can't just coalesce:
+    // without the guard this burst would dispatch four presses.
+    for (var i = 0; i < 4; i++) {
       derailleur.pressPaddle(0x33333333);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
     }
 
     await IntegrationEnv.waitFor(
@@ -322,8 +329,28 @@ Future<void> main() async {
     );
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
-    // The 3rd+ rapid trigger is dropped, so a hold can't spam presses in a loop.
+    // The 3rd+ trigger of a rapid chain is dropped, so a hold can't spam
+    // presses in a loop.
     expect(stubActions.performedActions.length, lessThanOrEqualTo(2));
+  });
+
+  test('once shifting is disabled, rapid deliberate taps are all delivered (no §7 guard)', () async {
+    final (derailleur, device) = await connectSram();
+    await device.setupControl();
+
+    // Three quick same-lever taps (~150ms cadence — a rider dumping gears).
+    // Post-setup every edge is a genuine tap and none may be swallowed.
+    for (var i = 0; i < 3; i++) {
+      derailleur.pressPaddle(0x44444444);
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+
+    await IntegrationEnv.waitFor(
+      () => stubActions.performedActions.length >= 3,
+      description: 'all three rapid taps dispatched',
+    );
+    expect(stubActions.performedActions.length, 3);
+    expect(stubActions.performedActions.every((a) => a.trigger == ButtonTrigger.singleClick), isTrue);
   });
 
   test('a read-response echoed on the trigger characteristic is not a press (§6.1)', () async {

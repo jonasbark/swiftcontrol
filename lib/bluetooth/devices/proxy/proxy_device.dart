@@ -8,6 +8,7 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
@@ -611,6 +612,22 @@ class ProxyDevice extends BluetoothDevice {
     );
   }
 
+  /// Steps the ERG target via [ErgPowerStepping]: an unchanged target (unknown
+  /// baseline or manual-range boundary) is Ignored — handled internally, shows
+  /// what happened, never forwarded to the app — and never yanks a >500 W
+  /// game-set target down.
+  ActionResult _stepErg(FitnessBikeDefinition def, AppLocalizations l10n, ControllerButton button,
+      {required bool up}) {
+    final next = def.stepManualErgPower(up: up);
+    if (next != null) {
+      return Success(l10n.trainerErgTarget(next), button: button);
+    }
+    final current = def.ergTargetPower.value;
+    return current == null
+        ? Ignored(l10n.trainerErgTargetGameControlled, button: button)
+        : Ignored(l10n.trainerErgTarget(current), button: button);
+  }
+
   ActionResult handleTrainerAction(ControllerButton button, InGameAction action) {
     final l10n = AppLocalizations.current;
     final def = emulator.fitnessBike;
@@ -621,12 +638,7 @@ class ProxyDevice extends BluetoothDevice {
     switch (action) {
       case InGameAction.shiftUp:
         if (def.trainerMode.value == TrainerMode.ergMode) {
-          final current = def.ergTargetPower.value ?? 150;
-          def.setManualErgPower((current + 5).clamp(0, 500));
-          return Success(
-            l10n.trainerErgTarget(def.ergTargetPower.value ?? current),
-            button: null,
-          );
+          return _stepErg(def, l10n, button, up: true);
         } else {
           final didChange = def.shiftUp();
           return didChange
@@ -635,9 +647,7 @@ class ProxyDevice extends BluetoothDevice {
         }
       case InGameAction.shiftDown:
         if (def.trainerMode.value == TrainerMode.ergMode) {
-          final current = def.ergTargetPower.value ?? 150;
-          def.setManualErgPower((current - 5).clamp(0, 500));
-          return Success(l10n.trainerErgTarget(def.ergTargetPower.value ?? current), button: button);
+          return _stepErg(def, l10n, button, up: false);
         } else {
           final didChange = def.shiftDown();
           return didChange
