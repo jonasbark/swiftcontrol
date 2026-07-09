@@ -54,7 +54,7 @@ void main() {
     });
 
     test('shows banner once threshold reached on a fresh launch', () async {
-      await settings.setReviewSessionCount(2);
+      await settings.setReviewSessionCount(ReviewPromptService.sessionThreshold - 1);
 
       final trainer = ValueNotifier(false);
       final service = ReviewPromptService(
@@ -67,7 +67,7 @@ void main() {
       trainer.value = true;
       await Future.value();
 
-      expect(settings.getReviewSessionCount(), 3);
+      expect(settings.getReviewSessionCount(), ReviewPromptService.sessionThreshold);
       expect(service.shouldShowBanner.value, true);
 
       service.dispose();
@@ -91,7 +91,7 @@ void main() {
     });
 
     test('markCompleted hides banner forever', () async {
-      await settings.setReviewSessionCount(3);
+      await settings.setReviewSessionCount(ReviewPromptService.sessionThreshold - 1);
 
       final trainer = ValueNotifier(false);
       final service = ReviewPromptService(
@@ -122,7 +122,7 @@ void main() {
     });
 
     test('dismiss snoozes for 10 sessions then re-shows', () async {
-      await settings.setReviewSessionCount(3);
+      await settings.setReviewSessionCount(ReviewPromptService.sessionThreshold - 1);
 
       final trainer = ValueNotifier(false);
       final service = ReviewPromptService(
@@ -137,11 +137,13 @@ void main() {
 
       await service.dismiss();
       expect(service.shouldShowBanner.value, false);
-      expect(settings.getReviewDismissedAtSessionCount(), 4);
+      expect(settings.getReviewDismissedAtSessionCount(), ReviewPromptService.sessionThreshold);
 
       service.dispose();
 
-      await settings.setReviewSessionCount(13);
+      await settings.setReviewSessionCount(
+        ReviewPromptService.sessionThreshold + ReviewPromptService.snoozeSessions - 1,
+      );
       var snoozed = ReviewPromptService(
         settings: settings,
         trainerConnections: [ValueNotifier(true)],
@@ -152,7 +154,9 @@ void main() {
       expect(snoozed.shouldShowBanner.value, false);
       snoozed.dispose();
 
-      await settings.setReviewSessionCount(14);
+      await settings.setReviewSessionCount(
+        ReviewPromptService.sessionThreshold + ReviewPromptService.snoozeSessions,
+      );
       var reshown = ReviewPromptService(
         settings: settings,
         trainerConnections: [ValueNotifier(true)],
