@@ -19,6 +19,10 @@ import 'sram_ble_transport.dart';
 import 'sram_setup_sheet.dart';
 
 class SramAxs extends BluetoothDevice {
+  // supportsLongPress: false — a held SRAM lever emits one 0xFF edge and no
+  // release (no multishift burst with shifting disabled), so a hold can't be
+  // told from a tap; long-press isn't reconstructable. Single/double click and
+  // the both-levers combo are (see _onPress).
   SramAxs(super.scanResult) : super(availableButtons: [], isBeta: true, supportsLongPress: false);
 
   SramBleTransport? _transport;
@@ -28,13 +32,19 @@ class SramAxs extends BluetoothDevice {
   /// from the logs whether the session key is active this session.
   bool _loggedDegradedPress = false;
 
-  /// Multishift/hold guard (protocol §7): while the paddle is held, the
-  /// derailleur emits a rapid burst of triggers. We forward the first two (so a
-  /// genuine double-click still reaches the base device) and drop the 3rd+ rapid
-  /// trigger — otherwise a hold spams presses in a runaway loop.
-  DateTime? _lastTriggerAt;
-  int _rapidTriggerCount = 0;
-  static const Duration _multishiftWindow = Duration(milliseconds: 350);
+  /// Gesture reconstruction (protocol §7). A SRAM press is a single 0xFF EDGE on
+  /// d9050054 — no release event, and (with shifting disabled) no multishift
+  /// burst — so a hold is indistinguishable from a tap and long-press can't be
+  /// reconstructed. Every press is therefore a discrete CLICK. The one thing the
+  /// base device needs that the raw edge stream doesn't give us is "both levers
+  /// at once", so a press is buffered for a short window: if the other lever's
+  /// press lands inside it, both buttons are emitted together and the base device
+  /// runs the front-shift combo ({shiftUp, shiftDown} → frontShift); otherwise
+  /// the single button clicks. Single vs double click is left to the base device
+  /// (two discrete taps within its double-click window).
+  static const Duration _comboWindow = Duration(milliseconds: 90);
+  final Map<String, ControllerButton> _pendingPresses = {}; // buffered during the combo window, by name
+  Timer? _comboTimer;
 
   /// Stable "Shifter A/B/..." labels assigned to controller serials in the
   /// order they are first seen.
@@ -131,6 +141,7 @@ class SramAxs extends BluetoothDevice {
 
   @override
   Future<void> handleServices(List<BleService> services) async {
+    _resetGesture(); // clear any gesture timers/state left over from a prior connection
     final transport = SramBleTransport(device.deviceId, services);
     final logic = SramAxsLogic(transport);
     _transport = transport;
@@ -208,18 +219,8 @@ class SramAxs extends BluetoothDevice {
       // again and spin an infinite loop. Ignore anything that isn't the 0xFF edge.
       if (bytes.length != 1 || bytes[0] != 0xFF) return;
 
-      // Multishift/hold guard (§7): a held paddle makes the derailleur emit a
-      // rapid burst of triggers. Forward the first two (a real double-click
-      // still reaches the base device) and drop the 3rd+ rapid one so a hold
-      // doesn't spam presses in a loop.
-      final now = DateTime.now();
-      final rapid = _lastTriggerAt != null && now.difference(_lastTriggerAt!) < _multishiftWindow;
-      _lastTriggerAt = now;
-      _rapidTriggerCount = rapid ? _rapidTriggerCount + 1 : 0;
-      if (_rapidTriggerCount >= 2) return;
-
-      // 0xFF edge → resolve identity (may read+decrypt), then emit a single
-      // physical press. Single vs double click is handled by the base device.
+      // 0xFF edge → resolve identity (may read+decrypt), then feed the press into
+      // the gesture reconstruction (DOWN/RELEASE/combo timing lives in _onPress).
       final press = await _logic?.handleTrigger() ?? const SramPress();
       // Persist a re-bond if the key was just dropped.
       if (_logic != null && !_logic!.isBonded && core.settings.getSramKey(_serialKey) != null) {
@@ -249,9 +250,57 @@ class SramAxs extends BluetoothDevice {
         if (known?.deviceType == null) core.settings.setSramShifter(_serialKey, serial, deviceType, known?.model);
       }
       final button = _registerButton(serial, mask, deviceType: deviceType);
-      await handleButtonsClicked([button]);
-      await handleButtonsClicked([]);
+      if (button.name == "SRAM Button" && _logic?.isBonded == false) {
+        core.connection.signalNotification(
+          AlertNotification(
+            LogLevel.LOGLEVEL_WARNING,
+            'To properly detect the SRAM buttons, please set up SRAM control in the app. This will allow the app to bond with the SRAM device and enable full functionality.',
+          ),
+        );
+      }
+      _onPress(button);
     }
+  }
+
+  /// Feed one decoded physical press (a 0xFF edge) into the gesture engine.
+  /// Exposed for tests.
+  @visibleForTesting
+  void onPress(ControllerButton button) => _onPress(button);
+
+  void _onPress(ControllerButton button) {
+    // Buffer for the combo window; a second, different lever landing inside it
+    // is combined into one emit so the base device can run the front-shift combo.
+    _pendingPresses[button.name] = button;
+    _comboTimer ??= Timer(_comboWindow, _flushPresses);
+  }
+
+  void _flushPresses() {
+    _comboTimer = null;
+    if (_pendingPresses.isEmpty) return;
+    final buttons = _pendingPresses.values.toList();
+    _pendingPresses.clear();
+    // One button → single (or double) click; two → the base device's front-shift
+    // combo. A discrete down+up: SRAM gives no separate release edge.
+    unawaited(_emitClick(buttons));
+  }
+
+  Future<void> _emitClick(List<ControllerButton> buttons) async {
+    await handleButtonsClicked(buttons);
+    await handleButtonsClicked(const []);
+  }
+
+  /// Drop any in-flight gesture state (on (re)connect / teardown) so a timer from
+  /// a previous session can't emit a stale press.
+  void _resetGesture() {
+    _comboTimer?.cancel();
+    _comboTimer = null;
+    _pendingPresses.clear();
+  }
+
+  @override
+  Future<void> disconnect() async {
+    _resetGesture();
+    await super.disconnect();
   }
 
   Uint8List _hexToBytes(String hex) => Uint8List.fromList([
@@ -321,7 +370,7 @@ class SramAxs extends BluetoothDevice {
     // This renders inside the device card, which already shows the device header
     // and the mappable-button list — so keep it to just the current status and
     // the setup/restore action. The rich flow lives in the guided sheet.
-    if (!isShiftingDisabled) {
+    if (!isShiftingDisabled || !isBonded) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
