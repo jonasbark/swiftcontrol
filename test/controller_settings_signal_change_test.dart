@@ -36,6 +36,11 @@ void main() {
 
   testWidgets('page rebuilds on signalChange so Restore appears after SRAM setup', (tester) async {
     final device = SramAxs(BleDevice(deviceId: 'dev1', name: 'SRAM 42'));
+    // The setup panel gates its Restore branch on isBonded. Persist a session
+    // key and run handleServices so the device seeds it — the same path a
+    // real (re)connect takes to become bonded.
+    await core.settings.setSramKey('dev1', '00112233445566778899aabbccddeeff');
+    await device.handleServices(const []);
     await tester.pumpWidget(
       ShadcnApp(
         localizationsDelegates: [

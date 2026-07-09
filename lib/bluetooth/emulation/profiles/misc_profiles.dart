@@ -74,7 +74,9 @@ final thinkRiderVs200Profile = EmulationProfile(
 );
 
 // SRAM AXS — detected by advertised fe51; subscribed on the d905… trigger.
-// Any notification counts as a tap; two taps within the window = double tap.
+// Only the 1-byte 0xFF edge counts as a press (§6.1) — anything else is treated
+// as a read-response echo and ignored. Without a bond the press stays undecoded
+// and registers as the generic 'SRAM Button'.
 const _sramAdvertisedServiceUuid = '0000fe51-0000-1000-8000-00805f9b34fb';
 const _sramRelevantServiceUuid = 'd9050053-90aa-4c7c-b036-1e01fb8eb7ee';
 const _sramTriggerUuid = 'd9050054-90aa-4c7c-b036-1e01fb8eb7ee';
@@ -97,13 +99,13 @@ final sramAxsProfile = EmulationProfile(
     return peripheral;
   },
   inputs: (session) => [
-    EmulatedAction('Tap', run: () => session.notify(_sramTriggerUuid, const [0x01])),
+    EmulatedAction('Tap', run: () => session.notify(_sramTriggerUuid, const [0xFF])),
     EmulatedAction('Double tap', run: () {
-      session.notify(_sramTriggerUuid, const [0x01]);
+      session.notify(_sramTriggerUuid, const [0xFF]);
       unawaited(
         Future<void>.delayed(
           const Duration(milliseconds: 100),
-          () => session.notify(_sramTriggerUuid, const [0x01]),
+          () => session.notify(_sramTriggerUuid, const [0xFF]),
         ),
       );
     }),

@@ -46,6 +46,14 @@ class SramAxs extends BluetoothDevice {
   final Map<String, ControllerButton> _pendingPresses = {}; // buffered during the combo window, by name
   Timer? _comboTimer;
 
+  /// Multishift/hold guard (protocol §7): while the paddle is held, the
+  /// derailleur emits a rapid burst of triggers. We forward the first two (so a
+  /// genuine double-click still reaches the base device) and drop the 3rd+ rapid
+  /// trigger — otherwise a hold spams presses in a runaway loop.
+  DateTime? _lastTriggerAt;
+  int _rapidTriggerCount = 0;
+  static const Duration _multishiftWindow = Duration(milliseconds: 350);
+
   /// Stable "Shifter A/B/..." labels assigned to controller serials in the
   /// order they are first seen.
   final List<int> _serialOrder = [];
@@ -219,6 +227,16 @@ class SramAxs extends BluetoothDevice {
       // again and spin an infinite loop. Ignore anything that isn't the 0xFF edge.
       if (bytes.length != 1 || bytes[0] != 0xFF) return;
 
+      // Multishift/hold guard (§7): a held paddle makes the derailleur emit a
+      // rapid burst of triggers. Forward the first two (a real double-click
+      // still reaches the gesture engine) and drop the 3rd+ rapid one so a hold
+      // doesn't spam presses in a loop.
+      final now = DateTime.now();
+      final rapid = _lastTriggerAt != null && now.difference(_lastTriggerAt!) < _multishiftWindow;
+      _lastTriggerAt = now;
+      _rapidTriggerCount = rapid ? _rapidTriggerCount + 1 : 0;
+      if (_rapidTriggerCount >= 2) return;
+
       // 0xFF edge → resolve identity (may read+decrypt), then feed the press into
       // the gesture reconstruction (DOWN/RELEASE/combo timing lives in _onPress).
       final press = await _logic?.handleTrigger() ?? const SramPress();
@@ -268,6 +286,13 @@ class SramAxs extends BluetoothDevice {
   void onPress(ControllerButton button) => _onPress(button);
 
   void _onPress(ControllerButton button) {
+    // A repeat of a lever that's already pending can't be a combo (that needs
+    // the OTHER lever) — flush what's buffered now so the earlier press isn't
+    // swallowed, then buffer this press in a fresh window.
+    if (_pendingPresses.containsKey(button.name)) {
+      _comboTimer?.cancel();
+      _flushPresses();
+    }
     // Buffer for the combo window; a second, different lever landing inside it
     // is combined into one emit so the base device can run the front-shift combo.
     _pendingPresses[button.name] = button;

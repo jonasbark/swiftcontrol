@@ -64,6 +64,43 @@ void main() {
     });
   });
 
+  test('a same-lever repeat inside the combo window flushes the first click instead of swallowing it', () {
+    fakeAsync((async) {
+      final d = _RecordingSramAxs();
+      final left = _btn('SRAM Left Shifter');
+      d.onPress(left);
+      async.elapse(const Duration(milliseconds: 30)); // second tap lands inside the combo window
+      d.onPress(left);
+      async.elapse(const Duration(milliseconds: 120)); // combo window closes
+      // Two physical presses must be two clicks — the repeat can't be a combo
+      // (same lever), so the pending press flushes immediately and the new one
+      // starts its own window.
+      expect(d.emitted, [
+        ['SRAM Left Shifter'],
+        <String>[],
+        ['SRAM Left Shifter'],
+        <String>[],
+      ]);
+    });
+  });
+
+  test('left, left again, then right: repeat flushes, the second left still combos with right', () {
+    fakeAsync((async) {
+      final d = _RecordingSramAxs();
+      d.onPress(_btn('SRAM Left Shifter'));
+      async.elapse(const Duration(milliseconds: 30));
+      d.onPress(_btn('SRAM Left Shifter')); // repeat → first click flushes
+      async.elapse(const Duration(milliseconds: 30));
+      d.onPress(_btn('SRAM Right Shifter')); // lands in the second press's window
+      async.elapse(const Duration(milliseconds: 120));
+      expect(d.emitted.length, 4);
+      expect(d.emitted[0], ['SRAM Left Shifter']);
+      expect(d.emitted[1], isEmpty);
+      expect(d.emitted[2].toSet(), {'SRAM Left Shifter', 'SRAM Right Shifter'});
+      expect(d.emitted[3], isEmpty);
+    });
+  });
+
   test('two separate taps are two separate clicks (base device decides single vs double)', () {
     fakeAsync((async) {
       final d = _RecordingSramAxs();

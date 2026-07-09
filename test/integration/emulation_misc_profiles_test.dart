@@ -86,9 +86,17 @@ Future<void> main() async {
     );
   });
 
-  test('SRAM AXS: a single tap performs the SRAM Tap button', () async {
+  test('SRAM AXS: a single tap performs the generic SRAM Button (undecoded, no bond)', () async {
     await connect<SramAxs>(sramAxsProfile);
     final session = core.emulation.sessionFor('emulated:sram-axs')!;
+
+    // A real derailleur only notifies subscribers, but the emulated platform
+    // delivers regardless — wait for the app's trigger subscription so the
+    // press can't land mid-connect (handleServices resets gesture state).
+    await IntegrationEnv.waitFor(
+      () => session.peripheral.subscriptions.contains('d9050054-90aa-4c7c-b036-1e01fb8eb7ee'),
+      description: 'trigger-char subscription',
+    );
 
     session.inputs.whereType<EmulatedAction>().firstWhere((a) => a.label == 'Tap').run();
 
@@ -98,7 +106,7 @@ Future<void> main() async {
       timeout: const Duration(seconds: 3),
       description: 'sram tap action',
     );
-    expect(stubActions.performedActions.map((a) => a.button.name), contains('SRAM Tap'));
+    expect(stubActions.performedActions.map((a) => a.button.name), contains('SRAM Button'));
   });
 
   test('OpenBikeControl: Shift Up press performs the Shift Up button', () async {
