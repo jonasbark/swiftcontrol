@@ -55,8 +55,7 @@ Best follow our landing page and the "Get Started" button: [bikecontrol.app](htt
 - Shimano Di2
   - Configure your levers to use D-Fly channels with Shimano E-Tube app
 - SRAM AXS/eTap
-  - Configure your levers not to do any action in the "SRAM AXS" app
-  - only single or double click is supported (no individual button mapping possible, yet)
+  - BikeControl will handle the configuration of the buttons to no longer perform actual shifting on your derailleurs
 - Wahoo Kickr Bike Shift
 - Wahoo Kickr Bike Pro
 - Wahoo Kickr Bike V1
