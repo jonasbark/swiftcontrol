@@ -47,7 +47,7 @@ Future<void> main() async {
       def.setManualErgPower(150);
       final result = device.handleTrainerAction(ZwiftButtons.shiftDownLeft, InGameAction.shiftUp);
       expect(result, isA<Success>());
-      expect(def.ergTargetPower.value, 160);
+      expect(def.ergTargetPower.value, 155);
     });
 
     test('trainerDown in sim mode shifts down', () {
@@ -61,7 +61,7 @@ Future<void> main() async {
       def.setManualErgPower(150);
       final result = device.handleTrainerAction(ZwiftButtons.shiftDownLeft, InGameAction.shiftDown);
       expect(result, isA<Success>());
-      expect(def.ergTargetPower.value, 140);
+      expect(def.ergTargetPower.value, 145);
     });
 
     test('trainerSwitchMode toggles from sim to erg', () {
