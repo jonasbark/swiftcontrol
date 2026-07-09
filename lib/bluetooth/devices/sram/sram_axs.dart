@@ -19,7 +19,7 @@ import 'sram_ble_transport.dart';
 import 'sram_setup_sheet.dart';
 
 class SramAxs extends BluetoothDevice {
-  SramAxs(super.scanResult) : super(availableButtons: [], isBeta: true, supportsLongPress: false);
+  SramAxs(super.scanResult) : super(availableButtons: [], isBeta: true, supportsLongPress: true);
 
   SramBleTransport? _transport;
   SramAxsLogic? _logic;
@@ -249,6 +249,14 @@ class SramAxs extends BluetoothDevice {
         if (known?.deviceType == null) core.settings.setSramShifter(_serialKey, serial, deviceType, known?.model);
       }
       final button = _registerButton(serial, mask, deviceType: deviceType);
+      if (button.name == "SRAM Button" && _logic?.isBonded == false) {
+        core.connection.signalNotification(
+          AlertNotification(
+            LogLevel.LOGLEVEL_WARNING,
+            'To properly detect the SRAM buttons, please set up SRAM control in the app. This will allow the app to bond with the SRAM device and enable full functionality.',
+          ),
+        );
+      }
       await handleButtonsClicked([button]);
       await handleButtonsClicked([]);
     }
@@ -321,7 +329,7 @@ class SramAxs extends BluetoothDevice {
     // This renders inside the device card, which already shows the device header
     // and the mappable-button list — so keep it to just the current status and
     // the setup/restore action. The rich flow lives in the guided sheet.
-    if (!isShiftingDisabled) {
+    if (!isShiftingDisabled || !isBonded) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
