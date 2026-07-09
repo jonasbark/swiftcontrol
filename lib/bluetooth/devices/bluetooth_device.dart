@@ -10,7 +10,6 @@ import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_pro.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
-import 'package:prop/utils/wahoo_climb.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -22,6 +21,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_play_fw2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
@@ -30,6 +30,7 @@ import 'package:flutter/foundation.dart';
 // exports a `SramAxs` constants class that collides with this file's `SramAxs`
 // app device import above — pull in only what's needed to avoid the clash.
 import 'package:prop/prop.dart' show SramAdvertisement;
+import 'package:prop/utils/wahoo_climb.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -128,10 +129,13 @@ abstract class BluetoothDevice extends BaseDevice {
         'SQUARE' => EliteSquare(scanResult),
         'OpenBike' => OpenBikeControlDevice(scanResult),
         null => null,
-        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') => WahooKickrClimb(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') && IAPManager.instance.isBetaTester =>
+          WahooKickrClimb(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
-        _ when scanResult.name!.toUpperCase().startsWith('RIZER') => EliteRizer(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('RIZER') && IAPManager.instance.isBetaTester => EliteRizer(
+          scanResult,
+        ),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE SHIFT') => WahooKickrBikeShift(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE PRO') => WahooKickrBikePro(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE') => WahooKickrBikeShift(scanResult),
@@ -151,11 +155,14 @@ abstract class BluetoothDevice extends BaseDevice {
         // https://www.makinolo.com/blog/2024/07/26/zwift-ride-protocol/
         //'Zwift Play' => ZwiftPlay(scanResult),
         //'Zwift Click' => ZwiftClick(scanResult), special case for Zwift Click v2: we must only connect to the left controller
-        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') => WahooKickrClimb(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') && IAPManager.instance.isBetaTester =>
+          WahooKickrClimb(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('SQUARE') => EliteSquare(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
-        _ when scanResult.name!.toUpperCase().startsWith('RIZER') => EliteRizer(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('RIZER') && IAPManager.instance.isBetaTester => EliteRizer(
+          scanResult,
+        ),
         _ when scanResult.name!.toUpperCase().contains('KICKR BIKE SHIFT') => WahooKickrBikeShift(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE PRO') => WahooKickrBikePro(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE') => WahooKickrBikeShift(scanResult),
@@ -168,8 +175,9 @@ abstract class BluetoothDevice extends BaseDevice {
           scanResult,
         ),
         _ when scanResult.services.containsAny(ProxyDevice.proxyServiceUUIDs) => ProxyDevice(scanResult),
-        _ when scanResult.services.contains(SramAxsConstants.SERVICE_UUID.toLowerCase()) &&
-            _sramIsConnectable(scanResult) =>
+        _
+            when scanResult.services.contains(SramAxsConstants.SERVICE_UUID.toLowerCase()) &&
+                _sramIsConnectable(scanResult) =>
           SramAxs(scanResult),
         _ when scanResult.services.contains(OpenBikeControlConstants.SERVICE_UUID.toLowerCase()) =>
           OpenBikeControlDevice(scanResult),

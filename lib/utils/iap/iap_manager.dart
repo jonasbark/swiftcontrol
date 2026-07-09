@@ -62,7 +62,7 @@ class IAPManager {
   /// track (a manual `beta_access` entitlement granted from the admin
   /// dashboard). Reads the cached entitlements; false when logged out or
   /// before the first entitlements fetch.
-  bool get isBetaTester => isLoggedIn && entitlements.hasActive(betaAccessProductKey);
+  bool get isBetaTester => (isLoggedIn && entitlements.hasActive(betaAccessProductKey) || kDebugMode);
 
   bool get hasActiveSubscription =>
       (isLoggedIn && (entitlements.hasActive(premiumMonthlyProductKey)) ||
@@ -73,7 +73,8 @@ class IAPManager {
 
   bool get isProEnabledForCurrentDevice {
     if (!_isInitialized) return false;
-    return hasActiveSubscription && ((isLoggedIn && entitlements.isRegisteredDevice) || (!isLoggedIn && isLocalPro.value));
+    return hasActiveSubscription &&
+        ((isLoggedIn && entitlements.isRegisteredDevice) || (!isLoggedIn && isLocalPro.value));
   }
 
   bool get isProEnabledForCurrentDeviceOrDidPurchaseOld {
