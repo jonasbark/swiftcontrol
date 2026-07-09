@@ -143,7 +143,11 @@ class SramAxs extends BluetoothDevice {
     }
 
     // Subscribe: press trigger, component event (plaintext), bond channel.
-    for (final char in [sram_proto.SramAxs.controlTriggerChar, sram_proto.SramAxs.componentEventChar, sram_proto.SramAxs.bondChar]) {
+    for (final char in [
+      sram_proto.SramAxs.controlTriggerChar,
+      sram_proto.SramAxs.componentEventChar,
+      sram_proto.SramAxs.bondChar,
+    ]) {
       final service = services.firstOrNullWhere((s) => s.characteristics.any((c) => c.uuid == char.toLowerCase()));
       if (service != null) {
         await UniversalBle.subscribeNotifications(device.deviceId, service.uuid, char.toLowerCase());
@@ -170,14 +174,20 @@ class SramAxs extends BluetoothDevice {
       core.settings.setSramShifter(_serialKey, info.serial, info.deviceType, info.model);
       for (final mask in SramShifterButtons.masksFor(info.deviceType, info.model)) {
         final name = buttonNameFor(info, info.serial, mask);
-        getOrAddButton(name, () => ControllerButton(name, action: defaultAction(info.deviceType, mask), sourceDeviceId: device.deviceId));
+        getOrAddButton(
+          name,
+          () => ControllerButton(name, action: defaultAction(info.deviceType, mask), sourceDeviceId: device.deviceId),
+        );
       }
     }
   }
 
   ControllerButton _registerButton(int? serial, int? mask, {int? deviceType}) {
     final name = logicalButtonName(serial, mask, deviceType: deviceType);
-    return getOrAddButton(name, () => ControllerButton(name, action: defaultAction(deviceType, mask), sourceDeviceId: device.deviceId));
+    return getOrAddButton(
+      name,
+      () => ControllerButton(name, action: defaultAction(deviceType, mask), sourceDeviceId: device.deviceId),
+    );
   }
 
   @override
@@ -222,7 +232,7 @@ class SramAxs extends BluetoothDevice {
         _loggedDegradedPress = true;
         actionStreamInternal.add(
           LogNotification(
-            'SramAxs: press received but not decoded — the bond session key is not active this '
+            'SramAxs: press received but not decoded ${_bytesToHex(bytes)} — the bond session key is not active this '
             'session (using plaintext). Full per-button decoding and setup/restore need '
             're-authorizing (Set up SRAM control → press and hold the AXS button).',
           ),
@@ -245,8 +255,8 @@ class SramAxs extends BluetoothDevice {
   }
 
   Uint8List _hexToBytes(String hex) => Uint8List.fromList([
-        for (var i = 0; i < hex.length; i += 2) int.parse(hex.substring(i, i + 2), radix: 16),
-      ]);
+    for (var i = 0; i < hex.length; i += 2) int.parse(hex.substring(i, i + 2), radix: 16),
+  ]);
 
   String _bytesToHex(Uint8List b) => b.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
 
@@ -324,17 +334,19 @@ class SramAxs extends BluetoothDevice {
             width: double.infinity,
             child: PrimaryButton(
               leading: const Icon(LucideIcons.slidersHorizontal, size: 16),
-              onPressed: () => unawaited(_runGuidedOperation(
-                context,
-                title: l.sramSetup,
-                intro: l.sramSetupIntro,
-                successMessage: l.sramSetupSuccess,
-                confirmIcon: LucideIcons.slidersHorizontal,
-                runningTitle: l.sramSettingUp,
-                successTitle: l.sramAllSet,
-                checklistItems: [l.sramChecklistPairing, l.sramChecklistBackingUp, l.sramChecklistDisabling],
-                operation: setupControl,
-              )),
+              onPressed: () => unawaited(
+                _runGuidedOperation(
+                  context,
+                  title: l.sramSetup,
+                  intro: l.sramSetupIntro,
+                  successMessage: l.sramSetupSuccess,
+                  confirmIcon: LucideIcons.slidersHorizontal,
+                  runningTitle: l.sramSettingUp,
+                  successTitle: l.sramAllSet,
+                  checklistItems: [l.sramChecklistPairing, l.sramChecklistBackingUp, l.sramChecklistDisabling],
+                  operation: setupControl,
+                ),
+              ),
               child: Text(l.sramSetup),
             ),
           ),
@@ -371,17 +383,19 @@ class SramAxs extends BluetoothDevice {
             width: double.infinity,
             child: SecondaryButton(
               leading: const Icon(LucideIcons.rotateCcw, size: 16),
-              onPressed: () => unawaited(_runGuidedOperation(
-                context,
-                title: l.sramRestore,
-                intro: l.sramRestoreIntro,
-                successMessage: l.sramRestoreSuccess,
-                confirmIcon: LucideIcons.rotateCcw,
-                runningTitle: l.sramRestoringShifting,
-                successTitle: l.sramRestoredTitle,
-                checklistItems: [l.sramChecklistPairing, l.sramChecklistRestoring],
-                operation: restoreShifting,
-              )),
+              onPressed: () => unawaited(
+                _runGuidedOperation(
+                  context,
+                  title: l.sramRestore,
+                  intro: l.sramRestoreIntro,
+                  successMessage: l.sramRestoreSuccess,
+                  confirmIcon: LucideIcons.rotateCcw,
+                  runningTitle: l.sramRestoringShifting,
+                  successTitle: l.sramRestoredTitle,
+                  checklistItems: [l.sramChecklistPairing, l.sramChecklistRestoring],
+                  operation: restoreShifting,
+                ),
+              ),
               child: Text(l.sramRestore),
             ),
           ),
@@ -456,22 +470,21 @@ class SramAxs extends BluetoothDevice {
     required String successTitle,
     required List<String> checklistItems,
     int runningStep = 1,
-  }) =>
-      sramGuidedBody(
-        context,
-        stage: SramSetupStage.values[stage],
-        confirmIcon: confirmIcon,
-        title: title,
-        intro: intro,
-        successMessage: successMessage,
-        runningTitle: runningTitle,
-        successTitle: successTitle,
-        checklistItems: checklistItems,
-        runningStep: runningStep,
-        checklistAutoAdvance: false,
-        onClose: () {},
-        onProceed: () {},
-      );
+  }) => sramGuidedBody(
+    context,
+    stage: SramSetupStage.values[stage],
+    confirmIcon: confirmIcon,
+    title: title,
+    intro: intro,
+    successMessage: successMessage,
+    runningTitle: runningTitle,
+    successTitle: successTitle,
+    checklistItems: checklistItems,
+    runningStep: runningStep,
+    checklistAutoAdvance: false,
+    onClose: () {},
+    onProceed: () {},
+  );
 }
 
 class SramAxsConstants {
