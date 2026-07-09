@@ -1,6 +1,7 @@
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop/prop.dart' show SramDeviceInfo;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,6 +37,37 @@ void main() {
     final name = d.logicalButtonName(null, 1);
     expect(name, 'SRAM Paddle');
     expect(name.contains('  '), isFalse);
+  });
+
+  test('a decoded device_type (field 2) names left/right with no serial or advert', () {
+    final d = _device();
+    // Both paddles report mask 1; only the device_type tells them apart. Without
+    // it they'd both be "SRAM Paddle" — the tester's "both shifters do the same".
+    expect(d.logicalButtonName(null, 1, deviceType: 0), 'SRAM Left Shifter');
+    expect(d.logicalButtonName(null, 1, deviceType: 1), 'SRAM Right Shifter');
+    // The left/right names are distinct → distinct keymap entries.
+    expect(d.logicalButtonName(null, 1, deviceType: 0), isNot(d.logicalButtonName(null, 1, deviceType: 1)));
+    // A decoded side also labels the aux button per §6.4.
+    expect(d.logicalButtonName(null, 2, deviceType: 0), 'SRAM Left – Aux Top');
+  });
+
+  test('a stored device_type re-registers under the same name as the live press', () {
+    final d = _device();
+    // Live press named it "SRAM Left Shifter"; the persisted record (serial -1,
+    // mask 1, device_type 0) must reproduce that exact name — no duplicate entry.
+    expect(d.storedButtonName(-1, 1, storedDeviceType: 0), d.logicalButtonName(null, 1, deviceType: 0));
+    expect(d.storedButtonName(-1, 1, storedDeviceType: 1), 'SRAM Right Shifter');
+  });
+
+  test('the two paddles default to opposite actions so a lever can shift down', () {
+    final d = _device();
+    // Left paddle → shift DOWN; right paddle → shift UP. This is the fix for
+    // "shifting can only increase gears" — the shifters are no longer identical.
+    expect(d.defaultAction(0, 1), InGameAction.shiftDown); // left paddle
+    expect(d.defaultAction(1, 1), InGameAction.shiftUp); // right paddle
+    // Non-paddle buttons and unknown-side presses stay on the safe shift-up default.
+    expect(d.defaultAction(0, 2), InGameAction.shiftUp); // left aux
+    expect(d.defaultAction(null, 1), InGameAction.shiftUp); // side unknown
   });
 
   test('fully anonymous press falls back to the legacy label', () {
