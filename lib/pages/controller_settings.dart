@@ -55,86 +55,92 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
     final keymap = core.actionHandler.supportedApp?.keymap;
     final helpArticle = helpArticleFor(context, controller: device, app: trainerApp);
 
-    return Scaffold(
-      headers: [
-        AppBar(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          leading: [
-            IconButton.ghost(
-              icon: Icon(LucideIcons.arrowLeft, size: 24),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-          title: Text(
-            AppLocalizations.of(context).controllerSettings,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
-          ),
-          trailing: [
-            IconButton.ghost(
-              icon: Icon(LucideIcons.x, size: 22, color: Theme.of(context).colorScheme.mutedForeground),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-          backgroundColor: Theme.of(context).colorScheme.background,
-        ),
-        Divider(),
-      ],
-      child: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: 16, left: 16, right: 16, top: 16),
-        child: Center(
-          child: Container(
-            constraints: BoxConstraints(maxWidth: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Device card
-                _buildDeviceCard(device),
-
-                // How-to-connect guide for this controller + the selected app
-                if (helpArticle != null) ...[
-                  const Gap(12),
-                  _buildActionButton(
-                    icon: LucideIcons.bookOpen,
-                    label: helpArticle.label,
-                    onTap: () => launchUrlString(helpArticle.url),
-                    trailing: Icon(LucideIcons.externalLink, size: 16),
+    return DrawerOverlay(
+      child: Builder(
+        builder: (context) {
+          return Scaffold(
+            headers: [
+              AppBar(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                leading: [
+                  IconButton.ghost(
+                    icon: Icon(LucideIcons.arrowLeft, size: 24),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
-                const Gap(24),
-
-                // Button mapping
-                _buildSectionHeader(
-                  AppLocalizations.of(context).buttonMapping,
-                  trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
+                title: Text(
+                  AppLocalizations.of(context).controllerSettings,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
                 ),
-                const Gap(12),
-                CustomizePage(isMobile: false, filterDevice: widget.device),
-                const Gap(24),
-
-                // Preferences
-                if (device.buildPreferences(context) != null) ...[
-                  _buildSectionHeader(AppLocalizations.of(context).preferences),
-                  const Gap(16),
-                  device.buildPreferences(context)!,
-                  const Gap(24),
+                trailing: [
+                  IconButton.ghost(
+                    icon: Icon(LucideIcons.x, size: 22, color: Theme.of(context).colorScheme.mutedForeground),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ],
+                backgroundColor: Theme.of(context).colorScheme.background,
+              ),
+              Divider(),
+            ],
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: 16, left: 16, right: 16, top: 16),
+              child: Center(
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: 800),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Device card
+                      _buildDeviceCard(device),
 
-                // Emulation (debug-only controls for an emulated device)
-                if (kDebugMode && device is BluetoothDevice && core.emulation.isAvailable) ...[
-                  if (core.emulation.sessionFor(device.scanResult.deviceId) case final session?) ...[
-                    _buildSectionHeader('Emulation'),
-                    const Gap(16),
-                    EmulationCard(session: session),
-                    const Gap(24),
-                  ],
-                ],
+                      // How-to-connect guide for this controller + the selected app
+                      if (helpArticle != null) ...[
+                        const Gap(12),
+                        _buildActionButton(
+                          icon: LucideIcons.bookOpen,
+                          label: helpArticle.label,
+                          onTap: () => launchUrlString(helpArticle.url),
+                          trailing: Icon(LucideIcons.externalLink, size: 16),
+                        ),
+                      ],
+                      const Gap(24),
 
-                // Actions
-                _buildActions(device, keymap),
-              ],
+                      // Button mapping
+                      _buildSectionHeader(
+                        AppLocalizations.of(context).buttonMapping,
+                        trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
+                      ),
+                      const Gap(12),
+                      CustomizePage(isMobile: false, filterDevice: widget.device),
+                      const Gap(24),
+
+                      // Preferences
+                      if (device.buildPreferences(context) != null) ...[
+                        _buildSectionHeader(AppLocalizations.of(context).preferences),
+                        const Gap(16),
+                        device.buildPreferences(context)!,
+                        const Gap(24),
+                      ],
+
+                      // Emulation (debug-only controls for an emulated device)
+                      if (kDebugMode && device is BluetoothDevice && core.emulation.isAvailable) ...[
+                        if (core.emulation.sessionFor(device.scanResult.deviceId) case final session?) ...[
+                          _buildSectionHeader('Emulation'),
+                          const Gap(16),
+                          EmulationCard(session: session),
+                          const Gap(24),
+                        ],
+                      ],
+
+                      // Actions
+                      _buildActions(device, keymap),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

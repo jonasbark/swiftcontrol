@@ -23,7 +23,7 @@ class SramAxs extends BluetoothDevice {
   // release (no multishift burst with shifting disabled), so a hold can't be
   // told from a tap; long-press isn't reconstructable. Single/double click and
   // the both-levers combo are (see _onPress).
-  SramAxs(super.scanResult) : super(availableButtons: [], isBeta: true, supportsLongPress: false);
+  SramAxs(super.scanResult) : super(availableButtons: [], isBeta: false, supportsLongPress: false);
 
   SramBleTransport? _transport;
   SramAxsLogic? _logic;
