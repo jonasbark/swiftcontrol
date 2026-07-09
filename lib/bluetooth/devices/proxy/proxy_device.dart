@@ -622,7 +622,7 @@ class ProxyDevice extends BluetoothDevice {
       case InGameAction.shiftUp:
         if (def.trainerMode.value == TrainerMode.ergMode) {
           final current = def.ergTargetPower.value ?? 150;
-          def.setManualErgPower(current + 10);
+          def.setManualErgPower((current + 5).clamp(0, 500));
           return Success(
             l10n.trainerErgTarget(def.ergTargetPower.value ?? current),
             button: null,
@@ -636,7 +636,7 @@ class ProxyDevice extends BluetoothDevice {
       case InGameAction.shiftDown:
         if (def.trainerMode.value == TrainerMode.ergMode) {
           final current = def.ergTargetPower.value ?? 150;
-          def.setManualErgPower(current - 10);
+          def.setManualErgPower((current - 5).clamp(0, 500));
           return Success(l10n.trainerErgTarget(def.ergTargetPower.value ?? current), button: button);
         } else {
           final didChange = def.shiftDown();
