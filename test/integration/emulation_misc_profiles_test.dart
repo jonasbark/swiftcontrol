@@ -94,7 +94,7 @@ Future<void> main() async {
     // delivers regardless — wait for the app's trigger subscription so the
     // press can't land mid-connect (handleServices resets gesture state).
     await IntegrationEnv.waitFor(
-      () => session.peripheral.subscriptions.contains('d9050054-90aa-4c7c-b036-1e01fb8eb7ee'),
+      () => session.peripheral.subscriptions.contains(SramAxsConstants.TRIGGER_UUID),
       description: 'trigger-char subscription',
     );
 

@@ -911,6 +911,7 @@
   "proxyFeatureMiniWorkout": "Mini-Workout starten",
   "proxyFeatureWifiProxy": "Proxy über WLAN",
   "trainerErgTarget": "ERG-Ziel: {watts} W",
+  "trainerErgTargetGameControlled": "ERG-Ziel wird von der App gesteuert",
   "trainerShiftedUp": "Hochgeschaltet auf Gang {gear}",
   "trainerShiftedDown": "Runtergeschaltet auf Gang {gear}",
   "trainerAlreadyHighestGear": "Bereits im höchsten Gang",

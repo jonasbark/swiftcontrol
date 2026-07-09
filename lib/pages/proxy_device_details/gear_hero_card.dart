@@ -1,6 +1,7 @@
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
@@ -198,7 +199,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
               context: context,
               icon: LucideIcons.minus,
               filled: false,
-              onTap: target > 0 ? () => widget.definition.setManualErgPower((target - 5).clamp(0, 500)) : null,
+              onTap: target > 0 ? () => widget.definition.stepManualErgPower(up: false) : null,
             ),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -229,7 +230,9 @@ class _GearHeroCardState extends State<GearHeroCard> {
               context: context,
               icon: LucideIcons.plus,
               filled: true,
-              onTap: target < 500 ? () => widget.definition.setManualErgPower((target + 5).clamp(0, 500)) : null,
+              onTap: target < ErgPowerStepping.maxManualW
+                  ? () => widget.definition.stepManualErgPower(up: true)
+                  : null,
             ),
             Expanded(child: SizedBox()),
           ],
@@ -237,7 +240,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
         Slider(
           value: SliderValue.single(target.toDouble()),
           min: 0,
-          max: 500,
+          max: ErgPowerStepping.maxManualW.toDouble(),
           divisions: 100,
           onChanged: (v) => widget.definition.setManualErgPower(v.value.round()),
         ),
@@ -249,7 +252,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
               style: TextStyle(fontSize: 10, color: cs.mutedForeground),
             ),
             Text(
-              '500 W',
+              '${ErgPowerStepping.maxManualW} W',
               style: TextStyle(fontSize: 10, color: cs.mutedForeground),
             ),
           ],

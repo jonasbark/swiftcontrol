@@ -911,6 +911,7 @@
   "proxyFeatureMiniWorkout": "Iniciar un mini-entrenamiento",
   "proxyFeatureWifiProxy": "Proxy por WiFi",
   "trainerErgTarget": "Objetivo ERG: {watts} W",
+  "trainerErgTargetGameControlled": "El objetivo ERG lo controla la aplicación",
   "trainerShiftedUp": "Subiste a la marcha {gear}",
   "trainerShiftedDown": "Bajaste a la marcha {gear}",
   "trainerAlreadyHighestGear": "Ya estás en la marcha más alta",

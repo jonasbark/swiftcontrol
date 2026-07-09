@@ -32,6 +32,10 @@ class SramAxs extends BluetoothDevice {
   /// from the logs whether the session key is active this session.
   bool _loggedDegradedPress = false;
 
+  /// User-facing setup nudge, shown at most once per connection (see
+  /// _loggedDegradedPress for the log-side counterpart).
+  bool _warnedSetupNeeded = false;
+
   /// Gesture reconstruction (protocol §7). A SRAM press is a single 0xFF EDGE on
   /// d9050054 — no release event, and (with shifting disabled) no multishift
   /// burst — so a hold is indistinguishable from a tap and long-press can't be
@@ -41,18 +45,27 @@ class SramAxs extends BluetoothDevice {
   /// press lands inside it, both buttons are emitted together and the base device
   /// runs the front-shift combo ({shiftUp, shiftDown} → frontShift); otherwise
   /// the single button clicks. Single vs double click is left to the base device
-  /// (two discrete taps within its double-click window).
+  /// (two discrete taps within its double-click window). A SAME-name press inside
+  /// the window is a duplicate of the pending one, not a new tap — a finger can't
+  /// re-press a lever within 90ms, but on iOS a colliding read response of the
+  /// 0xFF edge is re-delivered through the notify callback (§6.1) and decodes to
+  /// the same button — so it coalesces instead of actuating twice.
   static const Duration _comboWindow = Duration(milliseconds: 90);
   final Map<String, ControllerButton> _pendingPresses = {}; // buffered during the combo window, by name
   Timer? _comboTimer;
 
-  /// Multishift/hold guard (protocol §7): while the paddle is held, the
-  /// derailleur emits a rapid burst of triggers. We forward the first two (so a
-  /// genuine double-click still reaches the base device) and drop the 3rd+ rapid
-  /// trigger — otherwise a hold spams presses in a runaway loop.
-  DateTime? _lastTriggerAt;
-  int _rapidTriggerCount = 0;
+  /// Multishift/hold guard (protocol §7), active ONLY while shifting is still
+  /// enabled (pre-setup, or after a restore): there a held paddle makes the
+  /// derailleur emit a rapid burst of triggers, so we forward the first two of
+  /// a burst chain (a genuine double-click still works) and drop the rest until
+  /// the stream goes quiet for [_multishiftWindow]. Once setup has disabled
+  /// shifting — the normal bonded state — a held lever emits exactly ONE edge
+  /// (verified by an --observe capture, see 16fad263), so no guard applies and
+  /// every edge is a genuine tap. Timer-driven rather than wall-clock so it is
+  /// deterministic under fakeAsync and reset by [_resetGesture] on (re)connect.
   static const Duration _multishiftWindow = Duration(milliseconds: 350);
+  int _rapidTriggerCount = 0;
+  Timer? _burstResetTimer;
 
   /// Stable "Shifter A/B/..." labels assigned to controller serials in the
   /// order they are first seen.
@@ -225,17 +238,15 @@ class SramAxs extends BluetoothDevice {
       // a read response is also delivered through the notify callback, so that
       // multi-byte value re-enters here — treating it as a new press would read
       // again and spin an infinite loop. Ignore anything that isn't the 0xFF edge.
-      if (bytes.length != 1 || bytes[0] != 0xFF) return;
+      if (bytes.length != 1 || bytes[0] != SramAxsConstants.triggerEdge) return;
 
-      // Multishift/hold guard (§7): a held paddle makes the derailleur emit a
-      // rapid burst of triggers. Forward the first two (a real double-click
-      // still reaches the gesture engine) and drop the 3rd+ rapid one so a hold
-      // doesn't spam presses in a loop.
-      final now = DateTime.now();
-      final rapid = _lastTriggerAt != null && now.difference(_lastTriggerAt!) < _multishiftWindow;
-      _lastTriggerAt = now;
-      _rapidTriggerCount = rapid ? _rapidTriggerCount + 1 : 0;
-      if (_rapidTriggerCount >= 2) return;
+      // Multishift/hold guard (§7) — only while shifting is enabled (see the
+      // _multishiftWindow field doc for the full policy).
+      if (!isShiftingDisabled) {
+        _burstResetTimer?.cancel();
+        _burstResetTimer = Timer(_multishiftWindow, () => _rapidTriggerCount = 0);
+        if (++_rapidTriggerCount > 2) return;
+      }
 
       // 0xFF edge → resolve identity (may read+decrypt), then feed the press into
       // the gesture reconstruction (DOWN/RELEASE/combo timing lives in _onPress).
@@ -268,7 +279,10 @@ class SramAxs extends BluetoothDevice {
         if (known?.deviceType == null) core.settings.setSramShifter(_serialKey, serial, deviceType, known?.model);
       }
       final button = _registerButton(serial, mask, deviceType: deviceType);
-      if (button.name == "SRAM Button" && _logic?.isBonded == false) {
+      // Once per connection, like _loggedDegradedPress — this fires on every
+      // undecoded press otherwise, spamming a warning per shift for the whole ride.
+      if (!_warnedSetupNeeded && button.name == "SRAM Button" && _logic?.isBonded == false) {
+        _warnedSetupNeeded = true;
         core.connection.signalNotification(
           AlertNotification(
             LogLevel.LOGLEVEL_WARNING,
@@ -286,15 +300,10 @@ class SramAxs extends BluetoothDevice {
   void onPress(ControllerButton button) => _onPress(button);
 
   void _onPress(ControllerButton button) {
-    // A repeat of a lever that's already pending can't be a combo (that needs
-    // the OTHER lever) — flush what's buffered now so the earlier press isn't
-    // swallowed, then buffer this press in a fresh window.
-    if (_pendingPresses.containsKey(button.name)) {
-      _comboTimer?.cancel();
-      _flushPresses();
-    }
     // Buffer for the combo window; a second, different lever landing inside it
-    // is combined into one emit so the base device can run the front-shift combo.
+    // is combined into one emit so the base device can run the front-shift
+    // combo. A same-name press overwrites the pending one — it's the iOS
+    // read-response echo of the same tap (see the _comboWindow field doc).
     _pendingPresses[button.name] = button;
     _comboTimer ??= Timer(_comboWindow, _flushPresses);
   }
@@ -320,6 +329,9 @@ class SramAxs extends BluetoothDevice {
     _comboTimer?.cancel();
     _comboTimer = null;
     _pendingPresses.clear();
+    _burstResetTimer?.cancel();
+    _burstResetTimer = null;
+    _rapidTriggerCount = 0;
   }
 
   @override
@@ -566,4 +578,10 @@ class SramAxsConstants {
   static const String SERVICE_UUID_RELEVANT = "d9050053-90aa-4c7c-b036-1e01fb8eb7ee";
 
   static const String TRIGGER_UUID = "d9050054-90aa-4c7c-b036-1e01fb8eb7ee";
+
+  /// The §6.1 press edge: a 1-byte 0xFF notify on [TRIGGER_UUID]. Shared by the
+  /// press filter, the emulated profile, and the integration harness so the
+  /// encodings can't drift apart (the emulation once sent 0x01 and silently
+  /// stopped matching the device filter).
+  static const int triggerEdge = 0xFF;
 }
