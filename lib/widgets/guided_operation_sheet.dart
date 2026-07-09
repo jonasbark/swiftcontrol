@@ -20,8 +20,10 @@ class StepRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
+        Text('Step $step of $count'.toUpperCase(), style: TextStyle(fontSize: 12, color: scheme.mutedForeground)).bold,
+        Gap(12),
         for (var i = 1; i <= count; i++) ...[
           if (i > 1) const Gap(6),
           Container(

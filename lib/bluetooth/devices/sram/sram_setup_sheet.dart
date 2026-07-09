@@ -85,7 +85,12 @@ class _SramGuidedSheetState extends State<SramGuidedSheet> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Padding(
-            padding: EdgeInsets.only(left: 20, right: 20, top: 8, bottom: 20 + MediaQuery.of(context).viewInsets.bottom),
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 8,
+              bottom: 20 + MediaQuery.of(context).viewInsets.bottom,
+            ),
             child: sramGuidedBody(
               context,
               stage: _stage,
@@ -217,23 +222,23 @@ Widget sramGuidedBody(
 
   return Column(
     mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisAlignment: MainAxisAlignment.start,
     children: [
+      const Gap(18),
       if (stepIndex != null) ...[
         StepRail(step: stepIndex),
         const Gap(18),
       ],
-      Center(child: StageBadge(icon: icon, tone: tone, wash: wash, reduceMotion: reduceMotion)),
+      StageBadge(icon: icon, tone: tone, wash: wash, reduceMotion: reduceMotion),
       const Gap(16),
       Text(
         heading,
-        textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
       ),
       const Gap(8),
       Text(
         body,
-        textAlign: TextAlign.center,
         style: TextStyle(fontSize: 14.5, height: 1.5, color: scheme.mutedForeground),
       ),
       if (extra != null) ...[
@@ -378,12 +383,12 @@ class _SramAxsHeroState extends State<_SramAxsHero> with TickerProviderStateMixi
   }
 
   Widget _led(double opacity) => Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(
-          color: _sramAmber.withValues(alpha: opacity),
-          shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: _sramAmber.withValues(alpha: opacity * 0.6), blurRadius: 6)],
-        ),
-      );
+    width: 10,
+    height: 10,
+    decoration: BoxDecoration(
+      color: _sramAmber.withValues(alpha: opacity),
+      shape: BoxShape.circle,
+      boxShadow: [BoxShadow(color: _sramAmber.withValues(alpha: opacity * 0.6), blurRadius: 6)],
+    ),
+  );
 }
