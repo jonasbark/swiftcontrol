@@ -3,6 +3,7 @@ import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/biketerra.dart';
 import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
+import 'package:bike_control/utils/keymap/apps/strappo.dart';
 import 'package:bike_control/utils/keymap/apps/training_peaks.dart';
 import 'package:bike_control/utils/keymap/apps/wahoo_element.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
@@ -60,6 +61,15 @@ abstract class SupportedApp {
   /// Optional asset path for the trainer app logo (only for officially supported apps).
   String? get logoAsset => null;
 
+  /// Official website for this trainer app, surfaced as an external-link button
+  /// next to the app in the trainer-app chooser. Null for apps without a site
+  /// of their own (e.g. the generic custom app).
+  String? get officialUrl => null;
+
+  /// Slug for the bikecontrol.app `use-<controller>-with-<app>` how-to article.
+  /// Apps without a dedicated page fall back to the generic guide.
+  String get helpSlug => 'other-training-app';
+
   /// Maps Zwift Click V2 actions to this app's corresponding actions.
   /// E.g. for Rouvy: {InGameAction.usePowerUp: InGameAction.pause, InGameAction.select: InGameAction.kudos}
   Map<InGameAction, InGameAction> get inGameActionsMapping => const {};
@@ -99,6 +109,7 @@ abstract class SupportedApp {
     TrainingPeaks(),
     Biketerra(),
     Rouvy(),
+    Strappo(),
     BikeControl(),
     OpenBikeControl(),
     if (kDebugMode) WahooElement(),

@@ -28,6 +28,10 @@
 
     <!-- Required for trainer overlay display -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Strip flutter_screen_recording library permissions not needed by this app:
+         capture is video-only (no microphone), and we have no boot receiver. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
     <!-- Android 14+: foreground service type declaration for overlay window service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
@@ -62,8 +66,16 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Accepts URIs that begin with YOUR_SCHEME://YOUR_HOST -->
+                <!-- Custom scheme: bikecontrol://... -->
                 <data android:scheme="bikecontrol" />
+            </intent-filter>
+            <!-- App Links (verified): https://bikecontrol.app/app/... opens the app
+                 directly, verified against /.well-known/assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="bikecontrol.app" android:pathPrefix="/app" />
             </intent-filter>
         </activity>
 

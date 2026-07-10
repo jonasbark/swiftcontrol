@@ -1,7 +1,9 @@
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
+import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/markdown.dart';
+import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
@@ -112,11 +114,16 @@ class _ConnectionMethodState extends State<ConnectionMethod> with WidgetsBinding
         widget.onChange(!widget.isEnabled);
       } else {
         Future.wait(widget.requirements.map((e) => e.getStatus())).then((_) async {
+          // The widget can be disposed across these async gaps; using a defunct
+          // context (openPermissionSheet) or setState then throws "Null check
+          // operator used on a null value".
+          if (!context.mounted) return;
           final notDone = widget.requirements.filter((e) => !e.status).toList();
           if (notDone.isEmpty) {
             widget.onChange(!widget.isEnabled);
           } else {
             await openPermissionSheet(context, notDone);
+            if (!context.mounted) return;
             _recheckRequirements();
             setState(() {});
           }
@@ -334,4 +341,41 @@ Future openPermissionSheet(BuildContext context, List<PlatformRequirement> notDo
     ),
     position: OverlayPosition.bottom,
   );
+}
+
+/// Prompts for any missing local-control permissions, enables the Local
+/// connection method, and returns whether Local is enabled afterwards.
+///
+/// Mirrors the enable path in [LocalTile]'s `onChange` + [ConnectionMethod]'s
+/// requirement flow so a caller (e.g. the ButtonEditor) can enable Local
+/// inline instead of sending the user to the connection settings.
+Future<bool> enableLocalControl(BuildContext context) async {
+  final requirements = core.permissions.getLocalControlRequirements();
+  final notDone = <PlatformRequirement>[];
+  for (final requirement in requirements) {
+    if (!await requirement.getStatus()) {
+      notDone.add(requirement);
+    }
+  }
+  if (notDone.isNotEmpty) {
+    if (!context.mounted) return false;
+    await openPermissionSheet(context, notDone);
+    for (final requirement in notDone) {
+      if (!await requirement.getStatus()) {
+        return false;
+      }
+    }
+  }
+
+  core.settings.setLocalEnabled(true);
+  if (core.logic.canRunAndroidService) {
+    final running = await core.logic.isAndroidServiceRunning();
+    core.local.isStarted.value = running;
+    core.local.isConnected.value = running;
+  } else {
+    core.local.isStarted.value = true;
+    core.local.isConnected.value = true;
+  }
+  core.connection.signalNotification(LogNotification('Local Control: true'));
+  return core.settings.getLocalEnabled();
 }

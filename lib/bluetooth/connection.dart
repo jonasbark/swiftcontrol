@@ -6,7 +6,12 @@ import 'package:bike_control/bluetooth/devices/gamepad/gamepad_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/hid/hid_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/incline/incline_controller.dart';
+import 'package:bike_control/bluetooth/incline/incline_sink.dart';
+import 'package:bike_control/bluetooth/incline/manual_incline_device.dart';
 import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
+import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/wifi_trainer_scanner.dart';
@@ -35,8 +40,10 @@ class Connection {
   List<GamepadDevice> get gamepadDevices => devices.whereType<GamepadDevice>().toList();
   List<GyroscopeSteering> get gyroscopeDevices => devices.whereType<GyroscopeSteering>().toList();
   List<WahooKickrHeadwind> get accessories => devices.whereType<WahooKickrHeadwind>().toList();
+  List<WahooKickrClimb> get climbAccessories => devices.whereType<WahooKickrClimb>().toList();
+  List<ManualInclineDevice> get inclineDevices => devices.whereType<ManualInclineDevice>().toList();
   List<BaseDevice> get controllerDevices => [
-    ...bluetoothDevices.where((d) => d is! WahooKickrHeadwind && d is! ProxyDevice),
+    ...bluetoothDevices.where((d) => d is! Accessory && d is! ProxyDevice),
     ...gamepadDevices,
     ...gyroscopeDevices,
     ...devices.whereType<HidDevice>(),
@@ -62,12 +69,43 @@ class Connection {
   final ValueNotifier<bool> hasDevices = ValueNotifier(false);
   final ValueNotifier<bool> isScanning = ValueNotifier(false);
 
+  /// Parsed adverts of nearby SRAM controllers (shifters/blips/pods — NOT the RD),
+  /// used to name and pre-register their buttons. Deduped by serial (last wins).
+  Iterable<SramDeviceInfo> get sramShifterAdverts {
+    final byserial = <int, SramDeviceInfo>{};
+    for (final adv in _lastScanResult) {
+      final record = _sramServiceDataRecord(adv.serviceData);
+      if (record == null) continue;
+      final info = SramAdvertisement.parse(record);
+      if (info == null || info.isRearDerailleur) continue; // controllers only
+      final t = info.effectiveType;
+      // Only controllers that have buttons: drop/Reverb/Blipbox shifters (0..4) and blips/pods (96..125).
+      // `effectiveType` falls back through the model→type map, so a shifter model
+      // resolves to type 0 and a front derailleur (128) / dropper post (132) is excluded.
+      final hasButtons = t != null && ((t >= 0 && t <= 4) || (t >= 96 && t <= 125));
+      if (!hasButtons) continue;
+      byserial[info.serial] = info;
+    }
+    return byserial.values;
+  }
+
+  static Uint8List? _sramServiceDataRecord(Map<String, Uint8List> serviceData) {
+    for (final e in serviceData.entries) {
+      if (e.key.toLowerCase().contains('fe51')) return e.value;
+    }
+    return null;
+  }
+
   Timer? _gamePadSearchTimer;
   WifiTrainerScanner? _wifiTrainerScanner;
 
   /// Auto-disconnects idle BLE controllers to save battery (issue #329).
   /// Created in [initialize] once `core` is ready.
   InactivityDisconnector? _inactivityDisconnector;
+
+  InclineController? _inclineController;
+  _ClimbRelaySink? _relaySink;
+  FitnessBikeDefinition? _relaySinkFbd;
 
   /// Devices whose in-place ("No connection") disconnect is currently in
   /// flight. UniversalBle.disconnect resolves only after the platform's
@@ -82,8 +120,16 @@ class Connection {
   /// but must not be auto-reconnected when rediscovered (via scan results,
   /// getSystemDevices or the disconnect listener's performScanning) — otherwise
   /// they reconnect right after the battery-saver disconnect. Cleared on an
-  /// explicit reconnect or a successful (re)connect.
+  /// explicit reconnect, a successful (re)connect, or automatically once
+  /// [inactivityReconnectCooldown] has elapsed — after that a rediscovered
+  /// (woken) controller auto-reconnects normally again.
   final _suppressedAutoReconnect = <String>{};
+
+  /// How long after the battery-saver disconnect a controller stays suppressed.
+  /// Long enough for the controller to stop advertising and fall asleep;
+  /// afterwards any advertisement means the rider woke it and wants it back.
+  /// Mutable as a test seam (the integration tests shrink it to milliseconds).
+  Duration inactivityReconnectCooldown = const Duration(seconds: 90);
 
   void initialize() {
     actionStream.listen((log) {
@@ -99,6 +145,27 @@ class Connection {
           controllerDevices.whereType<BluetoothDevice>().any((d) => d.isConnected),
       onTimeout: _onInactivityTimeout,
     );
+
+    _inclineController ??= InclineController(
+      gradeProvider: () => ftmsEmulator.fitnessBike?.simGrade.value,
+      sinkProvider: () {
+        final direct = devices.whereType<InclineSink>().firstOrNullWhere(
+          (d) => (d as BaseDevice).isConnected,
+        );
+        if (direct != null) return direct;
+        final fbd = ftmsEmulator.fitnessBike;
+        if (fbd != null && fbd.supportsClimbRelay) {
+          if (!identical(_relaySinkFbd, fbd)) {
+            _relaySinkFbd = fbd;
+            _relaySink = _ClimbRelaySink(fbd);
+          }
+          return _relaySink;
+        }
+        _relaySink = null;
+        _relaySinkFbd = null;
+        return null;
+      },
+    )..start();
 
     // A trainer app attaching/leaving any non-Local connection method drives
     // the battery saver. These emulator singletons live for the app lifetime,
@@ -456,7 +523,8 @@ class Connection {
           return false;
         }
         // A controller the battery saver disconnected must not silently
-        // reconnect when rediscovered; only an explicit reconnect clears this.
+        // reconnect when rediscovered until the reconnect cooldown has passed
+        // or the user explicitly reconnects it.
         if (_suppressedAutoReconnect.contains(device.device.deviceId)) {
           return false;
         }
@@ -691,6 +759,13 @@ class Connection {
       _connectionSubscriptions[device]?.cancel();
       _connectionSubscriptions.remove(device);
 
+      // Forgetting an emulated device tears down its fake peripheral and clears
+      // the scan-result dedupe cache so the same profile can be re-added later.
+      if (forget && core.emulation.isEmulated(device.device.deviceId)) {
+        core.emulation.stop(device.device.deviceId);
+        _lastScanResult.removeWhere((d) => d.deviceId == device.device.deviceId);
+      }
+
       // Remove device from the list — unless it is rebooting due to an
       // automatic reset and will be back in a few seconds, or this is an
       // in-place disconnect (keepInList) where the open details page still
@@ -753,7 +828,7 @@ class Connection {
   /// Test seam: run the inactivity battery-saver disconnect directly instead of
   /// waiting out the real idle timer.
   @visibleForTesting
-  void debugTriggerInactivityTimeout([Duration timeout = const Duration(minutes: 30)]) =>
+  void debugTriggerInactivityTimeout([Duration timeout = const Duration(minutes: 60)]) =>
       _onInactivityTimeout(timeout);
 
   /// Called by [_inactivityDisconnector] when the idle timeout elapses.
@@ -768,7 +843,8 @@ class Connection {
     for (final device in controllers) {
       // Suppress auto-reconnect so the rediscovery that follows the disconnect
       // doesn't immediately bring the controller back (the whole point is to
-      // let its battery rest). The explicit Reconnect action below clears it.
+      // let its battery rest). Lifted by the Reconnect action below or by the
+      // cooldown timer once the controller had time to fall asleep.
       _suppressedAutoReconnect.add(device.device.deviceId);
       unawaited(
         disconnect(device, forget: true, persistForget: false).catchError((Object error, StackTrace stackTrace) {
@@ -778,6 +854,19 @@ class Connection {
         }),
       );
     }
+
+    // Lift the suppression once the controller had time to power down. The
+    // stale _lastScanResult entry must go too: the controller's last
+    // advertisement right after the disconnect re-entered the dedup list, and
+    // it would block every future advertisement from reaching addDevices —
+    // leaving a woken controller unconnectable until an app restart.
+    final suppressedIds = controllers.map((d) => d.device.deviceId).toList();
+    Timer(inactivityReconnectCooldown, () {
+      for (final id in suppressedIds) {
+        _suppressedAutoReconnect.remove(id);
+        _lastScanResult.removeWhere((d) => d.deviceId == id);
+      }
+    });
 
     _actionStreams.add(
       AlertNotification(
@@ -809,4 +898,16 @@ class Connection {
       );
     }
   }
+}
+
+/// Relay sink that forwards incline writes upstream through the active
+/// [FitnessBikeDefinition] (e.g. to a Wahoo app connected over DirCon).
+/// Always reports [followsGrade] == true — the relay has no manual-hold state.
+class _ClimbRelaySink implements InclineSink {
+  _ClimbRelaySink(this._fbd);
+  final FitnessBikeDefinition _fbd;
+  @override
+  bool get followsGrade => true;
+  @override
+  Future<bool> writeInclineRaw(int g) => _fbd.writeClimbInclineUpstream(g);
 }

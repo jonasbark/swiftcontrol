@@ -1,15 +1,24 @@
+import 'dart:async';
+
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
+import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/customize.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/help_article.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
+import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:bike_control/widgets/device_script_drawer.dart';
+import 'package:bike_control/widgets/emulation_card.dart';
 import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/trainer_label.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 class ControllerSettingsPage extends StatefulWidget {
   final BaseDevice device;
@@ -21,76 +30,139 @@ class ControllerSettingsPage extends StatefulWidget {
 }
 
 class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
+  late final StreamSubscription<BaseDevice> _connectionStateSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild when a device signals a state change (e.g. SRAM setup/restore
+    // completing) so the device card's panels reflect the new state.
+    _connectionStateSubscription = core.connection.connectionStream.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectionStateSubscription.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
     final trainerApp = core.settings.getTrainerApp();
     final keymap = core.actionHandler.supportedApp?.keymap;
+    final helpArticle = helpArticleFor(context, controller: device, app: trainerApp);
 
-    return Scaffold(
-      headers: [
-        AppBar(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          leading: [
-            IconButton.ghost(
-              icon: Icon(LucideIcons.arrowLeft, size: 24),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-          title: Text(
-            AppLocalizations.of(context).controllerSettings,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
-          ),
-          trailing: [
-            IconButton.ghost(
-              icon: Icon(LucideIcons.x, size: 22, color: Theme.of(context).colorScheme.mutedForeground),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-          backgroundColor: Theme.of(context).colorScheme.background,
-        ),
-        Divider(),
-      ],
-      child: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: 16, left: 16, right: 16, top: 16),
-        child: Center(
-          child: Container(
-            constraints: BoxConstraints(maxWidth: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Device card
-                _buildDeviceCard(device),
-                const Gap(24),
-
-                // Button mapping
-                _buildSectionHeader(
-                  AppLocalizations.of(context).buttonMapping,
-                  trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
-                ),
-                const Gap(12),
-                CustomizePage(isMobile: false, filterDevice: widget.device),
-                const Gap(24),
-
-                // Preferences
-                if (device.buildPreferences(context) != null) ...[
-                  _buildSectionHeader(AppLocalizations.of(context).preferences),
-                  const Gap(16),
-                  device.buildPreferences(context)!,
-                  const Gap(24),
+    return DrawerOverlay(
+      child: Builder(
+        builder: (context) {
+          return Scaffold(
+            headers: [
+              AppBar(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                leading: [
+                  IconButton.ghost(
+                    icon: Icon(LucideIcons.arrowLeft, size: 24),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ],
+                title: Text(
+                  AppLocalizations.of(context).controllerSettings,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+                ),
+                trailing: [
+                  IconButton.ghost(
+                    icon: Icon(LucideIcons.x, size: 22, color: Theme.of(context).colorScheme.mutedForeground),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+                backgroundColor: Theme.of(context).colorScheme.background,
+              ),
+              Divider(),
+            ],
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: 16, left: 16, right: 16, top: 16),
+              child: Center(
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: 800),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Device card
+                      _buildDeviceCard(device),
 
-                // Actions
-                _buildActions(device, keymap),
-              ],
+                      // How-to-connect guide for this controller + the selected app
+                      if (helpArticle != null) ...[
+                        const Gap(12),
+                        _buildActionButton(
+                          icon: LucideIcons.bookOpen,
+                          label: helpArticle.label,
+                          onTap: () => launchUrlString(helpArticle.url),
+                          trailing: Icon(LucideIcons.externalLink, size: 16),
+                        ),
+                      ],
+                      const Gap(24),
+
+                      // Button mapping
+                      _buildSectionHeader(
+                        AppLocalizations.of(context).buttonMapping,
+                        trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
+                      ),
+                      const Gap(12),
+                      CustomizePage(isMobile: false, filterDevice: widget.device),
+                      const Gap(24),
+
+                      // Preferences
+                      if (device.buildPreferences(context) != null) ...[
+                        _buildSectionHeader(AppLocalizations.of(context).preferences),
+                        const Gap(16),
+                        device.buildPreferences(context)!,
+                        const Gap(24),
+                      ],
+
+                      // Emulation (debug-only controls for an emulated device)
+                      if (kDebugMode && device is BluetoothDevice && core.emulation.isAvailable) ...[
+                        if (core.emulation.sessionFor(device.scanResult.deviceId) case final session?) ...[
+                          _buildSectionHeader('Emulation'),
+                          const Gap(16),
+                          EmulationCard(session: session),
+                          const Gap(24),
+                        ],
+                      ],
+
+                      // Actions
+                      _buildActions(device, keymap),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildDeviceCard(BaseDevice device) {
+    Widget? footer;
+    if (device is SteeringDevice) {
+      final steering = device as SteeringDevice;
+      footer = Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: SteeringGauge(
+          angle: steering.steeringAngle,
+          calibrated: steering.steeringCalibrated,
+          threshold: steering.steeringThreshold,
+          device: device,
+          leftButton: steering.steerLeftButton,
+          rightButton: steering.steerRightButton,
+          keymap: core.actionHandler.supportedApp?.keymap,
+          onUpdate: () => setState(() {}),
+        ),
+      );
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),
@@ -99,7 +171,7 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Theme.of(context).colorScheme.border),
       ),
-      child: device.showInformation(context, showFull: true),
+      child: device.showInformation(context, showFull: true, footer: footer),
     );
   }
 

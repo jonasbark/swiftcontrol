@@ -8,6 +8,8 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/erg_power_stepping.dart';
+import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart' show TrainerConnectionType;
@@ -317,6 +319,8 @@ class ProxyDevice extends BluetoothDevice {
     def.setGradeSmoothingEnabled(cfg.gradeSmoothing);
     def.setCadenceFilterEnabled(cfg.cadenceFilterEnabled);
     def.setVirtualShiftingMode(cfg.mode);
+    def.setChainringTeeth(cfg.smallChainringTeeth, cfg.largeChainringTeeth);
+    def.setFrontShiftEnabled(cfg.frontShiftEnabled);
     if (cfg.gearRatios != null) {
       def.setGearRatios(cfg.gearRatios!);
     }
@@ -454,6 +458,23 @@ class ProxyDevice extends BluetoothDevice {
   }
 
   @override
+  Widget? nameBadge(BuildContext context) {
+    // The same physical trainer can be discovered over both WiFi (DirCon) and
+    // Bluetooth, producing two entries with an identical name. When that
+    // happens, show a transport icon so the duplicates can be told apart at a
+    // glance — WiFi on the DirCon entry, Bluetooth on the BLE one.
+    final hasDuplicateName = core.connection.proxyDevices.any(
+      (d) => d.uniqueId != uniqueId && d.name == name,
+    );
+    if (!hasDuplicateName) return null;
+    return Icon(
+      isWifiUpstream ? LucideIcons.wifi : LucideIcons.bluetooth,
+      size: 14,
+      color: Theme.of(context).colorScheme.mutedForeground,
+    );
+  }
+
+  @override
   List<Widget> showMetaInformation(BuildContext context, {required bool showFull}) {
     if (isConnected) {
       final units = unitSystemOf(context);
@@ -501,7 +522,7 @@ class ProxyDevice extends BluetoothDevice {
                 _addTextMetric(
                   parts,
                   context,
-                  'Gear ${fitnessDef.currentGear.value}/${fitnessDef.maxGear}',
+                  'Gear ${formatGearReadout(currentGear: fitnessDef.currentGear.value, maxGear: fitnessDef.maxGear, frontShiftEnabled: fitnessDef.frontShiftEnabled, largeRing: fitnessDef.frontRing.value == FrontRing.large)}',
                   LucideIcons.settings2,
                 );
               }
@@ -591,6 +612,22 @@ class ProxyDevice extends BluetoothDevice {
     );
   }
 
+  /// Steps the ERG target via [ErgPowerStepping]: an unchanged target (unknown
+  /// baseline or manual-range boundary) is Ignored — handled internally, shows
+  /// what happened, never forwarded to the app — and never yanks a >500 W
+  /// game-set target down.
+  ActionResult _stepErg(FitnessBikeDefinition def, AppLocalizations l10n, ControllerButton button,
+      {required bool up}) {
+    final next = def.stepManualErgPower(up: up);
+    if (next != null) {
+      return Success(l10n.trainerErgTarget(next), button: button);
+    }
+    final current = def.ergTargetPower.value;
+    return current == null
+        ? Ignored(l10n.trainerErgTargetGameControlled, button: button)
+        : Ignored(l10n.trainerErgTarget(current), button: button);
+  }
+
   ActionResult handleTrainerAction(ControllerButton button, InGameAction action) {
     final l10n = AppLocalizations.current;
     final def = emulator.fitnessBike;
@@ -601,12 +638,7 @@ class ProxyDevice extends BluetoothDevice {
     switch (action) {
       case InGameAction.shiftUp:
         if (def.trainerMode.value == TrainerMode.ergMode) {
-          final current = def.ergTargetPower.value ?? 150;
-          def.setManualErgPower(current + 10);
-          return Success(
-            l10n.trainerErgTarget(def.ergTargetPower.value ?? current),
-            button: null,
-          );
+          return _stepErg(def, l10n, button, up: true);
         } else {
           final didChange = def.shiftUp();
           return didChange
@@ -615,9 +647,7 @@ class ProxyDevice extends BluetoothDevice {
         }
       case InGameAction.shiftDown:
         if (def.trainerMode.value == TrainerMode.ergMode) {
-          final current = def.ergTargetPower.value ?? 150;
-          def.setManualErgPower(current - 10);
-          return Success(l10n.trainerErgTarget(def.ergTargetPower.value ?? current), button: button);
+          return _stepErg(def, l10n, button, up: false);
         } else {
           final didChange = def.shiftDown();
           return didChange
@@ -639,6 +669,23 @@ class ProxyDevice extends BluetoothDevice {
       case InGameAction.trainerIntensityDown:
         def.adjustIntensity(-0.05);
         return Success(l10n.trainerIntensityDecreased, button: button);
+      case InGameAction.frontShift:
+        if (def.trainerMode.value == TrainerMode.ergMode) {
+          return Ignored(l10n.trainerFrontShiftUnavailable, button: button);
+        }
+        if (!def.frontShiftEnabled) {
+          return Ignored(l10n.trainerFrontShiftNotEnabled, button: button);
+        }
+        final didToggle = def.toggleFrontChainring();
+        if (!didToggle) {
+          return Ignored(l10n.trainerFrontShiftUnavailable, button: button);
+        }
+        return Success(
+          def.frontRing.value == FrontRing.large
+              ? l10n.trainerFrontShiftedLarge
+              : l10n.trainerFrontShiftedSmall,
+          button: button,
+        );
       default:
         return NotHandled('', button: button);
     }

@@ -33,6 +33,7 @@ class IAPManager {
   static const String premiumMonthlyProductKey = 'premium_monthly';
   static const String premiumYearlyProductKey = 'premium_yearly';
   static const String fullVersionProductKey = 'full_version';
+  static const String betaAccessProductKey = 'beta_access';
   static int dailyCommandLimit = 15;
 
   RevenueCatService? _revenueCatService;
@@ -57,6 +58,12 @@ class IAPManager {
 
   bool get isLoggedIn => core.supabase.auth.currentSession != null;
 
+  /// Whether the logged-in user is flagged for the Shorebird beta update
+  /// track (a manual `beta_access` entitlement granted from the admin
+  /// dashboard). Reads the cached entitlements; false when logged out or
+  /// before the first entitlements fetch.
+  bool get isBetaTester => (isLoggedIn && entitlements.hasActive(betaAccessProductKey) || kDebugMode);
+
   bool get hasActiveSubscription =>
       (isLoggedIn && (entitlements.hasActive(premiumMonthlyProductKey)) ||
           entitlements.hasActive(premiumYearlyProductKey)) ||
@@ -66,12 +73,21 @@ class IAPManager {
 
   bool get isProEnabledForCurrentDevice {
     if (!_isInitialized) return false;
-    return hasActiveSubscription && ((isLoggedIn && entitlements.isRegisteredDevice) || (!isLoggedIn && isLocalPro.value));
+    return hasActiveSubscription &&
+        ((isLoggedIn && entitlements.isRegisteredDevice) || (!isLoggedIn && isLocalPro.value));
   }
 
   bool get isProEnabledForCurrentDeviceOrDidPurchaseOld {
     if (!_isInitialized) return false;
     return isProEnabledForCurrentDevice || hasPurchasedBefore50RVC;
+  }
+
+  /// Test-only: force the Pro entitlement state so Pro-gated actions/UI can be
+  /// exercised without a live subscription or device registration.
+  @visibleForTesting
+  void setProForTesting({required bool enabled}) {
+    _isInitialized = true;
+    isLocalPro.value = enabled;
   }
 
   bool get hasPurchasedBefore50RVC =>

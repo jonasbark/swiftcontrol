@@ -11,6 +11,8 @@ class BridgeUsageTracker {
 
   bool get isExhausted => false;
 
+  bool get isCountingDown => false;
+
   get onBudgetExhausted => null;
 
   void startSession({required bool Function() isActive}) {}

@@ -7,6 +7,7 @@ import 'package:bike_control/services/overlay/desktop_overlay_window.dart';
 import 'package:bike_control/services/overlay/overlay_state.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_controller.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:flutter/foundation.dart';
 import 'package:multi_window_native/multi_window_native.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -258,12 +259,10 @@ class DesktopOverlayController implements TrainerOverlayController {
     return Map<String, dynamic>.from(raw as Map);
   }
 
-  /// Shift a gear (SIM mode) or step the ERG target power by 5 W.
+  /// Shift a gear (SIM mode) or step the ERG target power (see ErgPowerStepping).
   void _adjustPrimary(FitnessBikeDefinition def, {required bool increment}) {
     if (def.trainerMode.value == TrainerMode.ergMode) {
-      final current = def.ergTargetPower.value ?? 150;
-      final next = (current + (increment ? 5 : -5)).clamp(0, 500);
-      def.setManualErgPower(next);
+      def.stepManualErgPower(up: increment);
     } else {
       if (increment) {
         def.shiftUp();
@@ -316,6 +315,8 @@ class DesktopOverlayController implements TrainerOverlayController {
       cadenceRpm: def.cadenceRpm.value,
       ergTargetW: def.ergTargetPower.value,
       fields: _fields,
+      frontShiftEnabled: def.frontShiftEnabled,
+      frontRingLarge: def.frontRing.value == FrontRing.large,
     );
     if (!force && s == _lastPushed) return;
     _lastPushed = s;

@@ -19,6 +19,7 @@ import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/ui/button_widget.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
 import 'package:bike_control/widgets/ui/colors.dart';
+import 'package:bike_control/widgets/ui/connection_method.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
@@ -128,25 +129,30 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   spacing: 8,
                   children: [
-                    TweenAnimationBuilder<double>(
-                      // One-shot entrance: button pops in from 70% on drawer open.
-                      // No reverse — `tween.begin` is only consulted on first build.
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      duration: const Duration(milliseconds: 320),
-                      curve: Curves.easeOutBack,
-                      builder: (context, t, child) => Opacity(
-                        opacity: t.clamp(0.0, 1.0),
-                        child: Transform.scale(scale: 0.7 + 0.3 * t, child: child),
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeOut,
-                        width: baseHeight,
-                        height: baseHeight,
-                        padding: EdgeInsets.all(_bumped ? 0 : 6.0),
-                        constraints: BoxConstraints(maxWidth: 120),
-                        child: ButtonWidget(button: _keyPair.buttons.first),
-                      ),
+                    Row(
+                      children: [
+                        TweenAnimationBuilder<double>(
+                          // One-shot entrance: button pops in from 70% on drawer open.
+                          // No reverse — `tween.begin` is only consulted on first build.
+                          tween: Tween(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOutBack,
+                          builder: (context, t, child) => Opacity(
+                            opacity: t.clamp(0.0, 1.0),
+                            child: Transform.scale(scale: 0.7 + 0.3 * t, child: child),
+                          ),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 600),
+                            curve: Curves.easeOut,
+                            width: baseHeight,
+                            height: baseHeight,
+                            padding: EdgeInsets.all(_bumped ? 0 : 6.0),
+                            constraints: BoxConstraints(maxWidth: 120),
+                            child: ButtonWidget(button: _keyPair.buttons.first),
+                          ),
+                        ),
+                        Text(_keyPair.buttons.first.name).small,
+                      ],
                     ),
                     Expanded(child: SizedBox()),
                     IconButton(
@@ -270,8 +276,7 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                   SizedBox(height: 8),
                   ColoredTitle(text: context.i18n.localRemoteSetting),
 
-                  if (core.actionHandler.supportedModes.contains(SupportedMode.keyboard) &&
-                      (core.settings.getLocalEnabled() || core.settings.getRemoteKeyboardControlEnabled()))
+                  if (core.logic.showLocalKeyboardCard)
                     Builder(
                       builder: (context) {
                         return SelectableCard(
@@ -288,8 +293,7 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                         );
                       },
                     ),
-                  if (core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
-                      (core.settings.getLocalEnabled() || core.settings.getRemoteControlEnabled()))
+                  if (core.logic.showLocalTouchCard)
                     Builder(
                       builder: (context) {
                         return SelectableCard(
@@ -326,13 +330,12 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                             launchUrlString('https://youtube.com/shorts/ClY1eTnmAv0?feature=share');
                           },
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           if (!core.settings.getLocalEnabled()) {
-                            buildToast(
-                              title: AppLocalizations.of(context).enableLocalConnectionMethodFirst,
-                            );
-                          } else {
-                            showDropdown(
+                            final enabled = await _promptEnableLocal(context);
+                            if (!enabled || !context.mounted) return;
+                          }
+                          showDropdown(
                               context: context,
                               builder: (c) => DropdownMenu(
                                 children: [
@@ -483,7 +486,6 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                 ],
                               ),
                             );
-                          }
                         },
                       ),
                     ),
@@ -505,11 +507,12 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                             launchUrlString('https://youtube.com/shorts/zqD5ARGIVmE?feature=share');
                           },
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           if (!core.settings.getLocalEnabled()) {
-                            buildToast(title: context.i18n.enableLocalConnectionMethodFirst);
-                          } else {
-                            showDropdown(
+                            final enabled = await _promptEnableLocal(context);
+                            if (!enabled || !context.mounted) return;
+                          }
+                          showDropdown(
                               context: context,
                               builder: (c) => DropdownMenu(
                                 children: AndroidSystemAction.values
@@ -540,7 +543,6 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                     .toList(),
                               ),
                             );
-                          }
                         },
                       ),
                     ),
@@ -588,28 +590,70 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                   ),
                 ],
 
-                if (!kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isIOS)) ...[
+                if (!kIsWeb) ...[
                   SizedBox(height: 8),
                   ColoredTitle(text: context.i18n.otherActions),
-                  SelectableCard(
-                    isProOnly: true,
-                    title: Text(Platform.isMacOS || Platform.isIOS ? 'Launch Shortcut' : 'Run Command'),
-                    icon: Platform.isMacOS || Platform.isIOS ? Icons.rocket_launch_outlined : Icons.terminal,
-                    isActive: _keyPair.command?.trim().isNotEmpty == true,
-                    value: _keyPair.command,
-                    onPressed: () async {
-                      await _showCommandDialog(context);
-                    },
-                  ),
-                  if (Platform.isMacOS || Platform.isWindows)
+                  if (Platform.isMacOS || Platform.isWindows || Platform.isIOS) ...[
                     SelectableCard(
                       isProOnly: true,
-                      title: Text(context.i18n.takeScreenshot),
-                      icon: Icons.image_outlined,
-                      isActive: _keyPair.screenshotPath?.trim().isNotEmpty == true,
-                      value: _keyPair.screenshotPath,
+                      title: Text(Platform.isMacOS || Platform.isIOS ? 'Launch Shortcut' : 'Run Command'),
+                      icon: Platform.isMacOS || Platform.isIOS ? Icons.rocket_launch_outlined : Icons.terminal,
+                      isActive: _keyPair.command?.trim().isNotEmpty == true,
+                      value: _keyPair.command,
                       onPressed: () async {
-                        await _showScreenshotDialog();
+                        await _showCommandDialog(context);
+                      },
+                    ),
+                    if (Platform.isMacOS || Platform.isWindows)
+                      SelectableCard(
+                        isProOnly: true,
+                        title: Text(context.i18n.takeScreenshot),
+                        icon: Icons.image_outlined,
+                        isActive: _keyPair.screenshotPath?.trim().isNotEmpty == true,
+                        value: _keyPair.screenshotPath,
+                        onPressed: () async {
+                          await _showScreenshotDialog();
+                        },
+                      ),
+                  ],
+                  SelectableCard(
+                    icon: LucideIcons.video,
+                    isProOnly: true,
+                    title: Text(context.i18n.actionScreenRecording),
+                    isActive: _keyPair.inGameAction == InGameAction.screenRecording,
+                    onPressed: () {
+                      _keyPair.inGameAction = InGameAction.screenRecording;
+                      _keyPair.inGameActionValue = null;
+                      _keyPair.physicalKey = null;
+                      _keyPair.logicalKey = null;
+                      _keyPair.modifiers = [];
+                      _keyPair.touchPosition = Offset.zero;
+                      _keyPair.androidAction = null;
+                      _keyPair.androidIntentAction = null;
+                      _keyPair.command = null;
+                      _keyPair.screenshotPath = null;
+                      setState(() {});
+                      widget.onUpdate();
+                    },
+                  ),
+                  if (core.settings.getPhoneSteeringEnabled())
+                    SelectableCard(
+                      icon: BootstrapIcons.wrenchAdjustable,
+                      title: Text(context.i18n.actionCalibratePhoneSteering),
+                      isActive: _keyPair.inGameAction == InGameAction.calibratePhoneSteering,
+                      onPressed: () {
+                        _keyPair.inGameAction = InGameAction.calibratePhoneSteering;
+                        _keyPair.inGameActionValue = null;
+                        _keyPair.physicalKey = null;
+                        _keyPair.logicalKey = null;
+                        _keyPair.modifiers = [];
+                        _keyPair.touchPosition = Offset.zero;
+                        _keyPair.androidAction = null;
+                        _keyPair.androidIntentAction = null;
+                        _keyPair.command = null;
+                        _keyPair.screenshotPath = null;
+                        setState(() {});
+                        widget.onUpdate();
                       },
                     ),
                 ],
@@ -713,6 +757,89 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
                                 child: Text(context.i18n.setHeartRateMode),
                                 onPressed: (_) {
                                   _keyPair.inGameAction = InGameAction.headwindHeartRateMode;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+
+                if (core.connection.inclineDevices.isNotEmpty) ...[
+                  SizedBox(height: 8),
+                  if (core.connection.accessories.isEmpty)
+                    ColoredTitle(text: context.i18n.accessoryActions),
+                  Builder(
+                    builder: (context) => SelectableCard(
+                      icon: LucideIcons.mountain,
+                      title: Text(context.i18n.inclineActions),
+                      isActive: _keyPair.inGameAction != null &&
+                          [
+                            InGameAction.inclineIncrease,
+                            InGameAction.inclineDecrease,
+                            InGameAction.inclineZero,
+                            InGameAction.inclineAutoMode,
+                          ].contains(_keyPair.inGameAction),
+                      value: _keyPair.inGameAction != null
+                          ? '${_keyPair.inGameAction} ${_keyPair.inGameActionValue ?? ""}'.trim()
+                          : null,
+                      onPressed: () {
+                        showDropdown(
+                          context: context,
+                          builder: (c) => DropdownMenu(
+                            children: [
+                              MenuButton(
+                                child: Text(context.i18n.actionInclineIncrease),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.inclineIncrease;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                              MenuButton(
+                                child: Text(context.i18n.actionInclineDecrease),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.inclineDecrease;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                              MenuButton(
+                                child: Text(context.i18n.actionInclineZero),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.inclineZero;
+                                  _keyPair.inGameActionValue = null;
+                                  _keyPair.androidAction = null;
+                                  _keyPair.androidIntentAction = null;
+                                  _keyPair.command = null;
+                                  _keyPair.screenshotPath = null;
+                                  widget.onUpdate();
+                                  setState(() {});
+                                },
+                              ),
+                              MenuButton(
+                                child: Text(context.i18n.actionInclineAutoMode),
+                                onPressed: (_) {
+                                  _keyPair.inGameAction = InGameAction.inclineAutoMode;
                                   _keyPair.inGameActionValue = null;
                                   _keyPair.androidAction = null;
                                   _keyPair.androidIntentAction = null;
@@ -1194,6 +1321,33 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
     );
   }
 
+  /// Asks the user whether to enable the Local connection method; on confirm,
+  /// runs [enableLocalControl] and rebuilds so the local action cards reflect
+  /// the new enabled state. Returns whether Local ended up enabled.
+  Future<bool> _promptEnableLocal(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.i18n.enableLocalConnectionMethodTitle),
+        content: Text(context.i18n.enableLocalConnectionMethodDescription),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.i18n.cancel),
+          ),
+          PrimaryButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.i18n.enable),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return false;
+    final enabled = await enableLocalControl(context);
+    if (enabled && mounted) setState(() {});
+    return enabled;
+  }
+
   Future<void> _showModeDropdown(BuildContext context, SupportedMode supportedMode) async {
     final trainerApp = core.settings.getTrainerApp();
 
@@ -1224,10 +1378,10 @@ class _ButtonEditPageState extends State<ButtonEditPage> {
         supportedMode == SupportedMode.media && core.settings.getLocalEnabled();
 
     if (!isEnabled) {
-      return buildToast(
-        title: AppLocalizations.of(context).enableLocalConnectionMethodFirst,
-      );
-    } else if (actionsWithInGameAction.isNotEmpty) {
+      final enabled = await _promptEnableLocal(context);
+      if (!enabled || !context.mounted) return;
+    }
+    if (actionsWithInGameAction.isNotEmpty) {
       showDropdown(
         context: context,
         builder: (c) => DropdownMenu(

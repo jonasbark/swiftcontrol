@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/steering_estimator.dart';
+import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
@@ -15,7 +16,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Gyroscope and Accelerometer based steering device
 /// Detects handlebar movement when the phone is mounted on the handlebar
-class GyroscopeSteering extends BaseDevice {
+class GyroscopeSteering extends BaseDevice implements SteeringDevice {
   GyroscopeSteering()
     : super(
         'Phone Steering',
@@ -44,6 +45,23 @@ class GyroscopeSteering extends BaseDevice {
   final SteeringEstimator _estimator = SteeringEstimator();
   bool _isCalibrated = false;
   ControllerButton? _lastSteeringButton;
+
+  /// Live signed steering angle (degrees) for the UI gauge. Positive ⇒ steer
+  /// LEFT, negative ⇒ steer RIGHT (see [_applyPWMSteering]).
+  final ValueNotifier<double> steeringAngle = ValueNotifier(0.0);
+
+  /// Mirrors [_isCalibrated] for the UI gauge.
+  final ValueNotifier<bool> isCalibratedNotifier = ValueNotifier(false);
+
+  // SteeringDevice interface
+  @override
+  ValueListenable<bool> get steeringCalibrated => isCalibratedNotifier;
+  @override
+  double get steeringThreshold => core.settings.getPhoneSteeringThreshold();
+  @override
+  ControllerButton get steerLeftButton => GyroscopeSteeringButtons.leftSteer;
+  @override
+  ControllerButton get steerRightButton => GyroscopeSteeringButtons.rightSteer;
 
   // Accelerometer raw data
   bool _hasAccelData = false;
@@ -128,7 +146,7 @@ class GyroscopeSteering extends BaseDevice {
       actionStreamInternal.add(LogNotification('Gyroscope Steering: Connected - Calibrating...'));
 
       // Reset calibration/estimator
-      _isCalibrated = false;
+      _setCalibrated(false);
       _hasAccelData = false;
       _estimator.reset();
       _lastGyroUpdate = null;
@@ -166,7 +184,7 @@ class GyroscopeSteering extends BaseDevice {
       // This gives the bias estimator time to settle.
       if (_estimator.stillTimeSec >= 0.6) {
         _estimator.calibrate(seedBiasZRadPerSec: _estimator.biasZRadPerSec);
-        _isCalibrated = true;
+        _setCalibrated(true);
         /*actionStreamInternal.add(
           AlertNotification(LogLevel.LOGLEVEL_INFO, 'Calibration complete.'),
         );*/
@@ -233,7 +251,7 @@ class GyroscopeSteering extends BaseDevice {
           _magnetometerCalibrationHeading = _magnetometerCalibrationHeading! + 360;
 
         _magnetometerCalibrationSamples.clear();
-        _isCalibrated = true;
+        _setCalibrated(true);
         actionStreamInternal.add(
           LogNotification(
             'Magnetometer calibration complete. Reference heading: ${_magnetometerCalibrationHeading!.toStringAsFixed(2)}°',
@@ -260,6 +278,7 @@ class GyroscopeSteering extends BaseDevice {
   }
 
   void _processSteeringAngle(double steeringAngleDeg) {
+    steeringAngle.value = steeringAngleDeg;
     final roundedAngle = steeringAngleDeg.round();
 
     if (_lastRoundedAngle != roundedAngle) {
@@ -310,7 +329,8 @@ class GyroscopeSteering extends BaseDevice {
     _magnetometerSubscription = null;
     _keypressTimer?.cancel();
     isConnected = false;
-    _isCalibrated = false;
+    _setCalibrated(false);
+    steeringAngle.value = 0.0;
     _hasAccelData = false;
     _estimator.reset();
     _magnetometerCalibrationHeading = null;
@@ -331,6 +351,31 @@ class GyroscopeSteering extends BaseDevice {
     ];
   }
 
+  void _setCalibrated(bool value) {
+    _isCalibrated = value;
+    isCalibratedNotifier.value = value;
+  }
+
+  /// Reset calibration so the sensors re-learn their neutral reference. Safe to
+  /// call any time (also used by the assignable Calibrate action).
+  void recalibrate() {
+    _setCalibrated(false);
+    if (_useMagnetometer) {
+      _magnetometerCalibrationHeading = null;
+      _magnetometerCalibrationSamples.clear();
+      _currentMagnetometerAngle = 0.0;
+      _filteredMagX = null;
+      _filteredMagY = null;
+    } else {
+      _hasAccelData = false;
+      _estimator.reset();
+      _lastGyroUpdate = null;
+    }
+    _lastRoundedAngle = null;
+    _lastSteeringButton = null;
+    steeringAngle.value = 0.0;
+  }
+
   @override
   Widget? buildPreferences(BuildContext context) {
     return StatefulBuilder(
@@ -347,17 +392,7 @@ class GyroscopeSteering extends BaseDevice {
               setState(() {
                 _useMagnetometer = value == CheckboxState.checked;
                 // Reset calibration when switching modes
-                _isCalibrated = false;
-                _hasAccelData = false;
-                _estimator.reset();
-                _lastGyroUpdate = null;
-                _lastRoundedAngle = null;
-                _lastSteeringButton = null;
-                _magnetometerCalibrationHeading = null;
-                _magnetometerCalibrationSamples.clear();
-                _currentMagnetometerAngle = 0.0;
-                _filteredMagX = null;
-                _filteredMagY = null;
+                recalibrate();
               });
 
               // Restart sensor streams if device is connected
@@ -410,21 +445,8 @@ class GyroscopeSteering extends BaseDevice {
                 onPressed: !_isCalibrated
                     ? null
                     : () {
-                        // Reset calibration
-                        _isCalibrated = false;
-                        if (_useMagnetometer) {
-                          _magnetometerCalibrationHeading = null;
-                          _magnetometerCalibrationSamples.clear();
-                          _currentMagnetometerAngle = 0.0;
-                          _filteredMagX = null;
-                          _filteredMagY = null;
-                        } else {
-                          _hasAccelData = false;
-                          _estimator.reset();
-                          _lastGyroUpdate = null;
-                        }
-                        _lastRoundedAngle = null;
-                        _lastSteeringButton = null;
+                        recalibrate();
+                        // setState needed until the button wires to isCalibratedNotifier.
                         setState(() {});
                       },
                 child: Text(_isCalibrated ? 'Calibrate' : 'Calibrating...'),

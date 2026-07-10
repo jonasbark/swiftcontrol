@@ -300,6 +300,10 @@ class KeyPair {
                   [
                     InGameAction.headwindHeartRateMode,
                     InGameAction.headwindSpeed,
+                    InGameAction.inclineIncrease,
+                    InGameAction.inclineDecrease,
+                    InGameAction.inclineZero,
+                    InGameAction.inclineAutoMode,
                     ...trainerActions,
                   ].contains(inGameAction!)) =>
         inGameAction!.icon,
@@ -402,6 +406,14 @@ class KeyPair {
       (inGameAction != null &&
           [InGameAction.headwindHeartRateMode, InGameAction.headwindSpeed].contains(inGameAction) &&
           (core.connection.accessories.isNotEmpty || kDebugMode)) ||
+      (inGameAction != null &&
+          [
+            InGameAction.inclineIncrease,
+            InGameAction.inclineDecrease,
+            InGameAction.inclineZero,
+            InGameAction.inclineAutoMode,
+          ].contains(inGameAction) &&
+          (core.connection.inclineDevices.isNotEmpty || kDebugMode)) ||
       (screenshotPath != null && screenshotPath!.trim().isNotEmpty) ||
       (command != null && command!.trim().isNotEmpty);
 
@@ -636,6 +648,7 @@ class KeyPair {
       command != null && command!.trim().isNotEmpty ||
       screenshotPath != null && screenshotPath!.trim().isNotEmpty ||
       isSpecialKey ||
+      inGameAction == InGameAction.screenRecording ||
       (androidAction != null && core.logic.showLocalControl && core.actionHandler is AndroidActions) ||
       (androidIntentAction != null &&
           androidIntentAction!.trim().isNotEmpty &&
