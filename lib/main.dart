@@ -3,6 +3,9 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:app_links/app_links.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
+import 'package:bike_control/bluetooth/emulation/real_ble_platform.dart';
+import 'package:bike_control/bluetooth/emulation/routing_ble_platform.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/services/overlay/desktop_overlay_window.dart';
@@ -20,6 +23,7 @@ import 'package:multi_window_native/multi_window_native.dart';
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:prop/utils/shared.dart' show Logger;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:universal_ble/universal_ble.dart';
 import 'package:window_manager/window_manager.dart' as wm;
 
 import 'pages/navigation.dart';
@@ -69,12 +73,21 @@ Future<void> main(List<String> args) async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
+      // Debug builds route BLE through the emulation-capable platform so the
+      // "Emulate device" menu can add fake peripherals next to real hardware.
+      // Must run before Connection.initialize() — universal_ble callbacks
+      // live on the platform instance.
+      if (kDebugMode) {
+        final emulatedBle = FakeUniversalBlePlatform();
+        UniversalBle.setInstance(RoutingBlePlatform(real: createRealBlePlatform(), fake: emulatedBle));
+        core.emulation.attach(emulatedBle);
+      }
+
       // Detect sub-window engine and dispatch to the overlay entry point before
       // doing any heavy bootstrap. multi_window_native re-runs main() with
       // kTrainerOverlayRoute as the first positional arg — this applies to
       // both macOS and Windows now that we use multi_window_native on both.
-      if (!kIsWeb && (Platform.isMacOS || Platform.isWindows) &&
-          args.contains(kTrainerOverlayRoute)) {
+      if (!kIsWeb && (Platform.isMacOS || Platform.isWindows) && args.contains(kTrainerOverlayRoute)) {
         await wm.windowManager.ensureInitialized();
         await wm.windowManager.waitUntilReadyToShow();
         final windowId = await wm.windowManager.getId();
@@ -148,6 +161,13 @@ Future<void> _recordFlutterError(FlutterErrorDetails details) async {
   );
 }
 
+/// Whether an error [context] represents a genuinely uncaught failure (caught
+/// only by the app's top-level guards) rather than an error that was handled in
+/// a try/catch and merely funneled through [recordError]. Controls only the log
+/// label: a handled error must not read as "App crashed" in support logs.
+bool isFatalErrorContext(String context) =>
+    const {'Zone', 'PlatformDispatcher', 'Isolate'}.contains(context);
+
 /// Record a handled error. Funnels through [Logger.recordError]; the listener
 /// installed by [installLoggerErrorListener] prints and persists the entry
 /// (which also feeds the debug log support chats attach).
@@ -180,6 +200,7 @@ void installLoggerErrorListener() {
     unawaited(
       _persistCrash(
         type: 'dart',
+        fatal: isFatalErrorContext(message),
         error: error.toString(),
         stack: stack,
         information: 'Context: $message',
@@ -191,20 +212,31 @@ void installLoggerErrorListener() {
 Future<void> _persistCrash({
   required String type,
   required String error,
+  bool fatal = false,
   StackTrace? stack,
   String? information,
 }) async {
   try {
-    core.connection.signalNotification(LogNotification('App crashed $type: $error${stack != null ? '\n$stack' : ''}'));
+    // Only genuinely-uncaught errors read as "App crashed"; handled errors
+    // (caught + recorded) read as "Handled error" so support logs aren't
+    // misread as crashes.
+    final label = fatal ? 'App crashed' : 'Handled error';
+    core.connection.signalNotification(LogNotification('$label $type: $error${stack != null ? '\n$stack' : ''}'));
 
     final timestamp = DateTime.now().toIso8601String();
+    String debugTextValue;
+    try {
+      debugTextValue = await debugText(includeDiscovery: false);
+    } catch (e, s) {
+      debugTextValue = 'Exception $e';
+    }
     final crashData = StringBuffer()
       ..writeln('--- $timestamp ---')
       ..writeln('Type: $type')
       ..writeln('Error: $error')
       ..writeln('Stack: ${stack ?? 'no stack'}')
       ..writeln('Info: ${information ?? ''}')
-      ..writeln(await debugText())
+      ..writeln(debugTextValue)
       ..writeln()
       ..writeln();
 

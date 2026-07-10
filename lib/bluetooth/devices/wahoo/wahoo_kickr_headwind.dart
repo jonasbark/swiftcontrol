@@ -7,7 +7,7 @@ import 'package:universal_ble/universal_ble.dart';
 
 import '../bluetooth_device.dart';
 
-class WahooKickrHeadwind extends BluetoothDevice {
+class WahooKickrHeadwind extends BluetoothDevice with Accessory {
   // Current mode state
   HeadwindMode _currentMode = HeadwindMode.unknown;
   int _currentSpeed = 0;

@@ -19,6 +19,12 @@ class TrainingPeaks extends SupportedApp {
   String? get logoAsset => 'assets/trainingpeaks.png';
 
   @override
+  String? get officialUrl => 'https://www.trainingpeaks.com/virtual/';
+
+  @override
+  String get helpSlug => 'trainingpeaks';
+
+  @override
   List<ControllerButton> get defaultObpSupportedButtons => const [
     0x01, // Shift Up
     0x02, // Shift Down

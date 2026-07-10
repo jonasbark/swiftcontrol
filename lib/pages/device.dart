@@ -16,6 +16,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import '../bluetooth/devices/base_device.dart';
+import '../bluetooth/devices/bluetooth_device.dart';
 import '../bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import '../bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
 
@@ -125,20 +126,36 @@ class _DevicePageState extends State<DevicePage> {
                 if (group.length == 1)
                   _buildDeviceCard(group.single)
                 else
-                  IntrinsicHeight(
-                    child: Row(
-                      spacing: 12,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: group
-                          .map<Widget>((device) => Expanded(child: _buildDeviceCard(device)))
-                          .joinSeparator(
-                            VerticalDivider(
-                              thickness: Theme.of(context).brightness == Brightness.dark ? 1 : 0.5,
-                              endIndent: 12,
+                  // A full-height VerticalDivider can't be used here: it demands
+                  // infinite height inside this scrollable Column, and wrapping in
+                  // IntrinsicHeight doesn't help because the card's ControllerCanvas
+                  // footer (LayoutBuilder/AspectRatio) can't answer intrinsic-height
+                  // queries. Draw the separator as a trailing border instead — no
+                  // intrinsics, no infinite height.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final (i, device) in group.indexed)
+                        Expanded(
+                          child: Container(
+                            decoration: i < group.length - 1
+                                ? BoxDecoration(
+                                    border: Border(
+                                      right: BorderSide(
+                                        color: Theme.of(context).colorScheme.border,
+                                        width: Theme.of(context).brightness == Brightness.dark ? 1 : 0.5,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            padding: EdgeInsets.only(
+                              left: i > 0 ? 12 : 0,
+                              right: i < group.length - 1 ? 12 : 0,
                             ),
-                          )
-                          .toList(),
-                    ),
+                            child: _buildDeviceCard(device),
+                          ),
+                        ),
+                    ],
                   ),
                 if (index != deviceGroups.length - 1) ...[
                   Divider(
@@ -153,13 +170,16 @@ class _DevicePageState extends State<DevicePage> {
             )
             .flatten(),
 
-        if (core.connection.accessories.isNotEmpty) ...[
+        if (core.connection.accessories.isNotEmpty || core.connection.climbAccessories.isNotEmpty) ...[
           Gap(12),
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
             child: ColoredTitle(text: AppLocalizations.of(context).accessories),
           ),
-          ...core.connection.accessories.map(
+          ...<BluetoothDevice>[
+            ...core.connection.accessories,
+            ...core.connection.climbAccessories,
+          ].map(
             (device) => Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
               key: widget.cardKeys[device.uniqueId],

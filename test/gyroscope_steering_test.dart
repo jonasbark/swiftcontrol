@@ -1,3 +1,4 @@
+import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -101,6 +102,27 @@ void main() {
       expect(0.01 > minDt && 0.01 < maxDt, isTrue);
       expect(0.5 > minDt && 0.5 < maxDt, isTrue);
       expect(1.5 > minDt && 1.5 < maxDt, isFalse); // Too large
+    });
+  });
+
+  group('GyroscopeSteering live data', () {
+    test('recalibrate() flips isCalibratedNotifier back to false', () {
+      final device = GyroscopeSteering();
+      device.isCalibratedNotifier.value = true; // pretend a prior calibration
+      device.recalibrate();
+      expect(device.isCalibratedNotifier.value, isFalse);
+    });
+
+    test('steeringAngle starts at 0', () {
+      final device = GyroscopeSteering();
+      expect(device.steeringAngle.value, 0.0);
+    });
+
+    test('recalibrate() resets steeringAngle to 0', () {
+      final device = GyroscopeSteering();
+      device.steeringAngle.value = 42.0; // simulate a live angle
+      device.recalibrate();
+      expect(device.steeringAngle.value, 0.0);
     });
   });
 }

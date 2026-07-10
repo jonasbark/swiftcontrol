@@ -7,6 +7,12 @@ import '../keymap.dart';
 
 class Zwift extends SupportedApp {
   @override
+  String? get officialUrl => 'https://www.zwift.com';
+
+  @override
+  String get helpSlug => 'zwift';
+
+  @override
   List<(AppConnectionMethod, ConnectionSupport)> get connections => [
     (AppConnectionMethod.zwiftMdns, ConnectionSupport.supported),
     (AppConnectionMethod.zwiftBle, ConnectionSupport.beta),

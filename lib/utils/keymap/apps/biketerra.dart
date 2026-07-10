@@ -7,6 +7,12 @@ import '../keymap.dart';
 
 class Biketerra extends SupportedApp {
   @override
+  String? get officialUrl => 'https://biketerra.com';
+
+  @override
+  String get helpSlug => 'biketerra';
+
+  @override
   List<(AppConnectionMethod, ConnectionSupport)> get connections => [
     (AppConnectionMethod.zwiftMdns, ConnectionSupport.supported),
   ];

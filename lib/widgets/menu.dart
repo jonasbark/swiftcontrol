@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/emulation/profiles/all_profiles.dart';
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/logviewer.dart';
 import 'package:bike_control/widgets/title.dart';
@@ -19,10 +22,10 @@ import 'package:keypress_simulator/keypress_simulator.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' show Purchases;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:universal_ble/universal_ble.dart';
 
-import '../bluetooth/devices/zwift/zwift_clickv2.dart';
 import '../utils/iap/iap_manager.dart';
+import 'package:bike_control/services/debug_diagnostics.dart';
+import 'package:bike_control/main.dart' show recordError;
 
 List<Widget> buildMenuButtons(BuildContext context) {
   final iap = IAPManager.instance;
@@ -95,14 +98,23 @@ List<Widget> buildMenuButtons(BuildContext context) {
   ];
 }
 
-Future<String> debugText() async {
+Future<String> debugText({bool includeDiscovery = true}) async {
   final userId = IAPManager.instance.isUsingRevenueCat ? (await Purchases.appUserID) : null;
   final proxies = core.connection.proxyDevices;
   final proxyBlock = proxies.isEmpty ? '-' : proxies.map(_describeProxyDevice).join('\n  ');
+  String diagnostics;
+  try {
+    final diag = await DebugDiagnostics.gather(includeDiscovery: includeDiscovery);
+    diagnostics = diag.toText();
+  } catch (e, s) {
+    recordError(e, s, context: 'debugText.diagnostics');
+    diagnostics = 'Diagnostics: (unavailable)';
+  }
   return '''
 
 ---
 App Version: ${packageInfoValue?.version}${shorebirdPatch?.number != null ? '+${shorebirdPatch!.number}' : ''}
+Update Track: ${IAPManager.instance.isBetaTester ? 'beta' : 'stable'}
 Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}
 Target: ${core.settings.getLastTarget()?.name ?? '-'}
 Trainer App: ${core.settings.getTrainerApp()?.name ?? '-'}
@@ -111,6 +123,7 @@ Connected Trainers: ${core.logic.connectedTrainerConnections.map((e) => e.title)
 Smart Trainers:
   $proxyBlock
 Status: ${IAPManager.instance.getStatusMessage()}${userId != null ? ' (User ID: $userId)' : ''}
+$diagnostics
 Logs:
 ${core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}')}
 ''';
@@ -144,7 +157,9 @@ String _describeProxyDevice(ProxyDevice device) {
   if (device.firmwareVersion != null) parts.add('fw=${device.firmwareVersion}');
   if (device.manufacturerName != null) parts.add('mfg=${device.manufacturerName}');
   if (def != null) {
-    parts.add('gear=${def.currentGear.value}/${def.maxGear}');
+    parts.add(
+      'gear=${formatGearReadout(currentGear: def.currentGear.value, maxGear: def.maxGear, frontShiftEnabled: def.frontShiftEnabled, largeRing: def.frontRing.value == FrontRing.large)}',
+    );
     parts.add('trainerMode=${def.trainerMode.value.name}');
   }
 
@@ -171,40 +186,17 @@ class BKMenuButton extends StatelessWidget {
           children: [
             if (kDebugMode) ...[
               MenuButton(
-                child: Text(context.i18n.continueAction),
-                onPressed: (c) {
-                  //IAPManager.instance.purchaseFullVersion(context);
-                  core.connection.addDevices([
-                    ZwiftClickV2(
-                        BleDevice(
-                          name: 'Controller',
-                          deviceId: '00:11:22:33:44:55',
-                        ),
-                      )
-                      ..firmwareVersion = '1.2.0'
-                      ..rssi = -51
-                      ..batteryLevel = 81,
-                  ]);
-                  /*final service = TrainerOverlayService.forCurrentPlatform();
-                  final fitness = FitnessBikeDefinition(
-                    connectedDevice: BleDevice(deviceId: 'das', name: 'name'),
-                    connectedDeviceServices: [],
-                    data: ValueNotifier('_value'),
-                  );
-                  service.show(
-                    fitness,
-                    {
-                      OverlayField.gearRatio,
-                      OverlayField.power,
-                      OverlayField.cadence,
-                      OverlayField.controls,
-                    },
-                  );
-                  Future.delayed(Duration(seconds: 10), () {
-                    fitness.data.value = DateTime.now().toIso8601String();
-                    fitness.shiftUp();
-                  });*/
-                },
+                subMenu: [
+                  for (final profile in allEmulationProfiles)
+                    MenuButton(
+                      onPressed: (c) {
+                        core.emulation.start(profile);
+                        unawaited(core.connection.performScanning());
+                      },
+                      child: Text(profile.name),
+                    ),
+                ],
+                child: const Text('Emulate device'),
               ),
               MenuButton(
                 child: Text(context.i18n.reset),

@@ -8,6 +8,7 @@ import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_pro.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
+import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
@@ -20,17 +21,25 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_play_fw2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
+// `SramAdvertisement` clashes with nothing here, but the prop package also
+// exports a `SramAxs` constants class that collides with this file's `SramAxs`
+// app device import above — pull in only what's needed to avoid the clash.
+import 'package:prop/prop.dart' show SramAdvertisement;
+import 'package:prop/utils/wahoo_climb.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 import 'cycplus/cycplus_bc2.dart';
+import 'elite/elite_rizer.dart';
 import 'elite/elite_square.dart';
 import 'elite/elite_sterzo.dart';
 import 'thinkrider/thinkrider_vs200.dart';
+import 'wheeltop/wheeltop_eds.dart';
 
 abstract class BluetoothDevice extends BaseDevice {
   final BleDevice scanResult;
@@ -71,6 +80,7 @@ abstract class BluetoothDevice extends BaseDevice {
     SquareConstants.SERVICE_UUID,
     WahooKickrBikeShiftConstants.SERVICE_UUID,
     WahooKickrHeadwindConstants.SERVICE_UUID,
+    wahooClimbServiceUuid,
     SterzoConstants.SERVICE_UUID,
     CycplusBc2Constants.SERVICE_UUID,
     ShimanoDi2Constants.SERVICE_UUID,
@@ -82,6 +92,25 @@ abstract class BluetoothDevice extends BaseDevice {
   static final List<String> _ignoredNames = ['ASSIOMA', 'QUARQ', 'POWERCRANK'];
 
   List<BleService>? services;
+
+  /// §2.1: BikeControl should only connect to the SRAM AXS rear derailleur —
+  /// bare shifters/blips/pods also advertise service 0xFE51 but aren't
+  /// connectable targets. Uses the advertised device-type record to tell them
+  /// apart; when it's absent or unparsable, falls back to the previous
+  /// behavior (connect).
+  static bool _sramIsConnectable(BleDevice scanResult) {
+    Uint8List? record;
+    for (final e in scanResult.serviceData.entries) {
+      if (e.key.toLowerCase().contains('fe51')) {
+        record = e.value;
+        break;
+      }
+    }
+    if (record == null) return true; // no service data → can't tell; keep current behavior
+    final info = SramAdvertisement.parse(record);
+    if (info == null) return true;
+    return info.isRearDerailleur; // connect only to the rear derailleur
+  }
 
   static BluetoothDevice? fromScanResult(BleDevice scanResult) {
     // skip devices with ignored names
@@ -100,8 +129,13 @@ abstract class BluetoothDevice extends BaseDevice {
         'SQUARE' => EliteSquare(scanResult),
         'OpenBike' => OpenBikeControlDevice(scanResult),
         null => null,
+        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') && IAPManager.instance.isBetaTester =>
+          WahooKickrClimb(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('RIZER') && IAPManager.instance.isBetaTester => EliteRizer(
+          scanResult,
+        ),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE SHIFT') => WahooKickrBikeShift(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE PRO') => WahooKickrBikePro(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE') => WahooKickrBikeShift(scanResult),
@@ -109,7 +143,9 @@ abstract class BluetoothDevice extends BaseDevice {
           CycplusBc2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('THINK VS') => ThinkRiderVs200(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('RDR') => ShimanoDi2(scanResult),
-        _ when scanResult.name!.toUpperCase().startsWith('SRAM') => SramAxs(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('SRAM') && _sramIsConnectable(scanResult) => SramAxs(
+          scanResult,
+        ),
         _ => null,
       };
     } else {
@@ -119,9 +155,14 @@ abstract class BluetoothDevice extends BaseDevice {
         // https://www.makinolo.com/blog/2024/07/26/zwift-ride-protocol/
         //'Zwift Play' => ZwiftPlay(scanResult),
         //'Zwift Click' => ZwiftClick(scanResult), special case for Zwift Click v2: we must only connect to the left controller
+        _ when scanResult.name!.toUpperCase().startsWith('KICKR CLIMB') && IAPManager.instance.isBetaTester =>
+          WahooKickrClimb(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('HEADWIND') => WahooKickrHeadwind(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('SQUARE') => EliteSquare(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('STERZO') => EliteSterzo(scanResult),
+        _ when scanResult.name!.toUpperCase().startsWith('RIZER') && IAPManager.instance.isBetaTester => EliteRizer(
+          scanResult,
+        ),
         _ when scanResult.name!.toUpperCase().contains('KICKR BIKE SHIFT') => WahooKickrBikeShift(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE PRO') => WahooKickrBikePro(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('KICKR BIKE') => WahooKickrBikeShift(scanResult),
@@ -134,13 +175,15 @@ abstract class BluetoothDevice extends BaseDevice {
           scanResult,
         ),
         _ when scanResult.services.containsAny(ProxyDevice.proxyServiceUUIDs) => ProxyDevice(scanResult),
-        _ when scanResult.services.contains(SramAxsConstants.SERVICE_UUID.toLowerCase()) => SramAxs(
-          scanResult,
-        ),
+        _
+            when scanResult.services.contains(SramAxsConstants.SERVICE_UUID.toLowerCase()) &&
+                _sramIsConnectable(scanResult) =>
+          SramAxs(scanResult),
         _ when scanResult.services.contains(OpenBikeControlConstants.SERVICE_UUID.toLowerCase()) =>
           OpenBikeControlDevice(scanResult),
         _ when scanResult.services.contains(WahooKickrHeadwindConstants.SERVICE_UUID.toLowerCase()) =>
           WahooKickrHeadwind(scanResult),
+        _ when scanResult.services.contains(wahooClimbServiceUuid.toLowerCase()) => WahooKickrClimb(scanResult),
         // otherwise the service UUIDs will be used
         _ => null,
       };
@@ -179,6 +222,10 @@ abstract class BluetoothDevice extends BaseDevice {
         };
       }
     }
+
+    // WHEELTOP EDS shifters advertise no usable name and no service UUIDs —
+    // they are recognized by their manufacturer-data prefix alone.
+    device ??= WheeltopEds.tryFrom(scanResult);
 
     if (scanResult.name == 'Zwift Ride' &&
         device == null &&
@@ -420,3 +467,7 @@ abstract class BluetoothDevice extends BaseDevice {
     }
   }
 }
+
+/// Marker for devices that react to trainer/game state rather than acting as a
+/// controller (e.g. Headwind fan, KICKR Climb). Excluded from [controllerDevices].
+mixin Accessory on BluetoothDevice {}

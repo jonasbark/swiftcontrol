@@ -4,6 +4,7 @@ import 'package:bike_control/bluetooth/devices/elite/elite_sterzo.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
+import 'package:bike_control/bluetooth/devices/wheeltop/wheeltop_eds.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/widgets/keymap_explanation.dart';
@@ -46,6 +47,12 @@ enum InGameAction {
   headwindSpeedCyclicDec('Headwind Speed Cyclic Decrease', icon: Icons.air, isOutsideTrainerApp: true),
   headwindHeartRateMode('Headwind HR Mode', icon: Icons.favorite, isOutsideTrainerApp: true),
 
+  // Incline devices (KICKR Climb, Elite Rizer)
+  inclineIncrease('Incline Up', icon: LucideIcons.trendingUp, isOutsideTrainerApp: true),
+  inclineDecrease('Incline Down', icon: LucideIcons.trendingDown, isOutsideTrainerApp: true),
+  inclineZero('Incline Flatten (0%)', icon: LucideIcons.minus, isOutsideTrainerApp: true),
+  inclineAutoMode('Incline Auto (Follow Grade)', icon: LucideIcons.mountain, isOutsideTrainerApp: true),
+
   // openbikecontrol
   up('Up', icon: RadixIcons.arrowUp),
   down('Down', icon: RadixIcons.arrowDown),
@@ -69,12 +76,17 @@ enum InGameAction {
   trainerIntensityUp('Trainer: Intensity Up', icon: LucideIcons.trendingUp, isOutsideTrainerApp: true),
   trainerIntensityDown('Trainer: Intensity Down', icon: LucideIcons.trendingDown, isOutsideTrainerApp: true),
   workoutPauseResume('Workout: Pause/Resume', icon: LucideIcons.pause, isOutsideTrainerApp: true),
+  frontShift('Front Shift (Chainring)', icon: LucideIcons.arrowLeftRight, isOutsideTrainerApp: true),
 
   // Wahoo ELEMNT — D-Fly channel buttons emitted via the Di2Definition.
   dFlyChannel1('D-Fly Channel 1', icon: LucideIcons.circleDot),
   dFlyChannel2('D-Fly Channel 2', icon: LucideIcons.circleDot),
   dFlyChannel3('D-Fly Channel 3', icon: LucideIcons.circleDot),
-  dFlyChannel4('D-Fly Channel 4', icon: LucideIcons.circleDot);
+  dFlyChannel4('D-Fly Channel 4', icon: LucideIcons.circleDot),
+
+  // device / system
+  calibratePhoneSteering('Calibrate Steering', icon: BootstrapIcons.wrenchAdjustable, isOutsideTrainerApp: true),
+  screenRecording('Record Screen', icon: LucideIcons.video, isOutsideTrainerApp: true);
 
   final String englishTitle;
   final bool isLongPress;
@@ -122,6 +134,10 @@ enum InGameAction {
       InGameAction.headwindSpeedCyclicInc => l.actionHeadwindSpeedCyclicInc,
       InGameAction.headwindSpeedCyclicDec => l.actionHeadwindSpeedCyclicDec,
       InGameAction.headwindHeartRateMode => l.actionHeadwindHeartRateMode,
+      InGameAction.inclineIncrease => l.actionInclineIncrease,
+      InGameAction.inclineDecrease => l.actionInclineDecrease,
+      InGameAction.inclineZero => l.actionInclineZero,
+      InGameAction.inclineAutoMode => l.actionInclineAutoMode,
       InGameAction.up => l.actionUp,
       InGameAction.down => l.actionDown,
       InGameAction.home => l.actionHome,
@@ -142,10 +158,13 @@ enum InGameAction {
       InGameAction.trainerIntensityUp => l.actionTrainerIntensityUp,
       InGameAction.trainerIntensityDown => l.actionTrainerIntensityDown,
       InGameAction.workoutPauseResume => l.actionWorkoutPauseResume,
+      InGameAction.frontShift => l.actionFrontShift,
       InGameAction.dFlyChannel1 => l.actionDFlyChannel1,
       InGameAction.dFlyChannel2 => l.actionDFlyChannel2,
       InGameAction.dFlyChannel3 => l.actionDFlyChannel3,
       InGameAction.dFlyChannel4 => l.actionDFlyChannel4,
+      InGameAction.calibratePhoneSteering => l.actionCalibratePhoneSteering,
+      InGameAction.screenRecording => l.actionScreenRecording,
     };
   }
 
@@ -160,6 +179,7 @@ const trainerActions = [
   InGameAction.trainerIntensityUp,
   InGameAction.trainerIntensityDown,
   InGameAction.workoutPauseResume,
+  InGameAction.frontShift,
 ];
 
 const trainerOnlyActions = [
@@ -265,6 +285,7 @@ class ControllerButton {
     ...EliteSquareButtons.values,
     ...WahooKickrShiftButtons.values,
     ...CycplusBc2Buttons.values,
+    ...WheeltopEdsButtons.values,
     ...OpenBikeProtocolParser.BUTTON_NAMES.values,
   ].distinct().toList();
 }

@@ -1,6 +1,7 @@
 {
   "actionShiftUp": "Shift Up",
   "actionShiftDown": "Shift Down",
+  "actionFrontShift": "Front Shift (Chainring)",
   "actionUturn": "U-Turn",
   "actionTuck": "Tuck",
   "actionSteerLeft": "Steer Left",
@@ -25,6 +26,12 @@
   "actionHeadwindSpeedCyclicInc": "Headwind Speed Cyclic Increase",
   "actionHeadwindSpeedCyclicDec": "Headwind Speed Cyclic Decrease",
   "actionHeadwindHeartRateMode": "Headwind HR Mode",
+  "actionInclineIncrease": "Incline Up",
+  "actionInclineDecrease": "Incline Down",
+  "actionInclineZero": "Incline Flatten (0%)",
+  "actionInclineAutoMode": "Incline Auto (Follow Grade)",
+  "inclineActions": "Incline",
+  "kickrClimb": "KICKR Climb",
   "actionUp": "Up",
   "actionDown": "Down",
   "actionHome": "Home",
@@ -45,6 +52,17 @@
   "actionTrainerIntensityUp": "Trainer: Intensity Up",
   "actionTrainerIntensityDown": "Trainer: Intensity Down",
   "actionWorkoutPauseResume": "Workout: Pause/Resume",
+  "actionScreenRecording": "Record Screen",
+  "actionCalibratePhoneSteering": "Calibrate Steering",
+  "steeringRecalibrating": "Recalibrating steering…",
+  "phoneSteeringNotEnabled": "Phone steering isn't enabled",
+  "steeringCalibrating": "Calibrating…",
+  "openFolder": "Open folder",
+  "openGallery": "Open gallery",
+  "screenRecordingStarted": "Screen recording started",
+  "screenRecordingStopped": "Screen recording saved",
+  "screenRecordingFailed": "Could not start screen recording",
+  "screenRecordingNotSupported": "Screen recording isn't supported on this device",
   "actionDFlyChannel1": "D-Fly Channel 1",
   "actionDFlyChannel2": "D-Fly Channel 2",
   "actionDFlyChannel3": "D-Fly Channel 3",
@@ -165,7 +183,7 @@
   "connection": "Connection",
   "reconnect": "Reconnect",
   "batterySaverTitle": "Battery saver",
-  "controllersDisconnectedInactivity": "Controllers disconnected after {minutes} minutes of inactivity to save battery",
+  "controllersDisconnectedInactivity": "Controllers disconnected after {minutes} minutes of inactivity to save battery. Turn a controller back on to reconnect it.",
   "@controllersDisconnectedInactivity": {
     "placeholders": {
       "minutes": {
@@ -280,6 +298,9 @@
       }
     }
   },
+  "enable": "Enable",
+  "enableLocalConnectionMethodDescription": "This action uses the Local connection method, which isn't enabled yet. Enable it to use this action.",
+  "enableLocalConnectionMethodTitle": "Enable Local connection method?",
   "enableLocalConnectionMethodFirst": "Enable Local Connection method, first.",
   "enableMediaKeyDetection": "Enable Bluetooth Media remotes",
   "enableMywhooshLinkInTheConnectionSettingsFirst": "Enable MyWhoosh Link in the connection settings first.",
@@ -460,7 +481,9 @@
   "notConnected": "Not connected",
   "notificationDescription": "This keeps the app alive in background and updates you when the connection to your devices changes.",
   "officiallySupported": "Officially supported",
-  "overlayDisabledIos": "Trainer overlay shows on Dynamic Island and the Lock Screen during a ride.",
+  "overlayDisabledIos": "During a ride the trainer overlay floats over your trainer app — or the Dynamic Island on supported iPhones — and the Lock Screen.",
+  "overlayUsePip": "Floating window (Picture-in-Picture)",
+  "overlayUsePipSubtitle": "Show your gear in a floating window over your trainer app, in addition to the Lock Screen (and the Dynamic Island where available).",
   "overlayEnabled": "Show overlay during ride",
   "overlayFieldCadence": "Cadence",
   "overlayFieldControls": "Shift / power buttons",
@@ -1086,6 +1109,7 @@
       "watts": {"type": "int"}
     }
   },
+  "trainerErgTargetGameControlled": "ERG target is controlled by the app",
   "trainerShiftedUp": "Shifted up to gear {gear}",
   "@trainerShiftedUp": {
     "placeholders": {
@@ -1109,6 +1133,10 @@
   },
   "trainerIntensityIncreased": "Intensity +5%",
   "trainerIntensityDecreased": "Intensity -5%",
+  "trainerFrontShiftedLarge": "Front: large ring",
+  "trainerFrontShiftedSmall": "Front: small ring",
+  "trainerFrontShiftNotEnabled": "Enable front shift in the gear settings",
+  "trainerFrontShiftUnavailable": "Front shift unavailable",
   "successRatingMessage": "Thank you for using BikeControl! Please consider rating BikeControl in the {store} — it helps a lot!",
   "@successRatingMessage": {"placeholders": {"store": {"type": "String"}}},
   "rateBikeControl": "Rate BikeControl",
@@ -1156,5 +1184,39 @@
   "vsIntroFeedbackTitle": "We've got your back",
   "vsIntroFeedbackBody": "We love your feedback and are always happy to help get your setup dialed in just right.",
   "vsIntroSupportedTrainersCta": "See supported trainers",
-  "vsIntroGotIt": "Got it"
+  "vsIntroGotIt": "Got it",
+  "useControllerWithApp": "Use {controller} with {app}",
+  "@useControllerWithApp": {
+    "placeholders": {
+      "controller": {"type": "String"},
+      "app": {"type": "String"}
+    }
+  },
+  "frontShiftEnableLabel": "Virtual front derailleur",
+  "frontShiftEnableDesc": "Adds a second chainring (2× drivetrain). Press both shifters together to change ring, like SRAM AXS.",
+  "frontShiftSmallRingLabel": "Small chainring (teeth)",
+  "frontShiftLargeRingLabel": "Large chainring (teeth)",
+  "done": "Done",
+  "sramSetup": "Set up SRAM control",
+  "sramRestore": "Restore original shifting",
+  "sramPanelIntro": "Let BikeControl control your shifting: it backs up your current shifter configuration, then disables the derailleur's own shifting so it only sends button presses. You can restore it anytime.",
+  "sramSetupIntro": "BikeControl will back up your current shifter configuration and disable the derailleur's own shifting so it only sends button presses. You can restore it anytime.",
+  "sramSetupSuccess": "BikeControl now controls your gears. Each shifter button is a controller input you can map in the app.",
+  "sramRestoreIntro": "This restores your derailleur's original shifting.",
+  "sramRestoreSuccess": "Your original shifter configuration has been restored.",
+  "sramDialogRunning": "Talking to your derailleur — keep it close and awake.",
+  "sramAuthorizeTitle": "Authorize BikeControl",
+  "sramAuthorizeBody": "Your derailleur needs to authorize BikeControl. Press and hold the AXS button on the derailleur until its light flashes, then tap Retry.",
+  "sramErrorTitle": "That didn't work",
+  "sramGenericError": "Something went wrong. Please try again.",
+  "sramShiftingOff": "On-device shifting is off — BikeControl controls your gears.",
+  "sramSettingUp": "Setting up",
+  "sramRestoringShifting": "Restoring shifting",
+  "sramAllSet": "You're all set",
+  "sramRestoredTitle": "Original shifting restored",
+  "sramChecklistPairing": "Pairing with derailleur",
+  "sramChecklistBackingUp": "Backing up your configuration",
+  "sramChecklistDisabling": "Disabling on-device shifting",
+  "sramChecklistRestoring": "Restoring original shifting",
+  "sramPressHold": "Press & hold on the derailleur"
 }

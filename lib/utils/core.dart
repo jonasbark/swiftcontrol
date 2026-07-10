@@ -8,11 +8,13 @@ import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/devices/zwift/ftms_mdns_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/rouvy_mdns_emulator.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_emulator.dart';
+import 'package:bike_control/bluetooth/emulation/emulation_manager.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/bluetooth/remote_keyboard_pairing.dart';
 import 'package:bike_control/bluetooth/remote_pairing.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/services/review_prompt_service.dart';
+import 'package:bike_control/services/screen_recording/screen_recording_service.dart';
 import 'package:bike_control/services/shifting_configs_controller.dart';
 import 'package:bike_control/services/workout/workout_recorder.dart';
 import 'package:bike_control/services/workout/workout_repository.dart';
@@ -53,6 +55,7 @@ class Core {
   late final shiftingConfigs = ShiftingConfigsController(settings.prefs);
   final connection = Connection();
   late final workoutRecorder = WorkoutRecorder();
+  ScreenRecordingService screenRecording = ScreenRecordingService(backend: createScreenRecorderBackend());
   late final workoutRepository = WorkoutRepository();
 
   late final supabase = Supabase.instance.client;
@@ -75,6 +78,7 @@ class Core {
   late final remotePairing = RemotePairing();
   late final remoteKeyboardPairing = RemoteKeyboardPairing();
   late final di2Emulator = Di2Emulator();
+  late final emulation = EmulationManager();
 
   late final mediaKeyHandler = MediaKeyHandler();
   late final logic = CoreLogic();
@@ -314,6 +318,19 @@ class CoreLogic {
   bool get showLocalRemoteOptions =>
       core.actionHandler.supportedModes.isNotEmpty &&
       (showLocalControl || isRemoteControlEnabled || isRemoteKeyboardControlEnabled);
+
+  /// The "Simulate keyboard shortcut" card is shown when the keyboard mode is
+  /// supported and either Local is available (may be disabled — tapping then
+  /// prompts to enable it) or remote-keyboard control is already enabled.
+  bool get showLocalKeyboardCard =>
+      core.actionHandler.supportedModes.contains(SupportedMode.keyboard) &&
+      (showLocalControl || isRemoteKeyboardControlEnabled);
+
+  /// The "Simulate touch / mouse" card is shown when the touch mode is
+  /// supported and either Local is available or remote control is enabled.
+  bool get showLocalTouchCard =>
+      core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
+      (showLocalControl || isRemoteControlEnabled);
 
   bool get hasNoConnectionMethod =>
       !screenshotMode &&

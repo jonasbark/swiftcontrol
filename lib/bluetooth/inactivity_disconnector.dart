@@ -9,7 +9,7 @@ import 'dart:async';
 /// Modes (re-evaluated on every event):
 ///  * A non-Local trainer app is connected  -> no timer (rider is active).
 ///  * A trainer app was connected and left  -> 5-minute sliding grace.
-///  * Only Local is active                  -> 30-minute sliding timer.
+///  * Only Local is active                  -> 60-minute sliding timer.
 /// The 5-minute grace arms ONLY on a real disconnect transition, never during
 /// the initial "waiting for the trainer app" window.
 class InactivityDisconnector {
@@ -19,7 +19,7 @@ class InactivityDisconnector {
     required this.hasEligibleControllers,
     required this.onTimeout,
     this.graceTimeout = const Duration(minutes: 5),
-    this.localTimeout = const Duration(minutes: 30),
+    this.localTimeout = const Duration(minutes: 60),
   });
 
   final bool Function() isTrainerAppConnected;

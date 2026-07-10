@@ -1,3 +1,16 @@
+### 6.3.0 (09-07-2026)
+**Features**:
+- SRAM AXS: After a lot of tinkering, SRAM AXS levers are now fully supported - all individual buttons are supported now. Read more in our blog!
+- WHEELTOP EDS shifters (beta): use your EDS OX or TX shifter as a controller — top/bottom buttons shift up/down by default and are fully remappable.
+- The Strappo Trainer app is now officially supported
+
+### 6.2.0 (26-06-2026)
+**Features**:
+- Virtual front derailleur: adds a second chainring (2× drivetrain) for more realism. The new assignable "Front Shift (Chainring)" action toggles between your small and large rings, changing resistance by the exact chainring ratio while staying on the same rear cog.
+- SRAM style shifting: when you click shift up & down at the same time, the front chainring switches
+- iOS / iPadOS: Floating gear overlay (Picture-in-Picture): your current gear can now show in a floating window over your trainer app during a ride.
+- Screen recording: a new assignable "Record Screen" action starts a screen recording from a controller button.
+
 ### 6.1.0 (19-06-2026)
 **Features**:
 - WiFi enabled Smart Trainers are now supported

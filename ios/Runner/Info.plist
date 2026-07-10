@@ -25,6 +25,16 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.bikecontrol</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bikecontrol</string>
+			</array>
+		</dict>
+		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
@@ -56,6 +66,8 @@
 	<string>BikeControl does not use the camera. This entry is required because the image picker plugin links camera APIs.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Access your photo library to store screenshots.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>BikeControl saves your screen recordings to your photo library.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

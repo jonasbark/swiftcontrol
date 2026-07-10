@@ -230,18 +230,38 @@ class _SupportComposerState extends State<SupportComposer> {
       child: Button.outline(
         style: ButtonStyle.outlineIcon(),
         child: Icon(LucideIcons.info),
+        // The payload includes the full log buffer, so it can be far taller
+        // than the screen: cap the sheet height (keeps the dismiss barrier
+        // reachable) and scroll the payload instead of overflowing.
         onPressed: () => openSheet(
           context: context,
-          constraints: const BoxConstraints(maxWidth: 360),
+          draggable: true,
+          constraints: BoxConstraints(
+            maxWidth: 360,
+            maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+          ),
           builder: (c) => Container(
             padding: const EdgeInsets.all(12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text("${context.i18n.diagnosticInfoAttached}:"),
-                Text(
-                  widget.diagnosticPreview!,
-                  style: TextStyle(fontSize: 11, color: cs.mutedForeground, fontFamily: 'monospace'),
+                Row(
+                  children: [
+                    Expanded(child: Text("${context.i18n.diagnosticInfoAttached}:")),
+                    IconButton.ghost(
+                      icon: const Icon(LucideIcons.x, size: 16),
+                      onPressed: () => closeSheet(c),
+                    ),
+                  ],
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Text(
+                      widget.diagnosticPreview!,
+                      style: TextStyle(fontSize: 11, color: cs.mutedForeground, fontFamily: 'monospace'),
+                    ),
+                  ),
                 ),
               ],
             ),

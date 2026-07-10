@@ -13,15 +13,21 @@ class FakePeripheral {
     List<String> advertisedServices = const [],
     List<BleService> services = const [],
     this.manufacturerData,
+    Map<String, Uint8List> serviceData = const {},
     this.rssi = -50,
   })  : advertisedServices = List.of(advertisedServices),
-        services = List.of(services);
+        services = List.of(services),
+        serviceData = Map.of(serviceData);
 
   final String deviceId;
   final String? name;
 
   /// Service UUIDs included in the scan result (lowercase 128-bit form).
   final List<String> advertisedServices;
+
+  /// Advertised service data (e.g. the SRAM 0xFE51 device record), keyed by
+  /// service UUID — surfaced on the scan result for advert-based filtering.
+  final Map<String, Uint8List> serviceData;
 
   /// GATT database returned by discoverServices once connected.
   final List<BleService> services;
@@ -50,6 +56,7 @@ class FakePeripheral {
         rssi: rssi,
         services: advertisedServices,
         manufacturerDataList: [if (manufacturerData != null) manufacturerData!],
+        serviceData: serviceData,
       );
 }
 
@@ -65,6 +72,15 @@ class FakeUniversalBlePlatform extends UniversalBlePlatform {
   void addPeripheral(FakePeripheral peripheral) {
     peripherals[peripheral.deviceId] = peripheral;
     if (scanning) updateScanResult(peripheral.scanResult);
+  }
+
+  /// Unregister a peripheral, dropping its connection first if needed.
+  void removePeripheral(String deviceId) {
+    final peripheral = peripherals.remove(deviceId);
+    if (peripheral != null && peripheral.isConnected) {
+      peripheral.isConnected = false;
+      updateConnection(deviceId, false, 'peripheral removed');
+    }
   }
 
   /// Push a characteristic notification from [deviceId] to the app.

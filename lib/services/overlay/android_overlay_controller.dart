@@ -11,6 +11,7 @@ import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/services/overlay/overlay_entry_point.dart';
 import 'package:bike_control/services/overlay/overlay_state.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_controller.dart';
+import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter/widgets.dart' show WidgetsBinding;
@@ -175,9 +176,7 @@ class AndroidOverlayController implements TrainerOverlayController {
 
   void _adjustPrimary(FitnessBikeDefinition def, {required bool increment}) {
     if (def.trainerMode.value == TrainerMode.ergMode) {
-      final current = def.ergTargetPower.value ?? 150;
-      final next = (current + (increment ? 5 : -5)).clamp(0, 500);
-      def.setManualErgPower(next);
+      def.stepManualErgPower(up: increment);
     } else {
       if (increment) {
         def.shiftUp();
@@ -236,6 +235,8 @@ class AndroidOverlayController implements TrainerOverlayController {
       cadenceRpm: def.cadenceRpm.value,
       ergTargetW: def.ergTargetPower.value,
       fields: _fields,
+      frontShiftEnabled: def.frontShiftEnabled,
+      frontRingLarge: def.frontRing.value == FrontRing.large,
     );
     if (!force && s == _lastPushed) return;
     _lastPushed = s;
