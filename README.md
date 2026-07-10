@@ -1,6 +1,6 @@
 # BikeControl (formerly SwiftControl)
 
-<img src="logo.png" alt="BikeControl Logo"/>
+<img src="logo.jpg" alt="BikeControl Logo"/>
 
 ## Description
 
