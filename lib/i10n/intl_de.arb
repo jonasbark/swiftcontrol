@@ -146,6 +146,7 @@
   "bluetoothAdvertiseAccess": "Bluetooth-Zugriff",
   "bluetoothKeyboardExplanation": "So kannst du dein Smartphone als Bluetooth-Tastatur zur Steuerung kompatibler Apps verwenden. Nach der Kopplung kannst du die Tasten deines Fahrradcontrollers nutzen, um Tastatureingaben an die App zu senden.",
   "bluetoothTurnedOn": "Bluetooth ist eingeschaltet",
+  "bluetoothPermissionRequired": "Bluetooth für BikeControl erlauben",
   "browserNotSupported": "Dieser Browser unterstützt kein Web-Bluetooth und die Plattform wird nicht unterstützt :(",
   "button": "Taste.",
   "buttonMapping": "Tastenbelegung",

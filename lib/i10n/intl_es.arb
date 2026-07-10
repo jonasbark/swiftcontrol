@@ -146,6 +146,7 @@
   "bluetoothAdvertiseAccess": "Acceso para anunciar por Bluetooth",
   "bluetoothKeyboardExplanation": "Esto te permitirá usar tu teléfono como teclado Bluetooth para controlar apps compatibles. Una vez emparejado, podrás usar los botones del controlador de tu bici para enviar pulsaciones de teclado a la app.",
   "bluetoothTurnedOn": "Bluetooth activado",
+  "bluetoothPermissionRequired": "Permitir Bluetooth para BikeControl",
   "browserNotSupported": "Este navegador no es compatible con Web Bluetooth y la plataforma no es compatible :(",
   "button": "botón.",
   "buttonMapping": "Asignación de botones",

@@ -14,6 +14,7 @@ import 'package:keypress_simulator/keypress_simulator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 class KeyboardRequirement extends PlatformRequirement {
   KeyboardRequirement() : super(AppLocalizations.current.keyboardAccess, icon: Icons.keyboard);
@@ -58,6 +59,12 @@ class BluetoothTurnedOn extends PlatformRequirement {
     if (!kIsWeb && Platform.isIOS) {
       // on iOS we cannot programmatically enable Bluetooth, just open settings
       await UniversalBle.requestPermissions();
+    } else if (!kIsWeb && Platform.isMacOS && currentState == AvailabilityState.unauthorized) {
+      // The radio is on, but this app is not authorized for Bluetooth (macOS
+      // gates Bluetooth per-app). Toggling the radio won't help — send the user
+      // to the Bluetooth privacy pane where they can grant BikeControl access.
+      await launchUrlString('x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth');
+      await UniversalBle.requestPermissions();
     } else if (currentState == AvailabilityState.poweredOff) {
       if (Platform.isMacOS) {
         buildToast(title: name);
@@ -88,6 +95,14 @@ class BluetoothTurnedOn extends PlatformRequirement {
         ? AvailabilityState.poweredOn
         : await UniversalBle.getBluetoothAvailabilityState();
     status = currentState == AvailabilityState.poweredOn || screenshotMode;
+    // Distinguish "radio off" from "app not authorized" on macOS: when the
+    // radio is on but this app lacks Bluetooth permission, relabel so the
+    // requirement (and its action) point at System Settings, not a radio toggle.
+    if (!kIsWeb && Platform.isMacOS && currentState == AvailabilityState.unauthorized) {
+      name = AppLocalizations.current.bluetoothPermissionRequired;
+    } else {
+      name = AppLocalizations.current.bluetoothTurnedOn;
+    }
     return status;
   }
 }

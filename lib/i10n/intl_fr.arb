@@ -146,6 +146,7 @@
   "bluetoothAdvertiseAccess": "Accès à la publicité Bluetooth",
   "bluetoothKeyboardExplanation": "Tu pourras ainsi utiliser ton téléphone comme clavier Bluetooth pour contrôler les applications compatibles. Une fois l'appairage effectué, tu pourras utiliser les boutons de ton contrôleur de vélo pour envoyer des commandes à l'application.",
   "bluetoothTurnedOn": "Bluetooth activé",
+  "bluetoothPermissionRequired": "Autoriser le Bluetooth pour BikeControl",
   "browserNotSupported": "Ce navigateur ne prend pas en charge Web Bluetooth et la plateforme n'est pas prise en charge :(",
   "button": "bouton.",
   "buttonMapping": "Affectation des boutons",
