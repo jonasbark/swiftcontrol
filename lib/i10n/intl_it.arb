@@ -146,6 +146,7 @@
   "bluetoothAdvertiseAccess": "Accesso pubblicitario Bluetooth",
   "bluetoothKeyboardExplanation": "Questo ti permetterà di usare il tuo telefono come tastiera Bluetooth per controllare le app compatibili. Una volta associato, potrai usare i pulsanti del controller della tua bici per inviare input dalla tastiera all'app.",
   "bluetoothTurnedOn": "Bluetooth attivato",
+  "bluetoothPermissionRequired": "Consenti il Bluetooth per BikeControl",
   "browserNotSupported": "Questo browser non supporta il Web Bluetooth e la piattaforma non è supportata :(",
   "button": "pulsante.",
   "buttonMapping": "Mappatura dei pulsanti",

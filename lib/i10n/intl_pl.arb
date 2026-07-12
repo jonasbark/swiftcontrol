@@ -146,6 +146,7 @@
   "bluetoothAdvertiseAccess": "Dostęp do reklamy Bluetooth",
   "bluetoothKeyboardExplanation": "Umożliwi to używanie telefonu jako klawiatury Bluetooth do sterowania kompatybilnymi aplikacjami. Po sparowaniu możesz używać przycisków na kontrolerze rowerowym do wysyłania poleceń z klawiatury do aplikacji.",
   "bluetoothTurnedOn": "Włączono Bluetooth",
+  "bluetoothPermissionRequired": "Zezwól na Bluetooth dla BikeControl",
   "browserNotSupported": "Ta przeglądarka nie obsługuje technologii Web Bluetooth i platforma nie jest obsługiwana :(",
   "button": "przycisk.",
   "buttonMapping": "Mapowanie przycisków",

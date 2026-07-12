@@ -12,6 +12,7 @@ import 'package:bike_control/bluetooth/emulation/emulation_manager.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/bluetooth/remote_keyboard_pairing.dart';
 import 'package:bike_control/bluetooth/remote_pairing.dart';
+import 'package:bike_control/utils/demo_mode.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/services/review_prompt_service.dart';
 import 'package:bike_control/services/screen_recording/screen_recording_service.dart';
@@ -126,7 +127,7 @@ class Core {
 class Permissions {
   Future<List<PlatformRequirement>> getScanRequirements() async {
     final List<PlatformRequirement> list;
-    if (screenshotMode) {
+    if (screenshotMode || demoHidePermissions) {
       list = [];
     } else if (kIsWeb) {
       final availability = await UniversalBle.getBluetoothAvailabilityState();

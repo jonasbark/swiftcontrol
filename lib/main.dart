@@ -13,6 +13,7 @@ import 'package:bike_control/services/overlay/overlay_entry_point.dart' as overl
 import 'package:bike_control/utils/actions/android.dart';
 import 'package:bike_control/utils/actions/desktop.dart';
 import 'package:bike_control/utils/actions/remote.dart';
+import 'package:bike_control/utils/demo_mode.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/requirements/windows.dart';
 import 'package:bike_control/widgets/menu.dart';
@@ -341,7 +342,9 @@ class _BikeControlAppState extends State<BikeControlApp> {
           secondary: () => Color(0xFF3A3A3A),
         ),
       ),
-      locale: screenshotMode ? (screenshotLocale ?? const Locale('en')) : null,
+      locale: demoLocaleOverride.isNotEmpty
+          ? Locale(demoLocaleOverride)
+          : (screenshotMode ? (screenshotLocale ?? const Locale('en')) : null),
       theme: ThemeData(
         colorScheme: ColorSchemes.lightSlate.copyWith(
           mutedForeground: () => Color(0xFFA1A1AA),
