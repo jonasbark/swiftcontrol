@@ -50,6 +50,11 @@ class FakePeripheral {
 
   bool isConnected = false;
 
+  /// While non-null, every connect attempt fails with this error — the fake
+  /// throws it AND (like Android) delivers a disconnected connection event a
+  /// radio-roundtrip later. Set back to null to let connects succeed again.
+  Object? connectError;
+
   BleDevice get scanResult => BleDevice(
         deviceId: deviceId,
         name: name,
@@ -143,6 +148,15 @@ class FakeUniversalBlePlatform extends UniversalBlePlatform {
   @override
   Future<void> connect(String deviceId, {Duration? connectionTimeout, bool autoConnect = false}) async {
     final peripheral = _require(deviceId);
+    final error = peripheral.connectError;
+    if (error != null) {
+      // Android delivers a failed connect twice: the connect call errors AND
+      // onConnectionStateChange reports disconnected (e.g. GATT 133/147).
+      Future<void>.delayed(const Duration(milliseconds: 50)).then((_) {
+        updateConnection(deviceId, false, error.toString());
+      });
+      throw error;
+    }
     peripheral.isConnected = true;
     updateConnection(deviceId, true);
   }
