@@ -1168,6 +1168,13 @@
       "error": {"type": "String"}
     }
   },
+  "connectionGaveUpAfterAttempts": "Couldn't connect to {device} after several attempts.",
+  "@connectionGaveUpAfterAttempts": {
+    "placeholders": {
+      "device": {"type": "String"}
+    }
+  },
+  "wheeltopClaimedByDerailleurHint": "The shifter is likely claimed by its rear derailleur. Power the derailleur down or let it sleep, then press a shifter button while scanning.",
   "unableToConnectToDeviceTimeout": "Unable to connect to {device}: Timeout",
   "@unableToConnectToDeviceTimeout": {
     "placeholders": {"device": {"type": "String"}}

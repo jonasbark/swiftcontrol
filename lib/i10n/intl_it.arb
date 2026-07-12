@@ -992,6 +992,8 @@
       "error": {"type": "String"}
     }
   },
+  "connectionGaveUpAfterAttempts": "Impossibile connettersi a {device} dopo diversi tentativi.",
+  "wheeltopClaimedByDerailleurHint": "Il comando è probabilmente occupato dal suo deragliatore posteriore. Spegni il deragliatore o lascialo andare in standby, poi premi un pulsante del comando durante la ricerca.",
   "unableToConnectToDeviceTimeout": "Impossibile connettersi a {device}: timeout",
   "@unableToConnectToDeviceTimeout": {
     "placeholders": {"device": {"type": "String"}}

@@ -993,6 +993,8 @@
       "error": {"type": "String"}
     }
   },
+  "connectionGaveUpAfterAttempts": "Impossible de se connecter à {device} après plusieurs tentatives.",
+  "wheeltopClaimedByDerailleurHint": "La manette est probablement accaparée par son dérailleur arrière. Éteignez le dérailleur ou laissez-le se mettre en veille, puis appuyez sur un bouton de la manette pendant la recherche.",
   "unableToConnectToDeviceTimeout": "Impossible de se connecter à {device} : délai dépassé",
   "@unableToConnectToDeviceTimeout": {
     "placeholders": {"device": {"type": "String"}}

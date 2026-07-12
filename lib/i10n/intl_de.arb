@@ -992,6 +992,8 @@
       "error": {"type": "String"}
     }
   },
+  "connectionGaveUpAfterAttempts": "Verbindung zu {device} nach mehreren Versuchen fehlgeschlagen.",
+  "wheeltopClaimedByDerailleurHint": "Der Schalter wird vermutlich von seinem Schaltwerk belegt. Schalte das Schaltwerk aus oder lass es einschlafen und drücke dann während der Suche eine Taste am Schalter.",
   "unableToConnectToDeviceTimeout": "Verbindung zu {device} nicht möglich: Zeitüberschreitung",
   "@unableToConnectToDeviceTimeout": {
     "placeholders": {"device": {"type": "String"}}
