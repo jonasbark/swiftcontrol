@@ -42,6 +42,9 @@ Future<void> main() async {
     core.actionHandler = stubActions;
     notifications.clear();
     notificationSub = core.connection.actionStream.listen(notifications.add);
+    // Long by default so suppression holds within a test; the cooldown test
+    // shortens it locally.
+    core.connection.autoConnectBackoffCooldown = const Duration(seconds: 30);
   });
 
   tearDown(() async {
@@ -77,6 +80,117 @@ Future<void> main() async {
     await IntegrationEnv.waitFor(
       () => pod.subscriptions.contains(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase()),
       description: 'subscription to the button characteristic',
+    );
+    expect(guidanceAlerts(), isEmpty);
+  });
+
+  test('gives up after three failed connects with exactly one guidance alert', () async {
+    final pod = buildWheeltopEdsTxLeft();
+    pod.connectError = Exception('Unknown Error 147');
+    env.ble.addPeripheral(pod);
+    startAdvertising(pod);
+    await core.connection.performScanning();
+
+    await IntegrationEnv.waitFor(() => guidanceAlerts().isNotEmpty, description: 'guidance alert');
+
+    expect(connectingCount(), 3);
+    // The generic failure toast fired for the first two attempts only — the
+    // suppressing third attempt shows the guidance alert instead.
+    expect(failedToastCount(), 2);
+    final alert = guidanceAlerts().single;
+    expect(alert.alertMessage, contains(AppLocalizations.current.connectionGaveUpAfterAttempts('WHEELTOP EDS TX Left')));
+    expect(alert.buttonTitle, AppLocalizations.current.reconnect);
+
+    // Suppression holds while the pod keeps advertising: no further attempts.
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    expect(connectingCount(), 3);
+    expect(guidanceAlerts().length, 1);
+  });
+
+  test('cooldown lifts suppression for one quiet attempt, no second alert', () async {
+    core.connection.autoConnectBackoffCooldown = const Duration(milliseconds: 300);
+    final pod = buildWheeltopEdsTxLeft();
+    pod.connectError = Exception('Unknown Error 147');
+    env.ble.addPeripheral(pod);
+    startAdvertising(pod);
+    await core.connection.performScanning();
+
+    await IntegrationEnv.waitFor(() => guidanceAlerts().isNotEmpty, description: 'first suppression');
+    expect(connectingCount(), 3);
+
+    // After the cooldown, rediscovery earns a single further attempt, which
+    // fails and re-suppresses silently (log-only, still one alert).
+    await IntegrationEnv.waitFor(() => connectingCount() >= 4, description: 'post-cooldown retry');
+    expect(guidanceAlerts().length, 1);
+    final silentLogs = notifications
+        .where((n) => n is! AlertNotification)
+        .whereType<LogNotification>()
+        .where((n) => n.message.contains(AppLocalizations.current.wheeltopClaimedByDerailleurHint));
+    expect(silentLogs, isNotEmpty);
+  });
+
+  test('Retry button reconnects immediately once the pod is free', () async {
+    final pod = buildWheeltopEdsTxLeft();
+    pod.connectError = Exception('Unknown Error 133');
+    env.ble.addPeripheral(pod);
+    startAdvertising(pod);
+    await core.connection.performScanning();
+
+    await IntegrationEnv.waitFor(() => guidanceAlerts().isNotEmpty, description: 'suppression alert');
+
+    pod.connectError = null; // the user powered the derailleur down
+    guidanceAlerts().single.onTap!();
+
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<WheeltopEds>().any((d) => d.isConnected),
+      description: 'reconnect after Retry',
+    );
+  });
+
+  test('a successful connect resets the failure counter', () async {
+    final pod = buildWheeltopEdsTxLeft();
+    pod.connectError = Exception('Unknown Error 133');
+    env.ble.addPeripheral(pod);
+    startAdvertising(pod);
+    await core.connection.performScanning();
+
+    // Two failures, then the pod becomes connectable before the third.
+    await IntegrationEnv.waitFor(() => connectingCount() >= 2, description: 'two failed attempts');
+    advTimer?.cancel(); // gate rediscovery so no third failure races the reset
+    pod.connectError = null;
+    startAdvertising(pod);
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<WheeltopEds>().any((d) => d.isConnected),
+      description: 'successful connect',
+    );
+    final attemptsBeforeDrop = connectingCount();
+
+    // Pod claimed again: the counter starts from zero, so suppression needs
+    // three fresh failures — not one.
+    pod.connectError = Exception('Unknown Error 147');
+    env.ble.dropConnection(pod.deviceId);
+    await IntegrationEnv.waitFor(() => guidanceAlerts().isNotEmpty, description: 'second suppression');
+    expect(connectingCount() - attemptsBeforeDrop, 3);
+  });
+
+  test('devices without an attempt limit retry forever', () async {
+    final click = buildZwiftClick();
+    click.connectError = Exception('Unknown Error 133');
+    env.ble.addPeripheral(click);
+    advTimer = Timer.periodic(
+      const Duration(milliseconds: 40),
+      (_) => env.ble.updateScanResult(click.scanResult),
+    );
+    await core.connection.performScanning();
+
+    int clickConnecting() => notifications
+        .whereType<AlertNotification>()
+        .where((n) => n.alertMessage.startsWith('Connecting to:') && n.alertMessage.contains('Zwift Click'))
+        .length;
+    await IntegrationEnv.waitFor(
+      () => clickConnecting() >= 5,
+      timeout: const Duration(seconds: 10),
+      description: 'unlimited retries',
     );
     expect(guidanceAlerts(), isEmpty);
   });

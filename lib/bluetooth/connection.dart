@@ -131,6 +131,20 @@ class Connection {
   /// Mutable as a test seam (the integration tests shrink it to milliseconds).
   Duration inactivityReconnectCooldown = const Duration(seconds: 90);
 
+  /// Consecutive failed auto-connect attempts per BLE device id. Only devices
+  /// with [BluetoothDevice.maxAutoConnectAttempts] > 0 ever suppress; reset by
+  /// a successful connect.
+  final _consecutiveConnectFailures = <String, int>{};
+
+  /// Device ids whose give-up alert was already shown this session — later
+  /// suppression rounds only log, so one stubborn device produces one alert.
+  final _backoffAlerted = <String>{};
+
+  /// How long a device that exhausted its attempts stays suppressed before
+  /// rediscovery may try again (one quiet attempt per round). Mutable as a
+  /// test seam.
+  Duration autoConnectBackoffCooldown = const Duration(seconds: 90);
+
   void initialize() {
     actionStream.listen((log) {
       lastLogEntries.add((date: DateTime.now(), entry: log.toString()));
@@ -595,7 +609,10 @@ class Connection {
           .catchError((e) {
             device.isConnected = false;
             _handlingConnectionQueue = false;
-            if (e is TimeoutException) {
+            if (_recordConnectFailure(device)) {
+              // Backoff engaged — _recordConnectFailure emitted the guidance alert
+              // (or the silent per-round log) in place of the generic toast.
+            } else if (e is TimeoutException) {
               _actionStreams.add(
                 AlertNotification(
                   LogLevel.LOGLEVEL_WARNING,
@@ -615,6 +632,54 @@ class Connection {
             }
           });
     }
+  }
+
+  /// Records a failed auto-connect attempt. Returns true when the device has
+  /// exhausted [BluetoothDevice.maxAutoConnectAttempts] and backoff messaging
+  /// (guidance alert on the first round, log-only afterwards) replaces the
+  /// generic failure toast.
+  bool _recordConnectFailure(BaseDevice device) {
+    if (device is! BluetoothDevice) return false;
+    final maxAttempts = device.maxAutoConnectAttempts;
+    if (maxAttempts <= 0) return false;
+
+    final id = device.device.deviceId;
+    final failures = (_consecutiveConnectFailures[id] ?? 0) + 1;
+    _consecutiveConnectFailures[id] = failures;
+    if (failures < maxAttempts) return false;
+
+    _suppressedAutoReconnect.add(id);
+    // Lift the suppression after the cooldown. The stale _lastScanResult entry
+    // must go too — it would dedupe every future advertisement and block
+    // rediscovery forever (same pitfall the battery-saver cooldown handles).
+    Timer(autoConnectBackoffCooldown, () {
+      _suppressedAutoReconnect.remove(id);
+      _lastScanResult.removeWhere((d) => d.deviceId == id);
+    });
+
+    final guidance = device.connectionGuidance;
+    final message = [
+      AppLocalizations.current.connectionGaveUpAfterAttempts(device.toString()),
+      if (guidance != null) guidance,
+    ].join('\n');
+    if (_backoffAlerted.add(id)) {
+      _actionStreams.add(
+        AlertNotification(
+          LogLevel.LOGLEVEL_WARNING,
+          message,
+          buttonTitle: AppLocalizations.current.reconnect,
+          onTap: () {
+            _suppressedAutoReconnect.remove(id);
+            _consecutiveConnectFailures.remove(id);
+            _lastScanResult.removeWhere((d) => d.deviceId == id);
+            addDevices([device]);
+          },
+        ),
+      );
+    } else {
+      _actionStreams.add(LogNotification(message));
+    }
+    return true;
   }
 
   /// Connect a device that is already in the list — used by the in-place
@@ -687,6 +752,9 @@ class Connection {
 
     try {
       await device.connect();
+      if (device is BluetoothDevice) {
+        _consecutiveConnectFailures.remove(device.device.deviceId);
+      }
       signalChange(device);
 
       IAPManager.instance.setAttributes();
@@ -705,7 +773,15 @@ class Connection {
       }
     } catch (e, backtrace) {
       await _streamSubscriptions.remove(device)?.cancel();
-      await _connectionSubscriptions.remove(device)?.cancel();
+      // Deliberately NOT cancelling _connectionSubscriptions here: a failed
+      // connect() throws immediately, well before the platform's disconnected
+      // connectionStream event arrives a radio-roundtrip later (Android
+      // delivers a failed connect twice — see FakeUniversalBlePlatform.connect).
+      // That later event is what removes this device from `devices` and
+      // `_lastScanResult` (via the listener below → disconnect()), which is
+      // what lets rediscovery queue the next auto-connect attempt. Cancelling
+      // the subscription here would silently break the whole retry loop.
+      // disconnect() cancels it properly once that event lands.
       _actionStreams.add(LogNotification("$e\n$backtrace"));
       if (kDebugMode) {
         print(e);
@@ -808,6 +884,8 @@ class Connection {
     // Everything is gone, so the battery-saver suppression is moot — a later
     // rediscovery should auto-connect normally again.
     _suppressedAutoReconnect.clear();
+    _consecutiveConnectFailures.clear();
+    _backoffAlerted.clear();
     hasDevices.value = false;
     _inactivityDisconnector?.onDeviceConnectionChanged();
   }
