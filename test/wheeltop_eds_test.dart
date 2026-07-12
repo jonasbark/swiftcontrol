@@ -246,6 +246,14 @@ void main() async {
       expect(device.availableButtons.length, 4);
     });
   });
+
+  group('connect-backoff seam', () {
+    test('gives up after three attempts with localized guidance', () {
+      final device = createDevice(edsType: WheeltopEdsType.txLeft);
+      expect(device.maxAutoConnectAttempts, 3);
+      expect(device.connectionGuidance, AppLocalizations.current.wheeltopClaimedByDerailleurHint);
+    });
+  });
 }
 
 Uint8List _packet(int opcode) => Uint8List.fromList([0x04, opcode, 0x04 ^ opcode]);

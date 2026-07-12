@@ -249,6 +249,14 @@ abstract class BluetoothDevice extends BaseDevice {
 
   BleDevice get device => scanResult;
 
+  /// Consecutive failed auto-connect attempts before [Connection] stops
+  /// retrying this device and surfaces [connectionGuidance]. 0 = retry forever.
+  int get maxAutoConnectAttempts => 0;
+
+  /// Actionable hint shown when auto-connect gives up (see
+  /// [maxAutoConnectAttempts]); null when there is no device-specific guidance.
+  String? get connectionGuidance => null;
+
   @override
   Future<void> connect() async {
     try {

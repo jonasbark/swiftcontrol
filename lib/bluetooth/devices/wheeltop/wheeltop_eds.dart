@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/messages/notification.dart';
+import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
@@ -58,15 +59,21 @@ class WheeltopEds extends BluetoothDevice {
   @override
   String get name => 'WHEELTOP EDS ${edsType.label}';
 
+  /// The pod accepts a central only while its rear derailleur is not claiming
+  /// it — auto-connect gives up quickly and explains instead of spamming.
+  @override
+  int get maxAutoConnectAttempts => 3;
+
+  @override
+  String? get connectionGuidance => AppLocalizations.current.wheeltopClaimedByDerailleurHint;
+
   @override
   List<Widget> showAdditionalInformation(BuildContext context) {
     return [
       if (batteryCentivolts != null)
         Text('Shifter battery: ${(batteryCentivolts! / 100).toStringAsFixed(2)} V').xSmall,
+      Text(AppLocalizations.current.wheeltopClaimedByDerailleurHint).xSmall,
       const Text(
-        'The shifter can only connect here while its rear derailleur is not claiming it — '
-        'power the derailleur down (or let it sleep) and press a shifter button to wake the '
-        'shifter while scanning.\n'
         'Slide switch on R: top/bottom buttons shift. Slide switch on T: the buttons become '
         'two extra assignable buttons.',
       ).xSmall,
