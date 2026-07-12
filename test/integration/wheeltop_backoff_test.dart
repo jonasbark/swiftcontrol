@@ -119,8 +119,10 @@ Future<void> main() async {
     expect(connectingCount(), 3);
 
     // After the cooldown, rediscovery earns a single further attempt, which
-    // fails and re-suppresses silently (log-only, still one alert).
-    await IntegrationEnv.waitFor(() => connectingCount() >= 4, description: 'post-cooldown retry');
+    // fails and re-suppresses silently (log-only, still one alert). The round
+    // is quiet (Fix 1), so watch the platform-level attempt counter instead
+    // of the (now-silenced) "Connecting to:" toast.
+    await IntegrationEnv.waitFor(() => pod.connectAttempts >= 4, description: 'post-cooldown retry');
     expect(guidanceAlerts().length, 1);
     final silentLogs = notifications
         .where((n) => n is! AlertNotification)
@@ -171,6 +173,28 @@ Future<void> main() async {
     env.ble.dropConnection(pod.deviceId);
     await IntegrationEnv.waitFor(() => guidanceAlerts().isNotEmpty, description: 'second suppression');
     expect(connectingCount() - attemptsBeforeDrop, 3);
+
+    // Retry clears the counter (and the suppression) immediately, once the
+    // pod is free again.
+    pod.connectError = null;
+    guidanceAlerts().single.onTap!();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<WheeltopEds>().any((d) => d.isConnected),
+      description: 'reconnect after Retry',
+    );
+
+    // Pod claimed a third time: prove Retry truly cleared the counter by
+    // requiring three fresh failures again — and prove the give-up alert
+    // fires only once per session (this round re-suppresses silently).
+    final attemptsBeforeThirdDrop = pod.connectAttempts;
+    pod.connectError = Exception('Unknown Error 147');
+    env.ble.dropConnection(pod.deviceId);
+    await IntegrationEnv.waitFor(
+      () => pod.connectAttempts - attemptsBeforeThirdDrop >= 3,
+      description: 'three fresh attempts after Retry (counter cleared)',
+    );
+    expect(pod.connectAttempts - attemptsBeforeThirdDrop, 3);
+    expect(guidanceAlerts().length, 1);
   });
 
   test('devices without an attempt limit retry forever', () async {

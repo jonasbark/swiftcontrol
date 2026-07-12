@@ -145,6 +145,20 @@ class Connection {
   /// test seam.
   Duration autoConnectBackoffCooldown = const Duration(seconds: 90);
 
+  /// Pending cooldown timers from [_recordConnectFailure], keyed by BLE device
+  /// id. Backoff shares [_suppressedAutoReconnect] with the battery saver, so a
+  /// stale timer left running past a Retry/reconnect could lift a later —
+  /// possibly unrelated — suppression early; tracked here so it can be
+  /// cancelled the moment the suppression it guards is lifted some other way.
+  final _backoffCooldownTimers = <String, Timer>{};
+
+  /// True once [device] has exhausted its auto-connect attempts — backoff
+  /// rounds stay quiet: no connecting/disconnected toasts, no OS notification.
+  bool _isInBackoff(BaseDevice device) =>
+      device is BluetoothDevice &&
+      device.maxAutoConnectAttempts > 0 &&
+      (_consecutiveConnectFailures[device.device.deviceId] ?? 0) >= device.maxAutoConnectAttempts;
+
   void initialize() {
     actionStream.listen((log) {
       lastLogEntries.add((date: DateTime.now(), entry: log.toString()));
@@ -584,7 +598,9 @@ class Connection {
       final willConnect = device is! ProxyDevice || device.shouldAutoConnect;
       // Reconnections after an automatic reset happen every minute — keep
       // them silent. Captured here because the flag clears during handshake.
-      final notify = willConnect && !device.isResetting;
+      // A device that already gave up (backoff) only gets quiet cooldown
+      // rounds from here on — the guidance alert already said its piece.
+      final notify = willConnect && !device.isResetting && !_isInBackoff(device);
       if (notify) {
         _actionStreams.add(
           AlertNotification(LogLevel.LOGLEVEL_INFO, AppLocalizations.current.connectingToDevice(device.toString())),
@@ -652,7 +668,12 @@ class Connection {
     // Lift the suppression after the cooldown. The stale _lastScanResult entry
     // must go too — it would dedupe every future advertisement and block
     // rediscovery forever (same pitfall the battery-saver cooldown handles).
-    Timer(autoConnectBackoffCooldown, () {
+    // Cancel any earlier round's still-pending timer first — otherwise it
+    // fires on its original schedule and can lift a later (even unrelated,
+    // e.g. battery-saver) suppression on this id early.
+    _backoffCooldownTimers.remove(id)?.cancel();
+    _backoffCooldownTimers[id] = Timer(autoConnectBackoffCooldown, () {
+      _backoffCooldownTimers.remove(id);
       _suppressedAutoReconnect.remove(id);
       _lastScanResult.removeWhere((d) => d.deviceId == id);
     });
@@ -669,6 +690,7 @@ class Connection {
           message,
           buttonTitle: AppLocalizations.current.reconnect,
           onTap: () {
+            _backoffCooldownTimers.remove(id)?.cancel();
             _suppressedAutoReconnect.remove(id);
             _consecutiveConnectFailures.remove(id);
             _lastScanResult.removeWhere((d) => d.deviceId == id);
@@ -722,7 +744,12 @@ class Connection {
         // An automatic reset cycle (ClickLogic) reboots the device every
         // minute — don't spam connect/disconnect notifications for it.
         final isSilentReset = device.isResetting;
-        if (!state && !isSilentReset) {
+        // A device that already gave up (backoff) delivers its failure as a
+        // delayed disconnected event on this same listener — the guidance
+        // alert already said its piece, so quiet cooldown rounds stay quiet
+        // here too: no disconnected toast, no OS notification.
+        final isSilentBackoff = !state && _isInBackoff(device);
+        if (!state && !isSilentReset && !isSilentBackoff) {
           _actionStreams.add(
             AlertNotification(
               state ? LogLevel.LOGLEVEL_INFO : LogLevel.LOGLEVEL_WARNING,
@@ -730,7 +757,7 @@ class Connection {
             ),
           );
         }
-        if (!isSilentReset) {
+        if (!isSilentReset && !isSilentBackoff) {
           core.flutterLocalNotificationsPlugin.show(
             1338,
             '${device.toString()} ${state ? AppLocalizations.current.connected.decapitalize() : AppLocalizations.current.disconnected.decapitalize()}',
@@ -773,15 +800,13 @@ class Connection {
       }
     } catch (e, backtrace) {
       await _streamSubscriptions.remove(device)?.cancel();
-      // Deliberately NOT cancelling _connectionSubscriptions here: a failed
-      // connect() throws immediately, well before the platform's disconnected
-      // connectionStream event arrives a radio-roundtrip later (Android
-      // delivers a failed connect twice — see FakeUniversalBlePlatform.connect).
-      // That later event is what removes this device from `devices` and
-      // `_lastScanResult` (via the listener below → disconnect()), which is
-      // what lets rediscovery queue the next auto-connect attempt. Cancelling
-      // the subscription here would silently break the whole retry loop.
-      // disconnect() cancels it properly once that event lands.
+      // Deliberately do NOT cancel _connectionSubscriptions here. Android
+      // delivers a failed connect twice, and the ordering varies: on real
+      // devices the disconnected event usually arrives BEFORE the exception
+      // (the listener has already cleaned up — cancelling again is a no-op),
+      // while other stacks and the fake platform deliver it after (then this
+      // still-attached listener is the only thing that removes the device and
+      // re-enables retry). Cancelling here would break the second ordering.
       _actionStreams.add(LogNotification("$e\n$backtrace"));
       if (kDebugMode) {
         print(e);
@@ -886,6 +911,10 @@ class Connection {
     _suppressedAutoReconnect.clear();
     _consecutiveConnectFailures.clear();
     _backoffAlerted.clear();
+    for (final timer in _backoffCooldownTimers.values) {
+      timer.cancel();
+    }
+    _backoffCooldownTimers.clear();
     hasDevices.value = false;
     _inactivityDisconnector?.onDeviceConnectionChanged();
   }
