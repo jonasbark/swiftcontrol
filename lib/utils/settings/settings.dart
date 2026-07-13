@@ -572,6 +572,16 @@ class Settings {
     await setButtonSimulatorHotkeys(hotkeys);
   }
 
+  /// WHEELTOP keepalive experiment (see WheeltopProbe): tries reply
+  /// candidates to the TX pod's status frame, one per reconnect.
+  void setWheeltopProbeEnabled(bool value) {
+    prefs.setBool('wheeltop_probe_enabled', value);
+  }
+
+  bool getWheeltopProbeEnabled() {
+    return prefs.getBool('wheeltop_probe_enabled') ?? false;
+  }
+
   void setPhoneSteeringEnabled(bool value) {
     prefs.setBool('phone_steering_enabled', value);
   }

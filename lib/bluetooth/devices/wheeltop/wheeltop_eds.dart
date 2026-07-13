@@ -1,8 +1,11 @@
 import 'dart:typed_data';
 
+import 'package:bike_control/bluetooth/devices/wheeltop/wheeltop_probe.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/widgets/wheeltop_probe_toggle.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -11,14 +14,18 @@ import '../bluetooth_device.dart';
 /// Variant of a WHEELTOP EDS shifter, taken from the type byte in its
 /// advertisement. All variants speak the identical button protocol.
 enum WheeltopEdsType {
-  ox('OX'),
-  txFront('TX Front'),
-  txLeft('TX Left'),
-  txRight('TX Right');
+  ox('OX', 0x37),
+  txFront('TX Front', 0x39),
+  txLeft('TX Left', 0x36),
+  txRight('TX Right', 0x38);
 
-  const WheeltopEdsType(this.label);
+  const WheeltopEdsType(this.label, this.typeByte);
 
   final String label;
+
+  /// The device-type byte as advertised — TX firmware also embeds it as the
+  /// sender byte in its 4-byte frames.
+  final int typeByte;
 
   static WheeltopEdsType? fromTypeByte(int byte) => switch (byte) {
     0x37 => WheeltopEdsType.ox,
@@ -146,6 +153,10 @@ class WheeltopEds extends BluetoothDevice {
   final Set<String> _loggedInvalidPackets = {};
   final Set<int> _loggedUnhandledOpcodes = {};
 
+  /// Keepalive-reply experiment for the current connection; created in
+  /// [handleServices] when the user opted in via [WheeltopProbeToggle].
+  WheeltopProbe? _probe;
+
   /// Clears the per-connection button/subscription state. Extracted from
   /// [disconnect] so it can be exercised directly in tests that cannot reach
   /// the real BLE platform channels that [disconnect] otherwise hits via
@@ -156,6 +167,8 @@ class WheeltopEds extends BluetoothDevice {
     _subscribedCharacteristics.clear();
     _loggedInvalidPackets.clear();
     _loggedUnhandledOpcodes.clear();
+    _probe?.end();
+    _probe = null;
   }
 
   @override
@@ -166,6 +179,22 @@ class WheeltopEds extends BluetoothDevice {
     // via Set.add returning false.
     resetConnectionState();
     await super.disconnect();
+  }
+
+  /// The keepalive-experiment switch lives in the detail page's
+  /// "Preferences" section so it shows only when the entry is opened, not on
+  /// the compact overview card (ZwiftClickV2 pattern).
+  @override
+  Widget? buildPreferences(BuildContext context) {
+    final superPreferences = super.buildPreferences(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 12,
+      children: [
+        if (superPreferences != null) superPreferences,
+        const WheeltopProbeToggle(),
+      ],
+    );
   }
 
   /// Button events are notified on 6e400002 (the slot standard NUS uses for
@@ -212,6 +241,36 @@ class WheeltopEds extends BluetoothDevice {
         actionStreamInternal.add(LogNotification('WHEELTOP EDS: could not subscribe to $uuid: $e\n$st'));
       }
     }
+
+    final writable = service.characteristics
+        .where(
+          (c) =>
+              c.properties.contains(CharacteristicProperty.write) ||
+              c.properties.contains(CharacteristicProperty.writeWithoutResponse),
+        )
+        .map(
+          (c) => (
+            uuid: c.uuid,
+            withoutResponse: c.properties.contains(CharacteristicProperty.writeWithoutResponse),
+          ),
+        )
+        .toList();
+    if (core.settings.getWheeltopProbeEnabled() && writable.isNotEmpty) {
+      _probe = WheeltopProbe(
+        deviceId: device.deviceId,
+        typeByte: edsType.typeByte,
+        writableCharacteristics: writable,
+        write: (uuid, value, {required withoutResponse}) => UniversalBle.write(
+          device.deviceId,
+          service.uuid,
+          uuid,
+          value,
+          withoutResponse: withoutResponse,
+        ),
+        log: (message) => actionStreamInternal.add(LogNotification(message)),
+      );
+      _probe!.start();
+    }
   }
 
   /// The button opcode when [bytes] is a valid frame, else null. Two frame
@@ -248,6 +307,9 @@ class WheeltopEds extends BluetoothDevice {
     final opcode = _validatedOpcode(bytes);
     if (opcode == null) {
       final hex = bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+      // While probing, any unparseable frame may be the pod reacting to a
+      // candidate — surface it through the probe's loud path too.
+      _probe?.onUnexpectedFrame(hex);
       if (_loggedInvalidPackets.add(hex)) {
         actionStreamInternal.add(
           LogNotification('WHEELTOP EDS: invalid packet: $hex (logged once per connection)'),
@@ -286,14 +348,18 @@ class WheeltopEds extends BluetoothDevice {
       case WheeltopEdsConstants.OPCODE_TX_STATUS:
         // TX firmware sends this status/hello frame at 1 Hz starting ~300 ms
         // after connect. The reply the derailleur gives is unknown —
-        // unanswered, the pod drops the link after three frames. Ignored for
-        // now; logged once per connection for diagnostics.
+        // unanswered, the pod drops the link after three frames. The probe
+        // (when enabled) answers with its current candidate.
+        await _probe?.onStatusFrame();
         if (_loggedUnhandledOpcodes.add(opcode)) {
           actionStreamInternal.add(
             LogNotification('WHEELTOP EDS: status frame 0x10 (pod may disconnect while its reply is unknown)'),
           );
         }
       default:
+        // A valid frame with an unknown opcode is exactly what a probe
+        // response would look like — surface it loudly while probing.
+        _probe?.onUnexpectedFrame(bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join());
         if (_loggedUnhandledOpcodes.add(opcode)) {
           actionStreamInternal.add(
             LogNotification(

@@ -205,6 +205,12 @@ FakePeripheral buildWheeltopEdsTxLeft({String deviceId = 'fake-wheeltop-tx-left'
         CharacteristicProperty.write,
         CharacteristicProperty.notify,
       ]),
+      // Stock Nordic UART RX slot — write-only, like the real pod's GATT
+      // database (the demo shifter firmware exposes both slots writable).
+      bleChar('6e400003-b5a3-f393-e0a9-e50e24dcca9e', [
+        CharacteristicProperty.write,
+        CharacteristicProperty.writeWithoutResponse,
+      ]),
     ]),
   );
   return peripheral;
