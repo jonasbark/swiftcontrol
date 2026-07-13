@@ -112,7 +112,7 @@ class _SupportComposerState extends State<SupportComposer> {
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt'],
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'log'],
       allowMultiple: false,
       withData: kIsWeb,
     );
@@ -124,6 +124,11 @@ class _SupportComposerState extends State<SupportComposer> {
   }
 
   void _showAttachSheet(BuildContext context) {
+    // Resolve the strings NOW: the dropdown lives in the app overlay and can
+    // rebuild after this widget's context is defunct (e.g. the file-picker
+    // round trip). Localizations.of on a dead context returns null in release
+    // builds, which broke the attach menu with a null-check error.
+    final i18n = context.i18n;
     showDropdown(
       context: context,
       builder: (c) => DropdownMenu(
@@ -133,14 +138,14 @@ class _SupportComposerState extends State<SupportComposer> {
             onPressed: (_) async {
               await _pickImage();
             },
-            child: Text(context.i18n.attachImage),
+            child: Text(i18n.attachImage),
           ),
           MenuButton(
             leading: const Icon(LucideIcons.fileText),
             onPressed: (_) async {
               await _pickFile();
             },
-            child: Text(context.i18n.attachDocument),
+            child: Text(i18n.attachDocument),
           ),
         ],
       ),
