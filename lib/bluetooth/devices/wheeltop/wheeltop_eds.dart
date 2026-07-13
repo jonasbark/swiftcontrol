@@ -140,6 +140,12 @@ class WheeltopEds extends BluetoothDevice {
   final Set<ControllerButton> _pressedButtons = {};
   final Set<String> _subscribedCharacteristics = {};
 
+  /// Hex dumps of invalid frames and opcodes already logged on this
+  /// connection. TX firmware repeats its status frame at 1 Hz — without the
+  /// dedupe a single unknown frame floods the support log.
+  final Set<String> _loggedInvalidPackets = {};
+  final Set<int> _loggedUnhandledOpcodes = {};
+
   /// Clears the per-connection button/subscription state. Extracted from
   /// [disconnect] so it can be exercised directly in tests that cannot reach
   /// the real BLE platform channels that [disconnect] otherwise hits via
@@ -148,6 +154,8 @@ class WheeltopEds extends BluetoothDevice {
   void resetConnectionState() {
     _pressedButtons.clear();
     _subscribedCharacteristics.clear();
+    _loggedInvalidPackets.clear();
+    _loggedUnhandledOpcodes.clear();
   }
 
   @override
@@ -206,6 +214,29 @@ class WheeltopEds extends BluetoothDevice {
     }
   }
 
+  /// The button opcode when [bytes] is a valid frame, else null. Two frame
+  /// shapes exist in the field:
+  /// - 3 bytes `04 code xor` with `xor == 0x04 ^ code` (OX firmware);
+  /// - 4 bytes `04 type code sum` (TX firmware): `type` is the unit's
+  ///   advertisement type byte and `sum == (0x04 + type + code) & 0xff`.
+  ///   Both checksums agree for every button code without bit 2 set, which is
+  ///   why the 3-byte XOR shape alone looked sufficient before TX hardware
+  ///   reports.
+  static int? _validatedOpcode(Uint8List bytes) {
+    if (bytes.length == 3 &&
+        bytes[0] == WheeltopEdsConstants.PACKET_PREFIX &&
+        bytes[2] == (bytes[0] ^ bytes[1])) {
+      return bytes[1];
+    }
+    if (bytes.length == 4 &&
+        bytes[0] == WheeltopEdsConstants.PACKET_PREFIX &&
+        WheeltopEdsType.fromTypeByte(bytes[1]) != null &&
+        bytes[3] == ((bytes[0] + bytes[1] + bytes[2]) & 0xff)) {
+      return bytes[2];
+    }
+    return null;
+  }
+
   @override
   Future<void> processCharacteristic(String characteristic, Uint8List bytes) async {
     final uuid = characteristic.toLowerCase();
@@ -214,16 +245,18 @@ class WheeltopEds extends BluetoothDevice {
       return;
     }
 
-    if (bytes.length != 3 || bytes[0] != WheeltopEdsConstants.PACKET_PREFIX || bytes[2] != (bytes[0] ^ bytes[1])) {
-      actionStreamInternal.add(
-        LogNotification(
-          'WHEELTOP EDS: invalid packet: ${bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join()}',
-        ),
-      );
+    final opcode = _validatedOpcode(bytes);
+    if (opcode == null) {
+      final hex = bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+      if (_loggedInvalidPackets.add(hex)) {
+        actionStreamInternal.add(
+          LogNotification('WHEELTOP EDS: invalid packet: $hex (logged once per connection)'),
+        );
+      }
       return;
     }
 
-    switch (bytes[1]) {
+    switch (opcode) {
       case WheeltopEdsConstants.OPCODE_BOTTOM_PRESSED:
         await _press(availableButtons[WheeltopEdsButtons.indexShiftDown]);
       case WheeltopEdsConstants.OPCODE_TOP_PRESSED:
@@ -250,12 +283,24 @@ class WheeltopEds extends BluetoothDevice {
           availableButtons[WheeltopEdsButtons.indexShiftUp],
           availableButtons[WheeltopEdsButtons.indexFineTuneUp],
         ]);
+      case WheeltopEdsConstants.OPCODE_TX_STATUS:
+        // TX firmware sends this status/hello frame at 1 Hz starting ~300 ms
+        // after connect. The reply the derailleur gives is unknown —
+        // unanswered, the pod drops the link after three frames. Ignored for
+        // now; logged once per connection for diagnostics.
+        if (_loggedUnhandledOpcodes.add(opcode)) {
+          actionStreamInternal.add(
+            LogNotification('WHEELTOP EDS: status frame 0x10 (pod may disconnect while its reply is unknown)'),
+          );
+        }
       default:
-        actionStreamInternal.add(
-          LogNotification(
-            'WHEELTOP EDS: unknown opcode 0x${bytes[1].toRadixString(16).padLeft(2, '0')}',
-          ),
-        );
+        if (_loggedUnhandledOpcodes.add(opcode)) {
+          actionStreamInternal.add(
+            LogNotification(
+              'WHEELTOP EDS: unknown opcode 0x${opcode.toRadixString(16).padLeft(2, '0')} (logged once per connection)',
+            ),
+          );
+        }
     }
   }
 
@@ -305,6 +350,11 @@ class WheeltopEdsConstants {
   static const int OPCODE_TOP_HELD_FINE_TUNE = 0x08;
   static const int OPCODE_BOTTOM_RELEASED = 0x09;
   static const int OPCODE_TOP_RELEASED = 0x0a;
+
+  /// 1 Hz status/hello frame from TX firmware (`04 type 10 sum`). Meaning
+  /// and expected reply are unverified; the pod disconnects after three
+  /// unanswered frames.
+  static const int OPCODE_TX_STATUS = 0x10;
 }
 
 class WheeltopEdsButtons {

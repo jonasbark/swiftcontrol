@@ -151,6 +151,85 @@ void main() async {
     });
   });
 
+  group('WHEELTOP EDS TX 4-byte frames', () {
+    // TX firmware frames observed in the field: 04 | sender type byte |
+    // code | additive checksum (sum of the first three bytes, & 0xff).
+    Uint8List txPacket(int code, {int type = 0x38}) =>
+        Uint8List.fromList([0x04, type, code, (0x04 + type + code) & 0xff]);
+
+    test('top press + release performs one shift up click', () async {
+      final device = createDevice(edsType: WheeltopEdsType.txRight);
+
+      await device.processCharacteristic(characteristic, txPacket(0x02));
+      await device.processCharacteristic(characteristic, txPacket(0x0a));
+
+      expect(stubActions.performedActions.length, 1);
+      expect(
+        stubActions.performedActions.single,
+        PerformedAction(WheeltopEdsButtons.shiftUp, isDown: true, isUp: true),
+      );
+    });
+
+    test('hold repeats are ignored like in the 3-byte protocol', () async {
+      final device = createDevice(edsType: WheeltopEdsType.txRight);
+
+      await device.processCharacteristic(characteristic, txPacket(0x01));
+      await device.processCharacteristic(characteristic, txPacket(0x03));
+      await device.processCharacteristic(characteristic, txPacket(0x03));
+      await device.processCharacteristic(characteristic, txPacket(0x09));
+
+      expect(stubActions.performedActions.length, 1);
+      expect(
+        stubActions.performedActions.single,
+        PerformedAction(WheeltopEdsButtons.shiftDown, isDown: true, isUp: true),
+      );
+    });
+
+    test('1 Hz status frame 0x10 performs no action and logs once per connection', () async {
+      final device = createDevice(edsType: WheeltopEdsType.txRight);
+      final logs = <String>[];
+      final sub = device.actionStream.listen((n) => logs.add(n.toString()));
+
+      // The field log shows this exact frame repeating at 1 Hz.
+      final status = Uint8List.fromList([0x04, 0x38, 0x10, 0x4c]);
+      await device.processCharacteristic(characteristic, status);
+      await device.processCharacteristic(characteristic, status);
+      await device.processCharacteristic(characteristic, status);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(stubActions.performedActions, isEmpty);
+      expect(logs.where((l) => l.contains('0x10')).length, 1);
+
+      // A reconnect resets the dedupe so diagnostics reappear per connection.
+      device.resetConnectionState();
+      await device.processCharacteristic(characteristic, status);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs.where((l) => l.contains('0x10')).length, 2);
+
+      await sub.cancel();
+    });
+
+    test('corrupt or unknown-sender 4-byte frames are invalid and logged once', () async {
+      final device = createDevice(edsType: WheeltopEdsType.txRight);
+      final logs = <String>[];
+      final sub = device.actionStream.listen((n) => logs.add(n.toString()));
+
+      // Wrong checksum, repeated — must not spam the log.
+      final corrupt = Uint8List.fromList([0x04, 0x38, 0x10, 0x4d]);
+      await device.processCharacteristic(characteristic, corrupt);
+      await device.processCharacteristic(characteristic, corrupt);
+      // Second byte is not a known sender type byte (checksum valid).
+      await device.processCharacteristic(characteristic, Uint8List.fromList([0x04, 0x35, 0x02, 0x3b]));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(stubActions.performedActions, isEmpty);
+      expect(logs.where((l) => l.contains('0438104d')).length, 1);
+      expect(logs.where((l) => l.contains('0435023b')).length, 1);
+
+      await sub.cancel();
+    });
+  });
+
   group('WHEELTOP EDS reconnect state reset', () {
     test('resetConnectionState clears stale pressed-button state so the next press fires', () async {
       final device = createDevice();
