@@ -152,12 +152,31 @@ class Connection {
   /// cancelled the moment the suppression it guards is lifted some other way.
   final _backoffCooldownTimers = <String, Timer>{};
 
-  /// True once [device] has exhausted its auto-connect attempts — backoff
-  /// rounds stay quiet: no connecting/disconnected toasts, no OS notification.
-  bool _isInBackoff(BaseDevice device) =>
-      device is BluetoothDevice &&
-      device.maxAutoConnectAttempts > 0 &&
-      (_consecutiveConnectFailures[device.device.deviceId] ?? 0) >= device.maxAutoConnectAttempts;
+  /// When each BLE device last became connected — used to spot a pod that
+  /// connects but drops again within [quickDropThreshold] (e.g. a WHEELTOP TX
+  /// pod whose keepalive we can't answer). Such a connect looks successful to
+  /// the connect queue, so [_consecutiveConnectFailures] never catches it.
+  final _connectedAt = <String, DateTime>{};
+
+  /// Consecutive quick drops per BLE device id (a connect that dies within
+  /// [quickDropThreshold]). Counted only for devices that do NOT opt out via
+  /// [BluetoothDevice.keepsReconnectingWhileDropping]; drives the same backoff
+  /// as [_consecutiveConnectFailures] once it reaches the device's limit.
+  final _quickDropCounts = <String, int>{};
+
+  /// A connection that dies within this window counts as a quick drop. Mutable
+  /// as a test seam.
+  Duration quickDropThreshold = const Duration(seconds: 5);
+
+  /// True once [device] has exhausted its auto-connect attempts (failed
+  /// connects or quick drops) — backoff rounds stay quiet: no
+  /// connecting/disconnected toasts, no OS notification.
+  bool _isInBackoff(BaseDevice device) {
+    if (device is! BluetoothDevice || device.maxAutoConnectAttempts <= 0) return false;
+    final id = device.device.deviceId;
+    return (_consecutiveConnectFailures[id] ?? 0) >= device.maxAutoConnectAttempts ||
+        (_quickDropCounts[id] ?? 0) >= device.maxAutoConnectAttempts;
+  }
 
   void initialize() {
     actionStream.listen((log) {
@@ -664,6 +683,32 @@ class Connection {
     _consecutiveConnectFailures[id] = failures;
     if (failures < maxAttempts) return false;
 
+    _engageBackoff(device);
+    return true;
+  }
+
+  /// Records a quick drop — a connect that succeeded but died within
+  /// [quickDropThreshold] (a WHEELTOP TX pod whose keepalive we can't answer
+  /// yet does this in a tight loop). Skipped for devices that opt to keep
+  /// cycling via [BluetoothDevice.keepsReconnectingWhileDropping] (the
+  /// keepalive probe needs those reconnects). Engages the same backoff once
+  /// the drop streak reaches the device's limit.
+  void _recordQuickDrop(BluetoothDevice device) {
+    final maxAttempts = device.maxAutoConnectAttempts;
+    if (maxAttempts <= 0 || device.keepsReconnectingWhileDropping) return;
+
+    final id = device.device.deviceId;
+    final drops = (_quickDropCounts[id] ?? 0) + 1;
+    _quickDropCounts[id] = drops;
+    if (drops >= maxAttempts) _engageBackoff(device);
+  }
+
+  /// Suppresses auto-reconnect for [device] for [autoConnectBackoffCooldown],
+  /// clears the stale scan-result entry when the cooldown lifts, and shows the
+  /// give-up guidance alert once per session (log-only afterwards). Shared by
+  /// the connect-failed and quick-drop backoff paths.
+  void _engageBackoff(BluetoothDevice device) {
+    final id = device.device.deviceId;
     _suppressedAutoReconnect.add(id);
     // Lift the suppression after the cooldown. The stale _lastScanResult entry
     // must go too — it would dedupe every future advertisement and block
@@ -693,6 +738,7 @@ class Connection {
             _backoffCooldownTimers.remove(id)?.cancel();
             _suppressedAutoReconnect.remove(id);
             _consecutiveConnectFailures.remove(id);
+            _quickDropCounts.remove(id);
             _lastScanResult.removeWhere((d) => d.deviceId == id);
             addDevices([device]);
           },
@@ -701,7 +747,6 @@ class Connection {
     } else {
       _actionStreams.add(LogNotification(message));
     }
-    return true;
   }
 
   /// Connect a device that is already in the list — used by the in-place
@@ -741,6 +786,28 @@ class Connection {
       final connectionStateSubscription = device.device.connectionStream.listen((state) {
         device.isConnected = state;
         _connectionStreams.add(device);
+
+        // Quick-drop tracking (Wheeltop TX pods connect then drop within
+        // seconds because their keepalive is unanswered — a "successful"
+        // connect the connect queue never counts as a failure). Only devices
+        // that declare an attempt limit participate.
+        if (device.maxAutoConnectAttempts > 0) {
+          final id = device.device.deviceId;
+          if (state) {
+            _connectedAt[id] = DateTime.now();
+          } else {
+            final connectedAt = _connectedAt.remove(id);
+            if (connectedAt != null) {
+              if (DateTime.now().difference(connectedAt) >= quickDropThreshold) {
+                // Survived long enough — a healthy connection clears the streak.
+                _quickDropCounts.remove(id);
+              } else {
+                _recordQuickDrop(device);
+              }
+            }
+          }
+        }
+
         // An automatic reset cycle (ClickLogic) reboots the device every
         // minute — don't spam connect/disconnect notifications for it.
         final isSilentReset = device.isResetting;
@@ -910,6 +977,8 @@ class Connection {
     // rediscovery should auto-connect normally again.
     _suppressedAutoReconnect.clear();
     _consecutiveConnectFailures.clear();
+    _quickDropCounts.clear();
+    _connectedAt.clear();
     _backoffAlerted.clear();
     for (final timer in _backoffCooldownTimers.values) {
       timer.cancel();

@@ -12,8 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'harness/test_env.dart';
 
 /// The WHEELTOP keepalive-reply probe through the REAL Connection class:
-/// candidate writes on connect and per status frame, rotation across
-/// reconnects, and the opt-in gate. Only the BLE platform is fake.
+/// auto-arming on the first status frame, answering each frame, rotation
+/// across reconnects, and the opt-out gate. Only the BLE platform is fake.
 Future<void> main() async {
   final env = await IntegrationEnv.setUp();
   late StubActions stubActions;
@@ -42,53 +42,84 @@ Future<void> main() async {
     await env.resetConnection();
   });
 
-  Future<void> waitForConnected() => IntegrationEnv.waitFor(
-    () => core.connection.devices.whereType<WheeltopEds>().any((d) => d.isConnected),
-    description: 'WheeltopEds to connect',
+  const txChar = WheeltopEdsConstants.TX_CHARACTERISTIC_UUID;
+  // TX Left (type 0x36) status frame: 04 36 10 sum, sum = 0x4a.
+  final statusFrame = [0x04, 0x36, 0x10, 0x4a];
+
+  Future<void> waitSubscribed(FakePeripheral pod) => IntegrationEnv.waitFor(
+    () => pod.subscriptions.contains(txChar.toLowerCase()),
+    description: 'WheeltopEds to connect and subscribe',
   );
 
-  test('writes the candidate on connect and again per status frame', () async {
+  test('arms on the first status frame and answers every frame', () async {
     final pod = buildWheeltopEdsTxLeft();
     env.ble.addPeripheral(pod);
     await core.connection.performScanning();
-    await waitForConnected();
+    await waitSubscribed(pod);
 
-    await IntegrationEnv.waitFor(() => pod.writes.isNotEmpty, description: 'initial candidate write');
+    // Nothing is written just from connecting — the probe waits for a frame.
+    expect(pod.writes, isEmpty);
+
+    env.ble.notify(pod.deviceId, txChar, statusFrame);
+    await IntegrationEnv.waitFor(() => pod.writes.isNotEmpty, description: 'arm + answer first frame');
     final first = pod.writes.first;
     // First candidate: type-echo frame on the stock NUS RX slot 6e400003.
     expect(first.characteristic.toLowerCase(), startsWith('6e400003'));
     expect(first.value, [0x04, 0x36, 0x10, 0x4a]);
 
-    env.ble.notify(pod.deviceId, WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [0x04, 0x36, 0x10, 0x4a]);
-    await IntegrationEnv.waitFor(() => pod.writes.length >= 2, description: 'status-frame reply write');
+    env.ble.notify(pod.deviceId, txChar, statusFrame);
+    await IntegrationEnv.waitFor(() => pod.writes.length >= 2, description: 'answer second frame');
     expect(pod.writes[1].value, first.value);
     expect(pod.writes[1].characteristic, first.characteristic);
   });
 
-  test('rotation advances to the next candidate on reconnect', () async {
+  test('rotation advances to the next candidate on the next connection', () async {
     final pod = buildWheeltopEdsTxLeft();
-    env.ble.addPeripheral(pod);
-    startAdvertising(pod);
-    await core.connection.performScanning();
-    await IntegrationEnv.waitFor(() => pod.writes.isNotEmpty, description: 'first cycle write');
 
+    // Connection 1: one status frame → candidate 1.
+    env.ble.addPeripheral(pod);
+    await core.connection.performScanning();
+    await waitSubscribed(pod);
+    env.ble.notify(pod.deviceId, txChar, statusFrame);
+    await IntegrationEnv.waitFor(() => pod.writes.isNotEmpty, description: 'first candidate');
+    expect(pod.writes.first.value, [0x04, 0x36, 0x10, 0x4a]);
+
+    // Drop and wait for the device to be fully torn down, so the next write
+    // can only come from a fresh connection's probe.
+    final writesAfterFirst = pod.writes.length;
     env.ble.dropConnection(pod.deviceId);
-    await IntegrationEnv.waitFor(() => pod.writes.length >= 2, description: 'second cycle write');
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<WheeltopEds>().isEmpty,
+      description: 'first connection torn down',
+    );
+
+    // Connection 2: re-advertise, reconnect, answer with the next candidate.
+    startAdvertising(pod);
+    await IntegrationEnv.waitFor(
+      () {
+        if (core.connection.devices.whereType<WheeltopEds>().any((d) => d.isConnected)) {
+          env.ble.notify(pod.deviceId, txChar, statusFrame);
+        }
+        return pod.writes.length > writesAfterFirst;
+      },
+      timeout: const Duration(seconds: 8),
+      description: 'second candidate after reconnect',
+    );
     // Candidate 2: the ack (code + 1) frame, still on 6e400003.
-    expect(pod.writes[1].value, [0x04, 0x36, 0x11, 0x4b]);
-    expect(pod.writes[1].characteristic.toLowerCase(), startsWith('6e400003'));
+    expect(pod.writes[writesAfterFirst].value, [0x04, 0x36, 0x11, 0x4b]);
+    expect(pod.writes[writesAfterFirst].characteristic.toLowerCase(), startsWith('6e400003'));
   });
 
-  test('probe stays silent when the experiment is disabled', () async {
-    await env.resetState(); // defaults: experiment off
+  test('does nothing when the experiment is disabled', () async {
+    await env.resetState(prefs: {'wheeltop_probe_enabled': false});
     core.actionHandler = stubActions;
 
     final pod = buildWheeltopEdsTxLeft();
     env.ble.addPeripheral(pod);
     await core.connection.performScanning();
-    await waitForConnected();
+    await waitSubscribed(pod);
 
-    env.ble.notify(pod.deviceId, WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [0x04, 0x36, 0x10, 0x4a]);
+    env.ble.notify(pod.deviceId, txChar, statusFrame);
     await Future<void>.delayed(const Duration(milliseconds: 300));
     expect(pod.writes, isEmpty);
   });

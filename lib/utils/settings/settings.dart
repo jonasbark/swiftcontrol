@@ -573,13 +573,16 @@ class Settings {
   }
 
   /// WHEELTOP keepalive experiment (see WheeltopProbe): tries reply
-  /// candidates to the TX pod's status frame, one per reconnect.
+  /// candidates to the TX pod's status frame, one per reconnect. On by
+  /// default — TX shifters are unusable without it, and the pod drops too
+  /// fast for the user to reach a toggle mid-connection; disabling it instead
+  /// lets the quick-drop backoff quiet the reconnect loop.
   void setWheeltopProbeEnabled(bool value) {
     prefs.setBool('wheeltop_probe_enabled', value);
   }
 
   bool getWheeltopProbeEnabled() {
-    return prefs.getBool('wheeltop_probe_enabled') ?? false;
+    return prefs.getBool('wheeltop_probe_enabled') ?? true;
   }
 
   void setPhoneSteeringEnabled(bool value) {

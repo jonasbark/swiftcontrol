@@ -153,9 +153,25 @@ class WheeltopEds extends BluetoothDevice {
   final Set<String> _loggedInvalidPackets = {};
   final Set<int> _loggedUnhandledOpcodes = {};
 
-  /// Keepalive-reply experiment for the current connection; created in
-  /// [handleServices] when the user opted in via [WheeltopProbeToggle].
+  /// Keepalive-reply experiment for the current connection. Armed lazily on
+  /// the first `0x10` status frame (see [_armProbeIfNeeded]) rather than at
+  /// connect: the frame is what proves this pod needs a reply, and it is the
+  /// only moment we can reach — the pod drops so fast the user can never open
+  /// its detail page to toggle anything.
   WheeltopProbe? _probe;
+
+  /// The NUS service uuid and its writable characteristics, captured in
+  /// [handleServices] so the probe can be built later, when a status frame
+  /// arrives.
+  String? _probeServiceUuid;
+  List<ProbeTarget>? _probeWritableCharacteristics;
+
+  /// While the keepalive experiment is enabled the reconnect loop must keep
+  /// cycling even though the pod drops within seconds — each cycle lets the
+  /// probe try the next candidate. So this device opts out of the quick-drop
+  /// backoff [Connection] would otherwise apply.
+  @override
+  bool get keepsReconnectingWhileDropping => core.settings.getWheeltopProbeEnabled();
 
   /// Clears the per-connection button/subscription state. Extracted from
   /// [disconnect] so it can be exercised directly in tests that cannot reach
@@ -169,6 +185,8 @@ class WheeltopEds extends BluetoothDevice {
     _loggedUnhandledOpcodes.clear();
     _probe?.end();
     _probe = null;
+    _probeServiceUuid = null;
+    _probeWritableCharacteristics = null;
   }
 
   @override
@@ -242,7 +260,10 @@ class WheeltopEds extends BluetoothDevice {
       }
     }
 
-    final writable = service.characteristics
+    // Stash the writable characteristics for the keepalive probe, which is
+    // armed later, only if this pod turns out to send status frames.
+    _probeServiceUuid = service.uuid;
+    _probeWritableCharacteristics = service.characteristics
         .where(
           (c) =>
               c.properties.contains(CharacteristicProperty.write) ||
@@ -255,22 +276,38 @@ class WheeltopEds extends BluetoothDevice {
           ),
         )
         .toList();
-    if (core.settings.getWheeltopProbeEnabled() && writable.isNotEmpty) {
-      _probe = WheeltopProbe(
-        deviceId: device.deviceId,
-        typeByte: edsType.typeByte,
-        writableCharacteristics: writable,
-        write: (uuid, value, {required withoutResponse}) => UniversalBle.write(
-          device.deviceId,
-          service.uuid,
-          uuid,
-          value,
-          withoutResponse: withoutResponse,
-        ),
-        log: (message) => actionStreamInternal.add(LogNotification(message)),
-      );
-      _probe!.start();
-    }
+  }
+
+  /// Arms the keepalive probe on the first status frame, if the experiment is
+  /// enabled and this pod exposes a writable characteristic. Answers that
+  /// first frame with the candidate; returns false when no probe is running.
+  bool _armProbeIfNeeded() {
+    if (_probe != null) return true;
+    // Check what we can probe with before consulting the setting — nothing to
+    // write to means no probe regardless (and keeps direct-processCharacteristic
+    // unit tests from needing initialized settings).
+    final serviceUuid = _probeServiceUuid;
+    final writable = _probeWritableCharacteristics;
+    if (serviceUuid == null || writable == null || writable.isEmpty) return false;
+    if (!core.settings.getWheeltopProbeEnabled()) return false;
+
+    _probe = WheeltopProbe(
+      deviceId: device.deviceId,
+      typeByte: edsType.typeByte,
+      writableCharacteristics: writable,
+      write: (uuid, value, {required withoutResponse}) => UniversalBle.write(
+        device.deviceId,
+        serviceUuid,
+        uuid,
+        value,
+        withoutResponse: withoutResponse,
+      ),
+      log: (message) => actionStreamInternal.add(LogNotification(message)),
+    );
+    // start() logs the candidate and writes it once — that write answers the
+    // status frame that just arrived.
+    _probe!.start();
+    return true;
   }
 
   /// The button opcode when [bytes] is a valid frame, else null. Two frame
@@ -348,9 +385,15 @@ class WheeltopEds extends BluetoothDevice {
       case WheeltopEdsConstants.OPCODE_TX_STATUS:
         // TX firmware sends this status/hello frame at 1 Hz starting ~300 ms
         // after connect. The reply the derailleur gives is unknown —
-        // unanswered, the pod drops the link after three frames. The probe
-        // (when enabled) answers with its current candidate.
-        await _probe?.onStatusFrame();
+        // unanswered, the pod drops the link after three frames. Arm the
+        // probe on the first frame (its start() writes the answer to it), and
+        // answer every frame after that with onStatusFrame().
+        {
+          final wasArmed = _probe != null;
+          if (_armProbeIfNeeded() && wasArmed) {
+            await _probe!.onStatusFrame();
+          }
+        }
         if (_loggedUnhandledOpcodes.add(opcode)) {
           actionStreamInternal.add(
             LogNotification('WHEELTOP EDS: status frame 0x10 (pod may disconnect while its reply is unknown)'),

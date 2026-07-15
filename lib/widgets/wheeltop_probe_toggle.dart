@@ -35,9 +35,10 @@ class _WheeltopProbeToggleState extends State<WheeltopProbeToggle> {
         ),
         const Text(
           'TX shifters drop the connection a few seconds after connecting because the app '
-          'does not yet know how to answer their status frames. This experiment tries one '
-          'candidate answer per reconnect and records the outcome in the log — sharing that '
-          'log with support helps find the answer that keeps the shifter connected.',
+          'does not yet know how to answer their status frames. This experiment (on by '
+          'default) automatically tries one candidate answer per reconnect and records the '
+          'outcome in the log — sharing that log with support helps find the answer that '
+          'keeps the shifter connected. Turn it off to stop the reconnect attempts instead.',
         ).xSmall,
       ],
     );

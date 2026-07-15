@@ -257,6 +257,12 @@ abstract class BluetoothDevice extends BaseDevice {
   /// [maxAutoConnectAttempts]); null when there is no device-specific guidance.
   String? get connectionGuidance => null;
 
+  /// When true, [Connection] leaves this device in the reconnect loop even if
+  /// it keeps dropping within seconds of connecting — i.e. it opts out of the
+  /// quick-drop backoff. Default false. WheeltopEds returns true while its
+  /// keepalive experiment runs, so each reconnect can try the next candidate.
+  bool get keepsReconnectingWhileDropping => false;
+
   @override
   Future<void> connect() async {
     try {
