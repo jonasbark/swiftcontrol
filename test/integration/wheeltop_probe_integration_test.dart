@@ -110,6 +110,31 @@ Future<void> main() async {
     expect(pod.writes[writesAfterFirst].characteristic.toLowerCase(), startsWith('6e400003'));
   });
 
+  test('captures a reply that arrives on the second NUS slot (6e400003)', () async {
+    final pod = buildWheeltopEdsTxLeft();
+    env.ble.addPeripheral(pod);
+    await core.connection.performScanning();
+    // Subscribe-all means the app also subscribes to 6e400003.
+    await IntegrationEnv.waitFor(
+      () => pod.subscriptions.contains('6e400003-b5a3-f393-e0a9-e50e24dcca9e'),
+      description: 'subscribed to the second slot',
+    );
+
+    final logs = <String>[];
+    final logSub = core.connection.actionStream.listen((n) => logs.add(n.toString()));
+
+    // Arm the probe, then have the pod reply on 6e400003 (a frame we can't parse).
+    env.ble.notify(pod.deviceId, txChar, statusFrame);
+    await IntegrationEnv.waitFor(() => pod.writes.isNotEmpty, description: 'probe armed');
+    env.ble.notify(pod.deviceId, '6e400003-b5a3-f393-e0a9-e50e24dcca9e', [0x04, 0x38, 0x20, 0x5c]);
+
+    await IntegrationEnv.waitFor(
+      () => logs.any((l) => l.contains('pod sent') && l.contains('6e400003') && l.contains('04 38 20 5c')),
+      description: 'reply on 6e400003 captured with slot and bytes',
+    );
+    await logSub.cancel();
+  });
+
   test('does nothing when the experiment is disabled', () async {
     await env.resetState(prefs: {'wheeltop_probe_enabled': false});
     core.actionHandler = stubActions;

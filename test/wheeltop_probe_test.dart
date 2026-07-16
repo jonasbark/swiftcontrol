@@ -109,13 +109,24 @@ void main() {
       expect(logs.last, contains('SURVIVED 12.0s'));
     });
 
-    test('logs unexpected frames loudly with the active candidate', () {
+    test('logs unexpected frames loudly with slot, length and candidate', () {
       final probe = startProbe();
-      probe.onUnexpectedFrame('04381130');
+      probe.onUnexpectedFrame('6e400003-b5a3-f393-e0a9-e50e24dcca9e', [0x04, 0x38, 0x11, 0x30]);
 
-      expect(logs.last, contains('pod responded'));
-      expect(logs.last, contains('04381130'));
+      expect(logs.last, contains('pod sent'));
+      expect(logs.last, contains('04 38 11 30'));
+      expect(logs.last, contains('len 4'));
+      expect(logs.last, contains('6e400003'));
       expect(logs.last, contains('candidate 1/5'));
+    });
+
+    test('an empty response frame is logged as empty with its length', () {
+      final probe = startProbe();
+      probe.onUnexpectedFrame('6e400002-b5a3-f393-e0a9-e50e24dcca9e', const []);
+
+      expect(logs.last, contains('(empty)'));
+      expect(logs.last, contains('len 0'));
+      expect(logs.last, contains('6e400002'));
     });
 
     test('a failing write is logged, not thrown', () async {

@@ -145,9 +145,15 @@ class WheeltopProbe {
   }
 
   /// Any frame that is not a button event or the known status frame — while
-  /// probing, that is potentially the pod reacting to a candidate.
-  void onUnexpectedFrame(String hex) {
-    _log('WHEELTOP PROBE: pod responded with $hex during ${candidate.label} — capture this!');
+  /// probing, that is potentially the pod reacting to a candidate. Logs the
+  /// slot it arrived on and the byte length, so an empty/artifact frame is
+  /// distinguishable from a real reply and its characteristic is visible.
+  void onUnexpectedFrame(String characteristicUuid, List<int> bytes) {
+    final slot = characteristicUuid.length >= 8 ? characteristicUuid.substring(0, 8) : characteristicUuid;
+    final hex = bytes.isEmpty ? '(empty)' : bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
+    _log(
+      'WHEELTOP PROBE: pod sent $hex (len ${bytes.length}) on $slot during ${candidate.label} — capture this!',
+    );
   }
 
   /// The connection ended — record the verdict for this candidate.

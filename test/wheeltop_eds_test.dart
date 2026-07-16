@@ -263,12 +263,14 @@ void main() async {
     // so it is tested directly rather than through handleServices.
     const rxCharacteristic = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
-    test('prefers 6e400002 when it is notify-capable', () {
+    test('subscribes to every notify characteristic, 6e400002 first', () {
+      // Both slots notify: subscribe to both so a reply on 6e400003 is
+      // captured, with the button slot 6e400002 listed first.
       final targets = WheeltopEds.selectSubscriptionTargets([
         BleCharacteristic(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [CharacteristicProperty.notify], []),
         BleCharacteristic(rxCharacteristic, [CharacteristicProperty.notify], []),
       ]);
-      expect(targets, [WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase()]);
+      expect(targets, [WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase(), rxCharacteristic]);
     });
 
     test('falls back to the notify-capable characteristic when 6e400002 is write-only', () {

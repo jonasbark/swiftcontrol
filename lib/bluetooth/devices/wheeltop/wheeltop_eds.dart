@@ -215,13 +215,13 @@ class WheeltopEds extends BluetoothDevice {
     );
   }
 
-  /// Button events are notified on 6e400002 (the slot standard NUS uses for
-  /// writes), but some firmware follows the stock Nordic UART layout where
-  /// that characteristic is write-only and notifications actually arrive on
-  /// 6e400003. Filter candidates by notify/indicate capability, preferring
-  /// 6e400002 among them, and fall back to every notify/indicate-capable
-  /// characteristic of the service otherwise — the strict packet validation
-  /// makes stray notifications harmless. If the service advertises no
+  /// Button events are notified on 6e400002, but the pod's keepalive reply may
+  /// land on a different slot (6e400003 is the stock Nordic UART slot the RD
+  /// would receive on). Subscribe to EVERY notify/indicate-capable
+  /// characteristic so a reply is captured whichever slot it uses — the strict
+  /// packet validation makes stray notifications harmless, and the pressed-set
+  /// dedup absorbs a button event that a second slot happens to duplicate.
+  /// 6e400002 is listed first for log readability. If the service advertises no
   /// notify/indicate characteristic at all, still attempt 6e400002 so we at
   /// least log a subscribe failure instead of silently doing nothing.
   ///
@@ -236,12 +236,14 @@ class WheeltopEds extends BluetoothDevice {
               c.properties.contains(CharacteristicProperty.notify) ||
               c.properties.contains(CharacteristicProperty.indicate),
         )
+        .map((c) => c.uuid)
         .toList();
-    final preferred = notifiable.where((c) => c.uuid.toLowerCase() == txUuid).toList();
 
-    if (preferred.isNotEmpty) return [preferred.first.uuid];
-    if (notifiable.isNotEmpty) return notifiable.map((c) => c.uuid).toList();
-    return [WheeltopEdsConstants.TX_CHARACTERISTIC_UUID];
+    if (notifiable.isEmpty) return [WheeltopEdsConstants.TX_CHARACTERISTIC_UUID];
+    return [
+      ...notifiable.where((u) => u.toLowerCase() == txUuid),
+      ...notifiable.where((u) => u.toLowerCase() != txUuid),
+    ];
   }
 
   @override
@@ -345,11 +347,14 @@ class WheeltopEds extends BluetoothDevice {
     if (opcode == null) {
       final hex = bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
       // While probing, any unparseable frame may be the pod reacting to a
-      // candidate — surface it through the probe's loud path too.
-      _probe?.onUnexpectedFrame(hex);
-      if (_loggedInvalidPackets.add(hex)) {
+      // candidate — surface it through the probe's loud path (with slot + len).
+      _probe?.onUnexpectedFrame(uuid, bytes);
+      if (_loggedInvalidPackets.add('$uuid:$hex')) {
         actionStreamInternal.add(
-          LogNotification('WHEELTOP EDS: invalid packet: $hex (logged once per connection)'),
+          LogNotification(
+            'WHEELTOP EDS: invalid packet: ${hex.isEmpty ? '(empty)' : hex} '
+            '(len ${bytes.length}, on ${uuid.length >= 8 ? uuid.substring(0, 8) : uuid}, logged once per connection)',
+          ),
         );
       }
       return;
@@ -402,7 +407,7 @@ class WheeltopEds extends BluetoothDevice {
       default:
         // A valid frame with an unknown opcode is exactly what a probe
         // response would look like — surface it loudly while probing.
-        _probe?.onUnexpectedFrame(bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join());
+        _probe?.onUnexpectedFrame(uuid, bytes);
         if (_loggedUnhandledOpcodes.add(opcode)) {
           actionStreamInternal.add(
             LogNotification(
