@@ -644,7 +644,12 @@ class Connection {
           .catchError((e) {
             device.isConnected = false;
             _handlingConnectionQueue = false;
-            if (_recordConnectFailure(device)) {
+            if (device is BluetoothDevice && device.keepsReconnectingWhileDropping) {
+              // Keepalive probe: the reconnect churn is expected and is NOT
+              // rear-derailleur contention, so the "claimed by the derailleur"
+              // give-up guidance must not fire. Keep it to a quiet log.
+              _actionStreams.add(LogNotification('${device.toString()}: connect attempt failed during probe ($e)'));
+            } else if (_recordConnectFailure(device)) {
               // Backoff engaged — _recordConnectFailure emitted the guidance alert
               // (or the silent per-round log) in place of the generic toast.
             } else if (e is TimeoutException) {

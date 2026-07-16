@@ -338,6 +338,9 @@ class WheeltopEds extends BluetoothDevice {
   @override
   Future<void> processCharacteristic(String characteristic, Uint8List bytes) async {
     final uuid = characteristic.toLowerCase();
+    // While probing, log every inbound frame verbatim (all slots) so the
+    // support log is a full transcript of the pod's traffic.
+    _probe?.logIncoming(uuid, bytes);
     if (uuid != WheeltopEdsConstants.TX_CHARACTERISTIC_UUID.toLowerCase() &&
         !_subscribedCharacteristics.contains(uuid)) {
       return;
@@ -346,9 +349,6 @@ class WheeltopEds extends BluetoothDevice {
     final opcode = _validatedOpcode(bytes);
     if (opcode == null) {
       final hex = bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
-      // While probing, any unparseable frame may be the pod reacting to a
-      // candidate — surface it through the probe's loud path (with slot + len).
-      _probe?.onUnexpectedFrame(uuid, bytes);
       if (_loggedInvalidPackets.add('$uuid:$hex')) {
         actionStreamInternal.add(
           LogNotification(
@@ -406,8 +406,8 @@ class WheeltopEds extends BluetoothDevice {
         }
       default:
         // A valid frame with an unknown opcode is exactly what a probe
-        // response would look like — surface it loudly while probing.
-        _probe?.onUnexpectedFrame(uuid, bytes);
+        // response would look like — the raw transcript (logIncoming) already
+        // captured its bytes; note the opcode once.
         if (_loggedUnhandledOpcodes.add(opcode)) {
           actionStreamInternal.add(
             LogNotification(

@@ -14,17 +14,20 @@ void main() {
     test('all frames on 6e400003 first, then the other characteristic', () {
       final candidates = WheeltopProbe.candidatesFor(typeByte: 0x36, writableCharacteristics: both);
 
-      expect(candidates.length, 10);
-      // Frame set per characteristic: type-echo, type-ack, 3-byte XOR echo,
-      // 3-byte XOR ack, bare ACK.
+      // 7 frames × 2 characteristics.
+      expect(candidates.length, 14);
+      // Frame set per characteristic: type-echo, type-ack, type-0x0f-echo,
+      // 3-byte XOR echo, 3-byte XOR ack, 09-01-00-00 echo, bare ACK.
       expect(candidates[0].characteristicUuid, char3);
       expect(candidates[0].frame, [0x04, 0x36, 0x10, 0x4a]);
       expect(candidates[1].frame, [0x04, 0x36, 0x11, 0x4b]);
-      expect(candidates[2].frame, [0x04, 0x10, 0x14]);
-      expect(candidates[3].frame, [0x04, 0x11, 0x15]);
-      expect(candidates[4].frame, [0x01]);
-      expect(candidates[5].characteristicUuid, char2);
-      expect(candidates[5].frame, [0x04, 0x36, 0x10, 0x4a]);
+      expect(candidates[2].frame, [0x04, 0x36, 0x0f, 0x49]); // data-informed: pod's 0x0f reply
+      expect(candidates[3].frame, [0x04, 0x10, 0x14]);
+      expect(candidates[4].frame, [0x04, 0x11, 0x15]);
+      expect(candidates[5].frame, [0x09, 0x01, 0x00, 0x00]); // data-informed: pod's verbatim reply
+      expect(candidates[6].frame, [0x01]);
+      expect(candidates[7].characteristicUuid, char2);
+      expect(candidates[7].frame, [0x04, 0x36, 0x10, 0x4a]);
     });
 
     test('checksums are additive and type-specific', () {
@@ -34,6 +37,7 @@ void main() {
       );
       expect(candidates[0].frame, [0x04, 0x38, 0x10, 0x4c]);
       expect(candidates[1].frame, [0x04, 0x38, 0x11, 0x4d]);
+      expect(candidates[2].frame, [0x04, 0x38, 0x0f, 0x4b]); // matches the field-observed reply
     });
   });
 
@@ -44,7 +48,7 @@ void main() {
       expect(first.index, 0);
       expect(second.index, 1);
 
-      for (var i = 2; i < 10; i++) {
+      for (var i = 2; i < 14; i++) {
         WheeltopProbe.nextCandidate('pod-a', typeByte: 0x36, writableCharacteristics: both);
       }
       final wrapped = WheeltopProbe.nextCandidate('pod-a', typeByte: 0x36, writableCharacteristics: both);
@@ -83,7 +87,9 @@ void main() {
       final probe = startProbe();
       expect(writes.length, 1);
       expect(writes.single.$2, Uint8List.fromList([0x04, 0x38, 0x10, 0x4c]));
-      expect(logs.single, contains('candidate 1/5'));
+      expect(logs.any((l) => l.contains('candidate 1/7') && l.contains('started')), isTrue);
+      // Outgoing bytes are logged verbatim.
+      expect(logs.any((l) => l.contains('tx 6e400003') && l.contains('04 38 10 4c')), isTrue);
 
       await probe.onStatusFrame();
       await probe.onStatusFrame();
@@ -109,24 +115,23 @@ void main() {
       expect(logs.last, contains('SURVIVED 12.0s'));
     });
 
-    test('logs unexpected frames loudly with slot, length and candidate', () {
+    test('logs an inbound frame verbatim with slot, length and candidate', () {
       final probe = startProbe();
-      probe.onUnexpectedFrame('6e400003-b5a3-f393-e0a9-e50e24dcca9e', [0x04, 0x38, 0x11, 0x30]);
+      probe.logIncoming('6e400003-b5a3-f393-e0a9-e50e24dcca9e', [0x04, 0x38, 0x11, 0x30]);
 
-      expect(logs.last, contains('pod sent'));
+      expect(logs.last, contains('rx 6e400003'));
       expect(logs.last, contains('04 38 11 30'));
       expect(logs.last, contains('len 4'));
-      expect(logs.last, contains('6e400003'));
-      expect(logs.last, contains('candidate 1/5'));
+      expect(logs.last, contains('candidate 1/7'));
     });
 
-    test('an empty response frame is logged as empty with its length', () {
+    test('an empty inbound frame is logged as empty with its length', () {
       final probe = startProbe();
-      probe.onUnexpectedFrame('6e400002-b5a3-f393-e0a9-e50e24dcca9e', const []);
+      probe.logIncoming('6e400002-b5a3-f393-e0a9-e50e24dcca9e', const []);
 
+      expect(logs.last, contains('rx 6e400002'));
       expect(logs.last, contains('(empty)'));
       expect(logs.last, contains('len 0'));
-      expect(logs.last, contains('6e400002'));
     });
 
     test('a failing write is logged, not thrown', () async {

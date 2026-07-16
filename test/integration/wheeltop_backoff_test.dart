@@ -36,7 +36,10 @@ Future<void> main() async {
   }
 
   setUp(() async {
-    await env.resetState();
+    // The connect-failure backoff (RD contention) is the experiment-OFF path;
+    // with the keepalive experiment on, a Wheeltop device opts out of backoff
+    // to keep the probe's reconnect loop cycling.
+    await env.resetState(prefs: {'wheeltop_probe_enabled': false});
     stubActions = StubActions();
     stubActions.supportedApp = Zwift();
     core.actionHandler = stubActions;

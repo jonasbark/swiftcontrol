@@ -90,8 +90,10 @@ class WheeltopProbe {
     final frames = <List<int>>[
       [0x04, typeByte, 0x10, sum(0x10)], // echo the status frame
       [0x04, typeByte, 0x11, sum(0x11)], // ack as code+1
+      [0x04, typeByte, 0x0f, sum(0x0f)], // echo the pod's own reply opcode 0x0f (from field log)
       [0x04, 0x10, 0x04 ^ 0x10], // 3-byte XOR shape, echo
       [0x04, 0x11, 0x04 ^ 0x11], // 3-byte XOR shape, ack
+      [0x09, 0x01, 0x00, 0x00], // echo the pod's other observed reply verbatim
       [0x01], // bare ACK byte
     ];
 
@@ -144,16 +146,16 @@ class WheeltopProbe {
     await _sendCandidate();
   }
 
-  /// Any frame that is not a button event or the known status frame — while
-  /// probing, that is potentially the pod reacting to a candidate. Logs the
-  /// slot it arrived on and the byte length, so an empty/artifact frame is
-  /// distinguishable from a real reply and its characteristic is visible.
-  void onUnexpectedFrame(String characteristicUuid, List<int> bytes) {
-    final slot = characteristicUuid.length >= 8 ? characteristicUuid.substring(0, 8) : characteristicUuid;
-    final hex = bytes.isEmpty ? '(empty)' : bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
-    _log(
-      'WHEELTOP PROBE: pod sent $hex (len ${bytes.length}) on $slot during ${candidate.label} — capture this!',
-    );
+  static String _slot(String uuid) => uuid.length >= 8 ? uuid.substring(0, 8) : uuid;
+
+  static String _hex(List<int> bytes) =>
+      bytes.isEmpty ? '(empty)' : bytes.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
+
+  /// Logs every inbound frame verbatim — slot, byte length and bytes — while
+  /// probing, so the support log is a full transcript of what the pod sends
+  /// (an empty artifact on the write slot vs a real reply on another slot).
+  void logIncoming(String characteristicUuid, List<int> bytes) {
+    _log('WHEELTOP PROBE rx ${_slot(characteristicUuid)} len ${bytes.length}: ${_hex(bytes)} (${candidate.label})');
   }
 
   /// The connection ended — record the verdict for this candidate.
@@ -173,6 +175,7 @@ class WheeltopProbe {
   }
 
   Future<void> _sendCandidate() async {
+    _log('WHEELTOP PROBE tx ${_slot(candidate.characteristicUuid)}: ${_hex(candidate.frame)} (${candidate.label})');
     try {
       await _write(
         candidate.characteristicUuid,

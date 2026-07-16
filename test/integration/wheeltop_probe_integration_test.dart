@@ -129,7 +129,7 @@ Future<void> main() async {
     env.ble.notify(pod.deviceId, '6e400003-b5a3-f393-e0a9-e50e24dcca9e', [0x04, 0x38, 0x20, 0x5c]);
 
     await IntegrationEnv.waitFor(
-      () => logs.any((l) => l.contains('pod sent') && l.contains('6e400003') && l.contains('04 38 20 5c')),
+      () => logs.any((l) => l.contains('rx 6e400003') && l.contains('04 38 20 5c')),
       description: 'reply on 6e400003 captured with slot and bytes',
     );
     await logSub.cancel();
