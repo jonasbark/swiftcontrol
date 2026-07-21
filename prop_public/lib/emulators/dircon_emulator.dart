@@ -1,15 +1,23 @@
-import 'package:flutter/foundation.dart';
-import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
-import 'package:universal_ble/src/models/ble_device.dart';
-import 'package:universal_ble/src/models/ble_service.dart';
+//INFO: This is a stub - contact me if you need the full implementation.
+//
+// The full implementation drives the DirCon TCP server, the BLE peripheral
+// transporter and the mDNS advertisement. This stub keeps the public surface
+// (and the [composite] child bookkeeping the app reads) so the app compiles.
 
-import 'ble_definition.dart';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
+import 'package:prop/emulators/ble_definition.dart';
+import 'package:prop/emulators/definitions/composite_ble_definition.dart';
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
+import 'package:prop/emulators/definitions/zwift_click_definition.dart';
+import 'package:prop/emulators/definitions/zwift_emulator_definition.dart';
+import 'package:prop/emulators/transporter/network_transporter.dart';
 
 enum RetrofitMode {
   proxy,
   wifi,
-  bluetooth
-  ;
+  bluetooth;
 
   String get label => switch (this) {
     RetrofitMode.proxy => 'Proxy',
@@ -18,49 +26,92 @@ enum RetrofitMode {
   };
 }
 
+int _portNumberIterator = 36868;
+
+/// Test seam: rebase the TCP port iterator.
+@visibleForTesting
+void debugSetDirconPortBase(int base) => _portNumberIterator = base;
+
 class DirconEmulator {
   final ValueNotifier<bool> isStarted = ValueNotifier(false);
   final ValueNotifier<bool> isConnected = ValueNotifier(false);
-  final ValueNotifier<bool> isUnlocked = ValueNotifier(false);
-  final ValueNotifier<bool> alreadyUnlocked = ValueNotifier(false);
-  final ValueNotifier<bool> waiting = ValueNotifier(false);
   final ValueNotifier<String> data = ValueNotifier('');
 
-  final ValueNotifier<RetrofitMode> retrofitMode = ValueNotifier(RetrofitMode.proxy);
+  final ValueNotifier<String?> _localAddressN = ValueNotifier<String?>(null);
+  ValueListenable<String?> get localAddress => _localAddressN;
 
-  DateTime? connectionDate;
+  int? get boundPort => null;
 
-  BleDefinition? get activeDefinition => null;
+  /// All child definitions exposed by this emulator share a single transport
+  /// via this composite.
+  final CompositeBleDefinition composite = CompositeBleDefinition();
 
-  String get advertisementName => 'null';
+  /// Callback deciding whether the emulator should advertise on session start.
+  bool Function()? shouldAdvertise;
 
-  List<BleService>? get services => [];
+  /// Returns the connected trainer-app name (e.g. "Rouvy", "Zwift").
+  String? Function()? trainerApp;
 
-  set trainerName(String Function() trainerName) {}
+  /// Returns `true` when the user is in trial / non-Pro state.
+  bool Function()? isTrial;
 
-  set shouldAdvertise(bool Function() shouldAdvertise) {}
+  /// Returns the connected device's display name.
+  String? Function()? deviceName;
 
-  set isTrial(bool Function() isTrial) {}
+  /// Stubbed: the full implementation derives the advertised name from the
+  /// trainer-app / trial / device-name callbacks.
+  String get advertisementName => 'BikeControl';
 
-  set onFitnessBikeDefinitionCreated(void Function(FitnessBikeDefinition def) onFitnessBikeDefinitionCreated) {}
+  bool processCharacteristic(String characteristic, Uint8List bytes) => false;
 
-  Future<void>? pauseAdvertising() async {}
-
-  void setScanResult(BleDevice scanResult) {}
-
-  void handleServices(List<BleService> services) {}
-
-  Future<void> startServer() async {}
-
-  bool processCharacteristic(String characteristic, Uint8List bytes) {
-    return false;
+  Future<void> startServer({
+    required RetrofitMode mode,
+    Map<String, Uint8List> mdnsTxt = const {},
+  }) async {
+    isConnected.value = false;
+    isStarted.value = true;
+    _localAddressN.value = null;
   }
 
-  void stop() {}
+  Future<void> stop() async {
+    isStarted.value = false;
+    isConnected.value = false;
+    _localAddressN.value = null;
+  }
 
-  void setRetrofitMode(RetrofitMode savedMode) {}
+  Future<void> restart() async {}
 
-  Future<void> switchRetrofitMode(RetrofitMode next) async {}
+  void reconnect() {}
 
-  void debugSetActiveDefinition(FitnessBikeDefinition def) {}
+  Future<void> pauseAdvertising() async {}
+
+  Future<void> debug() async {}
+
+  BleDefinition? get activeDefinition => composite;
+
+  /// Attach [def] as a child of this emulator's [composite].
+  Future<void> attachDefinition(BleDefinition def) async {
+    if (def is ZwiftClickDefinition && composite.firstOfType<ZwiftEmulatorDefinition>() != null) {
+      composite.detach(composite.firstOfType<ZwiftEmulatorDefinition>()!);
+    }
+    composite.attach(def);
+  }
+
+  /// Detach [def] from this emulator's [composite].
+  Future<void> detachDefinition(BleDefinition def) async {
+    composite.detach(def);
+  }
+
+  FitnessBikeDefinition? get fitnessBike => composite.firstOfType<FitnessBikeDefinition>();
+
+  @visibleForTesting
+  void debugSetActiveDefinition(BleDefinition def) {
+    for (final c in List<BleDefinition>.from(composite.children)) {
+      composite.detach(c);
+    }
+    composite.attach(def);
+  }
+
+  @visibleForTesting
+  void debugSetTransporter(NetworkTransporter transporter) {}
 }
