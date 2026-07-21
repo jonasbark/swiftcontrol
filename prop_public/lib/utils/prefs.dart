@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 final propPrefs = PropPrefs();
 
 class PropPrefs {
-  late final SharedPreferences _prefs;
+  late SharedPreferences _prefs;
 
   void initialize(SharedPreferences prefs) {
     _prefs = prefs;
@@ -23,9 +23,11 @@ class PropPrefs {
     _prefs.setInt("${key}_unlock_date", dateTime.millisecondsSinceEpoch);
   }
 
-  void setNotSureIfUnlocked(String deviceId, bool bool) {}
-
   bool notSureIfUnlocked(String deviceId) {
-    return false;
+    return _prefs.getBool('clickV2_${deviceId}_notSure') ?? false;
+  }
+
+  void setNotSureIfUnlocked(String deviceId, bool value) {
+    _prefs.setBool('clickV2_${deviceId}_notSure', value);
   }
 }
