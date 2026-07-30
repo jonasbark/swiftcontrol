@@ -183,9 +183,12 @@ class DebugDiagnostics {
     } else {
       for (final q in recentQueries) {
         final at = q.at.toIso8601String().split('T').last.split('.').first;
+        // Repeats are folded; the count keeps a continuous poller visible as
+        // one line instead of hiding that it fired hundreds of times.
+        final repeats = q.count > 1 ? ' ×${q.count}' : '';
         b.writeln(
           '    $at ${q.source}:${q.sourcePort} ${q.wantsUnicast ? 'QU' : 'QM'} '
-          '${q.questions.join(', ')} → ${q.reply}',
+          '${q.questions.join(', ')} → ${q.reply}$repeats',
         );
       }
     }
