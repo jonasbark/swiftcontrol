@@ -3,6 +3,14 @@ name: "Patch"
 on:
   workflow_dispatch:
     inputs:
+      build_mac:
+        # Selecting this currently only installs the signing certificates: the
+        # macOS patch step itself stays disabled until
+        # https://github.com/OpenBikeControl/bikecontrol/issues/143 is fixed.
+        description: 'Patch for macOS (patch step disabled, see #143)'
+        required: false
+        default: false
+        type: boolean
       build_windows:
         description: 'Patch for Windows'
         required: false
@@ -50,6 +58,9 @@ jobs:
   build:
     name: Patch iOS, Android & macOS
     needs: guard
+    # Without this, a Windows-only patch still spun up a macOS runner that
+    # checked out, installed Shorebird and Flutter, then ran no patch step.
+    if: inputs.build_mac || inputs.build_android || inputs.build_ios
     runs-on: macos-26
 
     permissions:
@@ -140,12 +151,15 @@ jobs:
           release-version: ${{ inputs.release_version }}
           args: '--track beta --allow-asset-diffs --allow-native-diffs --split-debug-info=symbols -- --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}'
 
+      # build_mac is deliberately not part of these conditions: the macOS patch
+      # step is disabled (#143), so a macOS-only run produces no symbols/ and
+      # the zip would fail. Add it back when that patch step is re-enabled.
       - name: Zip Symbols
-        if: inputs.build_android || inputs.build_ios || inputs.build_mac
+        if: inputs.build_android || inputs.build_ios
         run: zip -P "${{ secrets.ZIP_PASSWORD }}" -r symbols.zip symbols/
 
       - name: Upload Symbols
-        if: inputs.build_android || inputs.build_ios || inputs.build_mac
+        if: inputs.build_android || inputs.build_ios
         uses: actions/upload-artifact@v4
         with:
           overwrite: true
