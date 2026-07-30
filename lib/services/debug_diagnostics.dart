@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/services/mdns_discovery_scan.dart';
 import 'package:flutter/foundation.dart';
+import 'package:prop/mdns/mdns_responder.dart' show MdnsQueryLogEntry;
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:prop/utils/advertised_service_registry.dart';
 import 'package:prop/utils/network_address.dart';
@@ -53,6 +54,10 @@ class DebugDiagnostics {
   final List<TcpServerInfo> servers;
   final PermissionsSnapshot permissions;
 
+  /// mDNS queries our responder saw. Empty on the nsd backend (iOS), where the
+  /// OS responder handles queries and never tells us about them.
+  final List<MdnsQueryLogEntry> recentQueries;
+
   const DebugDiagnostics({
     required this.advertised,
     required this.backend,
@@ -63,6 +68,7 @@ class DebugDiagnostics {
     required this.addressReport,
     required this.servers,
     required this.permissions,
+    this.recentQueries = const [],
   });
 
   static Future<DebugDiagnostics> gather({
@@ -119,6 +125,7 @@ class DebugDiagnostics {
       addressReport: addressReport,
       servers: servers,
       permissions: permissions,
+      recentQueries: isResponder ? advertiser.recentQueries : const [],
     );
   }
 
@@ -165,6 +172,22 @@ class DebugDiagnostics {
         if (c.isVirtual) 'virtual',
       ];
       b.writeln('    ${c.interfaceName}/${c.address} = ${c.score}${tags.isEmpty ? '' : ' (${tags.join(', ')})'}');
+    }
+
+    // "Did the trainer app on this machine ask us anything, and did we answer?"
+    // A same-host querier shows up with the advertised address as its source.
+    // No entries at all means the failure is upstream of this responder.
+    b.writeln('  mDNS queries received:');
+    if (recentQueries.isEmpty) {
+      b.writeln('    (none)');
+    } else {
+      for (final q in recentQueries) {
+        final at = q.at.toIso8601String().split('T').last.split('.').first;
+        b.writeln(
+          '    $at ${q.source}:${q.sourcePort} ${q.wantsUnicast ? 'QU' : 'QM'} '
+          '${q.questions.join(', ')} → ${q.reply}',
+        );
+      }
     }
 
     b.writeln('  TCP servers:');
