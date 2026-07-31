@@ -795,6 +795,7 @@
     }
   },
   "connectModeLabel": "CONNECT MODE",
+  "helpMeDecide": "Help me decide",
   "connectingInMode": "Connecting in {mode} mode…",
   "@connectingInMode": {
     "placeholders": {

@@ -723,6 +723,7 @@
   "virtualShiftingWifiHint": "Dodaje lub dostosowuje wirtualne przerzutki i tworzy trenażer rozgłaszany przez WiFi.",
   "virtualShiftingTransportNeededHint": "Włącz połączenie trenażera przez Bluetooth lub WiFi, żeby użyć Virtual Shifting.",
   "connectModeLabel": "TRYB POŁĄCZENIA",
+  "helpMeDecide": "Pomóż mi wybrać",
   "connectingInMode": "Łączenie w trybie {mode}…",
   "connectModeActive": "Tryb połączenia: {mode}",
   "bikeWeight": "Waga roweru",

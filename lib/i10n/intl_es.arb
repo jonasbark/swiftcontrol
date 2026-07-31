@@ -723,6 +723,7 @@
   "virtualShiftingWifiHint": "Añade o ajusta el cambio virtual y crea un rodillo anunciado por WiFi.",
   "virtualShiftingTransportNeededHint": "Activa una conexión de rodillo por Bluetooth o WiFi para usar Virtual Shifting.",
   "connectModeLabel": "MODO DE CONEXIÓN",
+  "helpMeDecide": "Ayúdame a elegir",
   "connectingInMode": "Conectando en modo {mode}…",
   "connectModeActive": "Modo de conexión: {mode}",
   "bikeWeight": "Peso de la bici",

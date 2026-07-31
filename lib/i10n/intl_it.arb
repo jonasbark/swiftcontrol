@@ -723,6 +723,7 @@
   "virtualShiftingWifiHint": "Aggiunge o regola il cambio virtuale e crea un trainer annunciato via WiFi.",
   "virtualShiftingTransportNeededHint": "Attiva una connessione trainer Bluetooth o WiFi per usare Virtual Shifting.",
   "connectModeLabel": "MODALITÀ CONNESSIONE",
+  "helpMeDecide": "Aiutami a scegliere",
   "connectingInMode": "Connessione in modalità {mode}…",
   "connectModeActive": "Modalità connessione: {mode}",
   "bikeWeight": "Peso bici",
