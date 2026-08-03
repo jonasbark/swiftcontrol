@@ -52,7 +52,11 @@ void main() {
     expect(find.text('Use the left side only'), findsOneWidget);
     expect(find.text('Drops out a minute after your last button press — reconnects on its own'), findsOneWidget);
     expect(find.text('Swipe to see the other option'), findsWidgets);
-    expect(find.byType(ClickContours), findsOneWidget);
+    // The hero now lives inside the pager's own scrollable page content
+    // (moved off the fixed chrome above it) rather than as a shared sibling
+    // above the PageView -- so it turns up as a descendant of the PageView
+    // itself on every page, this one included.
+    expect(find.descendant(of: find.byType(PageView), matching: find.byType(ClickContours)), findsWidgets);
 
     expect(decisionButton('Use the left side'), findsNothing);
     expect(decisionButton('Unlock with Zwift'), findsNothing);
@@ -65,6 +69,7 @@ void main() {
     expect(find.text('Unlock with Zwift'), findsWidgets);
     expect(find.text('Needs unlocking with the Zwift app every 24 hours'), findsOneWidget);
     expect(find.text('Swipe to see the other option'), findsWidgets);
+    expect(find.descendant(of: find.byType(PageView), matching: find.byType(ClickContours)), findsWidgets);
 
     expect(decisionButton('Use the left side'), findsNothing);
     expect(decisionButton('Unlock with Zwift'), findsNothing);
@@ -80,6 +85,9 @@ void main() {
     expect(decisionButton('Unlock with Zwift'), findsOneWidget);
     expect(find.text('No Zwift needed · left controller only'), findsOneWidget);
     expect(find.text('Both controllers · unlock every 24 hours'), findsOneWidget);
+    // The decision page's own hero (both pucks live) is the third page to
+    // carry one inside the pager.
+    expect(find.descendant(of: find.byType(PageView), matching: find.byType(ClickContours)), findsWidgets);
   });
 
   testWidgets('tapping the left-side button on the decision page applies that mode', (tester) async {
@@ -110,6 +118,41 @@ void main() {
     await pumpPage(tester);
 
     await tester.tap(find.byKey(const ValueKey('click-onboarding-close')));
+    await tester.pumpAndSettle();
+
+    expect(core.settings.getClickV2OnboardingDone(), isFalse);
+  });
+
+  testWidgets('tapping the swipe hint on page 0 advances to page 1', (tester) async {
+    await pumpPage(tester);
+
+    await tester.tap(find.byKey(const ValueKey('click-onboarding-swipe-hint-0')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unlock with Zwift'), findsWidgets);
+    expect(find.text('Needs unlocking with the Zwift app every 24 hours'), findsOneWidget);
+  });
+
+  testWidgets('tapping the swipe hint on page 1 advances to the decision page', (tester) async {
+    await pumpPage(tester);
+    await swipeNext(tester);
+
+    await tester.tap(find.byKey(const ValueKey('click-onboarding-swipe-hint-1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Which one do you want?'), findsOneWidget);
+    expect(decisionButton('Use the left side'), findsOneWidget);
+    expect(decisionButton('Unlock with Zwift'), findsOneWidget);
+  });
+
+  // The swipe hint is a "next" affordance, not a choice -- it must never
+  // apply either unlock mode itself.
+  testWidgets('tapping the swipe hint never applies a choice', (tester) async {
+    await pumpPage(tester);
+
+    await tester.tap(find.byKey(const ValueKey('click-onboarding-swipe-hint-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('click-onboarding-swipe-hint-1')));
     await tester.pumpAndSettle();
 
     expect(core.settings.getClickV2OnboardingDone(), isFalse);

@@ -1,6 +1,6 @@
 import 'package:bike_control/pages/click_v2_onboarding.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
-import 'package:bike_control/widgets/click_v2/click_contours.dart';
+import 'package:bike_control/widgets/status_icon.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Placeholder for a discovered-but-not-yet-connected Zwift Click V2.
@@ -20,7 +20,13 @@ class ClickV2OnboardingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.i18n;
-    return Card(
+    // No Card here: the enclosing "Controller" panel already provides the
+    // card, and sibling device entries (_buildDeviceCard in
+    // lib/pages/device.dart) render flush against it too, via Button.ghost's
+    // own padding. Match that padding by hand since there is no whole-card
+    // button here (only the CTA below is tappable).
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 12,
@@ -32,7 +38,14 @@ class ClickV2OnboardingCard extends StatelessWidget {
               spacing: 12,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(width: 64, height: 40, child: ClickContours(page: 1, animate: false)),
+                // The same 38x38 status badge every other device entry uses
+                // -- a 64x40 contour thumbnail read as broken scratchy
+                // outlines at this scale (that art is authored for a 180px
+                // hero). `LucideIcons.gamepad` mirrors BluetoothDevice's
+                // default `icon`, which neither ZwiftClickV2 nor its
+                // left/right side subclasses override, so this matches
+                // whatever glyph the real entry will show once connected.
+                const StatusIcon(status: false, icon: LucideIcons.gamepad, started: false),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

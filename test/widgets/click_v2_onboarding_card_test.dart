@@ -1,7 +1,9 @@
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/widgets/click_v2/click_contours.dart';
 import 'package:bike_control/widgets/click_v2/onboarding_card.dart';
+import 'package:bike_control/widgets/status_icon.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -67,5 +69,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ClickV2OnboardingPage), findsOneWidget);
+  });
+
+  // Sibling device entries (_buildDeviceCard in lib/pages/device.dart) render
+  // flush against the enclosing "Controller" panel with no Card of their
+  // own -- this placeholder must match rather than nesting a card inside
+  // that panel's card.
+  testWidgets('renders no Card of its own, and shows the standard device StatusIcon', (tester) async {
+    await pumpCard(tester);
+
+    expect(
+      find.descendant(of: find.byType(ClickV2OnboardingCard), matching: find.byType(Card)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: find.byType(ClickV2OnboardingCard), matching: find.byType(StatusIcon)),
+      findsOneWidget,
+    );
+  });
+
+  // The 64x40 contour thumbnail read as broken scratchy outlines at that
+  // scale -- replaced by the standard StatusIcon badge above.
+  testWidgets('renders no ClickContours thumbnail', (tester) async {
+    await pumpCard(tester);
+
+    expect(
+      find.descendant(of: find.byType(ClickV2OnboardingCard), matching: find.byType(ClickContours)),
+      findsNothing,
+    );
   });
 }

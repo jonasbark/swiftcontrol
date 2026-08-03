@@ -129,29 +129,26 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
               ),
             ),
             const Gap(12),
-            SizedBox(
-              height: 180,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                // ClickContours only knows about a left→both transition (0..1)
-                // — the pager itself now runs 0..2. Clamping means the hero
-                // finishes that transition across the first swipe and then
-                // holds "both pucks live" through the decision page, which is
-                // the right read for a page that presents both options.
-                child: ClickContours(page: _page.clamp(0.0, 1.0)),
-              ),
-            ),
-            const Gap(12),
+            // The pager owns the full height between the header and the dot
+            // indicator, hero included -- so a drag anywhere in that region
+            // (contours included) swipes the pager, and short viewports can
+            // scroll the whole page content, hero included. Each page now
+            // carries its own fixed-state hero (see _option/_decision)
+            // instead of one shared hero scrubbing above the PageView.
             Expanded(
               child: PageView(
                 controller: _controller,
                 children: [
                   _option(
+                    heroPage: 0,
+                    fromPage: 0,
                     title: l10n.clickV2Onboarding_leftOnlyTitle,
                     pros: [l10n.clickV2Onboarding_leftOnlyPro1, l10n.clickV2Onboarding_leftOnlyPro2],
                     cons: [l10n.clickV2Onboarding_leftOnlyCon1, l10n.clickV2Onboarding_leftOnlyCon2],
                   ),
                   _option(
+                    heroPage: 1,
+                    fromPage: 1,
                     title: l10n.clickV2Onboarding_zwiftTitle,
                     pros: [l10n.clickV2Onboarding_zwiftPro1, l10n.clickV2Onboarding_zwiftPro2],
                     cons: [l10n.clickV2Onboarding_zwiftCon1, l10n.clickV2Onboarding_zwiftCon2],
@@ -199,57 +196,95 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
     );
   }
 
-  // The pros/cons list scrolls if it doesn't fit; the swipe hint is a fixed
-  // sibling below it so it's always reachable regardless of how tall that
-  // list gets (long localized strings, a future badge, etc.) — never itself
-  // scrolled out of view. This page is explanation-only: the choice itself
-  // is made on the decision page (see _decision), so there is no CTA here to
-  // tap by reflex without ever seeing the other option.
+  // The hero and the pros/cons list scroll together if they don't fit; the
+  // swipe hint is a fixed sibling below so it's always reachable regardless
+  // of how tall that content gets (long localized strings, a future badge,
+  // etc.) — never itself scrolled out of view. This page is explanation-only:
+  // the choice itself is made on the decision page (see _decision), so there
+  // is no CTA here to tap by reflex without ever seeing the other option.
   Widget _option({
+    required double heroPage,
+    required int fromPage,
     required String title,
     required List<String> pros,
     required List<String> cons,
   }) {
     final rows = [...pros, ...cons];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 12,
-                children: [
-                  Text(title).large.semiBold,
-                  for (var index = 0; index < rows.length; index++)
-                    _row(rows[index], isPro: index < pros.length, index: index),
-                ],
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // A fixed per-page hero state rather than the shared
+                // fractional _page value: feeding every page that same
+                // scrubbing value would show two identical heroes sliding
+                // past each other mid-swipe. Page 0 shows the left puck
+                // alone; page 1 shows both.
+                SizedBox(
+                  height: 180,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: ClickContours(page: heroPage),
+                  ),
+                ),
+                const Gap(12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 12,
+                    children: [
+                      Text(title).large.semiBold,
+                      for (var index = 0; index < rows.length; index++)
+                        _row(rows[index], isPro: index < pros.length, index: index),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const Gap(4),
-          _swipeHint(),
-          const Gap(12),
-        ],
-      ),
+        ),
+        const Gap(4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _swipeHint(fromPage: fromPage),
+        ),
+        const Gap(12),
+      ],
     );
   }
 
-  // Deliberately not a Button: this must read as guidance, not as something
-  // tappable. Muted, centered, small, with a trailing chevron.
-  Widget _swipeHint() {
+  // Tapping advances the pager one page via the shared PageController. This
+  // reverses an earlier "must not look tappable" call — the product owner
+  // now wants it interactive — but it must still read as guidance rather
+  // than the primary action: no fill/border beyond the ghost button's own
+  // hover state, muted small text, trailing chevron. It never applies a
+  // choice; pages 0 and 1 still carry no choice-applying control, which is
+  // the whole point of the three-page structure.
+  Widget _swipeHint({required int fromPage}) {
     final l10n = context.i18n;
     return SizedBox(
       width: double.infinity,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        spacing: 4,
-        children: [
-          Text(l10n.clickV2Onboarding_swipeHint).small.muted,
-          Icon(Icons.chevron_right, size: 14, color: Theme.of(context).colorScheme.mutedForeground),
-        ],
+      child: Center(
+        child: Button.ghost(
+          key: ValueKey('click-onboarding-swipe-hint-$fromPage'),
+          onPressed: () => _controller.animateToPage(
+            fromPage + 1,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 4,
+            children: [
+              Text(l10n.clickV2Onboarding_swipeHint).small.muted,
+              Icon(Icons.chevron_right, size: 14, color: Theme.of(context).colorScheme.mutedForeground),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -261,25 +296,43 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
   // bias this restructuring exists to remove.
   Widget _decision() {
     final l10n = context.i18n;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 8,
-                children: [
-                  Text(l10n.clickV2Onboarding_decisionTitle).large.semiBold,
-                  Text(l10n.clickV2Onboarding_decisionSubtitle).small.muted,
-                ],
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Both pucks live here — the right read for a page offering
+                // both options, rather than either single-puck state.
+                const SizedBox(
+                  height: 180,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 32),
+                    child: ClickContours(page: 1),
+                  ),
+                ),
+                const Gap(12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 8,
+                    children: [
+                      Text(l10n.clickV2Onboarding_decisionTitle).large.semiBold,
+                      Text(l10n.clickV2Onboarding_decisionSubtitle).small.muted,
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const Gap(12),
-          _staggered(
+        ),
+        const Gap(12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _staggered(
             0,
             _decisionOption(
               cta: l10n.clickV2Onboarding_leftOnlyCta,
@@ -287,8 +340,11 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
               onPressed: () => _choose(ClickV2Onboarding.chooseLeftSideOnly),
             ),
           ),
-          const Gap(12),
-          _staggered(
+        ),
+        const Gap(12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _staggered(
             1,
             _decisionOption(
               cta: l10n.clickV2Onboarding_zwiftCta,
@@ -296,9 +352,9 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
               onPressed: () => _choose(ClickV2Onboarding.chooseUnlockWithZwift),
             ),
           ),
-          const Gap(12),
-        ],
-      ),
+        ),
+        const Gap(12),
+      ],
     );
   }
 
