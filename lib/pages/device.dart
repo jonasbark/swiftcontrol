@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/controller_settings.dart';
+import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
+import 'package:bike_control/widgets/click_v2/onboarding_card.dart';
 import 'package:bike_control/widgets/scan.dart';
 import 'package:bike_control/widgets/trainer_features.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
@@ -57,11 +59,18 @@ class _DevicePageState extends State<DevicePage> {
     super.dispose();
   }
 
-  /// Groups controller devices for display: a Zwift Click V2 left/right pair
-  /// is rendered side by side in one group (left side first), every other
-  /// device gets its own group.
+  /// Whether any discovered Click V2 side is still waiting for the rider to
+  /// pick an unlock mode. All such sides collapse into one onboarding card.
+  bool get _hasPendingClickV2 =>
+      ClickV2Onboarding.isPending && ClickV2Onboarding.pendingDevices.isNotEmpty;
+
+  /// Groups controller devices for display: every Click V2 side still awaiting
+  /// onboarding collapses into a single placeholder group, a connected Zwift
+  /// Click V2 left/right pair is rendered side by side in one group (left side
+  /// first), and every other device gets its own group.
   List<List<BaseDevice>> get _deviceGroups {
-    final devices = core.connection.controllerDevices;
+    final pending = _hasPendingClickV2 ? ClickV2Onboarding.pendingDevices.toSet() : <BaseDevice>{};
+    final devices = core.connection.controllerDevices.where((d) => !pending.contains(d)).toList();
     final leftSide = devices.whereType<ZwiftClickV2LeftSide>().firstOrNull;
     final rightSide = devices.whereType<ZwiftClickV2RightSide>().firstOrNull;
     if (leftSide == null || rightSide == null || widget.isMobile) {
@@ -119,6 +128,12 @@ class _DevicePageState extends State<DevicePage> {
       children: [
         // leave it in for the extra scanning options
         ScanWidget(),
+
+        if (_hasPendingClickV2)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12.0),
+            child: ClickV2OnboardingCard(),
+          ),
 
         ...deviceGroups
             .mapIndexed(
