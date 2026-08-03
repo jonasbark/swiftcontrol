@@ -65,6 +65,26 @@ FakePeripheral buildZwiftClick({String deviceId = 'fake-zwift-click', String nam
   return peripheral;
 }
 
+/// One side of a Zwift Click V2. Detected via the Zwift custom service plus a
+/// manufacturer-data type of [ZwiftConstants.CLICK_V2_LEFT_SIDE] or
+/// [ZwiftConstants.CLICK_V2_RIGHT_SIDE]. Same GATT layout as the Click v1.
+FakePeripheral buildZwiftClickV2({required int sideCode, String? deviceId}) {
+  final id = deviceId ?? 'fake-zwift-click-v2-$sideCode';
+  final template = buildZwiftClick(deviceId: id, name: 'Zwift Click');
+  final peripheral = FakePeripheral(
+    deviceId: id,
+    name: 'Zwift Click',
+    advertisedServices: template.advertisedServices,
+    manufacturerData: ManufacturerData(
+      ZwiftConstants.ZWIFT_MANUFACTURER_ID,
+      Uint8List.fromList([sideCode]),
+    ),
+  );
+  peripheral.services.addAll(template.services);
+  peripheral.readValues.addAll(template.readValues);
+  return peripheral;
+}
+
 /// A Zwift Ride (left controller). Detected via manufacturer data type 0x08.
 /// Same GATT layout as the Click — only the manufacturer data type differs.
 FakePeripheral buildZwiftRide({String deviceId = 'fake-zwift-ride', String name = 'Zwift Ride'}) {

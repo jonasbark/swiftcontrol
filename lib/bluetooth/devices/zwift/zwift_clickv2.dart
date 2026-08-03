@@ -3,6 +3,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/unlock.dart';
+import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/interpreter.dart';
@@ -108,6 +109,21 @@ class ZwiftClickV2 extends ZwiftRide {
 
   bool get isLikelyUnlocked {
     return propPrefs.notSureIfUnlocked(scanResult.deviceId);
+  }
+
+  /// Held out of the connect queue until the rider has chosen an unlock mode.
+  /// Zwift Click V2 behaviour depends entirely on that choice, so connecting
+  /// first would hand them a controller that half-works for reasons they have
+  /// not been told about yet.
+  @override
+  bool get shouldAutoConnect => !ClickV2Onboarding.isPending;
+
+  @override
+  Future<void> connect() async {
+    // Mirrors ProxyDevice: stay listed and keep the queue's listener wiring,
+    // but open no transport and run no handshake while onboarding is pending.
+    if (!shouldAutoConnect) return;
+    await super.connect();
   }
 
   @override
