@@ -3,6 +3,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dar
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
 import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
+import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,5 +84,67 @@ Future<void> main() async {
     );
 
     expect(left.isConnected, isTrue);
+  });
+
+  test('choosing left-side-only writes settings and connects the pending sides', () async {
+    await core.settings.setClickV2OnboardingDone(false);
+    await core.settings.setUnlockWithZwift(false);
+    await core.settings.setUseNewUnlockMethod(true);
+
+    final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
+    env.ble.addPeripheral(left);
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
+      description: 'the Click V2 left side to appear',
+    );
+
+    expect(ClickV2Onboarding.pendingDevices, isNotEmpty);
+
+    await ClickV2Onboarding.chooseLeftSideOnly();
+
+    expect(core.settings.getUnlockWithZwift(), isFalse);
+    expect(core.settings.getUseNewUnlockMethod(), isTrue);
+    expect(core.settings.getClickV2OnboardingDone(), isTrue);
+    expect(ClickV2Onboarding.isPending, isFalse);
+
+    await IntegrationEnv.waitFor(
+      () => left.isConnected,
+      description: 'the Click V2 left side to connect after the choice',
+    );
+  });
+
+  test('choosing unlock-with-Zwift writes settings and connects the pending sides', () async {
+    await core.settings.setClickV2OnboardingDone(false);
+    await core.settings.setUnlockWithZwift(false);
+
+    final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
+    env.ble.addPeripheral(left);
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
+      description: 'the Click V2 left side to appear',
+    );
+
+    await ClickV2Onboarding.chooseUnlockWithZwift();
+
+    expect(core.settings.getUnlockWithZwift(), isTrue);
+    expect(core.settings.getClickV2OnboardingDone(), isTrue);
+    expect(ClickV2Onboarding.isPending, isFalse);
+
+    await IntegrationEnv.waitFor(
+      () => left.isConnected,
+      description: 'the Click V2 left side to connect after the choice',
+    );
+  });
+
+  test('left-side-only turns the split representation back on when it was off', () async {
+    await core.settings.setClickV2OnboardingDone(false);
+    await core.settings.setUnlockWithZwift(false);
+    await core.settings.setUseNewUnlockMethod(false);
+
+    await ClickV2Onboarding.chooseLeftSideOnly();
+
+    expect(core.settings.getUseNewUnlockMethod(), isTrue);
   });
 }
