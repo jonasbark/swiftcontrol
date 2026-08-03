@@ -23,6 +23,11 @@ class ClickV2OnboardingPage extends StatefulWidget {
 }
 
 class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with SingleTickerProviderStateMixin {
+  // Page 0 = left-side-only explanation, page 1 = unlock-with-Zwift
+  // explanation, page 2 = the decision itself. Both the dot indicator and the
+  // dots' active-index check read this constant so the two cannot drift.
+  static const _pageCount = 3;
+
   final _controller = PageController();
   double _page = 0;
   bool _submitting = false;
@@ -112,7 +117,12 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
               height: 180,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: ClickContours(page: _page),
+                // ClickContours only knows about a left→both transition (0..1)
+                // — the pager itself now runs 0..2. Clamping means the hero
+                // finishes that transition across the first swipe and then
+                // holds "both pucks live" through the decision page, which is
+                // the right read for a page that presents both options.
+                child: ClickContours(page: _page.clamp(0.0, 1.0)),
               ),
             ),
             const Gap(12),
@@ -124,16 +134,13 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
                     title: l10n.clickV2Onboarding_leftOnlyTitle,
                     pros: [l10n.clickV2Onboarding_leftOnlyPro1, l10n.clickV2Onboarding_leftOnlyPro2],
                     cons: [l10n.clickV2Onboarding_leftOnlyCon1, l10n.clickV2Onboarding_leftOnlyCon2],
-                    cta: l10n.clickV2Onboarding_leftOnlyCta,
-                    onPressed: () => _choose(ClickV2Onboarding.chooseLeftSideOnly),
                   ),
                   _option(
                     title: l10n.clickV2Onboarding_zwiftTitle,
                     pros: [l10n.clickV2Onboarding_zwiftPro1, l10n.clickV2Onboarding_zwiftPro2],
                     cons: [l10n.clickV2Onboarding_zwiftCon1, l10n.clickV2Onboarding_zwiftCon2],
-                    cta: l10n.clickV2Onboarding_zwiftCta,
-                    onPressed: () => _choose(ClickV2Onboarding.chooseUnlockWithZwift),
                   ),
+                  _decision(),
                 ],
               ),
             ),
@@ -156,10 +163,11 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
 
   Widget _dots() {
     return Row(
+      key: const ValueKey('click-onboarding-dots'),
       mainAxisSize: MainAxisSize.min,
       spacing: 8,
       children: [
-        for (var i = 0; i < 2; i++)
+        for (var i = 0; i < _pageCount; i++)
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: 8,
@@ -175,16 +183,16 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
     );
   }
 
-  // The pros/cons list scrolls if it doesn't fit; the CTA is a fixed sibling
-  // below it so it's always reachable regardless of how tall that list gets
-  // (long localized strings, a future badge, etc.) — never itself scrolled
-  // out of view.
+  // The pros/cons list scrolls if it doesn't fit; the swipe hint is a fixed
+  // sibling below it so it's always reachable regardless of how tall that
+  // list gets (long localized strings, a future badge, etc.) — never itself
+  // scrolled out of view. This page is explanation-only: the choice itself
+  // is made on the decision page (see _decision), so there is no CTA here to
+  // tap by reflex without ever seeing the other option.
   Widget _option({
     required String title,
     required List<String> pros,
     required List<String> cons,
-    required String cta,
-    required VoidCallback onPressed,
   }) {
     final rows = [...pros, ...cons];
     return Padding(
@@ -206,9 +214,71 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
             ),
           ),
           const Gap(4),
-          SizedBox(
-            width: double.infinity,
-            child: Button.primary(onPressed: _submitting ? null : onPressed, child: Text(cta)),
+          _swipeHint(),
+          const Gap(12),
+        ],
+      ),
+    );
+  }
+
+  // Deliberately not a Button: this must read as guidance, not as something
+  // tappable. Muted, centered, small, with a trailing chevron.
+  Widget _swipeHint() {
+    final l10n = context.i18n;
+    return SizedBox(
+      width: double.infinity,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        spacing: 4,
+        children: [
+          Text(l10n.clickV2Onboarding_swipeHint).small.muted,
+          Icon(Icons.chevron_right, size: 14, color: Theme.of(context).colorScheme.mutedForeground),
+        ],
+      ),
+    );
+  }
+
+  // The third pager page: both options presented side by side so a choice
+  // can't be made without having swiped past both explanations first. Both
+  // buttons are Button.primary — neither option is "the" recommended one,
+  // and styling either as secondary would reintroduce the default-choice
+  // bias this restructuring exists to remove.
+  Widget _decision() {
+    final l10n = context.i18n;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [
+                  Text(l10n.clickV2Onboarding_decisionTitle).large.semiBold,
+                  Text(l10n.clickV2Onboarding_decisionSubtitle).small.muted,
+                ],
+              ),
+            ),
+          ),
+          const Gap(12),
+          _staggered(
+            0,
+            _decisionOption(
+              cta: l10n.clickV2Onboarding_leftOnlyCta,
+              recap: l10n.clickV2Onboarding_leftOnlyRecap,
+              onPressed: () => _choose(ClickV2Onboarding.chooseLeftSideOnly),
+            ),
+          ),
+          const Gap(12),
+          _staggered(
+            1,
+            _decisionOption(
+              cta: l10n.clickV2Onboarding_zwiftCta,
+              recap: l10n.clickV2Onboarding_zwiftRecap,
+              onPressed: () => _choose(ClickV2Onboarding.chooseUnlockWithZwift),
+            ),
           ),
           const Gap(12),
         ],
@@ -216,27 +286,50 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
     );
   }
 
+  Widget _decisionOption({required String cta, required String recap, required VoidCallback onPressed}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 4,
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: Button.primary(onPressed: _submitting ? null : onPressed, child: Text(cta)),
+        ),
+        Center(child: Text(recap).small.muted),
+      ],
+    );
+  }
+
   Widget _row(String text, {required bool isPro, required int index}) {
     // Rows fade in and rise 8px, 60ms apart in order — enough to read as a
     // sequence without making the rider wait for it.
+    return _staggered(
+      index,
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 8,
+        children: [
+          Icon(
+            isPro ? Icons.check_circle_outline : Icons.remove_circle_outline,
+            size: 16,
+            color: isPro ? Colors.green : Theme.of(context).colorScheme.mutedForeground,
+          ),
+          Expanded(child: Text(text).small),
+        ],
+      ),
+    );
+  }
+
+  // Shared staggered one-shot entrance, reused by the pro/con rows and the
+  // decision page's two buttons so both read as the same kind of reveal.
+  Widget _staggered(int index, Widget child) {
     final start = (index * 0.15).clamp(0.0, 0.6);
     final curve = CurvedAnimation(parent: _rows, curve: Interval(start, 1, curve: Curves.easeOut));
     return FadeTransition(
       opacity: curve,
       child: SlideTransition(
         position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(curve),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 8,
-          children: [
-            Icon(
-              isPro ? Icons.check_circle_outline : Icons.remove_circle_outline,
-              size: 16,
-              color: isPro ? Colors.green : Theme.of(context).colorScheme.mutedForeground,
-            ),
-            Expanded(child: Text(text).small),
-          ],
-        ),
+        child: child,
       ),
     );
   }
