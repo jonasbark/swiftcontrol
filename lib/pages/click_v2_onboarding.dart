@@ -305,12 +305,15 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Both pucks live here — the right read for a page offering
-                // both options, rather than either single-puck state.
+                // both options, rather than either single-puck state. No
+                // badge: the padlock explains the Zwift trade-off on page 1,
+                // but here the choice is already laid out in the buttons
+                // below, and the animated lock would just be noise.
                 const SizedBox(
                   height: 180,
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 32),
-                    child: ClickContours(page: 1),
+                    child: ClickContours(page: 1, animate: false),
                   ),
                 ),
                 const Gap(12),

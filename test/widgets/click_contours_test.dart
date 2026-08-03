@@ -150,4 +150,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ClickContours), findsOneWidget);
   });
+
+  testWidgets('animate: false renders the silhouettes without either badge', (tester) async {
+    await tester.pumpWidget(
+      const ShadcnApp(
+        home: Scaffold(
+          child: Center(child: SizedBox(width: 400, height: 200, child: ClickContours(page: 1, animate: false))),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('click-contour-idle-badge')), findsNothing);
+    expect(find.byKey(const ValueKey('click-contour-lock-badge')), findsNothing);
+
+    // The two silhouettes and their existing keyed widgets still render --
+    // animate: false suppresses the badges and the loop, not the pucks.
+    expect(find.byKey(const ValueKey('click-contour-right-opacity')), findsOneWidget);
+    expect(find.byKey(const ValueKey('click-contour-left-glow')), findsOneWidget);
+    expect(find.byKey(const ValueKey('click-contour-right-scale')), findsOneWidget);
+    expect(find.byKey(const ValueKey('click-contour-right-translate')), findsOneWidget);
+  });
+
+  testWidgets('animate: false runs no looping controller', (tester) async {
+    await tester.pumpWidget(
+      const ShadcnApp(
+        home: Scaffold(
+          child: Center(child: SizedBox(width: 400, height: 200, child: ClickContours(page: 0, animate: false))),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // As above: a looping controller would leave a pending frame forever, so
+    // pumpAndSettle returning at all proves animate: false never starts one.
+    await tester.pumpAndSettle();
+    expect(find.byType(ClickContours), findsOneWidget);
+  });
 }

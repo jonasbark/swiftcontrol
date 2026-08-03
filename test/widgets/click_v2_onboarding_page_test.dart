@@ -90,6 +90,20 @@ void main() {
     expect(find.descendant(of: find.byType(PageView), matching: find.byType(ClickContours)), findsWidgets);
   });
 
+  testWidgets('the decision page renders no lock badge, unlike page 1', (tester) async {
+    await pumpPage(tester);
+    await swipeNext(tester);
+
+    // Page 1 illustrates the Zwift trade-off with the animated padlock.
+    expect(find.byKey(const ValueKey('click-contour-lock-badge')), findsOneWidget);
+
+    await swipeNext(tester);
+
+    // The decision page is about choosing, not explaining -- the badge (and
+    // its loop) that sells page 1's trade-off would just be noise here.
+    expect(find.byKey(const ValueKey('click-contour-lock-badge')), findsNothing);
+  });
+
   testWidgets('tapping the left-side button on the decision page applies that mode', (tester) async {
     await pumpPage(tester);
     await swipeNext(tester);

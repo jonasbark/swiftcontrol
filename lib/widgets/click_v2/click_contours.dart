@@ -18,8 +18,10 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// reconnects on its own) and a padlock on page 1 (Zwift's 24-hour unlock).
 /// Both badges include a looping flourish — a pulse ripple and a sweep ring,
 /// respectively — that is suppressed when the platform requests reduced
-/// motion. Pass `animate: false` to render this as a static thumbnail (no
-/// loop, no badges) — see the onboarding card's 64x40 preview.
+/// motion. Pass `animate: false` to render just the two silhouettes, with no
+/// badge and no loop — the onboarding pager's decision page uses this: both
+/// options are already laid out in the buttons there, so the badge that
+/// explains page 1's trade-off would just be noise on a page about choosing.
 ///
 /// Callers must give this widget a bounded width and a finite height — the
 /// `Row`/`Flexible` layout below asserts if width is unbounded. It is
