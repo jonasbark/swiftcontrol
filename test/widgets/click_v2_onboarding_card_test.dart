@@ -40,6 +40,11 @@ void main() {
 
     final header = tester.widget<Opacity>(find.byKey(const ValueKey('click-onboarding-card-header')));
     expect(header.opacity, lessThan(0.6));
+    // Self-contained guard against a vacuous pass: find.ancestor(of: ...)
+    // returns empty whenever its `of` finder matches nothing, so without this
+    // the findsNothing check below would also pass if the CTA text weren't
+    // rendered at all.
+    expect(find.text("Let's get your Zwift Click V2 set up"), findsOneWidget);
     expect(
       find.ancestor(
         of: find.text("Let's get your Zwift Click V2 set up"),
