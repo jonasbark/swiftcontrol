@@ -31,6 +31,14 @@ Future<void> main() async {
     // doesn't, does that). Initialize it here so Click V2 button presses
     // don't hit a LateInitializationError.
     propPrefs.initialize(core.settings.prefs);
+    // These tests exercise a *connected* Click V2's button/profile behaviour;
+    // the unlock-mode onboarding gate (ClickV2Onboarding.isPending) is
+    // orthogonal to that. env.resetState() starts from empty prefs, so
+    // isPending would otherwise read true and ZwiftClickV2.shouldAutoConnect
+    // would hold the controller out of the connect queue -- connect() returns
+    // early, no BLE link opens, and the handshake write these tests wait for
+    // never arrives. Mark onboarding done so the gate doesn't interfere.
+    await core.settings.setClickV2OnboardingDone(true);
     stubActions = StubActions();
     stubActions.supportedApp = Zwift();
     core.actionHandler = stubActions;

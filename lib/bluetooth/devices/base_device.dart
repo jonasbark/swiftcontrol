@@ -477,6 +477,15 @@ abstract class BaseDevice {
     isConnected = false;
   }
 
+  /// Whether the connect queue may open this device on its own when it is
+  /// discovered or the app launches. Devices that need explicit rider intent
+  /// first — a proxied trainer awaiting consent, a Zwift Click V2 awaiting
+  /// unlock-mode onboarding — return false and stay listed but unconnected.
+  ///
+  /// A device returning false must also return early from [connect] so no
+  /// transport is opened; the queue still runs its listener wiring.
+  bool get shouldAutoConnect => true;
+
   List<Widget> showMetaInformation(BuildContext context, {required bool showFull}) {
     return [];
   }

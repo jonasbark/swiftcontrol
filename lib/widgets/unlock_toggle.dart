@@ -1,4 +1,6 @@
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
+import 'package:bike_control/bluetooth/messages/notification.dart';
+import 'package:bike_control/pages/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:prop/devices/click_logic.dart';
@@ -37,6 +39,21 @@ class _UnlockToggleState extends State<UnlockToggle> {
               onPressed: () {
                 launchUrlString('https://bikecontrol.app/blog/zwift-click-v2-with-other-trainer-apps');
               },
+            ),
+            const Spacer(),
+            // The explainer that introduced these two modes stays reachable
+            // after onboarding, so the trade-offs can be re-read later.
+            Button.ghost(
+              onPressed: () async {
+                await context.push(const ClickV2OnboardingPage());
+                if (!mounted) return;
+                // The page may have applied a different choice than what's
+                // currently shown here (ClickV2Onboarding writes the setting
+                // directly, not through this widget's onChanged) — refresh so
+                // the Select and the gated warning children reflect it.
+                setState(() => _unlockWithZwift = core.settings.getUnlockWithZwift());
+              },
+              child: Text(context.i18n.clickV2Onboarding_setUpAgain).xSmall,
             ),
           ],
         ),
@@ -86,7 +103,22 @@ class _UnlockToggleState extends State<UnlockToggle> {
             if (unlockWithZwift) {
               ClickLogic.resetTimer();
             } else {
-              ClickLogic.setupHandshake(widget.device.services!, widget.device.device.deviceId, isRight: false);
+              // `services` is populated by BluetoothDevice.connect() after
+              // discovery completes, but `isConnected` flips true earlier --
+              // from the raw BLE connection-state listener -- so there's a
+              // narrow window where this fires with services still null.
+              // The rider's choice still needs to be recorded either way;
+              // only the handshake itself is skipped when we can't send it.
+              final services = widget.device.services;
+              if (services != null) {
+                ClickLogic.setupHandshake(services, widget.device.device.deviceId, isRight: false);
+              } else {
+                core.connection.signalNotification(
+                  LogNotification(
+                    'UnlockToggle: skipped setupHandshake for ${widget.device.device.deviceId} -- services not ready yet',
+                  ),
+                );
+              }
             }
           },
         ),

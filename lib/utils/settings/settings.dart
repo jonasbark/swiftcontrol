@@ -41,6 +41,11 @@ class Settings {
     _initialized = true;
   }
 
+  /// Whether [prefs] has been assigned. Callers that may run before [init]
+  /// (device detection, connect-queue gating) check this instead of touching
+  /// the uninitialised `late` field.
+  bool get isInitialized => _initialized;
+
   SettingsSyncService? _syncService;
   Timer? _syncDebounceTimer;
 
@@ -513,6 +518,18 @@ class Settings {
 
   Future<void> setShowZwiftClickV2ReconnectWarning(bool show) async {
     await prefs.setBool('zwift_click_v2_reconnect_warning', show);
+  }
+
+  /// Whether the rider has completed the one-time Zwift Click V2 unlock-mode
+  /// onboarding. Reports done when prefs are not ready yet so an
+  /// uninitialised [Settings] never holds a device out of the connect queue.
+  bool getClickV2OnboardingDone() {
+    if (!_initialized) return true;
+    return prefs.getBool('click_v2_onboarding_done') ?? false;
+  }
+
+  Future<void> setClickV2OnboardingDone(bool value) async {
+    await prefs.setBool('click_v2_onboarding_done', value);
   }
 
   void setRemoteControlEnabled(bool value) {
