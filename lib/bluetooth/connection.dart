@@ -614,7 +614,7 @@ class Connection {
       _handlingConnectionQueue = true;
       final device = _connectionQueue.removeAt(0);
 
-      final willConnect = device is! ProxyDevice || device.shouldAutoConnect;
+      final willConnect = device.shouldAutoConnect;
       // Reconnections after an automatic reset happen every minute — keep
       // them silent. Captured here because the flag clears during handshake.
       // A device that already gave up (backoff) only gets quiet cooldown
