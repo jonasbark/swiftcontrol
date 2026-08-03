@@ -10,7 +10,12 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// whole controller, however many of its two sides are in range — the unlock
 /// mode is a single decision about a single device.
 class ClickV2OnboardingCard extends StatelessWidget {
-  const ClickV2OnboardingCard({super.key});
+  /// Invoked after the onboarding page is popped, so the caller can refresh
+  /// the device list even on a path that never fires a connectionStream event
+  /// (e.g. the CTA's connect attempt throws, or there was nothing pending by
+  /// the time the rider chose) — otherwise this stale card would persist.
+  final VoidCallback? onCompleted;
+  const ClickV2OnboardingCard({super.key, this.onCompleted});
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +50,10 @@ class ClickV2OnboardingCard extends StatelessWidget {
             width: double.infinity,
             child: Button.primary(
               trailing: const Icon(Icons.arrow_forward, size: 16),
-              onPressed: () => context.push(const ClickV2OnboardingPage()),
+              onPressed: () async {
+                await context.push(const ClickV2OnboardingPage());
+                onCompleted?.call();
+              },
               child: Text(l10n.clickV2Onboarding_cardTitle),
             ),
           ),

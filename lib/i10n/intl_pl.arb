@@ -193,6 +193,7 @@
   "clickV2Onboarding_decisionSubtitle": "Obie opcje działają. Wybierz kompromis, który bardziej Ci odpowiada — możesz to później zmienić w ustawieniach kontrolera.",
   "clickV2Onboarding_leftOnlyRecap": "Bez Zwifta · tylko lewy kontroler",
   "clickV2Onboarding_zwiftRecap": "Oba kontrolery · odblokowanie co 24 godziny",
+  "clickV2Onboarding_connectFailed": "Nie udało się połączyć z Twoim Zwift Click V2. Dotknij go, aby spróbować ponownie.",
   "close": "Zamknij",
   "commandsRemainingToday": "{commandsRemainingToday}/{dailyCommandLimit} dzisiejsze pozostałe polecenia",
   "configuration": "Konfiguracja",

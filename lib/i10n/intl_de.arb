@@ -193,6 +193,7 @@
   "clickV2Onboarding_decisionSubtitle": "Beides funktioniert. Wähle den Kompromiss, mit dem du besser leben kannst — du kannst das später in den Einstellungen des Controllers ändern.",
   "clickV2Onboarding_leftOnlyRecap": "Kein Zwift nötig · nur der linke Controller",
   "clickV2Onboarding_zwiftRecap": "Beide Controller · alle 24 Stunden entsperren",
+  "clickV2Onboarding_connectFailed": "Dein Zwift Click V2 konnte nicht verbunden werden. Tippe darauf, um es erneut zu versuchen.",
   "close": "Schließen",
   "commandsRemainingToday": "{commandsRemainingToday}/{dailyCommandLimit} verbleibende Befehle heute",
   "configuration": "Konfiguration",

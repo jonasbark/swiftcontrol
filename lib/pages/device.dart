@@ -130,9 +130,9 @@ class _DevicePageState extends State<DevicePage> {
         ScanWidget(),
 
         if (_hasPendingClickV2)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 12.0),
-            child: ClickV2OnboardingCard(),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: ClickV2OnboardingCard(onCompleted: widget.onUpdate),
           ),
 
         ...deviceGroups

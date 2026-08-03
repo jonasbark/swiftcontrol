@@ -1,8 +1,13 @@
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
+import 'package:bike_control/bluetooth/messages/notification.dart';
+import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:prop/devices/click_logic.dart';
+import 'package:prop/prop.dart' show LogLevel;
 
 /// Policy for the one-time Zwift Click V2 unlock-mode onboarding.
 ///
@@ -29,8 +34,19 @@ abstract final class ClickV2Onboarding {
     return true;
   }
 
-  /// Every discovered Click V2 side currently held back by the gate. Covers
-  /// both split sides and the legacy unified representation.
+  /// Every discovered Click V2 side that is currently disconnected — both
+  /// split sides and the legacy unified representation.
+  ///
+  /// NOT gated on [isPending]. That would seem right for a getter named
+  /// "pendingDevices", but [chooseLeftSideOnly]/[chooseUnlockWithZwift] write
+  /// the setting that flips [isPending] to false *before* they call
+  /// [_connectPending] — by the time [_connectPending] needs this list,
+  /// `isPending` is already false. So this getter stays ungated and instead
+  /// means "every disconnected Click V2 side, pending or not"; callers that
+  /// need "still awaiting onboarding" must additionally check [isPending]
+  /// themselves (see `_hasPendingClickV2` in DevicePage). [_connectPending]
+  /// compensates for the over-broad result by skipping devices the battery
+  /// saver deliberately suppressed (see [Connection.isAutoReconnectSuppressed]).
   static List<BaseDevice> get pendingDevices => core.connection.devices
       .where((d) => d is ZwiftClickV2 || d is ZwiftClickV2RightSide)
       .where((d) => !d.isConnected)
@@ -58,6 +74,24 @@ abstract final class ClickV2Onboarding {
       await core.connection.performScanning();
       return;
     }
+    // "Set up again" can reach this method while a left side is ALREADY
+    // connected (that's the only time the ghost button which routes here
+    // renders). A freshly-discovered pending device gets this handshake for
+    // free as part of its own connect flow (ZwiftClickV2LeftSide.setupHandshake),
+    // but an in-place mode switch on an already-connected device never
+    // re-triggers that — without this, the mode is inert until the firmware
+    // idle-timeout drops the link and the reconnect re-arms it. Mirrors
+    // UnlockToggle's own Select.onChanged exactly.
+    for (final device in core.connection.devices.whereType<ZwiftClickV2LeftSide>()) {
+      if (!device.isConnected) continue;
+      final services = device.services;
+      if (services == null) continue;
+      try {
+        await ClickLogic.setupHandshake(services, device.device.deviceId, isRight: false);
+      } catch (e, stack) {
+        recordError(e, stack, context: 'ClickV2Onboarding.chooseLeftSideOnly');
+      }
+    }
     await _complete();
     await _connectPending();
   }
@@ -66,6 +100,15 @@ abstract final class ClickV2Onboarding {
   /// through the Zwift app every 24 hours.
   static Future<void> chooseUnlockWithZwift() async {
     await core.settings.setUnlockWithZwift(true);
+    // Mirrors UnlockToggle's own Select.onChanged: switching to Zwift mode
+    // must cancel any live ClickLogic reset timer immediately, or the rider
+    // gets one spurious restart right after choosing the mode whose whole
+    // selling point is "no restarts during your ride".
+    try {
+      ClickLogic.resetTimer();
+    } catch (e, stack) {
+      recordError(e, stack, context: 'ClickV2Onboarding.chooseUnlockWithZwift');
+    }
     await _complete();
     await _connectPending();
   }
@@ -76,10 +119,18 @@ abstract final class ClickV2Onboarding {
 
   static Future<void> _connectPending() async {
     for (final device in pendingDevices) {
+      // pendingDevices is not gated on isPending (see its doc comment) and
+      // returns every disconnected Click V2 side, including one the battery
+      // saver deliberately put to sleep. Connecting it here would undo that
+      // the moment the rider finishes an unrelated onboarding choice.
+      if (core.connection.isAutoReconnectSuppressed(device)) continue;
       try {
         await core.connection.connectDevice(device);
       } catch (e, stack) {
         recordError(e, stack, context: 'ClickV2Onboarding.connectPending');
+        core.connection.signalNotification(
+          AlertNotification(LogLevel.LOGLEVEL_ERROR, AppLocalizations.current.clickV2Onboarding_connectFailed),
+        );
       }
     }
   }

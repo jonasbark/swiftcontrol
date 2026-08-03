@@ -25,16 +25,16 @@ void main() {
       arbMaps[entry.key] = jsonDecode(content);
     }
 
-    // Get the reference set from English (exactly 24 keys)
+    // Get the reference set from English (exactly 25 keys)
     final enKeys = arbMaps['en']!
         .keys
         .where((k) => k.startsWith('clickV2Onboarding_'))
         .toSet();
     expect(
       enKeys.length,
-      24,
+      25,
       reason:
-          'English arb should have exactly 24 clickV2Onboarding_ keys, but has ${enKeys.length}',
+          'English arb should have exactly 25 clickV2Onboarding_ keys, but has ${enKeys.length}',
     );
 
     // Verify all other locales have the same key set
@@ -100,6 +100,7 @@ void main() {
         l10n.clickV2Onboarding_decisionSubtitle,
         l10n.clickV2Onboarding_leftOnlyRecap,
         l10n.clickV2Onboarding_zwiftRecap,
+        l10n.clickV2Onboarding_connectFailed,
       ];
       for (final value in strings) {
         expect(value, isNotEmpty, reason: 'empty string for locale $code');

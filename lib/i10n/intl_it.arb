@@ -193,6 +193,7 @@
   "clickV2Onboarding_decisionSubtitle": "Funzionano entrambe. Scegli il compromesso che preferisci — potrai cambiarlo più avanti nelle impostazioni del controller.",
   "clickV2Onboarding_leftOnlyRecap": "Niente Zwift · solo il controller sinistro",
   "clickV2Onboarding_zwiftRecap": "Entrambi i controller · sblocco ogni 24 ore",
+  "clickV2Onboarding_connectFailed": "Impossibile collegare il tuo Zwift Click V2. Toccalo per riprovare.",
   "close": "Chiudi",
   "commandsRemainingToday": "{commandsRemainingToday}/{dailyCommandLimit} comandi rimanenti oggi",
   "configuration": "Configurazione",

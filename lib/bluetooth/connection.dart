@@ -131,6 +131,14 @@ class Connection {
   /// Mutable as a test seam (the integration tests shrink it to milliseconds).
   Duration inactivityReconnectCooldown = const Duration(seconds: 90);
 
+  /// Whether [device] is currently sitting out a battery-saver or backoff
+  /// suppression window (see [_suppressedAutoReconnect]). Read-only escape
+  /// hatch for callers outside this class (e.g. [ClickV2Onboarding]) that
+  /// enumerate devices themselves and must not force-reconnect one the
+  /// battery saver deliberately put to sleep.
+  bool isAutoReconnectSuppressed(BaseDevice device) =>
+      device is BluetoothDevice && _suppressedAutoReconnect.contains(device.device.deviceId);
+
   /// Consecutive failed auto-connect attempts per BLE device id. Only devices
   /// with [BluetoothDevice.maxAutoConnectAttempts] > 0 ever suppress; reset by
   /// a successful connect.

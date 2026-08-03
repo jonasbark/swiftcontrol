@@ -2,7 +2,6 @@ import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/click_v2/click_contours.dart';
-import 'package:flutter/widgets.dart' show PageView, PageController;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -37,10 +36,24 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
   // load time rather than when a page actually becomes active.
   late final AnimationController _rows = AnimationController(vsync: this, duration: const Duration(milliseconds: 420))..forward();
 
+  // One CurvedAnimation per staggered index, built once and reused. A fresh
+  // CurvedAnimation registers a status listener on its parent (_rows) in its
+  // own constructor and is never disposed on its own — building one per row
+  // per build (as `_staggered` used to) piles up listeners forever, since
+  // _onScroll's setState fires on every scroll frame. `_option`'s pro/con
+  // rows use indices 0..3 (2 pros + 2 cons each); `_decision`'s two buttons
+  // reuse indices 0-1 of the same sequence -- 4 entries covers every caller.
+  static const _staggerCurveCount = 4;
+  late final List<CurvedAnimation> _staggerCurves;
+
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onScroll);
+    _staggerCurves = List.generate(_staggerCurveCount, (index) {
+      final start = (index * 0.15).clamp(0.0, 0.6);
+      return CurvedAnimation(parent: _rows, curve: Interval(start, 1, curve: Curves.easeOut));
+    });
   }
 
   void _onScroll() {
@@ -56,6 +69,9 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
   void dispose() {
     _controller.removeListener(_onScroll);
     _controller.dispose();
+    for (final curve in _staggerCurves) {
+      curve.dispose();
+    }
     _rows.dispose();
     super.dispose();
   }
@@ -323,8 +339,7 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
   // Shared staggered one-shot entrance, reused by the pro/con rows and the
   // decision page's two buttons so both read as the same kind of reveal.
   Widget _staggered(int index, Widget child) {
-    final start = (index * 0.15).clamp(0.0, 0.6);
-    final curve = CurvedAnimation(parent: _rows, curve: Interval(start, 1, curve: Curves.easeOut));
+    final curve = _staggerCurves[index];
     return FadeTransition(
       opacity: curve,
       child: SlideTransition(

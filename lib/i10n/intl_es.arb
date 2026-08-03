@@ -193,6 +193,7 @@
   "clickV2Onboarding_decisionSubtitle": "Las dos funcionan. Elige el inconveniente que prefieras asumir; puedes cambiarlo más tarde en los ajustes del mando.",
   "clickV2Onboarding_leftOnlyRecap": "Sin Zwift · solo el mando izquierdo",
   "clickV2Onboarding_zwiftRecap": "Los dos mandos · desbloqueo cada 24 horas",
+  "clickV2Onboarding_connectFailed": "No se pudo conectar tu Zwift Click V2. Tócalo para intentarlo de nuevo.",
   "close": "Cerrar",
   "commandsRemainingToday": "Te quedan {commandsRemainingToday}/{dailyCommandLimit} comandos hoy",
   "configuration": "Configuración",

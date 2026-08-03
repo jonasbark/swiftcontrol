@@ -44,7 +44,15 @@ class _UnlockToggleState extends State<UnlockToggle> {
             // The explainer that introduced these two modes stays reachable
             // after onboarding, so the trade-offs can be re-read later.
             Button.ghost(
-              onPressed: () => context.push(const ClickV2OnboardingPage()),
+              onPressed: () async {
+                await context.push(const ClickV2OnboardingPage());
+                if (!mounted) return;
+                // The page may have applied a different choice than what's
+                // currently shown here (ClickV2Onboarding writes the setting
+                // directly, not through this widget's onChanged) — refresh so
+                // the Select and the gated warning children reflect it.
+                setState(() => _unlockWithZwift = core.settings.getUnlockWithZwift());
+              },
               child: Text(context.i18n.clickV2Onboarding_setUpAgain).xSmall,
             ),
           ],

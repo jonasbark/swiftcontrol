@@ -193,6 +193,7 @@
   "clickV2Onboarding_decisionSubtitle": "Les deux fonctionnent. Choisis le compromis qui te convient le mieux — tu pourras le changer plus tard dans les réglages de la manette.",
   "clickV2Onboarding_leftOnlyRecap": "Sans Zwift · manette gauche uniquement",
   "clickV2Onboarding_zwiftRecap": "Les deux manettes · déverrouillage toutes les 24 heures",
+  "clickV2Onboarding_connectFailed": "Impossible de connecter ton Zwift Click V2. Appuie dessus pour réessayer.",
   "close": "Fermer",
   "commandsRemainingToday": "{commandsRemainingToday}/{dailyCommandLimit} commandes restantes aujourd'hui",
   "configuration": "Configuration",

@@ -185,6 +185,7 @@
   "clickV2Onboarding_decisionSubtitle": "Both work. Pick the trade-off you'd rather live with — you can change this later in the controller's settings.",
   "clickV2Onboarding_leftOnlyRecap": "No Zwift needed · left controller only",
   "clickV2Onboarding_zwiftRecap": "Both controllers · unlock every 24 hours",
+  "clickV2Onboarding_connectFailed": "Couldn't connect your Zwift Click V2. Tap it to try again.",
   "close": "Close",
   "commandsRemainingToday": "{commandsRemainingToday}/{dailyCommandLimit} commands remaining today",
   "configuration": "Configuration",
