@@ -40,6 +40,12 @@ void main() {
   });
 
   testWidgets('offers a way back into the onboarding explainer', (tester) async {
+    // "Set up again" below navigates into ClickV2OnboardingPage, whose hero
+    // badges loop for as long as it's visible (see ClickContours) — this
+    // test exercises the navigation, not that loop, so animations are
+    // disabled to keep pumpAndSettle deterministic instead of waiting out a
+    // Ticker that never stops on its own.
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
     await tester.pumpWidget(
       ShadcnApp(
         localizationsDelegates: const [AppLocalizations.delegate],

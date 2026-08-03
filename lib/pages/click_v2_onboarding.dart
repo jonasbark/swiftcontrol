@@ -22,9 +22,15 @@ class ClickV2OnboardingPage extends StatefulWidget {
   State<ClickV2OnboardingPage> createState() => _ClickV2OnboardingPageState();
 }
 
-class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> {
+class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with SingleTickerProviderStateMixin {
   final _controller = PageController();
   double _page = 0;
+  bool _submitting = false;
+
+  // Drives the pro/con rows' one-shot staggered entrance. PageView (without a
+  // builder) constructs both option pages eagerly, so this fires for both at
+  // load time rather than when a page actually becomes active.
+  late final AnimationController _rows = AnimationController(vsync: this, duration: const Duration(milliseconds: 420))..forward();
 
   @override
   void initState() {
@@ -45,16 +51,27 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> {
   void dispose() {
     _controller.removeListener(_onScroll);
     _controller.dispose();
+    _rows.dispose();
     super.dispose();
   }
 
   Future<void> _choose(Future<void> Function() apply) async {
+    // Two fast taps would otherwise both re-enter this before the first
+    // await resolves; the writes are idempotent but it's wasted racy work.
+    if (_submitting) return;
+    setState(() => _submitting = true);
     try {
       await apply();
     } catch (e, stack) {
       recordError(e, stack, context: 'ClickV2OnboardingPage.choose');
     }
-    if (mounted) Navigator.of(context).maybePop();
+    if (!mounted) return;
+    final popped = await Navigator.of(context).maybePop();
+    if (!popped && mounted) {
+      // Nothing to pop back to (e.g. this page is the root) — re-enable the
+      // CTAs rather than leaving them permanently disabled.
+      setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -169,6 +186,7 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> {
     required String cta,
     required VoidCallback onPressed,
   }) {
+    final rows = [...pros, ...cons];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -181,8 +199,8 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> {
                 spacing: 12,
                 children: [
                   Text(title).large.semiBold,
-                  ...pros.map((text) => _row(text, isPro: true)),
-                  ...cons.map((text) => _row(text, isPro: false)),
+                  for (var index = 0; index < rows.length; index++)
+                    _row(rows[index], isPro: index < pros.length, index: index),
                 ],
               ),
             ),
@@ -190,7 +208,7 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> {
           const Gap(4),
           SizedBox(
             width: double.infinity,
-            child: Button.primary(onPressed: onPressed, child: Text(cta)),
+            child: Button.primary(onPressed: _submitting ? null : onPressed, child: Text(cta)),
           ),
           const Gap(12),
         ],
@@ -198,18 +216,28 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> {
     );
   }
 
-  Widget _row(String text, {required bool isPro}) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 8,
-      children: [
-        Icon(
-          isPro ? Icons.check_circle_outline : Icons.remove_circle_outline,
-          size: 16,
-          color: isPro ? Colors.green : Theme.of(context).colorScheme.mutedForeground,
+  Widget _row(String text, {required bool isPro, required int index}) {
+    // Rows fade in and rise 8px, 60ms apart in order — enough to read as a
+    // sequence without making the rider wait for it.
+    final start = (index * 0.15).clamp(0.0, 0.6);
+    final curve = CurvedAnimation(parent: _rows, curve: Interval(start, 1, curve: Curves.easeOut));
+    return FadeTransition(
+      opacity: curve,
+      child: SlideTransition(
+        position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(curve),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 8,
+          children: [
+            Icon(
+              isPro ? Icons.check_circle_outline : Icons.remove_circle_outline,
+              size: 16,
+              color: isPro ? Colors.green : Theme.of(context).colorScheme.mutedForeground,
+            ),
+            Expanded(child: Text(text).small),
+          ],
         ),
-        Expanded(child: Text(text).small),
-      ],
+      ),
     );
   }
 }

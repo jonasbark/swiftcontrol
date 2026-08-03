@@ -27,7 +27,7 @@ class ClickV2OnboardingCard extends StatelessWidget {
               spacing: 12,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(width: 64, height: 40, child: ClickContours(page: 1)),
+                const SizedBox(width: 64, height: 40, child: ClickContours(page: 1, animate: false)),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

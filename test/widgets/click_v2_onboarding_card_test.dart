@@ -17,6 +17,12 @@ void main() {
   });
 
   Future<void> pumpCard(WidgetTester tester) async {
+    // Tapping the CTA below navigates into ClickV2OnboardingPage, whose hero
+    // badges loop for as long as it's visible (see ClickContours) — these
+    // tests exercise the card and the navigation, not that loop, so
+    // animations are disabled to keep pumpAndSettle deterministic instead of
+    // waiting out a Ticker that never stops on its own.
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
     await tester.pumpWidget(
       const ShadcnApp(
         localizationsDelegates: [AppLocalizations.delegate],

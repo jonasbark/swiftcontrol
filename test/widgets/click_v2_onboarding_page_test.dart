@@ -19,6 +19,12 @@ void main() {
   // Harness matching test/widgets/emulation_card_test.dart — ShadcnApp with the
   // single English delegate is the pattern that works in this repo.
   Future<void> pumpPage(WidgetTester tester) async {
+    // The hero's idle-timeout and lock badges loop for as long as the page is
+    // visible (see ClickContours) — these tests exercise CTA/text/navigation
+    // behaviour, not that loop, so animations are disabled here to keep
+    // pumpAndSettle deterministic instead of waiting out a Ticker that never
+    // stops on its own.
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
     await tester.pumpWidget(
       const ShadcnApp(
         localizationsDelegates: [AppLocalizations.delegate],
@@ -78,5 +84,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(core.settings.getClickV2OnboardingDone(), isFalse);
+  });
+
+  testWidgets('advantage and disadvantage rows settle into place', (tester) async {
+    await pumpPage(tester);
+
+    // The stagger is a one-shot entrance; once settled every row is opaque and
+    // at its resting offset, so the page is never left half-faded.
+    for (final text in [
+      'No Zwift unlock — ever',
+      'Works right away, no second app',
+      'Drops out a minute after your last button press — reconnects on its own',
+      'Only the left controller sends button presses',
+    ]) {
+      final opacity = tester.widget<FadeTransition>(
+        find.ancestor(of: find.text(text), matching: find.byType(FadeTransition)).first,
+      );
+      expect(opacity.opacity.value, closeTo(1.0, 0.001), reason: 'row not fully faded in: $text');
+    }
   });
 }

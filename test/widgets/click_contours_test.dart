@@ -109,4 +109,45 @@ void main() {
     expect(dx, lessThan(14));
     expect(dx, closeTo(40 / 180 * 14, 0.01));
   });
+
+  testWidgets('the idle-timeout badge owns page 0 and the padlock owns page 1', (tester) async {
+    await pumpAt(tester, 0);
+    expect(
+      tester.widget<Opacity>(find.byKey(const ValueKey('click-contour-idle-badge'))).opacity,
+      closeTo(1.0, 0.001),
+    );
+    expect(
+      tester.widget<Opacity>(find.byKey(const ValueKey('click-contour-lock-badge'))).opacity,
+      closeTo(0.0, 0.001),
+    );
+
+    await pumpAt(tester, 1);
+    expect(
+      tester.widget<Opacity>(find.byKey(const ValueKey('click-contour-idle-badge'))).opacity,
+      closeTo(0.0, 0.001),
+    );
+    expect(
+      tester.widget<Opacity>(find.byKey(const ValueKey('click-contour-lock-badge'))).opacity,
+      closeTo(1.0, 0.001),
+    );
+  });
+
+  testWidgets('looping motion is suppressed when animations are disabled', (tester) async {
+    await tester.pumpWidget(
+      const ShadcnApp(
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: true),
+          child: Scaffold(
+            child: Center(child: SizedBox(width: 400, height: 200, child: ClickContours(page: 0))),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // A looping controller would leave the tester with pending frames forever;
+    // pumpAndSettle returning proves nothing is looping.
+    await tester.pumpAndSettle();
+    expect(find.byType(ClickContours), findsOneWidget);
+  });
 }
