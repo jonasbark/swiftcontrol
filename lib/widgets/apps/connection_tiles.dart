@@ -1,3 +1,4 @@
+import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/widgets/apps/di2_ble_tile.dart';
 import 'package:bike_control/widgets/apps/local_tile.dart';
 import 'package:bike_control/widgets/apps/mywhoosh_link_tile.dart';
@@ -9,7 +10,7 @@ import 'package:bike_control/widgets/mouse_pair_widget.dart';
 import 'package:bike_control/widgets/keyboard_pair_widget.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
-import 'package:flutter/material.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Builds connection method tiles shared by TrainerPage and onboarding wizard.
 /// Returns both recommended and other connection method tiles based on enabled features.
@@ -30,12 +31,21 @@ import 'package:flutter/material.dart';
     if (core.logic.showZwiftMsdnEmulator)
       ZwiftMdnsTile(
         small: small,
-        onUpdate: onUpdate,
+        onUpdate: () {
+          core.connection.signalNotification(
+            LogNotification('Zwift Emulator status changed to ${core.zwiftEmulator.isConnected.value}'),
+          );
+        },
       ),
     if (core.logic.showZwiftBleEmulator)
       ZwiftTile(
         small: small,
-        onUpdate: onUpdate,
+        onUpdate: () {
+          core.connection.signalNotification(
+            LogNotification('Zwift Emulator status changed to ${core.zwiftEmulator.isConnected.value}'),
+          );
+          onUpdate();
+        },
       ),
     if (core.logic.showDi2Ble) Di2BleTile(small: small),
     if (core.logic.showLocalControl && !showLocalAsOther) LocalTile(small: small),

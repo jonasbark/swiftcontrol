@@ -43,7 +43,14 @@ class _TrainerPageState extends State<TrainerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final tiles = buildConnectionMethodTiles(small: false, onUpdate: () => setState(() {}));
+    final tiles = buildConnectionMethodTiles(
+      small: false,
+      onUpdate: () {
+        if (mounted) {
+          setState(() {});
+        }
+      },
+    );
     final recommendedTiles = tiles.recommended;
     final otherTiles = tiles.other;
 
