@@ -6,6 +6,7 @@ import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
+import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
@@ -177,6 +178,29 @@ Future<void> main() async {
               hasTrainer: true,
               trainerName: 'KICKR CORE',
               onUpdate: () {},
+            ));
+  });
+
+  // ── Step 6: done / test mode / completion ──────────────────────────────
+  testWidgets('step done no trainer', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_done', width: 380,
+        builder: (c) => onboardingDoneBody(
+              c,
+              app: MyWhoosh(),
+              controllerName: 'SRAM Rival AXS',
+              trainerName: null,
+              reduceMotion: true,
+            ));
+  });
+
+  testWidgets('step done with trainer', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_done_trainer', width: 380,
+        builder: (c) => onboardingDoneBody(
+              c,
+              app: MyWhoosh(),
+              controllerName: 'SRAM Rival AXS',
+              trainerName: 'KICKR CORE',
+              reduceMotion: true,
             ));
   });
 }

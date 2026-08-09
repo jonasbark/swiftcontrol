@@ -11,10 +11,12 @@ import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
+import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
+import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/pages/unlock.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -22,6 +24,7 @@ import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
+import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
@@ -480,7 +483,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ?.name,
             onUpdate: () => setState(() {}),
           ),
-        _ => const SizedBox(), // per-step bodies land in Task 12
+        OnboardingStep.done => onboardingDoneBody(
+            context,
+            app: _selectedApp!,
+            controllerName: core.connection.controllerDevices.where((d) => d.isConnected).firstOrNull?.name,
+            trainerName: core.connection.proxyDevices
+                .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
+                .firstOrNull
+                ?.name,
+            reduceMotion: MediaQuery.of(context).disableAnimations,
+          ),
       };
 
   List<Widget> _footer(BuildContext context) => switch (_step) {
@@ -566,7 +578,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: Text(context.i18n.onboardingFinishSetup),
             ),
           ],
-        _ => [PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
+        OnboardingStep.done => [
+            if (!IAPManager.instance.isPurchased.value)
+              PrimaryButton(
+                onPressed: () async {
+                  try {
+                    await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+                    if (!context.mounted) return;
+                    openDrawer(context: context, builder: (c) => SubscriptionPage(), position: OverlayPosition.end);
+                  } catch (e, s) {
+                    recordError(e, s, context: 'onboarding done see pro options');
+                  }
+                },
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(LucideIcons.award, size: 16),
+                  Gap(8),
+                  Text(context.i18n.onboardingSeeProOptions),
+                ]),
+              ),
+            GhostButton(
+              onPressed: () async {
+                try {
+                  await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+                  if (context.mounted) Navigator.of(context).pop();
+                } catch (e, s) {
+                  recordError(e, s, context: 'onboarding done start riding');
+                }
+              },
+              child: Text(context.i18n.onboardingDoneStartRiding),
+            ),
+          ],
       };
 
   @override
@@ -578,7 +619,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           step: _step,
           body: _body(context),
           footerActions: _footer(context),
-          onBack: _step == OnboardingStep.app ? null : _back,
+          onBack: _step == OnboardingStep.app || _step == OnboardingStep.done ? null : _back,
           onSkip: _step == OnboardingStep.virtualShifting && !onboardingTrainerBridged(core.connection.proxyDevices)
               ? _next
               : null,
