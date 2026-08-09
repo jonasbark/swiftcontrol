@@ -1,7 +1,9 @@
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
+import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/guided_operation_sheet.dart';
 import 'package:bike_control/widgets/ui/wifi_animation.dart';
@@ -31,7 +33,9 @@ Widget _infoRow(BuildContext context, IconData icon, String title, String sub) {
 /// Whether a connected controller [device] still needs its guided sub-flow
 /// run (SRAM AXS "disable on-device shifting" setup, or Click V2 unlock).
 bool onboardingDeviceNeedsSetup(BaseDevice device) {
-  if (device is ZwiftClickV2) return !device.isUnlocked.value && !device.alreadyUnlocked.value;
+  // A new Click V2 is held out of the connect queue until the rider has
+  // picked an unlock mode in the existing ClickV2OnboardingPage explainer.
+  if (device is ZwiftClickV2 || device is ZwiftClickV2RightSide) return ClickV2Onboarding.isPending;
   if (device is SramAxs) return device.needsGuidedSetup;
   return false;
 }
@@ -53,10 +57,18 @@ Widget onboardingDeviceRow(BuildContext context, BaseDevice device, {bool needsS
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(device.name).small.semiBold,
-          Text(connected ? context.i18n.onboardingDeviceConnected : context.i18n.onboardingDeviceConnecting).xSmall.muted,
+          // A device held for setup (Click V2 pending its unlock-mode choice)
+          // is deliberately not connecting — don't pretend it is.
+          Text(connected
+                  ? context.i18n.onboardingDeviceConnected
+                  : needsSetup
+                      ? context.i18n.onboardingSetupNeeded
+                      : context.i18n.onboardingDeviceConnecting)
+              .xSmall
+              .muted,
         ]),
       ),
-      if (connected && needsSetup)
+      if (needsSetup)
         SecondaryBadge(child: Text(context.i18n.onboardingSetupNeeded))
       else if (connected)
         SecondaryBadge(child: Text(context.i18n.onboardingDeviceConnected)),

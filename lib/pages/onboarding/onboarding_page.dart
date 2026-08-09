@@ -4,6 +4,9 @@ import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
+import 'package:bike_control/pages/click_v2_onboarding.dart';
+import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
@@ -17,7 +20,6 @@ import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/subscription.dart';
-import 'package:bike_control/pages/unlock.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -364,17 +366,25 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// concurrently — see the field doc on [_openSubFlows].
   Future<void> _promptSubFlowsIfNeeded() async {
     for (final d in core.connection.controllerDevices) {
-      if (!d.isConnected || _setupPrompted.contains(d.uniqueId)) continue;
+      if (_setupPrompted.contains(d.uniqueId)) continue;
       if (_step != OnboardingStep.controller) continue;
-      if (d is ZwiftClickV2 && !d.isUnlocked.value && !d.alreadyUnlocked.value) {
-        _setupPrompted.add(d.uniqueId);
+      final isClickV2Side = d is ZwiftClickV2 || d is ZwiftClickV2RightSide;
+      if (isClickV2Side && ClickV2Onboarding.isPending) {
+        // A new Click V2 is held out of the connect queue until the rider
+        // picks an unlock mode — run the existing fullscreen explainer; its
+        // choice connects the held sides. One prompt covers the whole pair.
+        for (final side in core.connection.controllerDevices) {
+          if (side is ZwiftClickV2 || side is ZwiftClickV2RightSide) {
+            _setupPrompted.add(side.uniqueId);
+          }
+        }
         _openSubFlows++;
         try {
-          await openDrawer(context: context, position: OverlayPosition.bottom, builder: (_) => UnlockPage(device: d));
+          await context.push(const ClickV2OnboardingPage());
         } finally {
           _openSubFlows--;
         }
-      } else if (d is SramAxs && d.needsGuidedSetup) {
+      } else if (d.isConnected && d is SramAxs && d.needsGuidedSetup) {
         _setupPrompted.add(d.uniqueId);
         _openSubFlows++;
         try {
