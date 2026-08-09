@@ -2,10 +2,12 @@ import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -236,6 +238,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   OnboardingStep _step = OnboardingStep.app;
   SupportedApp? _selectedApp;
+  Target? _selectedTarget;
 
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
 
@@ -243,6 +246,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void initState() {
     super.initState();
     _selectedApp = core.settings.getTrainerApp();
+    _selectedTarget = core.settings.getLastTarget();
   }
 
   void _next() => setState(() => _step = onboardingNextStep(_step, appIsSelfHosted: _selfHosted));
@@ -253,6 +257,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
             context,
             selected: _selectedApp,
             onSelect: (a) => setState(() => _selectedApp = a),
+          ),
+        OnboardingStep.where => onboardingWhereBody(
+            context,
+            app: _selectedApp!,
+            selected: _selectedTarget,
+            onSelect: (t) => setState(() => _selectedTarget = t),
           ),
         _ => const SizedBox(), // per-step bodies land in Tasks 6-12
       };
@@ -273,6 +283,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: Text(_selectedApp == null
                   ? context.i18n.onboardingAppPickToContinue
                   : context.i18n.onboardingAppContinueWith(_selectedApp!.name)),
+            ),
+          ],
+        OnboardingStep.where => [
+            PrimaryButton(
+              onPressed: _selectedTarget == null
+                  ? null
+                  : () async {
+                      try {
+                        await applyTargetSelection(_selectedTarget!);
+                      } catch (e, s) {
+                        recordError(e, s, context: 'onboarding apply target selection');
+                      }
+                      _next();
+                    },
+              child: Text(context.i18n.onboardingContinue),
             ),
           ],
         _ => [PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],

@@ -2,7 +2,9 @@ import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -68,5 +70,25 @@ Future<void> main() async {
   testWidgets('step app wide', (tester) async {
     await captureWidget(tester, name: 'onboarding_step_app_wide', width: 640,
         builder: (c) => onboardingAppBody(c, selected: null, onSelect: (_) {}));
+  });
+
+  testWidgets('step where unselected', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_where', width: 380,
+        builder: (c) => onboardingWhereBody(
+              c,
+              app: SupportedApp.supportedApps.first,
+              selected: null,
+              onSelect: (_) {},
+            ));
+  });
+
+  testWidgets('step where selected', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_where_selected', width: 380,
+        builder: (c) => onboardingWhereBody(
+              c,
+              app: SupportedApp.supportedApps.first,
+              selected: Target.otherDevice,
+              onSelect: (_) {},
+            ));
   });
 }
