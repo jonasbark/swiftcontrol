@@ -20,6 +20,7 @@ import 'package:version/version.dart';
 
 import '../pages/onboarding/onboarding_page.dart';
 import '../pages/onboarding/onboarding_trigger.dart';
+import '../utils/i18n_extension.dart';
 import '../utils/settings/settings.dart';
 import '../widgets/changelog_dialog.dart';
 
@@ -118,17 +119,21 @@ class _NavigationState extends State<Navigation> {
         IAPManager.instance.setWinBoughtBefore50();
       }
 
-      final onboardingAction = decideOnboardingTrigger(
-        lastSeenVersion: lastSeenVersion,
-        onboardingState: core.settings.getOnboardingState(),
-      );
-      if (onboardingAction == OnboardingTriggerAction.markCompleted) {
-        await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
-      } else if (onboardingAction == OnboardingTriggerAction.show && !screenshotMode) {
-        await core.settings.setOnboardingState(Settings.onboardingStatePending);
-        if (mounted) {
-          await context.push(OnboardingPage());
+      try {
+        final onboardingAction = decideOnboardingTrigger(
+          lastSeenVersion: lastSeenVersion,
+          onboardingState: core.settings.getOnboardingState(),
+        );
+        if (onboardingAction == OnboardingTriggerAction.markCompleted) {
+          await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+        } else if (onboardingAction == OnboardingTriggerAction.show && !screenshotMode) {
+          await core.settings.setOnboardingState(Settings.onboardingStatePending);
+          if (mounted) {
+            await context.push(OnboardingPage());
+          }
         }
+      } catch (e, s) {
+        recordError(e, s, context: 'onboarding trigger');
       }
 
       if (mounted) {
