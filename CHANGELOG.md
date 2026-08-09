@@ -1,5 +1,6 @@
 ### 6.3.0 (09-07-2026)
 **Features**:
+- New: a guided setup wizard on first launch — pick your app, connect your controller and trainer, and link the app step by step. Re-run it anytime via Menu → Setup guide.
 - SRAM AXS: After a lot of tinkering, SRAM AXS levers are now fully supported - all individual buttons are supported now. Read more in our blog!
 - WHEELTOP EDS shifters (beta): use your EDS OX or TX shifter as a controller — top/bottom buttons shift up/down by default and are fully remappable.
 - The Strappo Trainer app is now officially supported

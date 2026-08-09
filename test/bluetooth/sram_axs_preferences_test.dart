@@ -51,7 +51,7 @@ void main() {
 
     // The guided dialog opens with a confirm step (it tries first and only asks
     // to press-and-hold the AXS button if a fresh bond turns out to be needed).
-    expect(find.textContaining('back up your current shifter configuration'), findsOneWidget);
+    expect(find.textContaining('so the paddles send button presses instead'), findsOneWidget);
     expect(find.widgetWithText(PrimaryButton, 'Continue'), findsOneWidget);
   });
 
