@@ -1,6 +1,8 @@
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
+import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -47,5 +49,24 @@ Future<void> main() async {
   testWidgets('permission denied sheet', (tester) async {
     await captureWidget(tester, name: 'onboarding_permission_denied_sheet', width: 380,
         builder: (c) => sheet(permissionDeniedSheetBody(c, onContinueAnyway: () {}, onAllow: () {})));
+  });
+
+  testWidgets('step app unselected', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_app', width: 380,
+        builder: (c) => onboardingAppBody(c, selected: null, onSelect: (_) {}));
+  });
+
+  testWidgets('step app selected', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_app_selected', width: 380,
+        builder: (c) => onboardingAppBody(
+              c,
+              selected: SupportedApp.supportedApps.first,
+              onSelect: (_) {},
+            ));
+  });
+
+  testWidgets('step app wide', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_app_wide', width: 640,
+        builder: (c) => onboardingAppBody(c, selected: null, onSelect: (_) {}));
   });
 }

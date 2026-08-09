@@ -1,8 +1,12 @@
+import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
+import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
+import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/trainer_setup.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 const double kOnboardingDesktopBreakpoint = 800;
@@ -231,11 +235,48 @@ class OnboardingPage extends StatefulWidget {
 
 class _OnboardingPageState extends State<OnboardingPage> {
   OnboardingStep _step = OnboardingStep.app;
+  SupportedApp? _selectedApp;
 
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
 
+  @override
+  void initState() {
+    super.initState();
+    _selectedApp = core.settings.getTrainerApp();
+  }
+
   void _next() => setState(() => _step = onboardingNextStep(_step, appIsSelfHosted: _selfHosted));
   void _back() => setState(() => _step = onboardingPreviousStep(_step, appIsSelfHosted: _selfHosted));
+
+  Widget _body(BuildContext context) => switch (_step) {
+        OnboardingStep.app => onboardingAppBody(
+            context,
+            selected: _selectedApp,
+            onSelect: (a) => setState(() => _selectedApp = a),
+          ),
+        _ => const SizedBox(), // per-step bodies land in Tasks 6-12
+      };
+
+  List<Widget> _footer(BuildContext context) => switch (_step) {
+        OnboardingStep.app => [
+            PrimaryButton(
+              onPressed: _selectedApp == null
+                  ? null
+                  : () async {
+                      try {
+                        await applyTrainerAppSelection(_selectedApp!);
+                      } catch (e, s) {
+                        recordError(e, s, context: 'onboarding apply trainer app selection');
+                      }
+                      _next();
+                    },
+              child: Text(_selectedApp == null
+                  ? context.i18n.onboardingAppPickToContinue
+                  : context.i18n.onboardingAppContinueWith(_selectedApp!.name)),
+            ),
+          ],
+        _ => [PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -244,10 +285,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: onboardingShell(
           context,
           step: _step,
-          body: const SizedBox(), // per-step bodies land in Tasks 5-12
-          footerActions: [
-            PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue)),
-          ],
+          body: _body(context),
+          footerActions: _footer(context),
           onBack: _step == OnboardingStep.app ? null : _back,
           onHelp: () => openOnboardingHelpSheet(context, _step),
         ),
