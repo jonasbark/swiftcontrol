@@ -1,14 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/button_edit.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/utils/trainer_setup.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
-import 'package:bike_control/utils/keymap/apps/custom_app.dart';
-import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
@@ -17,7 +15,6 @@ import 'package:bike_control/widgets/ui/openbikecontrol_logo.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:d4rt/d4rt.dart';
 import 'package:dartx/dartx.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -145,23 +142,7 @@ class _ConfigurationPageState extends State<ConfigurationPage> {
   }
 
   Future<void> _setTarget(BuildContext context, Target target) async {
-    await core.settings.setLastTarget(target);
-
-    if ((core.settings.getTrainerApp()?.supports(AppConnectionMethod.obpBle) == true ||
-            core.settings.getTrainerApp()?.supports(AppConnectionMethod.obpMdns) == true) &&
-        !core.logic.emulatorEnabled) {
-      core.settings.setObpMdnsEnabled(true);
-    }
-
-    // enable local connection on Windows if the app doesn't support OBP
-    if (target == Target.thisDevice &&
-        !core.settings.getTrainerApp()!.supports(AppConnectionMethod.obpBle) &&
-        !core.settings.getTrainerApp()!.supports(AppConnectionMethod.obpMdns) &&
-        !kIsWeb &&
-        Platform.isWindows) {
-      core.settings.setLocalEnabled(true);
-    }
-    core.logic.startEnabledConnectionMethod();
+    await applyTargetSelection(target);
   }
 }
 
@@ -279,45 +260,7 @@ class TrainerAppSelect extends StatelessWidget {
       placeholder: Text(context.i18n.selectTrainerAppPlaceholder),
       value: core.settings.getTrainerApp(),
       onChanged: (selectedApp) async {
-        if (selectedApp is! MyWhoosh) {
-          if (core.whooshLink.isStarted.value) {
-            core.whooshLink.stopServer();
-          }
-        }
-        if (!selectedApp!.supports(AppConnectionMethod.zwiftMdns)) {
-          if (core.zwiftMdnsEmulator.isStarted.value) {
-            core.zwiftMdnsEmulator.stop();
-          }
-          // TODO restart mDNS when advertisementName changes
-        }
-        if (!selectedApp.supports(AppConnectionMethod.zwiftBle)) {
-          if (core.zwiftEmulator.isStarted.value) {
-            core.zwiftEmulator.stopAdvertising();
-          }
-        }
-        if (!selectedApp.supports(AppConnectionMethod.rouvyMdns)) {
-          if (core.rouvyMdnsEmulator.isStarted.value) {
-            core.rouvyMdnsEmulator.stop();
-          }
-        }
-        if (core.obpMdnsEmulator.isStarted.value) {
-          core.obpMdnsEmulator.stopServer();
-        }
-        if (core.obpBluetoothEmulator.isStarted.value) {
-          core.obpBluetoothEmulator.stopServer();
-        }
-
-        core.settings.setTrainerApp(selectedApp);
-        if (core.actionHandler.supportedApp == null ||
-            (core.actionHandler.supportedApp is! CustomApp && selectedApp is! CustomApp)) {
-          core.actionHandler.init(selectedApp);
-          core.settings.setKeyMap(selectedApp);
-        }
-        core.logic.startEnabledConnectionMethod();
-
-        if (selectedApp is BikeControl) {
-          core.settings.setLastTarget(Target.thisDevice);
-        }
+        await applyTrainerAppSelection(selectedApp!);
         onUpdate();
       },
     );
