@@ -1,4 +1,5 @@
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
+import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
@@ -248,7 +249,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue)),
           ],
           onBack: _step == OnboardingStep.app ? null : _back,
-          onHelp: () {}, // wired in Task 3
+          onHelp: () => openOnboardingHelpSheet(context, _step),
         ),
       ),
     );
