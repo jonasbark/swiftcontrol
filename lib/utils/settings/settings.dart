@@ -216,6 +216,22 @@ class Settings {
     await prefs.setBool(_virtualShiftingIntroSeenKey, seen);
   }
 
+  static const String _onboardingStateKey = 'onboarding_state';
+  static const String onboardingStatePending = 'pending';
+  static const String onboardingStateCompleted = 'completed';
+
+  /// First-run onboarding wizard state: null = never triggered,
+  /// [onboardingStatePending] = started but not finished (re-shown on next
+  /// launch), [onboardingStateCompleted] = finished or migrated existing
+  /// install (only reachable via the "Setup guide" menu entry).
+  String? getOnboardingState() {
+    return prefs.getString(_onboardingStateKey);
+  }
+
+  Future<void> setOnboardingState(String state) async {
+    await prefs.setString(_onboardingStateKey, state);
+  }
+
   static String _obpSupportedButtonsKey(String appName) => 'obp_supported_buttons_$appName';
 
   /// Last-known OpenBikeControl supported buttons for [appName]. Set when a

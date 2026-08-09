@@ -527,6 +527,7 @@
   "overlayWindowsTip": "Run the trainer app in borderless-windowed mode for the overlay to stay visible.",
   "ok": "OK",
   "only": "Only",
+  "onboardingMenuEntry": "Setup guide",
   "openBikeControlActions": "OpenBikeControl actions",
   "openBikeControlAnnouncement": "Great news - {trainerApp} supports the OpenBikeControl Protocol, so you'll have the best possible experience!",
   "openBikeControlConnection": " e.g. by using OpenBikeControl connection",
