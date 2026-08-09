@@ -253,7 +253,9 @@ class BKMenuButton extends StatelessWidget {
               leading: Icon(Icons.tips_and_updates_outlined),
               child: Text(context.i18n.onboardingMenuEntry),
               onPressed: (c) async {
-                await context.push(OnboardingPage());
+                await Navigator.of(context).push(
+                  MaterialPageRoute(fullscreenDialog: true, builder: (_) => OnboardingPage()),
+                );
               },
             ),
             MenuButton(

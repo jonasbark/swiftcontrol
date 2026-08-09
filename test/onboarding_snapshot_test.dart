@@ -190,6 +190,7 @@ Future<void> main() async {
               controllerName: 'SRAM Rival AXS',
               trainerName: null,
               reduceMotion: true,
+              showTestMode: true,
             ));
   });
 
@@ -201,6 +202,20 @@ Future<void> main() async {
               controllerName: 'SRAM Rival AXS',
               trainerName: 'KICKR CORE',
               reduceMotion: true,
+              showTestMode: true,
+            ));
+  });
+
+  // Purchased users re-running the guide shouldn't see the "test mode" card.
+  testWidgets('step done purchased (no test mode card)', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_done_purchased', width: 380,
+        builder: (c) => onboardingDoneBody(
+              c,
+              app: MyWhoosh(),
+              controllerName: 'SRAM Rival AXS',
+              trainerName: null,
+              reduceMotion: true,
+              showTestMode: false,
             ));
   });
 }

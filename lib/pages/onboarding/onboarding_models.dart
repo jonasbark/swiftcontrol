@@ -25,3 +25,21 @@ OnboardingStep onboardingPreviousStep(OnboardingStep step, {required bool appIsS
   }
   return prev;
 }
+
+/// Pure decision for whether a `ButtonNotification` on the controller step
+/// should advance the wizard. Extracted so the gating logic — phase must be
+/// `list`, no sub-flow sheet (SRAM guided setup / Click V2 unlock) may be
+/// open, and at least one controller device must actually be connected — is
+/// unit-testable without simulating BLE or widgets.
+bool shouldAdvanceOnButtonPress({
+  required OnboardingStep step,
+  required ControllerPhase phase,
+  required bool subFlowOpen,
+  required bool anyControllerConnected,
+}) {
+  if (step != OnboardingStep.controller) return false;
+  if (phase != ControllerPhase.list) return false;
+  if (subFlowOpen) return false;
+  if (!anyControllerConnected) return false;
+  return true;
+}

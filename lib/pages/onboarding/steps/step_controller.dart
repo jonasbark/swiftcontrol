@@ -1,4 +1,6 @@
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/guided_operation_sheet.dart';
@@ -26,7 +28,15 @@ Widget _infoRow(BuildContext context, IconData icon, String title, String sub) {
   );
 }
 
-Widget onboardingDeviceRow(BuildContext context, BaseDevice device) {
+/// Whether a connected controller [device] still needs its guided sub-flow
+/// run (SRAM AXS "disable on-device shifting" setup, or Click V2 unlock).
+bool onboardingDeviceNeedsSetup(BaseDevice device) {
+  if (device is ZwiftClickV2) return !device.isUnlocked.value && !device.alreadyUnlocked.value;
+  if (device is SramAxs) return device.needsGuidedSetup;
+  return false;
+}
+
+Widget onboardingDeviceRow(BuildContext context, BaseDevice device, {bool needsSetup = false}) {
   final connected = device.isConnected;
   final scheme = Theme.of(context).colorScheme;
   return Container(
@@ -46,7 +56,10 @@ Widget onboardingDeviceRow(BuildContext context, BaseDevice device) {
           Text(connected ? context.i18n.onboardingDeviceConnected : context.i18n.onboardingDeviceConnecting).xSmall.muted,
         ]),
       ),
-      if (connected) SecondaryBadge(child: Text(context.i18n.onboardingDeviceConnected)),
+      if (connected && needsSetup)
+        SecondaryBadge(child: Text(context.i18n.onboardingSetupNeeded))
+      else if (connected)
+        SecondaryBadge(child: Text(context.i18n.onboardingDeviceConnected)),
     ]),
   );
 }
@@ -110,7 +123,7 @@ Widget onboardingControllerBody(BuildContext context,
             .small
             .muted,
         Gap(16),
-        for (final d in devices) onboardingDeviceRow(context, d),
+        for (final d in devices) onboardingDeviceRow(context, d, needsSetup: onboardingDeviceNeedsSetup(d)),
         Gap(10),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           SizedBox(width: 14, height: 14, child: CircularProgressIndicator(size: 14)),

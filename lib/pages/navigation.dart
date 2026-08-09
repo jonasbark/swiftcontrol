@@ -20,7 +20,6 @@ import 'package:version/version.dart';
 
 import '../pages/onboarding/onboarding_page.dart';
 import '../pages/onboarding/onboarding_trigger.dart';
-import '../utils/i18n_extension.dart';
 import '../utils/settings/settings.dart';
 import '../widgets/changelog_dialog.dart';
 
@@ -129,7 +128,9 @@ class _NavigationState extends State<Navigation> {
         } else if (onboardingAction == OnboardingTriggerAction.show && !screenshotMode) {
           await core.settings.setOnboardingState(Settings.onboardingStatePending);
           if (mounted) {
-            await context.push(OnboardingPage());
+            await Navigator.of(context).push(
+              MaterialPageRoute(fullscreenDialog: true, builder: (_) => OnboardingPage()),
+            );
           }
         }
       } catch (e, s) {

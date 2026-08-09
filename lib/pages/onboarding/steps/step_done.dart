@@ -3,7 +3,11 @@ import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 Widget onboardingDoneBody(BuildContext context,
-    {required SupportedApp app, required String? controllerName, required String? trainerName, required bool reduceMotion}) {
+    {required SupportedApp app,
+    required String? controllerName,
+    required String? trainerName,
+    required bool reduceMotion,
+    required bool showTestMode}) {
   const success = Color(0xFF22C55E);
   final rows = <(IconData, String, String)>[
     if (controllerName != null) (LucideIcons.gamepad2, controllerName, context.i18n.onboardingDeviceConnected),
@@ -36,25 +40,27 @@ Widget onboardingDoneBody(BuildContext context,
           Text(sub).xSmall.muted,
         ]),
       ),
-    Gap(10),
-    Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
-        borderRadius: BorderRadius.circular(12),
-        color: const Color(0x1AF59E0B),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(LucideIcons.flaskConical, size: 18, color: const Color(0xFFF59E0B)),
-          Gap(9),
-          Text(context.i18n.onboardingTestModeTitle).small.semiBold,
+    if (showTestMode) ...[
+      Gap(10),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0x1AF59E0B),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(LucideIcons.flaskConical, size: 18, color: const Color(0xFFF59E0B)),
+            Gap(9),
+            Text(context.i18n.onboardingTestModeTitle).small.semiBold,
+          ]),
+          Gap(6),
+          Text(trainerName != null ? context.i18n.onboardingTestModeBodyVs : context.i18n.onboardingTestModeBody).xSmall,
         ]),
-        Gap(6),
-        Text(trainerName != null ? context.i18n.onboardingTestModeBodyVs : context.i18n.onboardingTestModeBody).xSmall,
-      ]),
-    ),
+      ),
+    ],
   ]);
 }
 

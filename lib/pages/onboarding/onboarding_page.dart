@@ -62,6 +62,7 @@ Widget onboardingShell(
   VoidCallback? onBack,
   VoidCallback? onSkip,
   required VoidCallback onHelp,
+  VoidCallback? onClose,
 }) {
   return LayoutBuilder(
     builder: (context, constraints) {
@@ -93,6 +94,7 @@ Widget onboardingShell(
                     onPressed: onHelp,
                     child: Row(children: [Icon(LucideIcons.lifeBuoy, size: 15), Gap(5), Text(context.i18n.onboardingHelp)]),
                   ),
+                  if (onClose != null) IconButton.ghost(icon: Icon(LucideIcons.x), onPressed: onClose),
                 ],
               ),
             ),
@@ -173,6 +175,14 @@ Widget onboardingShell(
           Expanded(
             child: Column(
               children: [
+                if (onClose != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 10, 14, 0),
+                    child: Row(children: [
+                      const Spacer(),
+                      IconButton.ghost(icon: Icon(LucideIcons.x), onPressed: onClose),
+                    ]),
+                  ),
                 Expanded(child: scrolledBody),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -264,6 +274,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   StreamSubscription<BaseDevice>? _connectionSub;
   StreamSubscription<BaseNotification>? _actionSub;
   final Set<String> _setupPrompted = {};
+  bool _subFlowOpen = false;
   final Set<ProxyDevice> _proxyListenerDevices = {};
 
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
@@ -285,13 +296,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
         }
       });
       _attachProxyListeners();
-      _promptSubFlowsIfNeeded();
+      unawaited(_promptSubFlowsIfNeeded());
     });
     _actionSub = core.connection.actionStream.listen((notification) {
-      if (!mounted || _step != OnboardingStep.controller) return;
+      if (!mounted) return;
       if (notification is ButtonNotification &&
           notification.buttonsClicked.isNotEmpty &&
-          notification.device.isConnected) {
+          notification.device.isConnected &&
+          shouldAdvanceOnButtonPress(
+            step: _step,
+            phase: _controllerPhase,
+            subFlowOpen: _subFlowOpen,
+            anyControllerConnected: core.connection.controllerDevices.any((d) => d.isConnected),
+          )) {
         _next();
       }
     });
@@ -333,16 +350,31 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// `uniqueId` so a device is only ever prompted once, and so
   /// ZwiftClickV2LeftSide/RightSide (a connected pair) aren't each prompted
   /// separately.
-  void _promptSubFlowsIfNeeded() {
+  ///
+  /// Sets [_subFlowOpen] while a sheet is up so the press-a-button-to-continue
+  /// listener (see [shouldAdvanceOnButtonPress]) doesn't advance the wizard
+  /// underneath a sub-flow the paddles/buttons are also driving (e.g. SRAM
+  /// guided setup reacts to the same button presses as the wizard).
+  Future<void> _promptSubFlowsIfNeeded() async {
     for (final d in core.connection.controllerDevices) {
       if (!d.isConnected || _setupPrompted.contains(d.uniqueId)) continue;
       if (_step != OnboardingStep.controller) continue;
       if (d is ZwiftClickV2 && !d.isUnlocked.value && !d.alreadyUnlocked.value) {
         _setupPrompted.add(d.uniqueId);
-        openDrawer(context: context, position: OverlayPosition.bottom, builder: (_) => UnlockPage(device: d));
+        _subFlowOpen = true;
+        try {
+          await openDrawer(context: context, position: OverlayPosition.bottom, builder: (_) => UnlockPage(device: d));
+        } finally {
+          _subFlowOpen = false;
+        }
       } else if (d is SramAxs && d.needsGuidedSetup) {
         _setupPrompted.add(d.uniqueId);
-        unawaited(d.showGuidedSetup(context));
+        _subFlowOpen = true;
+        try {
+          await d.showGuidedSetup(context);
+        } finally {
+          _subFlowOpen = false;
+        }
       }
     }
   }
@@ -357,7 +389,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _next() => _goTo(onboardingNextStep(_step, appIsSelfHosted: _selfHosted));
-  void _back() => _goTo(onboardingPreviousStep(_step, appIsSelfHosted: _selfHosted));
+
+  /// Back unwinds within the controller step first: from `list`/`empty` it
+  /// restarts the scan phase instead of leaving the step entirely. Only from
+  /// `permission`/`scanning` does it fall through to the previous step —
+  /// loop-safe, since `scanning` isn't one of the phases that restarts.
+  void _back() {
+    if (_step == OnboardingStep.controller &&
+        (_controllerPhase == ControllerPhase.list || _controllerPhase == ControllerPhase.empty)) {
+      _startScanPhase();
+      return;
+    }
+    _goTo(onboardingPreviousStep(_step, appIsSelfHosted: _selfHosted));
+  }
 
   Future<void> _enterControllerStep() async {
     try {
@@ -384,6 +428,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
         setState(() => _controllerPhase = ControllerPhase.empty);
       }
     });
+    // Devices that connected before step 3 was entered (scanning runs from
+    // app launch) land straight in `list` phase here — prompt their sub-flows
+    // now, since the connectionStream listener won't fire for them again.
+    if (_controllerPhase == ControllerPhase.list) unawaited(_promptSubFlowsIfNeeded());
   }
 
   Future<void> _onAllowBluetooth() async {
@@ -475,7 +523,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
         OnboardingStep.connection => onboardingConnectionBody(
             context,
             app: _selectedApp!,
-            target: _selectedTarget ?? Target.otherDevice,
+            // BikeControl (self-hosted) skips the `where` step, so
+            // `_selectedTarget` is stale; `applyTrainerAppSelection` already
+            // pinned `Target.thisDevice` into settings for that case.
+            target: core.settings.getLastTarget() ?? _selectedTarget ?? Target.otherDevice,
             hasTrainer: onboardingTrainerBridged(core.connection.proxyDevices),
             trainerName: core.connection.proxyDevices
                 .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
@@ -492,6 +543,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 .firstOrNull
                 ?.name,
             reduceMotion: MediaQuery.of(context).disableAnimations,
+            showTestMode: !IAPManager.instance.isPurchased.value,
           ),
       };
 
@@ -585,7 +637,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   try {
                     await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
                     if (!context.mounted) return;
-                    openDrawer(context: context, builder: (c) => SubscriptionPage(), position: OverlayPosition.end);
+                    await openDrawer(context: context, builder: (c) => SubscriptionPage(), position: OverlayPosition.end);
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop();
                   } catch (e, s) {
                     recordError(e, s, context: 'onboarding done see pro options');
                   }
@@ -624,6 +678,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ? _next
               : null,
           onHelp: () => openOnboardingHelpSheet(context, _step),
+          onClose: () => Navigator.of(context).maybePop(),
         ),
       ),
     );

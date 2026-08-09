@@ -609,6 +609,7 @@
   "onboardingStillScanning": "Still scanning…",
   "onboardingDeviceConnected": "Connected",
   "onboardingDeviceConnecting": "Connecting…",
+  "onboardingSetupNeeded": "Setup needed",
   "onboardingControllerMapped": "Your buttons are mapped for {app} already. You can fine-tune every one later.",
   "@onboardingControllerMapped": {"placeholders": {"app": {"type": "String"}}},
   "onboardingPressButtonToContinue": "Press a button on your controller to continue",
