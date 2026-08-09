@@ -1,12 +1,15 @@
+import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:universal_ble/universal_ble.dart';
 
 import 'widget_snapshot.dart';
 
@@ -89,6 +92,38 @@ Future<void> main() async {
               app: SupportedApp.supportedApps.first,
               selected: Target.otherDevice,
               onSelect: (_) {},
+            ));
+  });
+
+  // ── Step controller: permission / scanning / empty / list phases ──────────
+  final connectedDevice = SramAxs(BleDevice(deviceId: 'snap', name: 'SRAM Rival AXS'))..isConnected = true;
+  final connectingDevice = SramAxs(BleDevice(deviceId: 'snap-2', name: 'SRAM Force AXS'));
+
+  testWidgets('step controller permission', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_controller_permission', width: 380,
+        builder: (c) => onboardingControllerBody(c, phase: ControllerPhase.permission, devices: const [], appName: 'Zwift'));
+  });
+
+  // The wifi scan animation loops forever — settle:false, like the SRAM
+  // "running"/"authorize" stages in sram_states_snapshot_test.dart.
+  testWidgets('step controller scanning', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_controller_scanning', width: 380, settle: false,
+        builder: (c) => onboardingControllerBody(c, phase: ControllerPhase.scanning, devices: const [], appName: 'Zwift'));
+  });
+
+  testWidgets('step controller empty', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_controller_empty', width: 380,
+        builder: (c) => onboardingControllerBody(c, phase: ControllerPhase.empty, devices: const [], appName: 'Zwift'));
+  });
+
+  // The "still scanning" spinner in the list phase is also infinite.
+  testWidgets('step controller list', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_controller_list', width: 380, settle: false,
+        builder: (c) => onboardingControllerBody(
+              c,
+              phase: ControllerPhase.list,
+              devices: [connectedDevice, connectingDevice],
+              appName: 'Zwift',
             ));
   });
 }

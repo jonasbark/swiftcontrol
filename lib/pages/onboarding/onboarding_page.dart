@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -9,6 +13,7 @@ import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
+import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 const double kOnboardingDesktopBreakpoint = 800;
@@ -240,6 +245,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
   SupportedApp? _selectedApp;
   Target? _selectedTarget;
 
+  ControllerPhase _controllerPhase = ControllerPhase.permission;
+  Timer? _emptyScanTimer;
+  StreamSubscription<BaseDevice>? _connectionSub;
+
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
 
   @override
@@ -247,10 +256,96 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.initState();
     _selectedApp = core.settings.getTrainerApp();
     _selectedTarget = core.settings.getLastTarget();
+    _connectionSub = core.connection.connectionStream.listen((_) {
+      if (!mounted) return;
+      setState(() {
+        if (_step == OnboardingStep.controller &&
+            (_controllerPhase == ControllerPhase.scanning || _controllerPhase == ControllerPhase.empty) &&
+            core.connection.controllerDevices.isNotEmpty) {
+          _controllerPhase = ControllerPhase.list;
+          _emptyScanTimer?.cancel();
+        }
+      });
+    });
   }
 
-  void _next() => setState(() => _step = onboardingNextStep(_step, appIsSelfHosted: _selfHosted));
-  void _back() => setState(() => _step = onboardingPreviousStep(_step, appIsSelfHosted: _selfHosted));
+  @override
+  void dispose() {
+    _connectionSub?.cancel();
+    _emptyScanTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Single place both [_next] and [_back] route transitions through, so any
+  /// step-entry side effect (currently just the controller step's permission
+  /// check + scan kickoff) fires exactly once, regardless of transition
+  /// direction.
+  void _goTo(OnboardingStep step) {
+    setState(() => _step = step);
+    if (step == OnboardingStep.controller) _enterControllerStep();
+  }
+
+  void _next() => _goTo(onboardingNextStep(_step, appIsSelfHosted: _selfHosted));
+  void _back() => _goTo(onboardingPreviousStep(_step, appIsSelfHosted: _selfHosted));
+
+  Future<void> _enterControllerStep() async {
+    try {
+      final requirements = await core.permissions.getScanRequirements();
+      if (!mounted) return;
+      if (requirements.isEmpty) {
+        _startScanPhase();
+      } else {
+        setState(() => _controllerPhase = ControllerPhase.permission);
+      }
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding controller step requirements');
+    }
+  }
+
+  void _startScanPhase() {
+    setState(() => _controllerPhase =
+        core.connection.controllerDevices.isNotEmpty ? ControllerPhase.list : ControllerPhase.scanning);
+    core.connection.performScanning();
+    _emptyScanTimer?.cancel();
+    _emptyScanTimer = Timer(const Duration(seconds: 15), () {
+      if (!mounted) return;
+      if (_controllerPhase == ControllerPhase.scanning && core.connection.controllerDevices.isEmpty) {
+        setState(() => _controllerPhase = ControllerPhase.empty);
+      }
+    });
+  }
+
+  Future<void> _onAllowBluetooth() async {
+    try {
+      final requirements = await core.permissions.getScanRequirements();
+      if (!mounted) return;
+      if (requirements.isEmpty) {
+        _startScanPhase();
+        return;
+      }
+      await openPermissionSheet(context, requirements);
+      if (!mounted) return;
+      final recheck = await core.permissions.getScanRequirements();
+      if (!mounted) return;
+      if (recheck.isEmpty) _startScanPhase();
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding allow bluetooth');
+    }
+  }
+
+  Future<void> _onPermissionNotNow() async {
+    try {
+      final continueAnyway = await openPermissionDeniedSheet(context);
+      if (!mounted) return;
+      if (continueAnyway == true) {
+        _next();
+      } else if (continueAnyway == false) {
+        await _onAllowBluetooth();
+      }
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding permission not now');
+    }
+  }
 
   Widget _body(BuildContext context) => switch (_step) {
         OnboardingStep.app => onboardingAppBody(
@@ -264,7 +359,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
             selected: _selectedTarget,
             onSelect: (t) => setState(() => _selectedTarget = t),
           ),
-        _ => const SizedBox(), // per-step bodies land in Tasks 6-12
+        OnboardingStep.controller => onboardingControllerBody(
+            context,
+            phase: _controllerPhase,
+            devices: core.connection.controllerDevices,
+            appName: _selectedApp?.name ?? '',
+          ),
+        _ => const SizedBox(), // per-step bodies land in Tasks 9-12
       };
 
   List<Widget> _footer(BuildContext context) => switch (_step) {
@@ -300,6 +401,34 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: Text(context.i18n.onboardingContinue),
             ),
           ],
+        OnboardingStep.controller => switch (_controllerPhase) {
+            ControllerPhase.permission => [
+                PrimaryButton(
+                  onPressed: _onAllowBluetooth,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(LucideIcons.bluetooth, size: 16),
+                    Gap(8),
+                    Text(context.i18n.onboardingAllowBluetooth),
+                  ]),
+                ),
+                GhostButton(onPressed: _onPermissionNotNow, child: Text(context.i18n.onboardingNotNow)),
+              ],
+            ControllerPhase.scanning => [
+                GhostButton(
+                  onPressed: () {
+                    _emptyScanTimer?.cancel();
+                    setState(() => _controllerPhase = ControllerPhase.empty);
+                  },
+                  child: Text(context.i18n.onboardingCantFindController),
+                ),
+              ],
+            ControllerPhase.empty => [
+                PrimaryButton(onPressed: _startScanPhase, child: Text(context.i18n.onboardingScanAgain)),
+                GhostButton(onPressed: _next, child: Text(context.i18n.onboardingSetUpLater)),
+              ],
+            // Placeholder — Task 9 replaces this with the real continue/connect footer.
+            ControllerPhase.list => [GhostButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
+          },
         _ => [PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
       };
 
