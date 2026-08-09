@@ -4,10 +4,12 @@ import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
+import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -147,6 +149,34 @@ Future<void> main() async {
               app: SupportedApp.supportedApps.first,
               trainers: const <ProxyDevice>[],
               onPick: (_) {},
+            ));
+  });
+
+  // ── Step 5: connection methods + "Then in $app" guide + bridge card ────
+  // Network screenshots fail to load in tests — the errorBuilder swallows
+  // that and vanishes the image, which is the offline behaviour working as
+  // intended, so settle:false avoids pumpAndSettle hanging on the retries.
+  testWidgets('step connection no trainer', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_connection', width: 380, settle: false,
+        builder: (c) => onboardingConnectionBody(
+              c,
+              app: MyWhoosh(),
+              target: Target.otherDevice,
+              hasTrainer: false,
+              trainerName: null,
+              onUpdate: () {},
+            ));
+  });
+
+  testWidgets('step connection with trainer', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_connection_trainer', width: 380, settle: false,
+        builder: (c) => onboardingConnectionBody(
+              c,
+              app: MyWhoosh(),
+              target: Target.otherDevice,
+              hasTrainer: true,
+              trainerName: 'KICKR CORE',
+              onUpdate: () {},
             ));
   });
 }

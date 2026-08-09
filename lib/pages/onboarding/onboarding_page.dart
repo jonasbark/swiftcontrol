@@ -9,6 +9,7 @@ import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
@@ -468,7 +469,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
             trainers: core.connection.proxyDevices,
             onPick: _onPickTrainer,
           ),
-        _ => const SizedBox(), // per-step bodies land in Tasks 11-12
+        OnboardingStep.connection => onboardingConnectionBody(
+            context,
+            app: _selectedApp!,
+            target: _selectedTarget ?? Target.otherDevice,
+            hasTrainer: onboardingTrainerBridged(core.connection.proxyDevices),
+            trainerName: core.connection.proxyDevices
+                .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
+                .firstOrNull
+                ?.name,
+            onUpdate: () => setState(() {}),
+          ),
+        _ => const SizedBox(), // per-step bodies land in Task 12
       };
 
   List<Widget> _footer(BuildContext context) => switch (_step) {
@@ -547,6 +559,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
               PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))
             else
               GhostButton(onPressed: _next, child: Text(context.i18n.onboardingLetAppHandleVs(_selectedApp!.name))),
+          ],
+        OnboardingStep.connection => [
+            PrimaryButton(
+              onPressed: core.logic.hasNoConnectionMethod ? null : _next,
+              child: Text(context.i18n.onboardingFinishSetup),
+            ),
           ],
         _ => [PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
       };
