@@ -1,12 +1,17 @@
 import 'dart:async';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
+import 'package:bike_control/pages/unlock.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
@@ -248,6 +253,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   ControllerPhase _controllerPhase = ControllerPhase.permission;
   Timer? _emptyScanTimer;
   StreamSubscription<BaseDevice>? _connectionSub;
+  StreamSubscription<BaseNotification>? _actionSub;
+  final Set<String> _setupPrompted = {};
 
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
 
@@ -266,14 +273,43 @@ class _OnboardingPageState extends State<OnboardingPage> {
           _emptyScanTimer?.cancel();
         }
       });
+      _promptSubFlowsIfNeeded();
+    });
+    _actionSub = core.connection.actionStream.listen((notification) {
+      if (!mounted || _step != OnboardingStep.controller) return;
+      if (notification is ButtonNotification &&
+          notification.buttonsClicked.isNotEmpty &&
+          notification.device.isConnected) {
+        _next();
+      }
     });
   }
 
   @override
   void dispose() {
     _connectionSub?.cancel();
+    _actionSub?.cancel();
     _emptyScanTimer?.cancel();
     super.dispose();
+  }
+
+  /// Auto-opens a device's guided sub-flow (Click V2 unlock, SRAM guided
+  /// setup) the first time it connects during the controller step. Keyed on
+  /// `uniqueId` so a device is only ever prompted once, and so
+  /// ZwiftClickV2LeftSide/RightSide (a connected pair) aren't each prompted
+  /// separately.
+  void _promptSubFlowsIfNeeded() {
+    for (final d in core.connection.controllerDevices) {
+      if (!d.isConnected || _setupPrompted.contains(d.uniqueId)) continue;
+      if (_step != OnboardingStep.controller) continue;
+      if (d is ZwiftClickV2 && !d.isUnlocked.value && !d.alreadyUnlocked.value) {
+        _setupPrompted.add(d.uniqueId);
+        openDrawer(context: context, position: OverlayPosition.bottom, builder: (_) => UnlockPage(device: d));
+      } else if (d is SramAxs && d.needsGuidedSetup) {
+        _setupPrompted.add(d.uniqueId);
+        unawaited(d.showGuidedSetup(context));
+      }
+    }
   }
 
   /// Single place both [_next] and [_back] route transitions through, so any
@@ -426,8 +462,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 PrimaryButton(onPressed: _startScanPhase, child: Text(context.i18n.onboardingScanAgain)),
                 GhostButton(onPressed: _next, child: Text(context.i18n.onboardingSetUpLater)),
               ],
-            // Placeholder — Task 9 replaces this with the real continue/connect footer.
-            ControllerPhase.list => [GhostButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
+            ControllerPhase.list => [
+                if (core.connection.controllerDevices.any((d) => d.isConnected))
+                  OnboardingButtonHint(onContinue: _next)
+                else
+                  GhostButton(
+                    onPressed: () {
+                      _emptyScanTimer?.cancel();
+                      setState(() => _controllerPhase = ControllerPhase.empty);
+                    },
+                    child: Text(context.i18n.onboardingCantFindController),
+                  ),
+              ],
           },
         _ => [PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
       };

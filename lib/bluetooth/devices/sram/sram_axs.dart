@@ -418,6 +418,27 @@ class SramAxs extends BluetoothDevice {
   bool get isBonded => _logic?.isBonded ?? false;
   bool get isShiftingDisabled => core.settings.getSramShiftingDisabled(_serialKey);
 
+  /// Whether the guided "disable on-device shifting" setup hasn't run yet for
+  /// this derailleur. Uses the same serial key as the setup itself.
+  bool get needsGuidedSetup => !core.settings.getSramShiftingDisabled(_serialKey);
+
+  /// Opens the same guided setup sheet as the device card's
+  /// "Set up SRAM control" button. Used by the onboarding wizard.
+  Future<void> showGuidedSetup(BuildContext context) {
+    final l = context.i18n;
+    return _runGuidedOperation(
+      context,
+      title: l.sramSetup,
+      intro: l.sramSetupIntro,
+      successMessage: l.sramSetupSuccess,
+      confirmIcon: LucideIcons.slidersHorizontal,
+      runningTitle: l.sramSettingUp,
+      successTitle: l.sramAllSet,
+      checklistItems: [l.sramChecklistPairing, l.sramChecklistBackingUp, l.sramChecklistDisabling],
+      operation: setupControl,
+    );
+  }
+
   @override
   List<Widget> showAdditionalInformation(BuildContext context) => [_buildSetupPanel(context)];
 

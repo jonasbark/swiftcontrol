@@ -5,6 +5,7 @@ import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -125,5 +126,12 @@ Future<void> main() async {
               devices: [connectedDevice, connectingDevice],
               appName: 'Zwift',
             ));
+  });
+
+  // The pulsing dot animation loops forever — settle:false, like the other
+  // infinite-animation captures above.
+  testWidgets('button hint', (tester) async {
+    await captureWidget(tester, name: 'onboarding_button_hint', width: 380, settle: false,
+        builder: (c) => OnboardingButtonHint(onContinue: () {}));
   });
 }
