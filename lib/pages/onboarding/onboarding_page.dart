@@ -274,7 +274,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
   StreamSubscription<BaseDevice>? _connectionSub;
   StreamSubscription<BaseNotification>? _actionSub;
   final Set<String> _setupPrompted = {};
-  bool _subFlowOpen = false;
+  // Ref-counted rather than a bool: two devices connecting close together
+  // (e.g. a SRAM left/right shifter pair) can each trigger their own
+  // concurrent `_promptSubFlowsIfNeeded()` run, so two sub-flow sheets can be
+  // open at once. A bool reset in the first sheet's `finally` would reopen
+  // the button-advance gate while the second sheet is still on screen.
+  int _openSubFlows = 0;
   final Set<ProxyDevice> _proxyListenerDevices = {};
 
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
@@ -306,7 +311,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           shouldAdvanceOnButtonPress(
             step: _step,
             phase: _controllerPhase,
-            subFlowOpen: _subFlowOpen,
+            subFlowOpen: _openSubFlows > 0,
             anyControllerConnected: core.connection.controllerDevices.any((d) => d.isConnected),
           )) {
         _next();
@@ -351,29 +356,31 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// ZwiftClickV2LeftSide/RightSide (a connected pair) aren't each prompted
   /// separately.
   ///
-  /// Sets [_subFlowOpen] while a sheet is up so the press-a-button-to-continue
-  /// listener (see [shouldAdvanceOnButtonPress]) doesn't advance the wizard
-  /// underneath a sub-flow the paddles/buttons are also driving (e.g. SRAM
-  /// guided setup reacts to the same button presses as the wizard).
+  /// Increments/decrements [_openSubFlows] around each sheet so the
+  /// press-a-button-to-continue listener (see [shouldAdvanceOnButtonPress])
+  /// doesn't advance the wizard underneath a sub-flow the paddles/buttons are
+  /// also driving (e.g. SRAM guided setup reacts to the same button presses
+  /// as the wizard). Ref-counted (not a bool) because this method can run
+  /// concurrently — see the field doc on [_openSubFlows].
   Future<void> _promptSubFlowsIfNeeded() async {
     for (final d in core.connection.controllerDevices) {
       if (!d.isConnected || _setupPrompted.contains(d.uniqueId)) continue;
       if (_step != OnboardingStep.controller) continue;
       if (d is ZwiftClickV2 && !d.isUnlocked.value && !d.alreadyUnlocked.value) {
         _setupPrompted.add(d.uniqueId);
-        _subFlowOpen = true;
+        _openSubFlows++;
         try {
           await openDrawer(context: context, position: OverlayPosition.bottom, builder: (_) => UnlockPage(device: d));
         } finally {
-          _subFlowOpen = false;
+          _openSubFlows--;
         }
       } else if (d is SramAxs && d.needsGuidedSetup) {
         _setupPrompted.add(d.uniqueId);
-        _subFlowOpen = true;
+        _openSubFlows++;
         try {
           await d.showGuidedSetup(context);
         } finally {
-          _subFlowOpen = false;
+          _openSubFlows--;
         }
       }
     }
