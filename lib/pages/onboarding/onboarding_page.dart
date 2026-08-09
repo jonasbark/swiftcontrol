@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
@@ -9,15 +10,19 @@ import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
+import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
+import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/unlock.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
+import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -255,6 +260,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   StreamSubscription<BaseDevice>? _connectionSub;
   StreamSubscription<BaseNotification>? _actionSub;
   final Set<String> _setupPrompted = {};
+  final Set<ProxyDevice> _proxyListenerDevices = {};
 
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
 
@@ -263,6 +269,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     super.initState();
     _selectedApp = core.settings.getTrainerApp();
     _selectedTarget = core.settings.getLastTarget();
+    _attachProxyListeners();
     _connectionSub = core.connection.connectionStream.listen((_) {
       if (!mounted) return;
       setState(() {
@@ -273,6 +280,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           _emptyScanTimer?.cancel();
         }
       });
+      _attachProxyListeners();
       _promptSubFlowsIfNeeded();
     });
     _actionSub = core.connection.actionStream.listen((notification) {
@@ -290,7 +298,30 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _connectionSub?.cancel();
     _actionSub?.cancel();
     _emptyScanTimer?.cancel();
+    for (final proxy in _proxyListenerDevices) {
+      proxy.isStarting.removeListener(_onProxyStateChanged);
+      proxy.isConnectedListenable.removeListener(_onProxyStateChanged);
+    }
     super.dispose();
+  }
+
+  /// Attaches a bridging-state listener to every proxy device we haven't
+  /// seen yet — called from [initState] for devices already known at
+  /// startup, and again from the connectionStream listener as new proxy
+  /// devices are discovered, so the step-4 UI updates live as a trainer
+  /// starts/stops bridging without needing a full rebuild trigger elsewhere.
+  void _attachProxyListeners() {
+    for (final proxy in core.connection.proxyDevices) {
+      if (_proxyListenerDevices.add(proxy)) {
+        proxy.isStarting.addListener(_onProxyStateChanged);
+        proxy.isConnectedListenable.addListener(_onProxyStateChanged);
+      }
+    }
+  }
+
+  void _onProxyStateChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   /// Auto-opens a device's guided sub-flow (Click V2 unlock, SRAM guided
@@ -383,6 +414,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
   }
 
+  /// Mirrors the tap sequence in `proxy.dart` exactly: trial gate, saved
+  /// retrofit mode, auto-connect flag, fire-and-forget `startProxy()`, then
+  /// push the details page. Smart trainers skip the auto-start block and go
+  /// straight to the details page, same as `proxy.dart`.
+  Future<void> _onPickTrainer(ProxyDevice device) async {
+    try {
+      if (!device.isSmartTrainer && !device.isStartedListenable.value && !device.isStarting.value) {
+        if (IAPManager.instance.isTrialExpired) {
+          await showGoProDialog(context);
+          return;
+        }
+        final savedMode = core.settings.getRetrofitMode(
+          device.trainerKey,
+          fallback: device.defaultRetrofitMode,
+        );
+        device.setRetrofitMode(savedMode);
+        await core.settings.setAutoConnect(device.trainerKey, true);
+        // Fire-and-forget — details page opens immediately and renders a
+        // "Connecting…" state via device.isStarting.
+        unawaited(device.startProxy().catchError((_) {}));
+      }
+      if (!mounted) return;
+      await context.push(ProxyDeviceDetailsPage(device: device));
+      if (!mounted) return;
+      setState(() {});
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding pick trainer');
+    }
+  }
+
   Widget _body(BuildContext context) => switch (_step) {
         OnboardingStep.app => onboardingAppBody(
             context,
@@ -401,7 +462,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
             devices: core.connection.controllerDevices,
             appName: _selectedApp?.name ?? '',
           ),
-        _ => const SizedBox(), // per-step bodies land in Tasks 9-12
+        OnboardingStep.virtualShifting => onboardingTrainerBody(
+            context,
+            app: _selectedApp!,
+            trainers: core.connection.proxyDevices,
+            onPick: _onPickTrainer,
+          ),
+        _ => const SizedBox(), // per-step bodies land in Tasks 11-12
       };
 
   List<Widget> _footer(BuildContext context) => switch (_step) {
@@ -475,6 +542,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ),
               ],
           },
+        OnboardingStep.virtualShifting => [
+            if (onboardingTrainerBridged(core.connection.proxyDevices))
+              PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))
+            else
+              GhostButton(onPressed: _next, child: Text(context.i18n.onboardingLetAppHandleVs(_selectedApp!.name))),
+          ],
         _ => [PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))],
       };
 
@@ -488,6 +561,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           body: _body(context),
           footerActions: _footer(context),
           onBack: _step == OnboardingStep.app ? null : _back,
+          onSkip: _step == OnboardingStep.virtualShifting && !onboardingTrainerBridged(core.connection.proxyDevices)
+              ? _next
+              : null,
           onHelp: () => openOnboardingHelpSheet(context, _step),
         ),
       ),

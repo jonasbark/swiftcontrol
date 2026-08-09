@@ -1,9 +1,11 @@
+import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
+import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -133,5 +135,18 @@ Future<void> main() async {
   testWidgets('button hint', (tester) async {
     await captureWidget(tester, name: 'onboarding_button_hint', width: 380, settle: false,
         builder: (c) => OnboardingButtonHint(onContinue: () {}));
+  });
+
+  // ── Step 4: virtual shifting ────────────────────────────────────────────
+  // The "nearby trainers" spinner is also infinite — settle:false, like the
+  // other loading-state captures above.
+  testWidgets('step trainer intro', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_trainer', width: 380, settle: false,
+        builder: (c) => onboardingTrainerBody(
+              c,
+              app: SupportedApp.supportedApps.first,
+              trainers: const <ProxyDevice>[],
+              onPick: (_) {},
+            ));
   });
 }
