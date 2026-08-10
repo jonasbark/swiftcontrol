@@ -24,6 +24,18 @@ Future<void> main() async {
     }
   });
 
+  testWidgets('local tile follows the target, like CoreLogic.showLocalControl', (tester) async {
+    final app = SupportedApp.supportedApps.first;
+    core.settings.setTrainerApp(app);
+    await core.settings.setLastTarget(Target.otherDevice);
+    expect(onboardingMethodVisible(OnboardingMethod.local, app), isFalse,
+        reason: 'Local drives the app on THIS device — never offer it for another-device targets');
+    await core.settings.setLastTarget(Target.thisDevice);
+    expect(onboardingMethodVisible(OnboardingMethod.local, app), isTrue);
+    expect(onboardingMethodVisible(OnboardingMethod.bluetooth, app), isFalse,
+        reason: 'Bluetooth advertises to another device — pointless on the same one');
+  });
+
   testWidgets('bluetooth tile visibility matches app support on other-device target', (tester) async {
     await core.settings.setLastTarget(Target.otherDevice);
     for (final app in SupportedApp.supportedApps) {

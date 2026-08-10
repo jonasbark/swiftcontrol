@@ -44,14 +44,19 @@ bool get _localPlatform => !kIsWeb && (Platform.isMacOS || Platform.isWindows ||
 bool onboardingVirtualShiftingBlocked(SupportedApp app) =>
     !kIsWeb && Platform.isAndroid && app is MyWhoosh && core.settings.getLastTarget() == Target.thisDevice;
 
-/// Whether the tile is shown at all for [app] (Local is always shown on
-/// desktop-class platforms and iOS — iOS renders it disabled with a note).
-bool onboardingMethodVisible(OnboardingMethod method, SupportedApp app) => switch (method) {
-      OnboardingMethod.network => _supportsNetwork(app),
-      OnboardingMethod.bluetooth =>
-        _supportsBluetooth(app) && core.settings.getLastTarget() != Target.thisDevice,
-      OnboardingMethod.local => true,
-    };
+/// Whether the tile is shown at all for [app]. Mirrors the settings page:
+/// Local drives the app running on THIS device (CoreLogic.showLocalControl),
+/// Bluetooth advertises to an app on ANOTHER device. On iOS the Local tile is
+/// still shown for the same-device target but rendered disabled with a note,
+/// so riders learn why it isn't an option there.
+bool onboardingMethodVisible(OnboardingMethod method, SupportedApp app) {
+  final sameDevice = core.settings.getLastTarget()?.connectionType == ConnectionType.local;
+  return switch (method) {
+    OnboardingMethod.network => _supportsNetwork(app),
+    OnboardingMethod.bluetooth => _supportsBluetooth(app) && !sameDevice,
+    OnboardingMethod.local => sameDevice,
+  };
+}
 
 /// Whether the tile can be toggled (Local on iOS cannot).
 bool onboardingMethodAvailable(OnboardingMethod method) =>
