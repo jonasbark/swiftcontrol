@@ -44,7 +44,8 @@ bool onboardingDeviceNeedsSetup(BaseDevice device) {
   return false;
 }
 
-Widget onboardingDeviceRow(BuildContext context, BaseDevice device, {bool needsSetup = false}) {
+Widget onboardingDeviceRow(BuildContext context, BaseDevice device,
+    {bool needsSetup = false, VoidCallback? onSetup}) {
   final connected = device.isConnected;
   final scheme = Theme.of(context).colorScheme;
   return Container(
@@ -73,7 +74,17 @@ Widget onboardingDeviceRow(BuildContext context, BaseDevice device, {bool needsS
         ]),
       ),
       if (needsSetup)
-        SecondaryBadge(child: Text(context.i18n.onboardingSetupNeeded))
+        // A real button: the auto-opened sub-flow can be cancelled, and this
+        // is the way back in.
+        SecondaryButton(
+          size: ButtonSize.small,
+          onPressed: onSetup,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(context.i18n.onboardingSetupNeeded),
+            Gap(5),
+            Icon(LucideIcons.chevronRight, size: 12),
+          ]),
+        )
       else if (connected)
         SecondaryBadge(child: Text(context.i18n.onboardingDeviceConnected)),
     ]),
@@ -124,6 +135,7 @@ Widget onboardingControllerBody(BuildContext context,
     required String appName,
     Map<String, ControllerButton> pressedButtons = const {},
     Map<String, int> pressGenerations = const {},
+    void Function(BaseDevice)? onSetupDevice,
     VoidCallback? onUpdate}) {
   final reduceMotion = MediaQuery.of(context).disableAnimations;
   final scheme = Theme.of(context).colorScheme;
@@ -183,7 +195,9 @@ Widget onboardingControllerBody(BuildContext context,
             .muted,
         Gap(16),
         for (final d in devices) ...[
-          onboardingDeviceRow(context, d, needsSetup: onboardingDeviceNeedsSetup(d)),
+          onboardingDeviceRow(context, d,
+              needsSetup: onboardingDeviceNeedsSetup(d),
+              onSetup: onSetupDevice == null ? null : () => onSetupDevice(d)),
           // Each connected controller shows its contour right below its row
           // so riders can see the buttons they just gained (same canvas the
           // home screen uses).

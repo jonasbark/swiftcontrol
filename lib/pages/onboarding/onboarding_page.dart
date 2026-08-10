@@ -436,6 +436,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// ZwiftClickV2LeftSide/RightSide (a connected pair) aren't each prompted
   /// separately.
   ///
+  /// Opens the device-specific setup sub-flow — used by the one-time
+  /// auto-prompt AND the row's "Setup needed" button (the sub-flow can be
+  /// cancelled, so it must always be re-openable).
+  Future<void> _openSetupFor(BaseDevice d) async {
+    try {
+      final isClickV2Side = d is ZwiftClickV2 || d is ZwiftClickV2RightSide;
+      if (isClickV2Side && ClickV2Onboarding.isPending) {
+        await context.push(const ClickV2OnboardingPage());
+      } else if (d is SramAxs && d.needsGuidedSetup) {
+        await d.showGuidedSetup(_sheetContext);
+      }
+      if (mounted) setState(() {});
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding open device setup');
+    }
+  }
+
   Future<void> _promptSubFlowsIfNeeded() async {
     for (final d in core.connection.controllerDevices) {
       if (_setupPrompted.contains(d.uniqueId)) continue;
@@ -443,17 +460,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
       final isClickV2Side = d is ZwiftClickV2 || d is ZwiftClickV2RightSide;
       if (isClickV2Side && ClickV2Onboarding.isPending) {
         // A new Click V2 is held out of the connect queue until the rider
-        // picks an unlock mode — run the existing fullscreen explainer; its
-        // choice connects the held sides. One prompt covers the whole pair.
+        // picks an unlock mode — one prompt covers the whole pair.
         for (final side in core.connection.controllerDevices) {
           if (side is ZwiftClickV2 || side is ZwiftClickV2RightSide) {
             _setupPrompted.add(side.uniqueId);
           }
         }
-        await context.push(const ClickV2OnboardingPage());
+        await _openSetupFor(d);
       } else if (d.isConnected && d is SramAxs && d.needsGuidedSetup) {
         _setupPrompted.add(d.uniqueId);
-        await d.showGuidedSetup(_sheetContext);
+        await _openSetupFor(d);
       }
     }
   }
@@ -632,6 +648,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             appName: _selectedApp?.name ?? '',
             pressedButtons: _pressedButton,
             pressGenerations: _pressGeneration,
+            onSetupDevice: (d) => unawaited(_openSetupFor(d)),
             onUpdate: () => setState(() {}),
           ),
         OnboardingStep.virtualShifting => onboardingTrainerBody(
