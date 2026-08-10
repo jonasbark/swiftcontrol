@@ -585,6 +585,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
   }
 
+  /// "Let {app} handle Virtual Shifting": the rider explicitly opted out, so
+  /// tear down every smart-trainer bridge — including ones still connecting —
+  /// before moving on. keepInList so going back re-offers them.
+  Future<void> _onSkipVirtualShifting() async {
+    try {
+      for (final t in core.connection.proxyDevices.toList()) {
+        if (t.isStarting.value || t.isStartedListenable.value || t.isConnectedListenable.value || t.isConnected) {
+          await core.settings.setAutoConnect(t.trainerKey, false);
+          await core.connection.disconnect(t, forget: false, persistForget: false, keepInList: true);
+        }
+      }
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding skip virtual shifting');
+    }
+    if (mounted) _next();
+  }
+
   Widget _body(BuildContext context) => switch (_step) {
         OnboardingStep.app => onboardingAppBody(
             context,
@@ -716,7 +733,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             if (onboardingTrainerBridged(core.connection.proxyDevices))
               PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))
             else
-              GhostButton(onPressed: _next, child: Text(context.i18n.onboardingLetAppHandleVs(_selectedApp!.name))),
+              GhostButton(
+                  onPressed: _onSkipVirtualShifting,
+                  child: Text(context.i18n.onboardingLetAppHandleVs(_selectedApp!.name))),
           ],
         OnboardingStep.connection => [
             PrimaryButton(
@@ -771,7 +790,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           footerActions: _footer(overlayContext),
           onBack: _step == OnboardingStep.app || _step == OnboardingStep.done ? null : _back,
           onSkip: _step == OnboardingStep.virtualShifting && !onboardingTrainerBridged(core.connection.proxyDevices)
-              ? _next
+              ? _onSkipVirtualShifting
               : null,
           onHelp: () => openOnboardingHelpSheet(overlayContext, _step),
           onClose: () => Navigator.of(context).maybePop(),

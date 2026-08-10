@@ -1,5 +1,6 @@
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
@@ -130,6 +131,19 @@ Future<void> main() async {
               c,
               phase: ControllerPhase.list,
               devices: [connectedDevice, connectingDevice],
+              appName: 'Zwift',
+            ));
+  });
+
+  // A connected device with a ControllerLayout renders its contour so the
+  // rider sees the available buttons.
+  testWidgets('step controller list with contour', (tester) async {
+    final click = ZwiftClick(BleDevice(deviceId: 'click-snap', name: 'Zwift Click'))..isConnected = true;
+    await captureWidget(tester, name: 'onboarding_step_controller_contour', width: 380, settle: false,
+        builder: (c) => onboardingControllerBody(
+              c,
+              phase: ControllerPhase.list,
+              devices: [click],
               appName: 'Zwift',
             ));
   });

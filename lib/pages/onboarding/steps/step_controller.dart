@@ -5,6 +5,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.da
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/guided_operation_sheet.dart';
 import 'package:bike_control/widgets/ui/wifi_animation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -136,6 +137,34 @@ Widget onboardingControllerBody(BuildContext context,
             .muted,
         Gap(16),
         for (final d in devices) onboardingDeviceRow(context, d, needsSetup: onboardingDeviceNeedsSetup(d)),
+        // Contour of the first connected controller so riders can see the
+        // buttons they just gained (same canvas the home screen uses).
+        if (devices.where((d) => d.isConnected && d.controllerLayout != null).firstOrNull case final hero?) ...[
+          Gap(6),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(color: scheme.border, width: 1.5),
+              borderRadius: BorderRadius.circular(12),
+              color: scheme.card,
+            ),
+            child: ControllerCanvas(
+              layout: hero.controllerLayout!,
+              availableButtons: hero.availableButtons,
+              buttonSize: 34,
+              buttonBuilder: (btn) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: scheme.muted,
+                  border: Border.all(color: scheme.border),
+                ),
+                child: Text(btn.displayName, overflow: TextOverflow.ellipsis).xSmall.semiBold,
+              ),
+            ),
+          ),
+        ],
         Gap(10),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           SizedBox(width: 14, height: 14, child: CircularProgressIndicator(size: 14)),
