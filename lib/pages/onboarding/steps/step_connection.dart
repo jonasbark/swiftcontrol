@@ -1,10 +1,138 @@
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
+import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_group_label.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
-import 'package:bike_control/widgets/apps/connection_tiles.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+
+const _success = Color(0xFF22C55E);
+const _warning = Color(0xFFF59E0B);
+
+/// One design-language method tile: icon square, title + badge, description,
+/// optional feature checks, radio check-dot on the right. Selection state is
+/// the method's real enabled state — toggling writes the same settings the
+/// Trainer Connections tiles do (see onboarding_methods.dart).
+class _MethodTile extends StatelessWidget {
+  const _MethodTile({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.enabled,
+    required this.onToggle,
+    this.badge,
+    this.badgeIsPrimary = false,
+    this.features = const [],
+    this.disabled = false,
+    this.footNote,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool enabled;
+  final VoidCallback onToggle;
+  final String? badge;
+  final bool badgeIsPrimary;
+  final List<String> features;
+  final bool disabled;
+  final String? footNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final on = enabled && !disabled;
+    return Opacity(
+      opacity: disabled ? 0.55 : 1,
+      child: Button.ghost(
+        onPressed: disabled ? null : onToggle,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            border: Border.all(color: on ? scheme.primary : scheme.border, width: 1.5),
+            borderRadius: BorderRadius.circular(12),
+            color: scheme.card,
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(11),
+                color: on ? scheme.primary : scheme.muted,
+              ),
+              child: Icon(icon, size: 20, color: on ? const Color(0xFFFFFFFF) : null),
+            ),
+            Gap(12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Text(title).small.semiBold,
+                  if (badge != null) ...[
+                    Gap(7),
+                    if (badgeIsPrimary) PrimaryBadge(child: Text(badge!)) else SecondaryBadge(child: Text(badge!)),
+                  ],
+                ]),
+                Gap(4),
+                Text(description).xSmall.muted,
+                for (final f in features)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(children: [
+                      Icon(LucideIcons.check, size: 13, color: _success),
+                      Gap(7),
+                      Text(f).xSmall,
+                    ]),
+                  ),
+                if (footNote != null) ...[
+                  Gap(8),
+                  Row(children: [
+                    Icon(LucideIcons.info, size: 14, color: scheme.mutedForeground),
+                    Gap(7),
+                    Expanded(child: Text(footNote!).xSmall.muted),
+                  ]),
+                ],
+              ]),
+            ),
+            Gap(10),
+            Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: on ? scheme.primary : null,
+                border: on ? null : Border.all(color: scheme.border, width: 2),
+              ),
+              child: on ? Icon(LucideIcons.check, size: 12, color: const Color(0xFFFFFFFF)) : null,
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+Widget _slotRow(BuildContext context, IconData icon, String slot, String entryName, {required bool first}) {
+  final scheme = Theme.of(context).colorScheme;
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 7),
+    decoration: first
+        ? null
+        : BoxDecoration(border: Border(top: BorderSide(color: scheme.border, width: 0.5))),
+    child: Row(children: [
+      Icon(icon, size: 15, color: scheme.primary),
+      Gap(9),
+      Expanded(child: Text(slot).xSmall.semiBold),
+      Flexible(
+        child: Text(entryName, overflow: TextOverflow.ellipsis, maxLines: 1).xSmall.muted,
+      ),
+    ]),
+  );
+}
 
 Widget onboardingConnectionBody(
   BuildContext context, {
@@ -14,9 +142,49 @@ Widget onboardingConnectionBody(
   required String? trainerName,
   required VoidCallback onUpdate,
 }) {
-  final tiles = buildConnectionMethodTiles(small: true, onUpdate: onUpdate);
   final guide = onboardingGuideFor(context, app);
   final scheme = Theme.of(context).colorScheme;
+  final bridgeEntry = '${trainerName ?? ''} - BikeControl';
+
+  Widget methodTile(OnboardingMethod method) {
+    final enabled = onboardingMethodEnabled(method, app);
+    final available = onboardingMethodAvailable(method);
+    void toggle() => setOnboardingMethodEnabled(context, method, app, !enabled, onUpdate: onUpdate);
+    return switch (method) {
+      OnboardingMethod.network => _MethodTile(
+          icon: LucideIcons.wifi,
+          title: context.i18n.onboardingMethodNetwork,
+          badge: context.i18n.recommended,
+          badgeIsPrimary: true,
+          description: context.i18n.onboardingMethodNetworkDesc(app.name),
+          enabled: enabled,
+          onToggle: toggle,
+        ),
+      OnboardingMethod.bluetooth => _MethodTile(
+          icon: LucideIcons.bluetooth,
+          title: context.i18n.onboardingMethodBluetooth,
+          badge: context.i18n.onboardingMethodBluetoothBadge,
+          description: context.i18n.onboardingMethodBluetoothDesc(app.name),
+          enabled: enabled,
+          onToggle: toggle,
+        ),
+      OnboardingMethod.local => _MethodTile(
+          icon: LucideIcons.keyboard,
+          title: context.i18n.onboardingMethodLocal,
+          badge: context.i18n.onboardingMethodLocalBadge,
+          description: context.i18n.onboardingMethodLocalDesc,
+          features: [
+            context.i18n.onboardingMethodLocalFeature1,
+            context.i18n.onboardingMethodLocalFeature2,
+            context.i18n.onboardingMethodLocalFeature3,
+          ],
+          enabled: enabled,
+          disabled: !available,
+          footNote: available ? null : context.i18n.onboardingMethodLocalIosNote,
+          onToggle: toggle,
+        ),
+    };
+  }
 
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     Text(context.i18n.onboardingConnectionTitle(app.name)).h4,
@@ -27,21 +195,12 @@ Widget onboardingConnectionBody(
         .small
         .muted,
     Gap(18),
-    Text(context.i18n.recommendedConnectionMethods).xSmall.semiBold.muted,
-    Gap(8),
-    ...tiles.recommended,
-    if (tiles.other.isNotEmpty) ...[
-      Gap(8),
-      Accordion(items: [
-        AccordionItem(
-          trigger: AccordionTrigger(child: Text(context.i18n.otherConnectionMethods).small),
-          content: Column(children: tiles.other),
-        ),
-      ]),
-    ],
-    Gap(20),
-    Text(context.i18n.onboardingThenInApp(app.name)).xSmall.semiBold.muted,
-    Gap(8),
+    OnboardingGroupLabel(context.i18n.onboardingConnectionMethods),
+    for (final method in OnboardingMethod.values)
+      if (onboardingMethodVisible(method, app))
+        Padding(padding: const EdgeInsets.only(bottom: 10), child: methodTile(method)),
+    Gap(10),
+    OnboardingGroupLabel(context.i18n.onboardingThenInApp(app.name)),
     Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -99,8 +258,7 @@ Widget onboardingConnectionBody(
     ),
     if (hasTrainer) ...[
       Gap(20),
-      Text(context.i18n.onboardingPairAsTrainer).xSmall.semiBold.muted,
-      Gap(8),
+      OnboardingGroupLabel(context.i18n.onboardingPairAsTrainer),
       Container(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
@@ -121,14 +279,58 @@ Widget onboardingConnectionBody(
               Gap(12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${trainerName ?? ''} - BikeControl').small.semiBold,
+                  Text(bridgeEntry).small.semiBold,
                   Text(context.i18n.onboardingVirtualTrainerGears('${app.virtualGearAmount}')).xSmall.muted,
+                ]),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  color: _success.withValues(alpha: 0.12),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(shape: BoxShape.circle, color: _success),
+                  ),
+                  Gap(5),
+                  DefaultTextStyle.merge(
+                    style: const TextStyle(color: _success),
+                    child: Text(context.i18n.onboardingLive).xSmall.semiBold,
+                  ),
                 ]),
               ),
             ]),
           ),
           Gap(12),
-          Text(context.i18n.onboardingPairAsTrainerWarning(trainerName ?? '', app.name)).xSmall.muted,
+          DefaultTextStyle.merge(
+            style: TextStyle(letterSpacing: 0.8, color: scheme.mutedForeground),
+            child: Text(context.i18n.onboardingSelectItFor.toUpperCase()).xSmall.semiBold,
+          ),
+          Gap(4),
+          _slotRow(context, LucideIcons.zap, context.i18n.onboardingSlotPower, bridgeEntry, first: true),
+          _slotRow(context, LucideIcons.slidersHorizontal, context.i18n.onboardingSlotControllable, bridgeEntry,
+              first: false),
+          _slotRow(context, LucideIcons.refreshCw, context.i18n.onboardingSlotCadence, bridgeEntry, first: false),
+          Gap(12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: _warning.withValues(alpha: 0.12),
+              border: Border.all(color: _warning.withValues(alpha: 0.5)),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(LucideIcons.triangleAlert, size: 16, color: _warning),
+              Gap(10),
+              Expanded(
+                child: Text(context.i18n.onboardingPairAsTrainerWarning(trainerName ?? '', app.name)).xSmall,
+              ),
+            ]),
+          ),
         ]),
       ),
     ],
