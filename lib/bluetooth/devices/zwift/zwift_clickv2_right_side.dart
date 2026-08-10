@@ -38,8 +38,15 @@ class ZwiftClickV2RightSide extends ZwiftRide {
   /// Zwift Click V2 behaviour depends entirely on that choice, so connecting
   /// first would hand them a controller that half-works for reasons they have
   /// not been told about yet.
+  ///
+  /// After the choice, left-side-only mode deliberately leaves the right
+  /// controller unused ("only the left controller sends button presses") —
+  /// connecting it anyway would just burn its battery and disturb
+  /// ClickLogic's restart cycle. This also keeps ClickV2Onboarding's
+  /// _connectPending from picking it up: connectDevice still runs, but
+  /// [connect] below is a no-op while this is false.
   @override
-  bool get shouldAutoConnect => !ClickV2Onboarding.isPending;
+  bool get shouldAutoConnect => !ClickV2Onboarding.isPending && core.settings.getUnlockWithZwift();
 
   @override
   Future<void> connect() async {

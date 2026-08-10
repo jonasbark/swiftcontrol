@@ -352,6 +352,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
   StreamSubscription<BaseDevice>? _connectionSub;
   StreamSubscription<BaseNotification>? _actionSub;
   final Set<String> _setupPrompted = {};
+  // The Click V2 explainer covers the whole left/right pair, but the two
+  // sides are discovered by separate connectionStream events firing separate
+  // concurrent _promptSubFlowsIfNeeded runs — marking uniqueIds is racy (the
+  // second side may not exist yet when the first run marks "the pair"). One
+  // flag, set synchronously before the await, guarantees a single auto-open;
+  // the row's "Setup needed" button is the way back in.
+  bool _clickV2AutoPrompted = false;
   // Press-flash state for the controller contour, mirroring OverviewPage's
   // _onButtonPressed: generation bumps re-trigger AnimatedButtonWidget.
   final Map<String, ControllerButton> _pressedButton = {};
@@ -459,13 +466,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
       if (_step != OnboardingStep.controller) continue;
       final isClickV2Side = d is ZwiftClickV2 || d is ZwiftClickV2RightSide;
       if (isClickV2Side && ClickV2Onboarding.isPending) {
-        // A new Click V2 is held out of the connect queue until the rider
-        // picks an unlock mode — one prompt covers the whole pair.
-        for (final side in core.connection.controllerDevices) {
-          if (side is ZwiftClickV2 || side is ZwiftClickV2RightSide) {
-            _setupPrompted.add(side.uniqueId);
-          }
-        }
+        if (_clickV2AutoPrompted) continue;
+        _clickV2AutoPrompted = true;
         await _openSetupFor(d);
       } else if (d.isConnected && d is SramAxs && d.needsGuidedSetup) {
         _setupPrompted.add(d.uniqueId);
