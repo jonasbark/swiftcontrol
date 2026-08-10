@@ -304,23 +304,9 @@ class ProxyDevice extends BluetoothDevice {
   /// getter.
   String get advertisementName => emulator.advertisementName;
 
-  /// Wahoo-protocol clients expect a 9-character serial number, so derive a
-  /// stable one from the device id.
-  ///
-  /// Any `scheme://` prefix is dropped first: WiFi trainer ids are
-  /// `dircon://<name>` (see [WifiTrainerScanner.deviceIdFor]) and `dircon://`
-  /// is itself exactly 9 characters, so slicing the raw id used to yield the
-  /// scheme and nothing else — every WiFi trainer advertised the identical
-  /// `serial-number=dircon://`. Short ids are padded rather than throwing.
-  static String mdnsSerialNumberFor(String deviceId) {
-    const length = 9; // '244700181'.length
-    final withoutScheme = deviceId.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://'), '');
-    return withoutScheme.replaceAll('-', '').padRight(length, '0').substring(0, length);
-  }
-
   Map<String, Uint8List> _trainerMdnsTxt() => {
     'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.macAddress.codeUnits),
-    'serial-number': Uint8List.fromList(mdnsSerialNumberFor(scanResult.deviceId).codeUnits),
+    'serial-number': Uint8List.fromList(mdnsSerialNumber(scanResult.deviceId).codeUnits),
   };
 
   void _seedFitnessBikeDefinition(FitnessBikeDefinition def) {

@@ -1,46 +1,38 @@
-import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/wifi_trainer_scanner.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/prop.dart';
 
 void main() {
-  group('ProxyDevice.mdnsSerialNumberFor', () {
-    test('is always the 9 characters Wahoo clients expect', () {
-      expect(ProxyDevice.mdnsSerialNumberFor('A0:F2:62:C3:8A:E0'), hasLength(9));
-      expect(
-        ProxyDevice.mdnsSerialNumberFor(WifiTrainerScanner.deviceIdFor('KICKR CORE 3F46')),
-        hasLength(9),
-      );
-    });
-
-    test('drops the dircon:// scheme so WiFi trainers keep their identity', () {
-      // `dircon://` is itself exactly 9 characters, so slicing the raw device
-      // id produced the scheme and nothing else for every WiFi trainer.
-      final serial = ProxyDevice.mdnsSerialNumberFor(
+  group('mdnsSerialNumber', () {
+    test('is all digits, as Wahoo-protocol clients require', () {
+      // Clients parse this TXT value as a number, so anything sliced out of a
+      // MAC or a UUID ('A0:F2:62:', '95E042B71') breaks them.
+      for (final id in [
+        'A0:F2:62:C3:8A:E0',
+        '95E042B7-1337-039E-C35F-C7095776F2D3',
         WifiTrainerScanner.deviceIdFor('KICKR CORE 3F46'),
-      );
-
-      expect(serial, isNot('dircon://'));
-      expect(serial, startsWith('KICKR'));
+      ]) {
+        expect(mdnsSerialNumber(id), matches(RegExp(r'^\d+$')), reason: id);
+      }
     });
 
     test('gives two different WiFi trainers two different serials', () {
-      final a = ProxyDevice.mdnsSerialNumberFor(WifiTrainerScanner.deviceIdFor('KICKR CORE 3F46'));
-      final b = ProxyDevice.mdnsSerialNumberFor(WifiTrainerScanner.deviceIdFor('Wahoo KICKR 1A2B'));
+      // WiFi trainer ids share a `dircon://` prefix, so a derivation that only
+      // looked at the first characters gave every one of them the same serial.
+      final a = mdnsSerialNumber(WifiTrainerScanner.deviceIdFor('KICKR CORE 3F46'));
+      final b = mdnsSerialNumber(WifiTrainerScanner.deviceIdFor('Wahoo KICKR 1A2B'));
 
       expect(a, isNot(b));
     });
 
-    test('pads a short name instead of throwing', () {
-      expect(ProxyDevice.mdnsSerialNumberFor(WifiTrainerScanner.deviceIdFor('Bike')), hasLength(9));
+    test('is stable, so a client still recognises the trainer it paired with', () {
+      final id = WifiTrainerScanner.deviceIdFor('KICKR CORE 3F46');
+
+      expect(mdnsSerialNumber(id), mdnsSerialNumber(id));
     });
 
-    test('leaves BLE device ids on their existing derivation', () {
-      // Unchanged behaviour: strip dashes, take the first 9 characters.
-      expect(
-        ProxyDevice.mdnsSerialNumberFor('95E042B7-1337-039E-C35F-C7095776F2D3'),
-        '95E042B71',
-      );
-      expect(ProxyDevice.mdnsSerialNumberFor('A0:F2:62:C3:8A:E0'), 'A0:F2:62:');
+    test('handles a short id instead of throwing', () {
+      expect(mdnsSerialNumber(WifiTrainerScanner.deviceIdFor('Bike')), matches(RegExp(r'^\d+$')));
     });
   });
 }
