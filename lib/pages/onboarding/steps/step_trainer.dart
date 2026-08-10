@@ -7,10 +7,79 @@ import 'package:url_launcher/url_launcher_string.dart';
 bool onboardingTrainerBridged(List<ProxyDevice> trainers) =>
     trainers.any((t) => t.isStartedListenable.value || t.isConnectedListenable.value);
 
+Widget _alternative(BuildContext context, IconData icon, String title, String body) {
+  final scheme = Theme.of(context).colorScheme;
+  return Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+    decoration: BoxDecoration(color: scheme.muted, borderRadius: BorderRadius.circular(10)),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Icon(icon, size: 18, color: scheme.primary),
+      Gap(12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title).small.semiBold,
+          Text(body).xSmall.muted,
+        ]),
+      ),
+    ]),
+  );
+}
+
 Widget onboardingTrainerBody(BuildContext context,
-    {required SupportedApp app, required List<ProxyDevice> trainers, required void Function(ProxyDevice) onPick}) {
+    {required SupportedApp app,
+    required List<ProxyDevice> trainers,
+    required void Function(ProxyDevice) onPick,
+    bool virtualShiftingBlocked = false}) {
   final bridged = trainers.where((t) => t.isStartedListenable.value || t.isConnectedListenable.value).toList();
   final scheme = Theme.of(context).colorScheme;
+
+  // MyWhoosh on Android can't see a network virtual bike, so a bridge on this
+  // same device would never be found — explain it and name the two setups
+  // that do work instead of silently hiding the step.
+  if (bridged.isEmpty && virtualShiftingBlocked) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(context.i18n.onboardingVsBlockedTitle).h4,
+      Gap(6),
+      Text(context.i18n.onboardingVsBlockedSubtitle(app.name)).small.muted,
+      Gap(16),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: const Color(0x1AF59E0B),
+          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(LucideIcons.triangleAlert, size: 16, color: const Color(0xFFF59E0B)),
+          Gap(10),
+          Expanded(child: Text(context.i18n.onboardingVsBlockedExplainer(app.name)).xSmall),
+        ]),
+      ),
+      Gap(16),
+      Text(context.i18n.onboardingVsBlockedAlternatives).xSmall.semiBold.muted,
+      Gap(8),
+      _alternative(context, LucideIcons.monitorSmartphone, context.i18n.onboardingVsBlockedAltAppTitle(app.name),
+          context.i18n.onboardingVsBlockedAltAppBody(app.name)),
+      _alternative(context, LucideIcons.bluetooth, context.i18n.onboardingVsBlockedAltBtTitle,
+          context.i18n.onboardingVsBlockedAltBtBody(app.name)),
+      Gap(6),
+      Button.ghost(
+        style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
+        onPressed: () => launchUrlString(
+            'https://bikecontrol.app/blog/virtual-shifting-with-and-without-bikecontrol/',
+            mode: LaunchMode.externalApplication),
+        child: Row(children: [
+          Icon(LucideIcons.bookOpen, size: 15),
+          Gap(8),
+          Flexible(child: Text(context.i18n.onboardingTrainerHowItWorks).small),
+          Gap(6),
+          Icon(LucideIcons.externalLink, size: 13),
+        ]),
+      ),
+    ]);
+  }
 
   if (bridged.isNotEmpty) {
     final t = bridged.first;

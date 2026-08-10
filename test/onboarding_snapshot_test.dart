@@ -161,6 +161,13 @@ Future<void> main() async {
             ));
   });
 
+  // MyWhoosh + Android + same-device can't reach a network virtual bike.
+  testWidgets('step trainer virtual shifting blocked', (tester) async {
+    await captureWidget(tester, name: 'onboarding_step_trainer_blocked', width: 380,
+        builder: (c) => onboardingTrainerBody(c,
+            app: MyWhoosh(), trainers: const [], onPick: (_) {}, virtualShiftingBlocked: true));
+  });
+
   // ── Step 5: connection methods + "Then in $app" guide + bridge card ────
   // Network screenshots fail to load in tests — the errorBuilder swallows
   // that and vanishes the image, which is the offline behaviour working as

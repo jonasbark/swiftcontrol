@@ -9,6 +9,7 @@ import 'package:bike_control/pages/click_v2_onboarding.dart';
 import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
+import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_fade_up.dart';
 import 'package:bike_control/pages/paywall.dart';
@@ -658,6 +659,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             app: _selectedApp!,
             trainers: core.connection.proxyDevices,
             onPick: _onPickTrainer,
+            virtualShiftingBlocked: onboardingVirtualShiftingBlocked(_selectedApp!),
           ),
         OnboardingStep.connection => onboardingConnectionBody(
             context,

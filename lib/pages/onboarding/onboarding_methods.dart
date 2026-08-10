@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
@@ -36,6 +37,12 @@ bool _supportsBluetooth(SupportedApp app) =>
     app.supports(AppConnectionMethod.obpBle) || app.supports(AppConnectionMethod.zwiftBle);
 
 bool get _localPlatform => !kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isAndroid);
+
+/// MyWhoosh on Android cannot pair a virtual bike over the network, so a
+/// BikeControl bridge on that same device is unreachable — the rider has to
+/// move one of the two apps to another device (see step 4's notice).
+bool onboardingVirtualShiftingBlocked(SupportedApp app) =>
+    !kIsWeb && Platform.isAndroid && app is MyWhoosh && core.settings.getLastTarget() == Target.thisDevice;
 
 /// Whether the tile is shown at all for [app] (Local is always shown on
 /// desktop-class platforms and iOS — iOS renders it disabled with a note).
