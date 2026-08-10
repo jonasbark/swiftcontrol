@@ -99,7 +99,7 @@ Widget onboardingTrainerBody(BuildContext context,
       ),
     Gap(10),
     Button.ghost(
-      onPressed: () => launchUrlString('https://bikecontrol.app/virtual-shifting', mode: LaunchMode.externalApplication),
+      onPressed: () => launchUrlString('https://bikecontrol.app/blog/virtual-shifting-with-and-without-bikecontrol/', mode: LaunchMode.externalApplication),
       child: Row(children: [
         Icon(LucideIcons.bookOpen, size: 15),
         Gap(8),

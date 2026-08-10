@@ -624,7 +624,7 @@
   "onboardingTrainerBenefitAppsSub": "Adds shifting to apps that have none.",
   "onboardingNearbyTrainers": "Nearby smart trainers",
   "onboardingTrainerMeta": "Supports virtual shifting",
-  "onboardingTrainerHowItWorks": "How virtual shifting works",
+  "onboardingTrainerHowItWorks": "Virtual shifting with and without BikeControl \u2014 what's the difference?",
   "onboardingTrainerConnectedTitle": "Trainer connected",
   "onboardingTrainerConnectedSubtitle": "BikeControl can now compute your gears and set the resistance.",
   "onboardingTrainerNextStepNote": "In the next step you'll point {app} at BikeControl's virtual trainer, so your gears come through.",
