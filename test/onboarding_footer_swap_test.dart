@@ -6,7 +6,6 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show OtherLocalizationsDelegate;
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
-import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -33,7 +32,7 @@ class _SwapHostState extends State<_SwapHost> {
         body: const Text('body'),
         footerActions: [
           if (connected)
-            OnboardingButtonHint(onContinue: () {})
+            PrimaryButton(onPressed: () {}, child: const Text('Continue'))
           else
             GhostButton(onPressed: () {}, child: const Text('cant find')),
         ],

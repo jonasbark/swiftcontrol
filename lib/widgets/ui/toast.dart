@@ -8,7 +8,9 @@ void buildToast({
   String? title,
   Widget? titleWidget,
   String closeTitle = 'Close',
-  ToastLocation location = ToastLocation.bottomRight,
+  // Top-right: footer action bars (wizard Continue, settings saves) live at
+  // the bottom — toasts must never cover them.
+  ToastLocation location = ToastLocation.topRight,
   VoidCallback? onClose,
   String? subtitle,
   Duration? duration,

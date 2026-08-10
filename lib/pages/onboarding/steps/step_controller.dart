@@ -5,7 +5,10 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.da
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
+import 'package:bike_control/widgets/ui/animated_button_widget.dart';
 import 'package:bike_control/widgets/guided_operation_sheet.dart';
 import 'package:bike_control/widgets/ui/wifi_animation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -78,7 +81,12 @@ Widget onboardingDeviceRow(BuildContext context, BaseDevice device, {bool needsS
 }
 
 Widget onboardingControllerBody(BuildContext context,
-    {required ControllerPhase phase, required List<BaseDevice> devices, required String appName}) {
+    {required ControllerPhase phase,
+    required List<BaseDevice> devices,
+    required String appName,
+    Map<String, ControllerButton> pressedButtons = const {},
+    Map<String, int> pressGenerations = const {},
+    VoidCallback? onUpdate}) {
   final reduceMotion = MediaQuery.of(context).disableAnimations;
   final scheme = Theme.of(context).colorScheme;
   final anyConnected = devices.any((d) => d.isConnected);
@@ -149,20 +157,28 @@ Widget onboardingControllerBody(BuildContext context,
               borderRadius: BorderRadius.circular(12),
               color: scheme.card,
             ),
-            child: ControllerCanvas(
-              layout: hero.controllerLayout!,
-              availableButtons: hero.availableButtons,
-              buttonSize: 34,
-              buttonBuilder: (btn) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: scheme.muted,
-                  border: Border.all(color: scheme.border),
+            child: Builder(builder: (context) {
+              // Same rendering as the home screen's device card: keymap-aware
+              // buttons that flash when the rider presses them on the hardware.
+              final pressed = pressedButtons[hero.uniqueId];
+              final generation = pressGenerations[hero.uniqueId] ?? 0;
+              final keymap = core.actionHandler.supportedApp?.keymap;
+              final size = 56 / Theme.of(context).scaling;
+              return ControllerCanvas(
+                layout: hero.controllerLayout!,
+                availableButtons: hero.availableButtons,
+                buttonSize: size,
+                buttonBuilder: (btn) => AnimatedButtonWidget(
+                  key: ValueKey(btn.name),
+                  button: btn,
+                  pressGeneration: pressed?.name == btn.name ? generation : 0,
+                  keymap: keymap,
+                  device: hero,
+                  size: size,
+                  onUpdate: onUpdate ?? () {},
                 ),
-                child: Text(btn.displayName, overflow: TextOverflow.ellipsis).xSmall.semiBold,
-              ),
-            ),
+              );
+            }),
           ),
         ],
         Gap(10),

@@ -612,8 +612,6 @@
   "onboardingSetupNeeded": "Setup needed",
   "onboardingControllerMapped": "Your buttons are mapped for {app} already. You can fine-tune every one later.",
   "@onboardingControllerMapped": {"placeholders": {"app": {"type": "String"}}},
-  "onboardingPressButtonToContinue": "Press a button on your controller to continue",
-  "onboardingOrTapHere": "…or tap here",
   "onboardingTrainerTitle": "Let BikeControl handle Virtual Shifting",
   "onboardingTrainerSubtitle": "Connect your smart trainer and BikeControl computes every gear for you — in any app you ride.",
   "onboardingTrainerBenefitRatiosTitle": "Your gear ratios",

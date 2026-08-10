@@ -17,10 +17,10 @@ import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
-import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
 import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -328,12 +328,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
   StreamSubscription<BaseDevice>? _connectionSub;
   StreamSubscription<BaseNotification>? _actionSub;
   final Set<String> _setupPrompted = {};
-  // Ref-counted rather than a bool: two devices connecting close together
-  // (e.g. a SRAM left/right shifter pair) can each trigger their own
-  // concurrent `_promptSubFlowsIfNeeded()` run, so two sub-flow sheets can be
-  // open at once. A bool reset in the first sheet's `finally` would reopen
-  // the button-advance gate while the second sheet is still on screen.
-  int _openSubFlows = 0;
+  // Press-flash state for the controller contour, mirroring OverviewPage's
+  // _onButtonPressed: generation bumps re-trigger AnimatedButtonWidget.
+  final Map<String, ControllerButton> _pressedButton = {};
+  final Map<String, int> _pressGeneration = {};
   final Set<ProxyDevice> _proxyListenerDevices = {};
 
   bool get _selfHosted => core.settings.getTrainerApp() is BikeControl;
@@ -362,16 +360,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     });
     _actionSub = core.connection.actionStream.listen((notification) {
       if (!mounted) return;
-      if (notification is ButtonNotification &&
-          notification.buttonsClicked.isNotEmpty &&
-          notification.device.isConnected &&
-          shouldAdvanceOnButtonPress(
-            step: _step,
-            phase: _controllerPhase,
-            subFlowOpen: _openSubFlows > 0,
-            anyControllerConnected: core.connection.controllerDevices.any((d) => d.isConnected),
-          )) {
-        _next();
+      // Presses animate the matching button on the contour (like the home
+      // screen's device card) — they no longer advance the wizard.
+      if (notification is ButtonNotification && notification.buttonsClicked.isNotEmpty) {
+        final id = notification.device.uniqueId;
+        _pressGeneration[id] = (_pressGeneration[id] ?? 0) + 1;
+        setState(() => _pressedButton[id] = notification.buttonsClicked.first);
       }
     });
   }
@@ -416,12 +410,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// ZwiftClickV2LeftSide/RightSide (a connected pair) aren't each prompted
   /// separately.
   ///
-  /// Increments/decrements [_openSubFlows] around each sheet so the
-  /// press-a-button-to-continue listener (see [shouldAdvanceOnButtonPress])
-  /// doesn't advance the wizard underneath a sub-flow the paddles/buttons are
-  /// also driving (e.g. SRAM guided setup reacts to the same button presses
-  /// as the wizard). Ref-counted (not a bool) because this method can run
-  /// concurrently — see the field doc on [_openSubFlows].
   Future<void> _promptSubFlowsIfNeeded() async {
     for (final d in core.connection.controllerDevices) {
       if (_setupPrompted.contains(d.uniqueId)) continue;
@@ -436,20 +424,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
             _setupPrompted.add(side.uniqueId);
           }
         }
-        _openSubFlows++;
-        try {
-          await context.push(const ClickV2OnboardingPage());
-        } finally {
-          _openSubFlows--;
-        }
+        await context.push(const ClickV2OnboardingPage());
       } else if (d.isConnected && d is SramAxs && d.needsGuidedSetup) {
         _setupPrompted.add(d.uniqueId);
-        _openSubFlows++;
-        try {
-          await d.showGuidedSetup(_sheetContext);
-        } finally {
-          _openSubFlows--;
-        }
+        await d.showGuidedSetup(_sheetContext);
       }
     }
   }
@@ -619,6 +597,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             phase: _controllerPhase,
             devices: core.connection.controllerDevices,
             appName: _selectedApp?.name ?? '',
+            pressedButtons: _pressedButton,
+            pressGenerations: _pressGeneration,
+            onUpdate: () => setState(() {}),
           ),
         OnboardingStep.virtualShifting => onboardingTrainerBody(
             context,
@@ -718,7 +699,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ],
             ControllerPhase.list => [
                 if (core.connection.controllerDevices.any((d) => d.isConnected))
-                  OnboardingButtonHint(onContinue: _next)
+                  PrimaryButton(onPressed: _next, child: Text(context.i18n.onboardingContinue))
                 else
                   GhostButton(
                     onPressed: () {
