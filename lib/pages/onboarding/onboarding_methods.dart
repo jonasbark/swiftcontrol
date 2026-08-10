@@ -6,6 +6,7 @@ import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
+import 'package:bike_control/utils/requirements/platform.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
 import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart' show LogLevel;
@@ -158,10 +159,34 @@ Future<void> setOnboardingMethodEnabled(
     case OnboardingMethod.local:
       if (!_localPlatform) return;
       if (value) {
-        final unmet = core.permissions.getLocalControlRequirements();
-        final missing = unmet.where((r) => !r.status).toList();
-        if (missing.isNotEmpty && context.mounted) {
-          await openPermissionSheet(context, missing);
+        // Gate on LIVE permission state: if the rider dismisses or denies the
+        // permission sheet, Local must not report itself enabled.
+        final requirements = core.permissions.getLocalControlRequirements();
+        // A status check that throws counts as not granted — never enable
+        // Local on a permission state we couldn't verify.
+        Future<bool> liveStatus(PlatformRequirement r) async {
+          try {
+            return await r.getStatus();
+          } catch (e, s) {
+            recordError(e, s, context: 'onboarding local requirement status');
+            return false;
+          }
+        }
+
+        var states = await Future.wait(requirements.map(liveStatus));
+        final missing = [
+          for (var i = 0; i < requirements.length; i++)
+            if (!states[i]) requirements[i],
+        ];
+        if (missing.isNotEmpty) {
+          if (context.mounted) {
+            await openPermissionSheet(context, missing);
+          }
+          states = await Future.wait(missing.map(liveStatus));
+          if (states.any((granted) => !granted)) {
+            onUpdate();
+            return;
+          }
         }
       }
       // Mirrors local_tile.dart onChange.

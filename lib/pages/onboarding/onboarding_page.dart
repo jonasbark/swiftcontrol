@@ -17,7 +17,6 @@ import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
-import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
@@ -730,9 +729,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onPressed: () async {
                   try {
                     await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
-                    if (!context.mounted) return;
-                    await openDrawer(context: context, builder: (c) => SubscriptionPage(), position: OverlayPosition.end);
-                    if (!context.mounted) return;
+                    if (!mounted || !context.mounted) return;
+                    await showGoProDialog(_sheetContext);
+                    if (!mounted || !context.mounted) return;
                     Navigator.of(context).pop();
                   } catch (e, s) {
                     recordError(e, s, context: 'onboarding done see pro options');

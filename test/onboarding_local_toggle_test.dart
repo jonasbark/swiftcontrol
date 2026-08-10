@@ -7,6 +7,7 @@ import 'package:bike_control/main.dart' show OtherLocalizationsDelegate;
 import 'package:bike_control/pages/onboarding/steps/step_app.dart' show OnboardingAppTile;
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -16,6 +17,15 @@ Future<void> main() async {
   await ensureSnapshotHarness();
 
   testWidgets('Local tile on step 5 opens the permission sheet without crashing', (tester) async {
+    // Deny the keypress-simulator permission so the sheet path runs (there's
+    // no native plugin in tests) — and the toggle must then stay OFF.
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('dev.leanflutter.plugins/keypress_simulator'),
+      (call) async => false,
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('dev.leanflutter.plugins/keypress_simulator'), null));
+
     tester.view.physicalSize = const Size(390, 800) * 3.0;
     tester.view.devicePixelRatio = 3.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -79,5 +89,8 @@ Future<void> main() async {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(tester.takeException(), isNull, reason: 'Local toggle must not crash (DrawerOverlay regression)');
+    // Permissions were denied — Local must not report itself enabled.
+    expect(core.settings.getLocalEnabled(), isFalse,
+        reason: 'Local must stay off when its permissions are not granted');
   });
 }
