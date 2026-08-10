@@ -29,6 +29,7 @@ import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
+import 'package:bike_control/widgets/ui/sheet_pull_to_dismiss.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
 import 'package:prop/prop.dart' show LogLevel, RetrofitMode;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -768,21 +769,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     // the wizard via "Done — start riding", never implicitly.
                     await openDrawer(
                       context: _sheetContext,
-                      // The paywall's own scroll view swallows swipe-to-dismiss,
-                      // so give the sheet an explicit close button.
-                      builder: (c) => Column(mainAxisSize: MainAxisSize.min, children: [
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(0, 6, 10, 0),
-                            child: IconButton.ghost(
-                              icon: Icon(LucideIcons.x),
-                              onPressed: () => closeDrawer(c),
-                            ),
-                          ),
-                        ),
-                        Flexible(child: const Paywall(defaultToFullVersion: false)),
-                      ]),
+                      // Pulling down past the paywall's scroll top dismisses
+                      // the sheet (shadcn's own drag gesture loses to the
+                      // inner scrollable) — see SheetPullToDismiss.
+                      builder: (c) => const SheetPullToDismiss(
+                        child: Paywall(defaultToFullVersion: false),
+                      ),
                       position: OverlayPosition.bottom,
                     );
                     if (mounted) setState(() {});
