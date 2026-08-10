@@ -61,6 +61,10 @@ Future<void> main() async {
       await settle();
     }
 
+    // Mobile now opens on the welcome screen — enter the wizard first.
+    await tester.tap(find.byType(PrimaryButton).last);
+    await settle();
+
     // Step 1: pick the first app, continue.
     await tester.tap(find.byType(OnboardingAppTile).first);
     await settle();

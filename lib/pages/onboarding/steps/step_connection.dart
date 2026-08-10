@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
 import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
@@ -57,7 +58,7 @@ class _MethodTile extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            border: Border.all(color: on ? scheme.primary : scheme.border, width: 1.5),
+            border: Border.all(color: on ? onboardingAccent(context) : scheme.border, width: 1.5),
             borderRadius: BorderRadius.circular(12),
             color: scheme.card,
           ),
@@ -68,9 +69,9 @@ class _MethodTile extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(11),
-                color: on ? scheme.primary : scheme.muted,
+                color: on ? onboardingAccent(context) : scheme.muted,
               ),
-              child: Icon(icon, size: 20, color: on ? const Color(0xFFFFFFFF) : null),
+              child: Icon(icon, size: 20, color: on ? onboardingOnAccent : null),
             ),
             Gap(12),
             Expanded(
@@ -139,10 +140,10 @@ class _MethodTile extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: on ? scheme.primary : null,
+                color: on ? onboardingAccent(context) : null,
                 border: on ? null : Border.all(color: scheme.border, width: 2),
               ),
-              child: on ? Icon(LucideIcons.check, size: 12, color: const Color(0xFFFFFFFF)) : null,
+              child: on ? Icon(LucideIcons.check, size: 12, color: onboardingOnAccent) : null,
             ),
           ]),
         ),
@@ -159,7 +160,7 @@ Widget _slotRow(BuildContext context, IconData icon, String slot, String entryNa
         ? null
         : BoxDecoration(border: Border(top: BorderSide(color: scheme.border, width: 0.5))),
     child: Row(children: [
-      Icon(icon, size: 15, color: scheme.primary),
+      Icon(icon, size: 15, color: onboardingAccent(context)),
       Gap(9),
       Expanded(child: Text(slot).xSmall.semiBold),
       Flexible(
@@ -257,7 +258,7 @@ Widget onboardingConnectionBody(
                 width: 22,
                 height: 22,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: onboardingAccent(context)),
                 child: DefaultTextStyle.merge(
                   style: const TextStyle(color: Color(0xFFFFFFFF)),
                   child: Text('${i + 1}').xSmall.semiBold,
@@ -305,9 +306,9 @@ Widget onboardingConnectionBody(
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          border: Border.all(color: scheme.primary, width: 1.5),
+          border: Border.all(color: onboardingAccent(context), width: 1.5),
           borderRadius: BorderRadius.circular(12),
-          color: scheme.primary.withValues(alpha: 0.06),
+          color: onboardingAccent(context).withValues(alpha: 0.06),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(context.i18n.onboardingPairAsTrainerBody(app.name)).small,
@@ -317,7 +318,7 @@ Widget onboardingConnectionBody(
             decoration: BoxDecoration(
                 color: scheme.card, border: Border.all(color: scheme.border), borderRadius: BorderRadius.circular(10)),
             child: Row(children: [
-              Icon(LucideIcons.radio, size: 20, color: scheme.primary),
+              Icon(LucideIcons.radio, size: 20, color: onboardingAccent(context)),
               Gap(12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

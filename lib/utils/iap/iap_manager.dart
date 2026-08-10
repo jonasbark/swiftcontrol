@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/paywall.dart';
+import 'package:bike_control/widgets/ui/sheet_pull_to_dismiss.dart';
 import 'package:bike_control/services/device_identity_service.dart';
 import 'package:bike_control/services/device_management_service.dart';
 import 'package:bike_control/services/entitlements_service.dart';
@@ -338,7 +339,9 @@ class IAPManager {
   Future<void> _showPaywall(BuildContext context, bool subscription) async {
     openDrawer(
       context: context,
-      builder: (c) => Paywall(defaultToFullVersion: !subscription),
+      // The paywall scrolls, which swallows the drawer's own swipe-to-close —
+      // SheetPullToDismiss restores it (pull down past the top).
+      builder: (c) => SheetPullToDismiss(child: Paywall(defaultToFullVersion: !subscription)),
       position: OverlayPosition.bottom,
     );
   }

@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_note.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -21,7 +22,7 @@ Widget _whereTile(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        border: Border.all(color: selected ? scheme.primary : scheme.border, width: 1.5),
+        border: Border.all(color: selected ? onboardingAccent(context) : scheme.border, width: 1.5),
         borderRadius: BorderRadius.circular(12),
         color: scheme.card,
       ),
@@ -32,9 +33,9 @@ Widget _whereTile(
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            color: selected ? scheme.primary : scheme.muted,
+            color: selected ? onboardingAccent(context) : scheme.muted,
           ),
-          child: Icon(icon, size: 22, color: selected ? const Color(0xFFFFFFFF) : null),
+          child: Icon(icon, size: 22, color: selected ? onboardingOnAccent : null),
         ),
         Gap(13),
         Expanded(
@@ -47,10 +48,10 @@ Widget _whereTile(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: selected ? scheme.primary : null,
+                  color: selected ? onboardingAccent(context) : null,
                   border: selected ? null : Border.all(color: scheme.border, width: 2),
                 ),
-                child: selected ? Icon(LucideIcons.check, size: 12, color: const Color(0xFFFFFFFF)) : null,
+                child: selected ? Icon(LucideIcons.check, size: 12, color: onboardingOnAccent) : null,
               ),
             ]),
             Gap(5),
@@ -61,10 +62,10 @@ Widget _whereTile(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                color: selected ? scheme.primary.withValues(alpha: 0.09) : scheme.muted,
+                color: selected ? onboardingAccent(context).withValues(alpha: 0.09) : scheme.muted,
               ),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(LucideIcons.arrowRight, size: 13, color: selected ? scheme.primary : scheme.mutedForeground),
+                Icon(LucideIcons.arrowRight, size: 13, color: selected ? onboardingAccent(context) : scheme.mutedForeground),
                 Gap(7),
                 Expanded(child: Text(implies).xSmall),
               ]),

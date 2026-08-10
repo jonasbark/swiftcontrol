@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -14,7 +15,7 @@ Widget _alternative(BuildContext context, IconData icon, String title, String bo
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
     decoration: BoxDecoration(color: scheme.muted, borderRadius: BorderRadius.circular(10)),
     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, size: 18, color: scheme.primary),
+      Icon(icon, size: 18, color: onboardingAccent(context)),
       Gap(12),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -111,7 +112,7 @@ Widget onboardingTrainerBody(BuildContext context,
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(color: scheme.muted, borderRadius: BorderRadius.circular(10)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 18, color: scheme.primary),
+          Icon(icon, size: 18, color: onboardingAccent(context)),
           Gap(12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

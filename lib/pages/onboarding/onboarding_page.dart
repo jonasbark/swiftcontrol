@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'dart:async';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
@@ -12,13 +13,13 @@ import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_fade_up.dart';
-import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
+import 'package:bike_control/pages/onboarding/steps/step_welcome.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -30,7 +31,6 @@ import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
-import 'package:bike_control/widgets/ui/sheet_pull_to_dismiss.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
 import 'package:prop/prop.dart' show LogLevel, RetrofitMode;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -105,7 +105,7 @@ Widget onboardingShell(
                         color: Theme.of(context).colorScheme.card,
                       ),
                       child: Row(children: [
-                        Icon(LucideIcons.lifeBuoy, size: 14, color: Theme.of(context).colorScheme.primary),
+                        Icon(LucideIcons.lifeBuoy, size: 14, color: onboardingAccent(context)),
                         Gap(5),
                         Text(context.i18n.onboardingHelp).xSmall.semiBold,
                       ]),
@@ -129,7 +129,7 @@ Widget onboardingShell(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(3),
                             color: i <= step.index
-                                ? Theme.of(context).colorScheme.primary
+                                ? onboardingAccent(context)
                                 : Theme.of(context).colorScheme.border,
                           ),
                         );
@@ -207,7 +207,7 @@ Widget onboardingShell(
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(children: [
-                      Icon(LucideIcons.lifeBuoy, size: 16, color: Theme.of(context).colorScheme.primary),
+                      Icon(LucideIcons.lifeBuoy, size: 16, color: onboardingAccent(context)),
                       Gap(9),
                       Expanded(child: Text(context.i18n.onboardingHelpAndSupport).small.semiBold),
                       Icon(LucideIcons.chevronRight, size: 14, color: Theme.of(context).colorScheme.mutedForeground),
@@ -277,13 +277,13 @@ Widget _railStep(BuildContext context, OnboardingStep s, OnboardingStep current,
             color: done
                 ? const Color(0xFF22C55E)
                 : active
-                    ? scheme.primary
+                    ? onboardingAccent(context)
                     : scheme.border,
           ),
           child: done
-              ? Icon(LucideIcons.check, size: 13, color: const Color(0xFFFFFFFF))
+              ? Icon(LucideIcons.check, size: 13, color: onboardingOnAccent)
               : DefaultTextStyle.merge(
-                  style: TextStyle(color: active ? const Color(0xFFFFFFFF) : scheme.mutedForeground),
+                  style: TextStyle(color: active ? onboardingOnAccent : scheme.mutedForeground),
                   child: Text('${s.index + 1}').xSmall.semiBold,
                 ),
         ),
@@ -325,6 +325,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Target? _selectedTarget;
 
   ControllerPhase _controllerPhase = ControllerPhase.permission;
+  // Mobile opens on a welcome screen; the desktop rail already frames the
+  // flow, so it starts on step 1. Re-runs from the menu skip it too.
+  bool _showWelcome = core.settings.getOnboardingState() != Settings.onboardingStateCompleted;
 
   /// All connection-method singletons the done step's readiness reads —
   /// listened so "Almost there" flips to "You're ready to ride" live.
@@ -785,19 +788,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   try {
                     await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
                     if (!mounted || !context.mounted) return;
-                    // The actual Base/Pro paywall — not the "Pro required"
-                    // nag dialog. Closing it returns HERE: the rider leaves
-                    // the wizard via "Done — start riding", never implicitly.
-                    await openDrawer(
-                      context: _sheetContext,
-                      // Pulling down past the paywall's scroll top dismisses
-                      // the sheet (shadcn's own drag gesture loses to the
-                      // inner scrollable) — see SheetPullToDismiss.
-                      builder: (c) => const SheetPullToDismiss(
-                        child: Paywall(defaultToFullVersion: false),
-                      ),
-                      position: OverlayPosition.bottom,
-                    );
+                    // Platform-correct paywall: RevenueCat's hosted sheet on
+                    // iOS/Android, the in-app Paywall drawer on desktop. Going
+                    // through IAPManager is what picks the right one — opening
+                    // the Paywall widget directly showed mobile riders the
+                    // desktop fallback with placeholder "about x €" prices.
+                    await IAPManager.instance.purchaseFullVersion(_sheetContext);
                     if (mounted) setState(() {});
                   } catch (e, s) {
                     recordError(e, s, context: 'onboarding done see pro options');
@@ -823,12 +819,42 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ],
       };
 
+  /// Leaves the wizard from the welcome screen and records it as done, so a
+  /// rider who declines isn't asked again on every launch.
+  Future<void> _onWelcomeLater() async {
+    try {
+      await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding welcome later');
+    }
+    if (mounted) Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       child: Builder(builder: (overlayContext) {
         _overlayContext = overlayContext;
-        return SafeArea(
+        if (_showWelcome) {
+          return LayoutBuilder(builder: (context, constraints) {
+            if (constraints.maxWidth >= kOnboardingDesktopBreakpoint) {
+              // Desktop keeps its rail-framed step 1 — no welcome screen.
+              return _shell(overlayContext);
+            }
+            return OnboardingWelcome(
+              onStart: () => setState(() => _showWelcome = false),
+              onLater: _onWelcomeLater,
+            );
+          });
+        }
+        return _shell(overlayContext);
+      }),
+    );
+  }
+
+  Widget _shell(BuildContext overlayContext) {
+    final context = overlayContext;
+    return SafeArea(
         child: onboardingShell(
           overlayContext,
           step: _step,
@@ -851,8 +877,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             }
           },
         ),
-      );
-      }),
     );
   }
 }

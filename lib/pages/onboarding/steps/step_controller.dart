@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -138,7 +139,6 @@ Widget onboardingControllerBody(BuildContext context,
     void Function(BaseDevice)? onSetupDevice,
     VoidCallback? onUpdate}) {
   final reduceMotion = MediaQuery.of(context).disableAnimations;
-  final scheme = Theme.of(context).colorScheme;
   final anyConnected = devices.any((d) => d.isConnected);
 
   switch (phase) {
@@ -151,8 +151,8 @@ Widget onboardingControllerBody(BuildContext context,
         Center(
           child: StageBadge(
             icon: LucideIcons.bluetooth,
-            tone: scheme.primary,
-            wash: scheme.primary.withValues(alpha: 0.1),
+            tone: onboardingAccent(context),
+            wash: onboardingAccent(context).withValues(alpha: 0.1),
             reduceMotion: reduceMotion,
           ),
         ),

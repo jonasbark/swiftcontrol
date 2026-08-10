@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_group_label.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_note.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -27,7 +28,7 @@ class OnboardingAppTile extends StatelessWidget {
           height: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            border: Border.all(color: selected ? scheme.primary : scheme.border, width: 1.5),
+            border: Border.all(color: selected ? onboardingAccent(context) : scheme.border, width: 1.5),
             borderRadius: BorderRadius.circular(12),
             color: scheme.card,
           ),
@@ -63,8 +64,8 @@ class OnboardingAppTile extends StatelessWidget {
               width: 18,
               height: 18,
               alignment: Alignment.center,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
-              child: Icon(LucideIcons.check, size: 11, color: const Color(0xFFFFFFFF)),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: onboardingAccent(context)),
+              child: Icon(LucideIcons.check, size: 11, color: onboardingOnAccent),
             ),
           ),
       ]),
