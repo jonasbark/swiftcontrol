@@ -181,12 +181,16 @@ Widget onboardingControllerBody(BuildContext context,
             }),
           ),
         ],
-        Gap(10),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          SizedBox(width: 14, height: 14, child: CircularProgressIndicator(size: 14)),
-          Gap(8),
-          Text(context.i18n.onboardingStillScanning).xSmall.muted,
-        ]),
+        // Once a controller is connected the job is done — don't keep
+        // suggesting the wizard is waiting for something.
+        if (!anyConnected) ...[
+          Gap(10),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            SizedBox(width: 14, height: 14, child: CircularProgressIndicator(size: 14)),
+            Gap(8),
+            Text(context.i18n.onboardingStillScanning).xSmall.muted,
+          ]),
+        ],
         if (anyConnected) ...[
           Gap(12),
           _infoRow(context, LucideIcons.lightbulb, context.i18n.onboardingControllerMapped(appName), ''),
