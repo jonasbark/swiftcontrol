@@ -103,7 +103,7 @@ Widget onboardingTrainerBody(BuildContext context,
       child: Row(children: [
         Icon(LucideIcons.bookOpen, size: 15),
         Gap(8),
-        Text(context.i18n.onboardingTrainerHowItWorks).small,
+        Flexible(child: Text(context.i18n.onboardingTrainerHowItWorks).small),
         Gap(6),
         Icon(LucideIcons.externalLink, size: 13),
       ]),

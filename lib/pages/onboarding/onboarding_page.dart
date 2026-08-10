@@ -10,6 +10,7 @@ import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
+import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
@@ -730,9 +731,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   try {
                     await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
                     if (!mounted || !context.mounted) return;
-                    await showGoProDialog(_sheetContext);
-                    if (!mounted || !context.mounted) return;
-                    Navigator.of(context).pop();
+                    // The actual Base/Pro paywall — not the "Pro required"
+                    // nag dialog. Closing it returns HERE: the rider leaves
+                    // the wizard via "Done — start riding", never implicitly.
+                    await openDrawer(
+                      context: _sheetContext,
+                      builder: (c) => const Paywall(defaultToFullVersion: false),
+                      position: OverlayPosition.bottom,
+                    );
+                    if (mounted) setState(() {});
                   } catch (e, s) {
                     recordError(e, s, context: 'onboarding done see pro options');
                   }
