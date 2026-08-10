@@ -1,3 +1,4 @@
+import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
 import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_group_label.dart';
@@ -21,6 +22,8 @@ class _MethodTile extends StatelessWidget {
     required this.description,
     required this.enabled,
     required this.onToggle,
+    this.connection,
+    this.appName = '',
     this.badge,
     this.badgeIsPrimary = false,
     this.features = const [],
@@ -33,6 +36,8 @@ class _MethodTile extends StatelessWidget {
   final String description;
   final bool enabled;
   final VoidCallback onToggle;
+  final TrainerConnection? connection;
+  final String appName;
   final String? badge;
   final bool badgeIsPrimary;
   final List<String> features;
@@ -46,6 +51,7 @@ class _MethodTile extends StatelessWidget {
     return Opacity(
       opacity: disabled ? 0.55 : 1,
       child: Button.ghost(
+        style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
         onPressed: disabled ? null : onToggle,
         child: Container(
           width: double.infinity,
@@ -95,6 +101,35 @@ class _MethodTile extends StatelessWidget {
                     Expanded(child: Text(footNote!).xSmall.muted),
                   ]),
                 ],
+                // Live status: enabled is just the pref — show whether the
+                // trainer app is actually connected through this method.
+                if (on && connection != null)
+                  AnimatedBuilder(
+                    animation: Listenable.merge([connection!.isConnected, connection!.isStarted]),
+                    builder: (context, _) {
+                      final isConnected = connection!.isConnected.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isConnected ? _success : Theme.of(context).colorScheme.mutedForeground,
+                            ),
+                          ),
+                          Gap(7),
+                          isConnected
+                              ? DefaultTextStyle.merge(
+                                  style: const TextStyle(color: _success),
+                                  child: Text(context.i18n.onboardingDeviceConnected).xSmall.semiBold,
+                                )
+                              : Text(context.i18n.onboardingSummaryWaitingFor(appName)).xSmall.muted,
+                        ]),
+                      );
+                    },
+                  ),
               ]),
             ),
             Gap(10),
@@ -149,6 +184,7 @@ Widget onboardingConnectionBody(
   Widget methodTile(OnboardingMethod method) {
     final enabled = onboardingMethodEnabled(method, app);
     final available = onboardingMethodAvailable(method);
+    final connection = onboardingMethodConnection(method, app);
     void toggle() => setOnboardingMethodEnabled(context, method, app, !enabled, onUpdate: onUpdate);
     return switch (method) {
       OnboardingMethod.network => _MethodTile(
@@ -158,6 +194,8 @@ Widget onboardingConnectionBody(
           badgeIsPrimary: true,
           description: context.i18n.onboardingMethodNetworkDesc(app.name),
           enabled: enabled,
+          connection: connection,
+          appName: app.name,
           onToggle: toggle,
         ),
       OnboardingMethod.bluetooth => _MethodTile(
@@ -166,6 +204,8 @@ Widget onboardingConnectionBody(
           badge: context.i18n.onboardingMethodBluetoothBadge,
           description: context.i18n.onboardingMethodBluetoothDesc(app.name),
           enabled: enabled,
+          connection: connection,
+          appName: app.name,
           onToggle: toggle,
         ),
       OnboardingMethod.local => _MethodTile(
@@ -179,6 +219,8 @@ Widget onboardingConnectionBody(
             context.i18n.onboardingMethodLocalFeature3,
           ],
           enabled: enabled,
+          connection: connection,
+          appName: app.name,
           disabled: !available,
           footNote: available ? null : context.i18n.onboardingMethodLocalIosNote,
           onToggle: toggle,

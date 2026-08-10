@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart' show LogLevel;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 
 /// The wizard's three abstract connection methods, per the design. Each maps
@@ -39,6 +40,23 @@ bool onboardingMethodVisible(OnboardingMethod method, SupportedApp app) => switc
 /// Whether the tile can be toggled (Local on iOS cannot).
 bool onboardingMethodAvailable(OnboardingMethod method) =>
     method != OnboardingMethod.local || _localPlatform;
+
+/// The concrete connection backing a tile, so the UI can show live
+/// started/connected state (enabled is a pref; connected means the trainer
+/// app is actually talking to us).
+TrainerConnection? onboardingMethodConnection(OnboardingMethod method, SupportedApp app) => switch (method) {
+      OnboardingMethod.network => app.supports(AppConnectionMethod.obpMdns)
+          ? core.obpMdnsEmulator
+          : app.supports(AppConnectionMethod.zwiftMdns)
+              ? (app is Rouvy ? core.rouvyMdnsEmulator : core.zwiftMdnsEmulator)
+              : null,
+      OnboardingMethod.bluetooth => app.supports(AppConnectionMethod.obpBle)
+          ? core.obpBluetoothEmulator
+          : app.supports(AppConnectionMethod.zwiftBle)
+              ? core.zwiftEmulator
+              : null,
+      OnboardingMethod.local => core.local,
+    };
 
 bool onboardingMethodEnabled(OnboardingMethod method, SupportedApp app) => switch (method) {
       OnboardingMethod.network => app.supports(AppConnectionMethod.obpMdns)

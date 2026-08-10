@@ -170,6 +170,7 @@ Widget onboardingShell(
                 for (final s in OnboardingStep.values) _railStep(context, s, step, onSelectStep: onSelectStep),
                 const Spacer(),
                 Button.ghost(
+                  style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
                   onPressed: onHelp,
                   child: Container(
                     width: double.infinity,
@@ -277,7 +278,11 @@ Widget _railStep(BuildContext context, OnboardingStep s, OnboardingStep current,
   // Completed steps are re-enterable — the wizard's state is settings-backed,
   // so revisiting is safe and lands with current values pre-selected.
   if (done && onSelectStep != null) {
-    return Button.ghost(onPressed: () => onSelectStep(s), child: tile);
+    return Button.ghost(
+      style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
+      onPressed: () => onSelectStep(s),
+      child: tile,
+    );
   }
   return tile;
 }
@@ -295,6 +300,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Target? _selectedTarget;
 
   ControllerPhase _controllerPhase = ControllerPhase.permission;
+
+  /// Context under this page's Scaffold — shadcn's DrawerOverlay (which hosts
+  /// openSheet/openDrawer) is created by Scaffold, so the State's own context
+  /// sits ABOVE it and cannot open sheets ("No DrawerOverlay found").
+  BuildContext? _overlayContext;
+  BuildContext get _sheetContext => _overlayContext ?? context;
   Timer? _emptyScanTimer;
   StreamSubscription<BaseDevice>? _connectionSub;
   StreamSubscription<BaseNotification>? _actionSub;
@@ -411,7 +422,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         _setupPrompted.add(d.uniqueId);
         _openSubFlows++;
         try {
-          await d.showGuidedSetup(context);
+          await d.showGuidedSetup(_sheetContext);
         } finally {
           _openSubFlows--;
         }
@@ -482,7 +493,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         _startScanPhase();
         return;
       }
-      await openPermissionSheet(context, requirements);
+      await openPermissionSheet(_sheetContext, requirements);
       if (!mounted) return;
       final recheck = await core.permissions.getScanRequirements();
       if (!mounted) return;
@@ -494,7 +505,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _onPermissionNotNow() async {
     try {
-      final continueAnyway = await openPermissionDeniedSheet(context);
+      final continueAnyway = await openPermissionDeniedSheet(_sheetContext);
       if (!mounted) return;
       if (continueAnyway == true) {
         _next();
@@ -725,9 +736,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      child: SafeArea(
+      child: Builder(builder: (overlayContext) {
+        _overlayContext = overlayContext;
+        return SafeArea(
         child: onboardingShell(
-          context,
+          overlayContext,
           step: _step,
           body: _body(context),
           footerActions: _footer(context),
@@ -735,7 +748,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           onSkip: _step == OnboardingStep.virtualShifting && !onboardingTrainerBridged(core.connection.proxyDevices)
               ? _next
               : null,
-          onHelp: () => openOnboardingHelpSheet(context, _step),
+          onHelp: () => openOnboardingHelpSheet(overlayContext, _step),
           onClose: () => Navigator.of(context).maybePop(),
           onSelectStep: (s) {
             // Self-hosted apps skip the where step — route the tap onward.
@@ -746,7 +759,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
             }
           },
         ),
-      ),
+      );
+      }),
     );
   }
 }
