@@ -35,6 +35,19 @@ class _OnboardingButtonHintState extends State<OnboardingButtonHint> with Single
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // The inner Row uses Expanded, so this widget must never see unbounded
+    // width — the desktop footer Row shrink-wraps its children, which without
+    // this cap aborts layout and corrupts shadcn's sorted paint order (the
+    // repeated paintSorted null-check crash). 340 is the design's desktop
+    // width; under the mobile footer's tight (stretched) constraints the cap
+    // is inert.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 340),
+      child: _buildButton(context, scheme),
+    );
+  }
+
+  Widget _buildButton(BuildContext context, ColorScheme scheme) {
     return Button.ghost(
       onPressed: widget.onContinue,
       child: Container(
