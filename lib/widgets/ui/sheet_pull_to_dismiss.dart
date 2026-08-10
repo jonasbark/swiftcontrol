@@ -16,7 +16,9 @@ class SheetPullToDismiss extends StatefulWidget {
 }
 
 class _SheetPullToDismissState extends State<SheetPullToDismiss> {
+  static const double _threshold = 90;
   bool _closing = false;
+  double _pulled = 0;
 
   void _close() {
     if (_closing) return;
@@ -28,14 +30,20 @@ class _SheetPullToDismissState extends State<SheetPullToDismiss> {
   Widget build(BuildContext context) {
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
-        if (n.metrics.axis != Axis.vertical || n.metrics.extentBefore > 0) return false;
-        // Clamping physics (Android/desktop): a downward drag past the top
-        // surfaces as a negative overscroll from an actual finger drag.
+        if (n.metrics.axis != Axis.vertical) return false;
+        if (n is ScrollEndNotification || n.metrics.extentBefore > 0) {
+          _pulled = 0;
+          return false;
+        }
+        // Clamping physics (Android/desktop): downward drags past the top
+        // surface as negative overscrolls — accumulate them so a stray
+        // pixel of overscroll doesn't dismiss the sheet.
         if (n is OverscrollNotification && n.overscroll < 0 && n.dragDetails != null) {
-          _close();
+          _pulled += -n.overscroll;
+          if (_pulled > _threshold) _close();
         }
         // Bouncing physics (iOS): the position itself goes negative.
-        if (n is ScrollUpdateNotification && n.metrics.pixels < -48 && n.dragDetails != null) {
+        if (n is ScrollUpdateNotification && n.metrics.pixels < -_threshold && n.dragDetails != null) {
           _close();
         }
         return false;

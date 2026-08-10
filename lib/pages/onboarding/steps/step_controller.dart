@@ -80,6 +80,44 @@ Widget onboardingDeviceRow(BuildContext context, BaseDevice device, {bool needsS
   );
 }
 
+Widget _contourCard(
+  BuildContext context,
+  BaseDevice device, {
+  required Map<String, ControllerButton> pressedButtons,
+  required Map<String, int> pressGenerations,
+  VoidCallback? onUpdate,
+}) {
+  final scheme = Theme.of(context).colorScheme;
+  final pressed = pressedButtons[device.uniqueId];
+  final generation = pressGenerations[device.uniqueId] ?? 0;
+  final keymap = core.actionHandler.supportedApp?.keymap;
+  final size = 56 / Theme.of(context).scaling;
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      border: Border.all(color: scheme.border, width: 1.5),
+      borderRadius: BorderRadius.circular(12),
+      color: scheme.card,
+    ),
+    child: ControllerCanvas(
+      layout: device.controllerLayout!,
+      availableButtons: device.availableButtons,
+      buttonSize: size,
+      buttonBuilder: (btn) => AnimatedButtonWidget(
+        key: ValueKey(btn.name),
+        button: btn,
+        pressGeneration: pressed?.name == btn.name ? generation : 0,
+        keymap: keymap,
+        device: device,
+        size: size,
+        onUpdate: onUpdate ?? () {},
+      ),
+    ),
+  );
+}
+
 Widget onboardingControllerBody(BuildContext context,
     {required ControllerPhase phase,
     required List<BaseDevice> devices,
@@ -144,43 +182,16 @@ Widget onboardingControllerBody(BuildContext context,
             .small
             .muted,
         Gap(16),
-        for (final d in devices) onboardingDeviceRow(context, d, needsSetup: onboardingDeviceNeedsSetup(d)),
-        // Contour of the first connected controller so riders can see the
-        // buttons they just gained (same canvas the home screen uses).
-        if (devices.where((d) => d.isConnected && d.controllerLayout != null).firstOrNull case final hero?) ...[
-          Gap(6),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              border: Border.all(color: scheme.border, width: 1.5),
-              borderRadius: BorderRadius.circular(12),
-              color: scheme.card,
-            ),
-            child: Builder(builder: (context) {
-              // Same rendering as the home screen's device card: keymap-aware
-              // buttons that flash when the rider presses them on the hardware.
-              final pressed = pressedButtons[hero.uniqueId];
-              final generation = pressGenerations[hero.uniqueId] ?? 0;
-              final keymap = core.actionHandler.supportedApp?.keymap;
-              final size = 56 / Theme.of(context).scaling;
-              return ControllerCanvas(
-                layout: hero.controllerLayout!,
-                availableButtons: hero.availableButtons,
-                buttonSize: size,
-                buttonBuilder: (btn) => AnimatedButtonWidget(
-                  key: ValueKey(btn.name),
-                  button: btn,
-                  pressGeneration: pressed?.name == btn.name ? generation : 0,
-                  keymap: keymap,
-                  device: hero,
-                  size: size,
-                  onUpdate: onUpdate ?? () {},
-                ),
-              );
-            }),
-          ),
+        for (final d in devices) ...[
+          onboardingDeviceRow(context, d, needsSetup: onboardingDeviceNeedsSetup(d)),
+          // Each connected controller shows its contour right below its row
+          // so riders can see the buttons they just gained (same canvas the
+          // home screen uses).
+          if (d.isConnected && d.controllerLayout != null)
+            _contourCard(context, d,
+                pressedButtons: pressedButtons, pressGenerations: pressGenerations, onUpdate: onUpdate),
         ],
+
         // Once a controller is connected the job is done — don't keep
         // suggesting the wizard is waiting for something.
         if (!anyConnected) ...[
