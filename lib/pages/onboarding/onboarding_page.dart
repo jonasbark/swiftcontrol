@@ -301,6 +301,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   ControllerPhase _controllerPhase = ControllerPhase.permission;
 
+  /// All connection-method singletons the done step's readiness reads —
+  /// listened so "Almost there" flips to "You're ready to ride" live.
+  late final List<Listenable> _methodListenables = [
+    core.obpMdnsEmulator.isConnected,
+    core.obpBluetoothEmulator.isConnected,
+    core.whooshLink.isConnected,
+    core.zwiftEmulator.isConnected,
+    core.zwiftMdnsEmulator.isConnected,
+    core.rouvyMdnsEmulator.isConnected,
+    core.di2Emulator.isConnected,
+    core.local.isConnected,
+    core.remotePairing.isConnected,
+    core.remoteKeyboardPairing.isConnected,
+  ];
+  void _onMethodConnectionChanged() {
+    if (mounted) setState(() {});
+  }
+
   /// Context under this page's Scaffold — shadcn's DrawerOverlay (which hosts
   /// openSheet/openDrawer) is created by Scaffold, so the State's own context
   /// sits ABOVE it and cannot open sheets ("No DrawerOverlay found").
@@ -326,6 +344,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _selectedApp = core.settings.getTrainerApp();
     _selectedTarget = core.settings.getLastTarget();
     _attachProxyListeners();
+    for (final l in _methodListenables) {
+      l.addListener(_onMethodConnectionChanged);
+    }
     _connectionSub = core.connection.connectionStream.listen((_) {
       if (!mounted) return;
       setState(() {
@@ -357,6 +378,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   void dispose() {
+    for (final l in _methodListenables) {
+      l.removeListener(_onMethodConnectionChanged);
+    }
     _connectionSub?.cancel();
     _actionSub?.cancel();
     _emptyScanTimer?.cancel();
@@ -610,6 +634,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             // isConnectedListenable mirrors emulator.isConnected — i.e. the
             // trainer app actually holds the virtual trainer, not just "the
             // bridge is running".
+            appConnected: core.logic.connectedTrainerConnections.any((c) => c.isConnected.value),
             trainerAppConnected: core.connection.proxyDevices.any((t) => t.isConnectedListenable.value),
             reduceMotion: MediaQuery.of(context).disableAnimations,
             showTestMode: !IAPManager.instance.isPurchased.value,

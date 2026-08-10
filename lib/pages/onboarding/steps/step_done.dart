@@ -6,15 +6,21 @@ Widget onboardingDoneBody(BuildContext context,
     {required SupportedApp app,
     required String? controllerName,
     required String? trainerName,
+    required bool appConnected,
     required bool trainerAppConnected,
     required bool reduceMotion,
     required bool showTestMode}) {
   const success = Color(0xFF22C55E);
+  // "Ready to ride" is earned: the trainer app must actually be connected
+  // through an enabled method, and a bridged trainer must be picked up too.
+  final allReady = appConnected && (trainerName == null || trainerAppConnected);
   // (icon, title, status, ok) — a bridge whose virtual trainer the app hasn't
   // picked up yet is honest about it instead of claiming "Bridged".
   final rows = <(IconData, String, String, bool)>[
     if (controllerName != null) (LucideIcons.gamepad2, controllerName, context.i18n.onboardingDeviceConnected, true),
-    (LucideIcons.monitor, app.name, context.i18n.onboardingSummaryReady, true),
+    appConnected
+        ? (LucideIcons.monitor, app.name, context.i18n.onboardingDeviceConnected, true)
+        : (LucideIcons.monitor, app.name, context.i18n.onboardingSummaryWaitingFor(app.name), false),
     if (trainerName != null)
       trainerAppConnected
           ? (LucideIcons.bike, trainerName, context.i18n.onboardingSummaryBridged, true)
@@ -22,14 +28,17 @@ Widget onboardingDoneBody(BuildContext context,
   ];
   return Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
     Gap(8),
-    _SuccessBurst(reduceMotion: reduceMotion),
+    _SuccessBurst(reduceMotion: reduceMotion, ready: allReady),
     Gap(14),
-    Text(context.i18n.onboardingDoneTitle).h4,
+    Text(allReady ? context.i18n.onboardingDoneTitle : context.i18n.onboardingAlmostThereTitle).h4,
     Gap(8),
     Text(
-      trainerName != null && trainerAppConnected
-          ? context.i18n.onboardingDoneSubtitleBridged(controllerName ?? context.i18n.onboardingYourController, app.name)
-          : context.i18n.onboardingDoneSubtitle(controllerName ?? context.i18n.onboardingYourController, app.name),
+      !allReady
+          ? context.i18n.onboardingAlmostThereSubtitle(app.name)
+          : trainerName != null && trainerAppConnected
+              ? context.i18n
+                  .onboardingDoneSubtitleBridged(controllerName ?? context.i18n.onboardingYourController, app.name)
+              : context.i18n.onboardingDoneSubtitle(controllerName ?? context.i18n.onboardingYourController, app.name),
       textAlign: TextAlign.center,
     ).small.muted,
     Gap(18),
@@ -77,22 +86,25 @@ Widget onboardingDoneBody(BuildContext context,
 /// spring-like scale (mirrors [StageBadge] in `guided_operation_sheet.dart`)
 /// unless [reduceMotion] is set, in which case it renders statically.
 class _SuccessBurst extends StatelessWidget {
-  const _SuccessBurst({required this.reduceMotion});
+  const _SuccessBurst({required this.reduceMotion, this.ready = true});
   final bool reduceMotion;
+  final bool ready;
 
   @override
   Widget build(BuildContext context) {
     const success = Color(0xFF22C55E);
+    const waiting = Color(0xFFF59E0B);
+    final color = ready ? success : waiting;
     final badge = Container(
       width: 84,
       height: 84,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: success,
-        boxShadow: [BoxShadow(color: success.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 10))],
+        color: color,
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 30, offset: const Offset(0, 10))],
       ),
-      child: Icon(LucideIcons.check, size: 44, color: const Color(0xFFFFFFFF)),
+      child: Icon(ready ? LucideIcons.check : LucideIcons.clock, size: 44, color: const Color(0xFFFFFFFF)),
     );
     if (reduceMotion) return badge;
     return TweenAnimationBuilder<double>(

@@ -1,10 +1,12 @@
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/markdown.dart';
+import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/help_article.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/guided_operation_sheet.dart';
@@ -66,15 +68,26 @@ Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep st
         context,
         icon: LucideIcons.bookOpen,
         title: context.i18n.onboardingHelpGuides,
-        onTap: () => launchUrlString(article?.url ?? 'https://bikecontrol.app/', mode: LaunchMode.externalApplication),
+        onTap: () => launchUrlString(
+          onboardingGuideFor(context, core.settings.getTrainerApp() ?? SupportedApp.supportedApps.first).guideUrl ??
+              'https://bikecontrol.app/',
+          mode: LaunchMode.externalApplication,
+        ),
       ),
+      // Every controller + trainer-app combo has its own page on
+      // bikecontrol.app (use-<controller>-with-<app>/ — see the sitemap);
+      // the bundled markdown is only the fallback when no combo resolves.
       _channel(
         context,
         icon: LucideIcons.wrench,
-        title: context.i18n.onboardingHelpTroubleshooting,
+        title: article != null ? article.label : context.i18n.onboardingHelpTroubleshooting,
         onTap: () {
-          onClose();
-          openDrawer(context: context, position: OverlayPosition.bottom, builder: (c) => MarkdownPage(assetPath: 'TROUBLESHOOTING.md'));
+          if (article != null) {
+            launchUrlString(article.url, mode: LaunchMode.externalApplication);
+          } else {
+            onClose();
+            openDrawer(context: context, position: OverlayPosition.bottom, builder: (c) => MarkdownPage(assetPath: 'TROUBLESHOOTING.md'));
+          }
         },
       ),
       _channel(
