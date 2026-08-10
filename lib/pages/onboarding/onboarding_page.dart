@@ -65,6 +65,7 @@ Widget onboardingShell(
   VoidCallback? onSkip,
   required VoidCallback onHelp,
   VoidCallback? onClose,
+  void Function(OnboardingStep)? onSelectStep,
 }) {
   return LayoutBuilder(
     builder: (context, constraints) {
@@ -155,21 +156,36 @@ Widget onboardingShell(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(children: [
-                  Image.asset('icon.png', width: 30, height: 30),
-                  Gap(10),
-                  Text('BikeControl').semiBold,
-                ]),
-                Gap(18),
-                for (final s in OnboardingStep.values) _railStep(context, s, step),
-                const Spacer(),
-                SecondaryButton(
-                  onPressed: onHelp,
-                  child: Row(children: [
-                    Icon(LucideIcons.lifeBuoy, size: 16),
-                    Gap(9),
-                    Expanded(child: Text(context.i18n.onboardingHelpAndSupport)),
+                // Horizontal padding lines the logo up with the step badges
+                // below (their tiles carry 12px inner padding).
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                    Image.asset('icon.png', width: 30, height: 30),
+                    Gap(10),
+                    Text('BikeControl').semiBold,
                   ]),
+                ),
+                Gap(18),
+                for (final s in OnboardingStep.values) _railStep(context, s, step, onSelectStep: onSelectStep),
+                const Spacer(),
+                Button.ghost(
+                  onPressed: onHelp,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.card,
+                      border: Border.all(color: Theme.of(context).colorScheme.border),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(children: [
+                      Icon(LucideIcons.lifeBuoy, size: 16, color: Theme.of(context).colorScheme.primary),
+                      Gap(9),
+                      Expanded(child: Text(context.i18n.onboardingHelpAndSupport).small.semiBold),
+                      Icon(LucideIcons.chevronRight, size: 14, color: Theme.of(context).colorScheme.mutedForeground),
+                    ]),
+                  ),
                 ),
               ],
             ),
@@ -210,11 +226,12 @@ Widget onboardingShell(
   );
 }
 
-Widget _railStep(BuildContext context, OnboardingStep s, OnboardingStep current) {
+Widget _railStep(BuildContext context, OnboardingStep s, OnboardingStep current,
+    {void Function(OnboardingStep)? onSelectStep}) {
   final done = s.index < current.index;
   final active = s == current;
   final scheme = Theme.of(context).colorScheme;
-  return Container(
+  final tile = Container(
     margin: const EdgeInsets.only(bottom: 2),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
@@ -257,6 +274,12 @@ Widget _railStep(BuildContext context, OnboardingStep s, OnboardingStep current)
       ],
     ),
   );
+  // Completed steps are re-enterable — the wizard's state is settings-backed,
+  // so revisiting is safe and lands with current values pre-selected.
+  if (done && onSelectStep != null) {
+    return Button.ghost(onPressed: () => onSelectStep(s), child: tile);
+  }
+  return tile;
 }
 
 class OnboardingPage extends StatefulWidget {
@@ -573,6 +596,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
                 .firstOrNull
                 ?.name,
+            // isConnectedListenable mirrors emulator.isConnected — i.e. the
+            // trainer app actually holds the virtual trainer, not just "the
+            // bridge is running".
+            trainerAppConnected: core.connection.proxyDevices.any((t) => t.isConnectedListenable.value),
             reduceMotion: MediaQuery.of(context).disableAnimations,
             showTestMode: !IAPManager.instance.isPurchased.value,
           ),
@@ -710,6 +737,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
               : null,
           onHelp: () => openOnboardingHelpSheet(context, _step),
           onClose: () => Navigator.of(context).maybePop(),
+          onSelectStep: (s) {
+            // Self-hosted apps skip the where step — route the tap onward.
+            if (s == OnboardingStep.where && _selfHosted) {
+              _goTo(OnboardingStep.app);
+            } else {
+              _goTo(s);
+            }
+          },
         ),
       ),
     );

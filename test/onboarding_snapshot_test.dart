@@ -189,6 +189,7 @@ Future<void> main() async {
               app: MyWhoosh(),
               controllerName: 'SRAM Rival AXS',
               trainerName: null,
+              trainerAppConnected: false,
               reduceMotion: true,
               showTestMode: true,
             ));
@@ -201,6 +202,7 @@ Future<void> main() async {
               app: MyWhoosh(),
               controllerName: 'SRAM Rival AXS',
               trainerName: 'KICKR CORE',
+              trainerAppConnected: false,
               reduceMotion: true,
               showTestMode: true,
             ));
@@ -214,6 +216,7 @@ Future<void> main() async {
               app: MyWhoosh(),
               controllerName: 'SRAM Rival AXS',
               trainerName: null,
+              trainerAppConnected: false,
               reduceMotion: true,
               showTestMode: false,
             ));

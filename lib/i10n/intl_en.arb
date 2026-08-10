@@ -689,6 +689,8 @@
   "onboardingDoneSubtitleBridged": "{controller} is connected to {app}, and your trainer is bridged through BikeControl.",
   "@onboardingDoneSubtitleBridged": {"placeholders": {"controller": {"type": "String"}, "app": {"type": "String"}}},
   "onboardingSummaryReady": "Ready",
+  "onboardingSummaryWaitingFor": "Waiting for {app}\u2026",
+  "@onboardingSummaryWaitingFor": {"placeholders": {"app": {"type": "String"}}},
   "onboardingSummaryBridged": "Bridged",
   "onboardingTestModeTitle": "You're in test mode",
   "onboardingTestModeBody": "Ride now and check everything works. Test mode limits you to a daily command budget — enough to prove the connection, not a whole session.",

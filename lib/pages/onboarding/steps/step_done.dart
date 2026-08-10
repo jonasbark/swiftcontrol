@@ -6,13 +6,19 @@ Widget onboardingDoneBody(BuildContext context,
     {required SupportedApp app,
     required String? controllerName,
     required String? trainerName,
+    required bool trainerAppConnected,
     required bool reduceMotion,
     required bool showTestMode}) {
   const success = Color(0xFF22C55E);
-  final rows = <(IconData, String, String)>[
-    if (controllerName != null) (LucideIcons.gamepad2, controllerName, context.i18n.onboardingDeviceConnected),
-    (LucideIcons.monitor, app.name, context.i18n.onboardingSummaryReady),
-    if (trainerName != null) (LucideIcons.bike, trainerName, context.i18n.onboardingSummaryBridged),
+  // (icon, title, status, ok) — a bridge whose virtual trainer the app hasn't
+  // picked up yet is honest about it instead of claiming "Bridged".
+  final rows = <(IconData, String, String, bool)>[
+    if (controllerName != null) (LucideIcons.gamepad2, controllerName, context.i18n.onboardingDeviceConnected, true),
+    (LucideIcons.monitor, app.name, context.i18n.onboardingSummaryReady, true),
+    if (trainerName != null)
+      trainerAppConnected
+          ? (LucideIcons.bike, trainerName, context.i18n.onboardingSummaryBridged, true)
+          : (LucideIcons.bike, trainerName, context.i18n.onboardingSummaryWaitingFor(app.name), false),
   ];
   return Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
     Gap(8),
@@ -21,20 +27,23 @@ Widget onboardingDoneBody(BuildContext context,
     Text(context.i18n.onboardingDoneTitle).h4,
     Gap(8),
     Text(
-      trainerName != null
+      trainerName != null && trainerAppConnected
           ? context.i18n.onboardingDoneSubtitleBridged(controllerName ?? context.i18n.onboardingYourController, app.name)
           : context.i18n.onboardingDoneSubtitle(controllerName ?? context.i18n.onboardingYourController, app.name),
       textAlign: TextAlign.center,
     ).small.muted,
     Gap(18),
-    for (final (icon, title, sub) in rows)
+    for (final (icon, title, sub, ok) in rows)
       Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: success.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(
+          color: ok ? success.withValues(alpha: 0.12) : Theme.of(context).colorScheme.muted,
+          borderRadius: BorderRadius.circular(10),
+        ),
         child: Row(children: [
-          Icon(icon, size: 17, color: success),
+          Icon(icon, size: 17, color: ok ? success : Theme.of(context).colorScheme.mutedForeground),
           Gap(11),
           Expanded(child: Text(title).small.semiBold),
           Text(sub).xSmall.muted,
