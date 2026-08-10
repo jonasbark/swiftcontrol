@@ -6,6 +6,7 @@ import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/help_article.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -22,7 +23,11 @@ import 'package:url_launcher/url_launcher_string.dart';
       OnboardingStep.virtualShifting => (title: context.i18n.onboardingHelpVsTitle, body: context.i18n.onboardingHelpVsBody),
       OnboardingStep.connection =>
         (title: context.i18n.onboardingHelpConnectionTitle, body: context.i18n.onboardingHelpConnectionBody),
-      OnboardingStep.done => (title: context.i18n.onboardingHelpDoneTitle, body: context.i18n.onboardingHelpDoneBody),
+      // Pro riders have no test-mode limits — answer the question they'd
+      // actually have on the final step instead.
+      OnboardingStep.done => IAPManager.instance.isPurchased.value
+          ? (title: context.i18n.onboardingHelpDoneProTitle, body: context.i18n.onboardingHelpDoneProBody)
+          : (title: context.i18n.onboardingHelpDoneTitle, body: context.i18n.onboardingHelpDoneBody),
     };
 
 Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep step, required VoidCallback onClose}) {

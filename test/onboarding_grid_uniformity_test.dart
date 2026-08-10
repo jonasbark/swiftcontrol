@@ -2,8 +2,7 @@
 // (SelectableCard's inner Button) has to fill its uniform GridView cell
 // instead of shrink-wrapping its caption (1-line vs 2-line captions and the
 // selected state previously produced uneven tiles).
-import 'package:bike_control/pages/button_edit.dart' show SelectableCard;
-import 'package:bike_control/pages/onboarding/steps/step_app.dart';
+import 'package:bike_control/pages/onboarding/steps/step_app.dart' show OnboardingAppTile, onboardingAppBody;
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -25,14 +24,11 @@ Future<void> main() async {
       ),
     );
 
-    final cards = find.byType(SelectableCard);
+    final cards = find.byType(OnboardingAppTile);
     expect(cards, findsWidgets);
     final sizes = <Size>{};
     for (final card in cards.evaluate()) {
-      final button = find
-          .descendant(of: find.byWidget(card.widget), matching: find.byWidgetPredicate((w) => w is Button))
-          .first;
-      sizes.add(tester.getSize(button));
+      sizes.add(tester.getSize(find.byWidget(card.widget)));
     }
     expect(sizes, hasLength(1),
         reason: 'visible tile cards must all be the same size at width $width, got: $sizes');

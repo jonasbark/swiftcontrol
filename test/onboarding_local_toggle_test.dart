@@ -4,7 +4,7 @@
 // the real wizard to step 5 and taps Local.
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show OtherLocalizationsDelegate;
-import 'package:bike_control/pages/button_edit.dart' show SelectableCard;
+import 'package:bike_control/pages/onboarding/steps/step_app.dart' show OnboardingAppTile;
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,12 +52,12 @@ Future<void> main() async {
     }
 
     // Step 1: pick the first app, continue.
-    await tester.tap(find.byType(SelectableCard).first);
+    await tester.tap(find.byType(OnboardingAppTile).first);
     await settle();
     await tapContinue();
 
     // Step 2: pick "on this device", continue.
-    await tester.tap(find.byType(SelectableCard).first);
+    await tester.tap(find.byKey(const ValueKey('onboarding-where-thisDevice')));
     await settle();
     await tapContinue();
 
