@@ -31,6 +31,7 @@ Future<void> main() async {
           footerActions: [PrimaryButton(onPressed: () {}, child: const Text('Continue'))],
           onBack: step == OnboardingStep.app ? null : () {},
           onHelp: () {},
+          onSelectStep: (_) {},
         ),
       );
 

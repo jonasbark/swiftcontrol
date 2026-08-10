@@ -30,11 +30,22 @@ Future<void> main() async {
         ],
         supportedLocales: AppLocalizations.delegate.supportedLocales,
         theme: ThemeData(colorScheme: ColorSchemes.lightSlate, radius: 0.7),
-        home: const OnboardingPage(),
+        // Prod pushes the wizard as a fullscreenDialog MaterialPageRoute —
+        // reproduce that exactly instead of mounting it as home.
+        home: Builder(
+          builder: (context) => GhostButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(fullscreenDialog: true, builder: (_) => const OnboardingPage()),
+            ),
+            child: const Text('open'),
+          ),
+        ),
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     // Mobile header Help pill.
     final help = find.byIcon(LucideIcons.lifeBuoy).first;
