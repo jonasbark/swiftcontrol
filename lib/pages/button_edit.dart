@@ -1492,6 +1492,7 @@ class SelectableCard extends StatelessWidget {
   final String? value;
   final VoidCallback? onPressed;
   final bool isProOnly;
+  final AlignmentGeometry alignment;
 
   const SelectableCard({
     super.key,
@@ -1503,6 +1504,7 @@ class SelectableCard extends StatelessWidget {
     this.value,
     required this.onPressed,
     this.isProOnly = false,
+    this.alignment = Alignment.topLeft,
   });
 
   @override
@@ -1512,7 +1514,14 @@ class SelectableCard extends StatelessWidget {
     // Button keeps a static neutral border at all times; the colored "active"
     // ring is drawn as an overlay so AnimatedOpacity can cross-fade it in/out
     // without shadcn's internal style swap snapping between two border colors.
+    //
+    // StackFit.passthrough hands the incoming constraints to the button
+    // unchanged: under a tight cell (the onboarding app grid) the visible card
+    // fills the cell exactly — matching the Positioned.fill active ring —
+    // instead of shrink-wrapping its caption into uneven tiles. In the
+    // existing loose-height contexts (settings rows) it behaves as before.
     return Stack(
+      fit: StackFit.passthrough,
       children: [
         Button.outline(
           style:
@@ -1539,7 +1548,7 @@ class SelectableCard extends StatelessWidget {
               onPressed?.call();
             }
           },
-          alignment: Alignment.topLeft,
+          alignment: alignment,
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 2.0),

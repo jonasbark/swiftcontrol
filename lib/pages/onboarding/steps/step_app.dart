@@ -23,6 +23,7 @@ Widget onboardingAppBody(BuildContext context,
             for (final app in apps)
               SelectableCard(
                 isActive: selected?.name == app.name,
+                alignment: Alignment.center,
                 title: Center(
                   child: app.logoAsset != null
                       ? Image.asset(app.logoAsset!, height: 36, fit: BoxFit.contain)
