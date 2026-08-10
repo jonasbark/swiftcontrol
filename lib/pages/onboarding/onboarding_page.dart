@@ -742,8 +742,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: onboardingShell(
           overlayContext,
           step: _step,
-          body: _body(context),
-          footerActions: _footer(context),
+          body: _body(overlayContext),
+          footerActions: _footer(overlayContext),
           onBack: _step == OnboardingStep.app || _step == OnboardingStep.done ? null : _back,
           onSkip: _step == OnboardingStep.virtualShifting && !onboardingTrainerBridged(core.connection.proxyDevices)
               ? _next

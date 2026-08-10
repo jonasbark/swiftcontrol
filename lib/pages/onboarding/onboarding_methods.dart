@@ -20,8 +20,16 @@ import 'package:bike_control/bluetooth/messages/notification.dart';
 /// Connections stay one system.
 enum OnboardingMethod { network, bluetooth, local }
 
-bool _supportsNetwork(SupportedApp app) =>
-    app.supports(AppConnectionMethod.obpMdns) || app.supports(AppConnectionMethod.zwiftMdns);
+/// obpDirCon rides on the same OBP mDNS server (see CoreLogic.showObpMdnsEmulator).
+bool _supportsObpNetwork(SupportedApp app) =>
+    app.supports(AppConnectionMethod.obpMdns) || app.supports(AppConnectionMethod.obpDirCon);
+
+/// Rouvy declares rouvyMdns but shares the Zwift-mDNS pref and its own
+/// emulator (see zwift_mdns_tile.dart / CoreLogic.isZwiftMdnsEnabled).
+bool _supportsZwiftStyleMdns(SupportedApp app) =>
+    app.supports(AppConnectionMethod.zwiftMdns) || app.supports(AppConnectionMethod.rouvyMdns);
+
+bool _supportsNetwork(SupportedApp app) => _supportsObpNetwork(app) || _supportsZwiftStyleMdns(app);
 
 bool _supportsBluetooth(SupportedApp app) =>
     app.supports(AppConnectionMethod.obpBle) || app.supports(AppConnectionMethod.zwiftBle);
@@ -45,9 +53,9 @@ bool onboardingMethodAvailable(OnboardingMethod method) =>
 /// started/connected state (enabled is a pref; connected means the trainer
 /// app is actually talking to us).
 TrainerConnection? onboardingMethodConnection(OnboardingMethod method, SupportedApp app) => switch (method) {
-      OnboardingMethod.network => app.supports(AppConnectionMethod.obpMdns)
+      OnboardingMethod.network => _supportsObpNetwork(app)
           ? core.obpMdnsEmulator
-          : app.supports(AppConnectionMethod.zwiftMdns)
+          : _supportsZwiftStyleMdns(app)
               ? (app is Rouvy ? core.rouvyMdnsEmulator : core.zwiftMdnsEmulator)
               : null,
       OnboardingMethod.bluetooth => app.supports(AppConnectionMethod.obpBle)
@@ -59,7 +67,7 @@ TrainerConnection? onboardingMethodConnection(OnboardingMethod method, Supported
     };
 
 bool onboardingMethodEnabled(OnboardingMethod method, SupportedApp app) => switch (method) {
-      OnboardingMethod.network => app.supports(AppConnectionMethod.obpMdns)
+      OnboardingMethod.network => _supportsObpNetwork(app)
           ? core.settings.getObpMdnsEnabled()
           : core.settings.getZwiftMdnsEmulatorEnabled(),
       OnboardingMethod.bluetooth => app.supports(AppConnectionMethod.obpBle)
@@ -86,7 +94,7 @@ Future<void> setOnboardingMethodEnabled(
 
   switch (method) {
     case OnboardingMethod.network:
-      if (app.supports(AppConnectionMethod.obpMdns)) {
+      if (_supportsObpNetwork(app)) {
         // Mirrors openbikecontrol_mdns_tile.dart onChange.
         core.settings.setObpMdnsEnabled(value);
         if (!value) {
@@ -99,7 +107,7 @@ Future<void> setOnboardingMethodEnabled(
             onUpdate();
           });
         }
-      } else if (app.supports(AppConnectionMethod.zwiftMdns)) {
+      } else if (_supportsZwiftStyleMdns(app)) {
         // Mirrors zwift_mdns_tile.dart onChange (Rouvy shares the toggle).
         core.settings.setZwiftMdnsEmulatorEnabled(value);
         void onStartError(Object e, StackTrace s) {
