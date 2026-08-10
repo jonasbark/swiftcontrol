@@ -1,15 +1,10 @@
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
-import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
-import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
-import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart';
-import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:dartx/dartx.dart';
-import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -73,25 +68,6 @@ class _OpenBikeProtocolTileState extends State<OpenBikeControlMdnsTile> {
             );
           },
         ),
-        if (core.settings.getLastTarget() == Target.thisDevice &&
-            core.settings.getTrainerApp() is MyWhoosh &&
-            defaultTargetPlatform == TargetPlatform.windows)
-          Warning(
-            important: false,
-            children: [
-              Text(
-                'On some Windows devices, connection cannot be established correctly. Click below for a workaround until it is fixed by MyWhoosh.',
-              ).small,
-              Button.outline(
-                child: Text('Workaround'),
-                onPressed: () => openDrawer(
-                  context: context,
-                  position: OverlayPosition.bottom,
-                  builder: (c) => MarkdownPage(assetPath: 'INSTRUCTIONS_WINDOWS_IPV6.md'),
-                ),
-              ),
-            ],
-          ),
       ],
     );
   }

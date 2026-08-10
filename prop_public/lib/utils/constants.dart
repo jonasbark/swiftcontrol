@@ -57,6 +57,17 @@ class BikeControlMdnsMarkers {
   };
 }
 
+/// A stable all-digits serial number for the mDNS `serial-number` TXT entry,
+/// derived from [seed] (a device id, MAC, …). DIRCON clients parse this field
+/// as a 64-bit unsigned integer, so it must not carry a sliced MAC or UUID.
+String mdnsSerialNumber(String seed) {
+  var hash = 0;
+  for (final unit in seed.codeUnits) {
+    hash = (hash * 31 + unit) & 0x7fffffff;
+  }
+  return hash.toString().padLeft(9, '0');
+}
+
 String bytesToHex(List<int> bytes, {bool spaced = false}) {
   return bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join(spaced ? ' ' : '');
 }

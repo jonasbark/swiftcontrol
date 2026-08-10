@@ -306,9 +306,7 @@ class ProxyDevice extends BluetoothDevice {
 
   Map<String, Uint8List> _trainerMdnsTxt() => {
     'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.macAddress.codeUnits),
-    'serial-number': Uint8List.fromList(
-      scanResult.deviceId.replaceAll('-', '').substring(0, '244700181'.length).codeUnits,
-    ),
+    'serial-number': Uint8List.fromList(mdnsSerialNumber(scanResult.deviceId).codeUnits),
   };
 
   void _seedFitnessBikeDefinition(FitnessBikeDefinition def) {
