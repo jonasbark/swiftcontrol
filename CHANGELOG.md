@@ -1,14 +1,12 @@
 ### 6.4.0 (10-08-2026)
 **Features**:
-- Guided setup on first launch: a six-step wizard walks you from picking your trainer app to a working connection — controller, optional smart-trainer bridge, connection method and the steps to run inside your app. Re-run it anytime via Menu → Setup guide.
-- Zwift Click V2: a new full-screen explainer lets you choose your unlock mode when the controller is first discovered — left side only (no Zwift unlock, ever) or unlock with Zwift (both controllers, re-unlock every 24 hours) — with the trade-offs laid out side by side.
+- Added a guided setup on first launch
+- Zwift Click V2: a new full-screen explainer lets you choose your unlock mode when the controller is first discovered — left side only (no Zwift unlock, ever) or unlock with Zwift (both controllers, re-unlock every 24 hours)
 - Trainer connection: a new "Help me decide" link explains the connect modes before you pick one.
-- WHEELTOP EDS (beta): support for the TX 4-byte frames, an opt-in keepalive experiment for shifters that drop out, and no more endless reconnect attempts after repeated failures.
 
 **Fixes**:
-- Trainer apps find BikeControl over the network again, and two BikeControl installs no longer overwrite each other in your app's device list.
+- Windows: connection issues with virtual trainers are solved for MyWhoosh & Rouvy  
 - SRAM AXS: the shifter no longer disconnects after about three minutes of coasting.
-- WiFi smart trainers now report a proper serial number, so DirCon apps list them reliably.
 - Windows: Bluetooth advertising fixes when switching the Virtual Shifting transport.
 
 ### 6.3.0 (09-07-2026)
