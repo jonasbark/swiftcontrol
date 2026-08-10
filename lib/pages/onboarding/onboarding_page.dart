@@ -63,7 +63,6 @@ Widget onboardingShell(
   required Widget body,
   required List<Widget> footerActions,
   VoidCallback? onBack,
-  VoidCallback? onSkip,
   required VoidCallback onHelp,
   VoidCallback? onClose,
   void Function(OnboardingStep)? onSelectStep,
@@ -93,7 +92,6 @@ Widget onboardingShell(
                       textAlign: TextAlign.center,
                     ).xSmall.semiBold.muted,
                   ),
-                  if (onSkip != null) GhostButton(onPressed: onSkip, child: Text(context.i18n.onboardingSkip)),
                   Button.ghost(
                     style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
                     onPressed: onHelp,
@@ -122,16 +120,28 @@ Widget onboardingShell(
                   for (var i = 0; i < OnboardingStep.values.length; i++) ...[
                     if (i > 0) Gap(4),
                     Expanded(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        height: 4,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(3),
-                          color: i <= step.index
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.border,
-                        ),
-                      ),
+                      child: Builder(builder: (context) {
+                        final bar = AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          height: 4,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(3),
+                            color: i <= step.index
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.border,
+                          ),
+                        );
+                        // Completed segments navigate back — a taller hit
+                        // target wraps the 4px bar.
+                        if (i < step.index && onSelectStep != null) {
+                          return Button.ghost(
+                            style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
+                            onPressed: () => onSelectStep(OnboardingStep.values[i]),
+                            child: SizedBox(height: 24, child: Center(child: bar)),
+                          );
+                        }
+                        return SizedBox(height: 24, child: Center(child: bar));
+                      }),
                     ),
                   ],
                 ],
@@ -226,7 +236,6 @@ Widget onboardingShell(
                   child: Row(
                     children: [
                       if (onBack != null) GhostButton(onPressed: onBack, child: Text(context.i18n.onboardingBack)),
-                      if (onSkip != null) ...[Gap(8), GhostButton(onPressed: onSkip, child: Text(context.i18n.onboardingSkip))],
                       const Spacer(),
                       for (var i = 0; i < footerActions.length; i++) ...[if (i > 0) Gap(10), footerActions[i]],
                     ],
@@ -759,7 +768,21 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     // the wizard via "Done — start riding", never implicitly.
                     await openDrawer(
                       context: _sheetContext,
-                      builder: (c) => const Paywall(defaultToFullVersion: false),
+                      // The paywall's own scroll view swallows swipe-to-dismiss,
+                      // so give the sheet an explicit close button.
+                      builder: (c) => Column(mainAxisSize: MainAxisSize.min, children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 6, 10, 0),
+                            child: IconButton.ghost(
+                              icon: Icon(LucideIcons.x),
+                              onPressed: () => closeDrawer(c),
+                            ),
+                          ),
+                        ),
+                        Flexible(child: const Paywall(defaultToFullVersion: false)),
+                      ]),
                       position: OverlayPosition.bottom,
                     );
                     if (mounted) setState(() {});
@@ -804,9 +827,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
           footerActions: _footer(overlayContext),
           onBack: _step == OnboardingStep.app || _step == OnboardingStep.done ? null : _back,
-          onSkip: _step == OnboardingStep.virtualShifting && !onboardingTrainerBridged(core.connection.proxyDevices)
-              ? _onSkipVirtualShifting
-              : null,
           onHelp: () => openOnboardingHelpSheet(overlayContext, _step),
           onClose: () => Navigator.of(context).maybePop(),
           onSelectStep: (s) {
