@@ -76,17 +76,24 @@ Widget onboardingTrainerBody(BuildContext context,
       Container(
         margin: const EdgeInsets.only(bottom: 8),
         child: Button.card(
-          onPressed: () => onPick(t),
+          onPressed: t.isStarting.value ? null : () => onPick(t),
           child: Row(children: [
             Icon(LucideIcons.bike, size: 20),
             Gap(12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(t.name).small.semiBold,
-                Text(context.i18n.onboardingTrainerMeta).xSmall.muted,
+                Text(t.isStarting.value
+                        ? context.i18n.onboardingDeviceConnecting
+                        : context.i18n.onboardingTrainerMeta)
+                    .xSmall
+                    .muted,
               ]),
             ),
-            Icon(LucideIcons.chevronRight, size: 16),
+            if (t.isStarting.value)
+              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(size: 16))
+            else
+              Icon(LucideIcons.chevronRight, size: 16),
           ]),
         ),
       ),

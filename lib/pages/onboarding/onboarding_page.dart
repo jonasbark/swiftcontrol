@@ -18,7 +18,6 @@ import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_button_hint.dart';
-import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -30,6 +29,7 @@ import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
+import 'package:prop/prop.dart' show LogLevel, RetrofitMode;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 const double kOnboardingDesktopBreakpoint = 800;
@@ -487,29 +487,43 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// retrofit mode, auto-connect flag, fire-and-forget `startProxy()`, then
   /// push the details page. Smart trainers skip the auto-start block and go
   /// straight to the details page, same as `proxy.dart`.
+  /// Connects the tapped trainer in place and bridges it as Virtual Shifting
+  /// over WiFi — no consent dialog, no details-page detour. Tapping the row
+  /// under the step's "Let BikeControl handle Virtual Shifting" pitch IS the
+  /// takeover consent, so it's recorded directly. Mirrors the connect branch
+  /// of ConnectionCard._onSelect (proxy_device_details/connection_card.dart);
+  /// the details page stays reachable from the home screen for mode changes.
   Future<void> _onPickTrainer(ProxyDevice device) async {
     try {
-      if (!device.isSmartTrainer && !device.isStartedListenable.value && !device.isStarting.value) {
-        if (IAPManager.instance.isTrialExpired) {
-          await showGoProDialog(context);
-          return;
-        }
-        final savedMode = core.settings.getRetrofitMode(
-          device.trainerKey,
-          fallback: device.defaultRetrofitMode,
-        );
-        device.setRetrofitMode(savedMode);
-        await core.settings.setAutoConnect(device.trainerKey, true);
-        // Fire-and-forget — details page opens immediately and renders a
-        // "Connecting…" state via device.isStarting.
-        unawaited(device.startProxy().catchError((_) {}));
+      if (device.isStartedListenable.value || device.isStarting.value || device.isConnectedListenable.value) {
+        return;
       }
-      if (!mounted) return;
-      await context.push(ProxyDeviceDetailsPage(device: device));
+      if (IAPManager.instance.isTrialExpired) {
+        await showGoProDialog(context);
+        return;
+      }
+      if (device.isSmartTrainer) {
+        await core.settings.setSmartTrainerConsent(device.trainerKey, true);
+      }
+      // WiFi transport: the app finds "<trainer> - BikeControl" over the
+      // network (step 5's bridge card), and no BLE-advertise permission
+      // prompts interrupt the wizard.
+      device.setRetrofitMode(RetrofitMode.wifi);
+      await core.settings.setRetrofitMode(device.trainerKey, RetrofitMode.wifi);
+      await core.settings.setAutoConnect(device.trainerKey, true);
+      // Route through the connection manager (not device.startProxy directly)
+      // so the action / connection-state listeners are attached — same
+      // rationale as ConnectionCard._onSelect.
+      await core.connection.connectDevice(device);
       if (!mounted) return;
       setState(() {});
     } catch (e, s) {
       recordError(e, s, context: 'onboarding pick trainer');
+      if (mounted) {
+        core.connection.signalNotification(
+          AlertNotification(LogLevel.LOGLEVEL_ERROR, 'Error: ${e.toString()}'),
+        );
+      }
     }
   }
 
