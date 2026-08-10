@@ -34,6 +34,10 @@ import 'utils/core.dart';
 final navigatorKey = GlobalKey<NavigatorState>();
 var screenshotMode = false;
 
+/// True while the onboarding wizard route is on screen — toasts lift above
+/// its sticky footer on mobile (see lib/widgets/ui/toast.dart).
+var onboardingActive = false;
+
 /// Locale to render in [screenshotMode]. Lets the screenshot test produce
 /// localized store screenshots; defaults to English when unset.
 Locale? screenshotLocale;

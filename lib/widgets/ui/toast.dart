@@ -16,12 +16,15 @@ void buildToast({
   Duration? duration,
 }) {
   if (navigatorKey.currentContext?.mounted ?? false) {
-    // Mobile: bottom-center, padded above the sticky footer actions.
-    // Desktop: top-right (footers live bottom-right there).
+    // Desktop: top-right (footers live bottom-right there). Mobile: normal
+    // bottom placement — lifted above the wizard's sticky footer only while
+    // onboarding is active.
     final isMobile = MediaQuery.sizeOf(navigatorKey.currentContext!).width < 600;
     showToast(
       context: navigatorKey.currentContext!,
-      location: isMobile ? ToastLocation.bottomCenter : location,
+      location: isMobile
+          ? (onboardingActive ? ToastLocation.bottomCenter : ToastLocation.bottomRight)
+          : location,
       showDuration: switch (level) {
         LogLevel.LOGLEVEL_DEBUG => const Duration(seconds: 2),
         LogLevel.LOGLEVEL_INFO => duration ?? const Duration(seconds: 3),
@@ -30,7 +33,7 @@ void buildToast({
         _ => duration ?? const Duration(seconds: 3),
       },
       builder: (context, overlay) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.sizeOf(context).width < 600 ? 96 : 0),
+        padding: EdgeInsets.only(bottom: onboardingActive && MediaQuery.sizeOf(context).width < 600 ? 72 : 0),
         child: SurfaceCard(
           filled: switch (level) {
             LogLevel.LOGLEVEL_WARNING => true,

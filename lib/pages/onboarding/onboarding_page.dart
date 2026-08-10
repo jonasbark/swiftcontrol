@@ -10,6 +10,7 @@ import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_fade_up.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
@@ -339,6 +340,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void initState() {
     super.initState();
+    onboardingActive = true;
     _selectedApp = core.settings.getTrainerApp();
     _selectedTarget = core.settings.getLastTarget();
     _attachProxyListeners();
@@ -372,6 +374,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   void dispose() {
+    onboardingActive = false;
     for (final l in _methodListenables) {
       l.removeListener(_onMethodConnectionChanged);
     }
@@ -773,7 +776,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: onboardingShell(
           overlayContext,
           step: _step,
-          body: _body(overlayContext),
+          // Re-keyed per step + controller phase so every screen slides in
+          // like the design's bk-fade-up entrance.
+          body: OnboardingFadeUp(
+            key: ValueKey('onboarding-body-$_step-$_controllerPhase'),
+            child: _body(overlayContext),
+          ),
           footerActions: _footer(overlayContext),
           onBack: _step == OnboardingStep.app || _step == OnboardingStep.done ? null : _back,
           onSkip: _step == OnboardingStep.virtualShifting && !onboardingTrainerBridged(core.connection.proxyDevices)
