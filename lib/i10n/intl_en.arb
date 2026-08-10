@@ -700,6 +700,7 @@
   "onboardingTestModeBody": "Ride now and check everything works. Test mode limits you to a daily command budget — enough to prove the connection, not a whole session.",
   "onboardingTestModeBodyVs": "Ride now and check everything works. Test mode limits you to a daily command budget and limited virtual shifting per day — enough to prove the connection, not a whole session.",
   "onboardingSeeProOptions": "See Pro & Base options",
+  "onboardingDoneFinishLater": "Finish \u2014 I'll connect later",
   "onboardingDoneStartRiding": "Done — start riding",
   "openBikeControlActions": "OpenBikeControl actions",
   "openBikeControlAnnouncement": "Great news - {trainerApp} supports the OpenBikeControl Protocol, so you'll have the best possible experience!",

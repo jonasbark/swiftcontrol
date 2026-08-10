@@ -91,12 +91,25 @@ Widget onboardingShell(
                     child: Text(
                       context.i18n.onboardingStepOf('${step.index + 1}', '${OnboardingStep.values.length}'),
                       textAlign: TextAlign.center,
-                    ).xSmall.muted,
+                    ).xSmall.semiBold.muted,
                   ),
                   if (onSkip != null) GhostButton(onPressed: onSkip, child: Text(context.i18n.onboardingSkip)),
-                  GhostButton(
+                  Button.ghost(
+                    style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
                     onPressed: onHelp,
-                    child: Row(children: [Icon(LucideIcons.lifeBuoy, size: 15), Gap(5), Text(context.i18n.onboardingHelp)]),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Theme.of(context).colorScheme.border),
+                        borderRadius: BorderRadius.circular(999),
+                        color: Theme.of(context).colorScheme.card,
+                      ),
+                      child: Row(children: [
+                        Icon(LucideIcons.lifeBuoy, size: 14, color: Theme.of(context).colorScheme.primary),
+                        Gap(5),
+                        Text(context.i18n.onboardingHelp).xSmall.semiBold,
+                      ]),
+                    ),
                   ),
                   if (onClose != null) IconButton.ghost(icon: Icon(LucideIcons.x), onPressed: onClose),
                 ],
@@ -566,6 +579,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
     }
   }
 
+  /// Same readiness the done body's headline uses: the app is connected
+  /// through an enabled method and any bridged trainer has been picked up.
+  bool get _doneAllReady =>
+      core.logic.connectedTrainerConnections.any((c) => c.isConnected.value) &&
+      (!onboardingTrainerBridged(core.connection.proxyDevices) ||
+          core.connection.proxyDevices.any((t) => t.isConnectedListenable.value));
+
   /// "Let {app} handle Virtual Shifting": the rider explicitly opted out, so
   /// tear down every smart-trainer bridge — including ones still connecting —
   /// before moving on. keepInList so going back re-offers them.
@@ -762,7 +782,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   recordError(e, s, context: 'onboarding done start riding');
                 }
               },
-              child: Text(context.i18n.onboardingDoneStartRiding),
+              child: Text(_doneAllReady ? context.i18n.onboardingDoneStartRiding : context.i18n.onboardingDoneFinishLater),
             ),
           ],
       };
