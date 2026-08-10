@@ -289,7 +289,12 @@ Future<void> main() async {
         type: '_wahoo-fitness-tnp._tcp',
         port: 36870,
         addresses: [InternetAddress('192.168.1.99')],
-        txt: {'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.macAddress.codeUnits)},
+        // A different install, so its mac-address differs from ours; the
+        // constant manufacturer-data is what marks it as a BikeControl.
+        txt: {
+          'mac-address': Uint8List.fromList('95E042B7-1337-039E-C35F-AABBCCDDEEFF'.codeUnits),
+          'manufacturer-data': Uint8List.fromList(BikeControlMdnsMarkers.manufacturerData.codeUnits),
+        },
       );
       env.mdns.addForeignService(ad);
 

@@ -27,6 +27,7 @@ class SramAxs extends BluetoothDevice {
 
   SramBleTransport? _transport;
   SramAxsLogic? _logic;
+  Timer? _keepAliveTimer;
 
   /// Logged once per connection when a press can't be decoded, so it's clear
   /// from the logs whether the session key is active this session.
@@ -168,17 +169,27 @@ class SramAxs extends BluetoothDevice {
     _transport = transport;
     _logic = logic;
 
+    // The SRAM rear derailleur drops idle BLE connections after ~3 minutes.
+    // Requesting high-performance connection parameters keeps link-layer PDU
+    // exchange frequent enough to prevent the supervision timeout from firing.
+    try {
+      await UniversalBle.requestConnectionPriority(device.deviceId, BleConnectionPriority.highPerformance);
+    } catch (_) {}
+
     // Seed a previously-persisted session key so we start bonded when possible.
     final storedKey = core.settings.getSramKey(_serialKey);
     if (storedKey != null) {
       logic.seedKey(_hexToBytes(storedKey));
     }
 
-    // Subscribe: press trigger, component event (plaintext), bond channel.
+    // Subscribe: press trigger, component event (plaintext), bond channel,
+    // and gear state. The gear char generates periodic notifications that
+    // double as application-level keepalive traffic.
     for (final char in [
       sram_proto.SramAxs.controlTriggerChar,
       sram_proto.SramAxs.componentEventChar,
       sram_proto.SramAxs.bondChar,
+      sram_proto.SramAxs.gearChar,
     ]) {
       final service = services.firstOrNullWhere((s) => s.characteristics.any((c) => c.uuid == char.toLowerCase()));
       if (service != null) {
@@ -212,6 +223,21 @@ class SramAxs extends BluetoothDevice {
         );
       }
     }
+
+    _startKeepAlive(services);
+  }
+
+  void _startKeepAlive(List<BleService> services) {
+    _keepAliveTimer?.cancel();
+    final gearService = services.firstOrNullWhere(
+      (s) => s.characteristics.any((c) => c.uuid == sram_proto.SramAxs.gearChar.toLowerCase()),
+    );
+    if (gearService == null) return;
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 60), (_) async {
+      try {
+        await UniversalBle.read(device.deviceId, gearService.uuid, sram_proto.SramAxs.gearChar.toLowerCase());
+      } catch (_) {}
+    });
   }
 
   ControllerButton _registerButton(int? serial, int? mask, {int? deviceType}) {
@@ -336,6 +362,8 @@ class SramAxs extends BluetoothDevice {
 
   @override
   Future<void> disconnect() async {
+    _keepAliveTimer?.cancel();
+    _keepAliveTimer = null;
     _resetGesture();
     await super.disconnect();
   }
@@ -389,6 +417,27 @@ class SramAxs extends BluetoothDevice {
 
   bool get isBonded => _logic?.isBonded ?? false;
   bool get isShiftingDisabled => core.settings.getSramShiftingDisabled(_serialKey);
+
+  /// Whether the guided "disable on-device shifting" setup hasn't run yet for
+  /// this derailleur. Uses the same serial key as the setup itself.
+  bool get needsGuidedSetup => !core.settings.getSramShiftingDisabled(_serialKey);
+
+  /// Opens the same guided setup sheet as the device card's
+  /// "Set up SRAM control" button. Used by the onboarding wizard.
+  Future<void> showGuidedSetup(BuildContext context) {
+    final l = context.i18n;
+    return _runGuidedOperation(
+      context,
+      title: l.sramSetup,
+      intro: l.sramSetupIntro,
+      successMessage: l.sramSetupSuccess,
+      confirmIcon: LucideIcons.slidersHorizontal,
+      runningTitle: l.sramSettingUp,
+      successTitle: l.sramAllSet,
+      checklistItems: [l.sramChecklistPairing, l.sramChecklistBackingUp, l.sramChecklistDisabling],
+      operation: setupControl,
+    );
+  }
 
   @override
   List<Widget> showAdditionalInformation(BuildContext context) => [_buildSetupPanel(context)];

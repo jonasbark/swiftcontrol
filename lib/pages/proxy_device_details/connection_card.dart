@@ -17,6 +17,11 @@ import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+
+/// Explains BikeControl's virtual shifting versus the trainer app's own, so
+/// the user can pick a connect mode with the trade-offs in hand.
+const _helpMeDecideUrl = 'https://bikecontrol.app/blog/virtual-shifting-with-and-without-bikecontrol';
 
 /// The selectable connection entries in the picker. Virtual Shifting is a single
 /// consolidated row whose WiFi/Bluetooth transport is switched via an inline
@@ -299,14 +304,28 @@ class _ConnectionCardState extends State<ConnectionCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         spacing: 10,
         children: [
-          Text(
-            AppLocalizations.of(context).connectModeLabel,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-              color: cs.mutedForeground,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  AppLocalizations.of(context).connectModeLabel,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    color: cs.mutedForeground,
+                  ),
+                ),
+              ),
+              // Links out to the blog post comparing BikeControl's virtual
+              // shifting against the trainer app's own — the decision this
+              // picker is asking the user to make.
+              Button(
+                style: const ButtonStyle.text(size: ButtonSize.small, density: ButtonDensity.compact),
+                onPressed: () => launchUrlString(_helpMeDecideUrl, mode: LaunchMode.externalApplication),
+                child: Text(AppLocalizations.of(context).helpMeDecide, style: const TextStyle(fontSize: 12)),
+              ),
+            ],
           ),
           RadioGroup<_ConnectSelection>(
             value: selection,

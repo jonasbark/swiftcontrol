@@ -75,6 +75,9 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
                   'ble-service-uuids': Uint8List.fromList(OpenBikeControlConstants.SERVICE_UUID.codeUnits),
                   'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.obcMacAddress.codeUnits),
                   'serial-number': Uint8List.fromList('1234567890'.codeUnits),
+                  // The mac-address is per-install now, so this constant is
+                  // what marks the advertisement as ours to the WiFi scanner.
+                  'manufacturer-data': Uint8List.fromList(BikeControlMdnsMarkers.manufacturerData.codeUnits),
                 }
               : {
                   'version': Uint8List.fromList([0x01]),

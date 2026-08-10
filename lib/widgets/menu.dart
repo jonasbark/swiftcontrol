@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/emulation/profiles/all_profiles.dart';
 import 'package:bike_control/pages/markdown.dart';
+import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
@@ -248,6 +249,15 @@ class BKMenuButton extends StatelessWidget {
               ),
               MenuDivider(),
             ],
+            MenuButton(
+              leading: Icon(Icons.tips_and_updates_outlined),
+              child: Text(context.i18n.onboardingMenuEntry),
+              onPressed: (c) async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(fullscreenDialog: true, builder: (_) => OnboardingPage()),
+                );
+              },
+            ),
             MenuButton(
               leading: Icon(Icons.logo_dev_sharp),
               child: Text(context.i18n.logs),

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart';
@@ -14,14 +17,39 @@ class ScanWidget extends StatefulWidget {
   State<ScanWidget> createState() => _ScanWidgetState();
 }
 
-class _ScanWidgetState extends State<ScanWidget> {
+class _ScanWidgetState extends State<ScanWidget> with WidgetsBindingObserver {
   List<PlatformRequirement>? _needsPermissions;
+  StreamSubscription<BaseDevice>? _connectionSub;
 
   @override
   void initState() {
     super.initState();
 
     _checkRequirements();
+    WidgetsBinding.instance.addObserver(this);
+    // The requirement list is captured once at mount — but permissions can be
+    // granted while this widget sits behind another route (the onboarding
+    // wizard grants them on its controller step). A device connecting proves
+    // scanning works, and app resume covers grants via system settings.
+    _connectionSub = core.connection.connectionStream.listen((_) {
+      if (mounted && (_needsPermissions?.isNotEmpty ?? false)) {
+        _checkRequirements();
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && (_needsPermissions?.isNotEmpty ?? false)) {
+      _checkRequirements();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _connectionSub?.cancel();
+    super.dispose();
   }
 
   @override

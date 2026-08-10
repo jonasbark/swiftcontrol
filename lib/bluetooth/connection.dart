@@ -131,6 +131,61 @@ class Connection {
   /// Mutable as a test seam (the integration tests shrink it to milliseconds).
   Duration inactivityReconnectCooldown = const Duration(seconds: 90);
 
+  /// Whether [device] is currently sitting out a battery-saver or backoff
+  /// suppression window (see [_suppressedAutoReconnect]). Read-only escape
+  /// hatch for callers outside this class (e.g. [ClickV2Onboarding]) that
+  /// enumerate devices themselves and must not force-reconnect one the
+  /// battery saver deliberately put to sleep.
+  bool isAutoReconnectSuppressed(BaseDevice device) =>
+      device is BluetoothDevice && _suppressedAutoReconnect.contains(device.device.deviceId);
+
+  /// Consecutive failed auto-connect attempts per BLE device id. Only devices
+  /// with [BluetoothDevice.maxAutoConnectAttempts] > 0 ever suppress; reset by
+  /// a successful connect.
+  final _consecutiveConnectFailures = <String, int>{};
+
+  /// Device ids whose give-up alert was already shown this session — later
+  /// suppression rounds only log, so one stubborn device produces one alert.
+  final _backoffAlerted = <String>{};
+
+  /// How long a device that exhausted its attempts stays suppressed before
+  /// rediscovery may try again (one quiet attempt per round). Mutable as a
+  /// test seam.
+  Duration autoConnectBackoffCooldown = const Duration(seconds: 90);
+
+  /// Pending cooldown timers from [_recordConnectFailure], keyed by BLE device
+  /// id. Backoff shares [_suppressedAutoReconnect] with the battery saver, so a
+  /// stale timer left running past a Retry/reconnect could lift a later —
+  /// possibly unrelated — suppression early; tracked here so it can be
+  /// cancelled the moment the suppression it guards is lifted some other way.
+  final _backoffCooldownTimers = <String, Timer>{};
+
+  /// When each BLE device last became connected — used to spot a pod that
+  /// connects but drops again within [quickDropThreshold] (e.g. a WHEELTOP TX
+  /// pod whose keepalive we can't answer). Such a connect looks successful to
+  /// the connect queue, so [_consecutiveConnectFailures] never catches it.
+  final _connectedAt = <String, DateTime>{};
+
+  /// Consecutive quick drops per BLE device id (a connect that dies within
+  /// [quickDropThreshold]). Counted only for devices that do NOT opt out via
+  /// [BluetoothDevice.keepsReconnectingWhileDropping]; drives the same backoff
+  /// as [_consecutiveConnectFailures] once it reaches the device's limit.
+  final _quickDropCounts = <String, int>{};
+
+  /// A connection that dies within this window counts as a quick drop. Mutable
+  /// as a test seam.
+  Duration quickDropThreshold = const Duration(seconds: 5);
+
+  /// True once [device] has exhausted its auto-connect attempts (failed
+  /// connects or quick drops) — backoff rounds stay quiet: no
+  /// connecting/disconnected toasts, no OS notification.
+  bool _isInBackoff(BaseDevice device) {
+    if (device is! BluetoothDevice || device.maxAutoConnectAttempts <= 0) return false;
+    final id = device.device.deviceId;
+    return (_consecutiveConnectFailures[id] ?? 0) >= device.maxAutoConnectAttempts ||
+        (_quickDropCounts[id] ?? 0) >= device.maxAutoConnectAttempts;
+  }
+
   void initialize() {
     actionStream.listen((log) {
       lastLogEntries.add((date: DateTime.now(), entry: log.toString()));
@@ -567,10 +622,12 @@ class Connection {
       _handlingConnectionQueue = true;
       final device = _connectionQueue.removeAt(0);
 
-      final willConnect = device is! ProxyDevice || device.shouldAutoConnect;
+      final willConnect = device.shouldAutoConnect;
       // Reconnections after an automatic reset happen every minute — keep
       // them silent. Captured here because the flag clears during handshake.
-      final notify = willConnect && !device.isResetting;
+      // A device that already gave up (backoff) only gets quiet cooldown
+      // rounds from here on — the guidance alert already said its piece.
+      final notify = willConnect && !device.isResetting && !_isInBackoff(device);
       if (notify) {
         _actionStreams.add(
           AlertNotification(LogLevel.LOGLEVEL_INFO, AppLocalizations.current.connectingToDevice(device.toString())),
@@ -595,7 +652,15 @@ class Connection {
           .catchError((e) {
             device.isConnected = false;
             _handlingConnectionQueue = false;
-            if (e is TimeoutException) {
+            if (device is BluetoothDevice && device.keepsReconnectingWhileDropping) {
+              // Keepalive probe: the reconnect churn is expected and is NOT
+              // rear-derailleur contention, so the "claimed by the derailleur"
+              // give-up guidance must not fire. Keep it to a quiet log.
+              _actionStreams.add(LogNotification('${device.toString()}: connect attempt failed during probe ($e)'));
+            } else if (_recordConnectFailure(device)) {
+              // Backoff engaged — _recordConnectFailure emitted the guidance alert
+              // (or the silent per-round log) in place of the generic toast.
+            } else if (e is TimeoutException) {
               _actionStreams.add(
                 AlertNotification(
                   LogLevel.LOGLEVEL_WARNING,
@@ -614,6 +679,86 @@ class Connection {
               _handleConnectionQueue();
             }
           });
+    }
+  }
+
+  /// Records a failed auto-connect attempt. Returns true when the device has
+  /// exhausted [BluetoothDevice.maxAutoConnectAttempts] and backoff messaging
+  /// (guidance alert on the first round, log-only afterwards) replaces the
+  /// generic failure toast.
+  bool _recordConnectFailure(BaseDevice device) {
+    if (device is! BluetoothDevice) return false;
+    final maxAttempts = device.maxAutoConnectAttempts;
+    if (maxAttempts <= 0) return false;
+
+    final id = device.device.deviceId;
+    final failures = (_consecutiveConnectFailures[id] ?? 0) + 1;
+    _consecutiveConnectFailures[id] = failures;
+    if (failures < maxAttempts) return false;
+
+    _engageBackoff(device);
+    return true;
+  }
+
+  /// Records a quick drop — a connect that succeeded but died within
+  /// [quickDropThreshold] (a WHEELTOP TX pod whose keepalive we can't answer
+  /// yet does this in a tight loop). Skipped for devices that opt to keep
+  /// cycling via [BluetoothDevice.keepsReconnectingWhileDropping] (the
+  /// keepalive probe needs those reconnects). Engages the same backoff once
+  /// the drop streak reaches the device's limit.
+  void _recordQuickDrop(BluetoothDevice device) {
+    final maxAttempts = device.maxAutoConnectAttempts;
+    if (maxAttempts <= 0 || device.keepsReconnectingWhileDropping) return;
+
+    final id = device.device.deviceId;
+    final drops = (_quickDropCounts[id] ?? 0) + 1;
+    _quickDropCounts[id] = drops;
+    if (drops >= maxAttempts) _engageBackoff(device);
+  }
+
+  /// Suppresses auto-reconnect for [device] for [autoConnectBackoffCooldown],
+  /// clears the stale scan-result entry when the cooldown lifts, and shows the
+  /// give-up guidance alert once per session (log-only afterwards). Shared by
+  /// the connect-failed and quick-drop backoff paths.
+  void _engageBackoff(BluetoothDevice device) {
+    final id = device.device.deviceId;
+    _suppressedAutoReconnect.add(id);
+    // Lift the suppression after the cooldown. The stale _lastScanResult entry
+    // must go too — it would dedupe every future advertisement and block
+    // rediscovery forever (same pitfall the battery-saver cooldown handles).
+    // Cancel any earlier round's still-pending timer first — otherwise it
+    // fires on its original schedule and can lift a later (even unrelated,
+    // e.g. battery-saver) suppression on this id early.
+    _backoffCooldownTimers.remove(id)?.cancel();
+    _backoffCooldownTimers[id] = Timer(autoConnectBackoffCooldown, () {
+      _backoffCooldownTimers.remove(id);
+      _suppressedAutoReconnect.remove(id);
+      _lastScanResult.removeWhere((d) => d.deviceId == id);
+    });
+
+    final guidance = device.connectionGuidance;
+    final message = [
+      AppLocalizations.current.connectionGaveUpAfterAttempts(device.toString()),
+      if (guidance != null) guidance,
+    ].join('\n');
+    if (_backoffAlerted.add(id)) {
+      _actionStreams.add(
+        AlertNotification(
+          LogLevel.LOGLEVEL_WARNING,
+          message,
+          buttonTitle: AppLocalizations.current.reconnect,
+          onTap: () {
+            _backoffCooldownTimers.remove(id)?.cancel();
+            _suppressedAutoReconnect.remove(id);
+            _consecutiveConnectFailures.remove(id);
+            _quickDropCounts.remove(id);
+            _lastScanResult.removeWhere((d) => d.deviceId == id);
+            addDevices([device]);
+          },
+        ),
+      );
+    } else {
+      _actionStreams.add(LogNotification(message));
     }
   }
 
@@ -654,10 +799,37 @@ class Connection {
       final connectionStateSubscription = device.device.connectionStream.listen((state) {
         device.isConnected = state;
         _connectionStreams.add(device);
+
+        // Quick-drop tracking (Wheeltop TX pods connect then drop within
+        // seconds because their keepalive is unanswered — a "successful"
+        // connect the connect queue never counts as a failure). Only devices
+        // that declare an attempt limit participate.
+        if (device.maxAutoConnectAttempts > 0) {
+          final id = device.device.deviceId;
+          if (state) {
+            _connectedAt[id] = DateTime.now();
+          } else {
+            final connectedAt = _connectedAt.remove(id);
+            if (connectedAt != null) {
+              if (DateTime.now().difference(connectedAt) >= quickDropThreshold) {
+                // Survived long enough — a healthy connection clears the streak.
+                _quickDropCounts.remove(id);
+              } else {
+                _recordQuickDrop(device);
+              }
+            }
+          }
+        }
+
         // An automatic reset cycle (ClickLogic) reboots the device every
         // minute — don't spam connect/disconnect notifications for it.
         final isSilentReset = device.isResetting;
-        if (!state && !isSilentReset) {
+        // A device that already gave up (backoff) delivers its failure as a
+        // delayed disconnected event on this same listener — the guidance
+        // alert already said its piece, so quiet cooldown rounds stay quiet
+        // here too: no disconnected toast, no OS notification.
+        final isSilentBackoff = !state && _isInBackoff(device);
+        if (!state && !isSilentReset && !isSilentBackoff) {
           _actionStreams.add(
             AlertNotification(
               state ? LogLevel.LOGLEVEL_INFO : LogLevel.LOGLEVEL_WARNING,
@@ -665,7 +837,7 @@ class Connection {
             ),
           );
         }
-        if (!isSilentReset) {
+        if (!isSilentReset && !isSilentBackoff) {
           core.flutterLocalNotificationsPlugin.show(
             1338,
             '${device.toString()} ${state ? AppLocalizations.current.connected.decapitalize() : AppLocalizations.current.disconnected.decapitalize()}',
@@ -687,6 +859,9 @@ class Connection {
 
     try {
       await device.connect();
+      if (device is BluetoothDevice) {
+        _consecutiveConnectFailures.remove(device.device.deviceId);
+      }
       signalChange(device);
 
       IAPManager.instance.setAttributes();
@@ -705,7 +880,13 @@ class Connection {
       }
     } catch (e, backtrace) {
       await _streamSubscriptions.remove(device)?.cancel();
-      await _connectionSubscriptions.remove(device)?.cancel();
+      // Deliberately do NOT cancel _connectionSubscriptions here. Android
+      // delivers a failed connect twice, and the ordering varies: on real
+      // devices the disconnected event usually arrives BEFORE the exception
+      // (the listener has already cleaned up — cancelling again is a no-op),
+      // while other stacks and the fake platform deliver it after (then this
+      // still-attached listener is the only thing that removes the device and
+      // re-enables retry). Cancelling here would break the second ordering.
       _actionStreams.add(LogNotification("$e\n$backtrace"));
       if (kDebugMode) {
         print(e);
@@ -808,6 +989,14 @@ class Connection {
     // Everything is gone, so the battery-saver suppression is moot — a later
     // rediscovery should auto-connect normally again.
     _suppressedAutoReconnect.clear();
+    _consecutiveConnectFailures.clear();
+    _quickDropCounts.clear();
+    _connectedAt.clear();
+    _backoffAlerted.clear();
+    for (final timer in _backoffCooldownTimers.values) {
+      timer.cancel();
+    }
+    _backoffCooldownTimers.clear();
     hasDevices.value = false;
     _inactivityDisconnector?.onDeviceConnectionChanged();
   }

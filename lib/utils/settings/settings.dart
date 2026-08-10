@@ -41,6 +41,11 @@ class Settings {
     _initialized = true;
   }
 
+  /// Whether [prefs] has been assigned. Callers that may run before [init]
+  /// (device detection, connect-queue gating) check this instead of touching
+  /// the uninitialised `late` field.
+  bool get isInitialized => _initialized;
+
   SettingsSyncService? _syncService;
   Timer? _syncDebounceTimer;
 
@@ -209,6 +214,22 @@ class Settings {
 
   Future<void> setVirtualShiftingIntroSeen(bool seen) async {
     await prefs.setBool(_virtualShiftingIntroSeenKey, seen);
+  }
+
+  static const String _onboardingStateKey = 'onboarding_state';
+  static const String onboardingStatePending = 'pending';
+  static const String onboardingStateCompleted = 'completed';
+
+  /// First-run onboarding wizard state: null = never triggered,
+  /// [onboardingStatePending] = started but not finished (re-shown on next
+  /// launch), [onboardingStateCompleted] = finished or migrated existing
+  /// install (only reachable via the "Setup guide" menu entry).
+  String? getOnboardingState() {
+    return prefs.getString(_onboardingStateKey);
+  }
+
+  Future<void> setOnboardingState(String state) async {
+    await prefs.setString(_onboardingStateKey, state);
   }
 
   static String _obpSupportedButtonsKey(String appName) => 'obp_supported_buttons_$appName';
@@ -515,6 +536,18 @@ class Settings {
     await prefs.setBool('zwift_click_v2_reconnect_warning', show);
   }
 
+  /// Whether the rider has completed the one-time Zwift Click V2 unlock-mode
+  /// onboarding. Reports done when prefs are not ready yet so an
+  /// uninitialised [Settings] never holds a device out of the connect queue.
+  bool getClickV2OnboardingDone() {
+    if (!_initialized) return true;
+    return prefs.getBool('click_v2_onboarding_done') ?? false;
+  }
+
+  Future<void> setClickV2OnboardingDone(bool value) async {
+    await prefs.setBool('click_v2_onboarding_done', value);
+  }
+
   void setRemoteControlEnabled(bool value) {
     prefs.setBool('remote_control_enabled', value);
   }
@@ -570,6 +603,19 @@ class Settings {
     final hotkeys = getButtonSimulatorHotkeys();
     hotkeys.remove(action);
     await setButtonSimulatorHotkeys(hotkeys);
+  }
+
+  /// WHEELTOP keepalive experiment (see WheeltopProbe): tries reply
+  /// candidates to the TX pod's status frame, one per reconnect. On by
+  /// default — TX shifters are unusable without it, and the pod drops too
+  /// fast for the user to reach a toggle mid-connection; disabling it instead
+  /// lets the quick-drop backoff quiet the reconnect loop.
+  void setWheeltopProbeEnabled(bool value) {
+    prefs.setBool('wheeltop_probe_enabled', value);
+  }
+
+  bool getWheeltopProbeEnabled() {
+    return prefs.getBool('wheeltop_probe_enabled') ?? true;
   }
 
   void setPhoneSteeringEnabled(bool value) {

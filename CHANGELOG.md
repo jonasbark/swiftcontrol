@@ -1,3 +1,14 @@
+### 6.4.0 (10-08-2026)
+**Features**:
+- Added a guided setup on first launch
+- Zwift Click V2: a new full-screen explainer lets you choose your unlock mode when the controller is first discovered — left side only (no Zwift unlock, ever) or unlock with Zwift (both controllers, re-unlock every 24 hours)
+- Trainer connection: a new "Help me decide" link explains the connect modes before you pick one.
+
+**Fixes**:
+- Windows: connection issues with virtual trainers are solved for MyWhoosh & Rouvy  
+- SRAM AXS: the shifter no longer disconnects after about three minutes of coasting.
+- Windows: Bluetooth advertising fixes when switching the Virtual Shifting transport.
+
 ### 6.3.0 (09-07-2026)
 **Features**:
 - SRAM AXS: After a lot of tinkering, SRAM AXS levers are now fully supported - all individual buttons are supported now. Read more in our blog!

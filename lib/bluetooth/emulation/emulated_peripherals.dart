@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/ble.dart';
 import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
+import 'package:bike_control/bluetooth/devices/wheeltop/wheeltop_eds.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart' show RideButtonMask;
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -61,6 +62,26 @@ FakePeripheral buildZwiftClick({String deviceId = 'fake-zwift-click', String nam
     ]),
     ...deviceInfoServices(peripheral, firmware: '1.1.0'),
   ]);
+  return peripheral;
+}
+
+/// One side of a Zwift Click V2. Detected via the Zwift custom service plus a
+/// manufacturer-data type of [ZwiftConstants.CLICK_V2_LEFT_SIDE] or
+/// [ZwiftConstants.CLICK_V2_RIGHT_SIDE]. Same GATT layout as the Click v1.
+FakePeripheral buildZwiftClickV2({required int sideCode, String? deviceId}) {
+  final id = deviceId ?? 'fake-zwift-click-v2-$sideCode';
+  final template = buildZwiftClick(deviceId: id, name: 'Zwift Click');
+  final peripheral = FakePeripheral(
+    deviceId: id,
+    name: 'Zwift Click',
+    advertisedServices: template.advertisedServices,
+    manufacturerData: ManufacturerData(
+      ZwiftConstants.ZWIFT_MANUFACTURER_ID,
+      Uint8List.fromList([sideCode]),
+    ),
+  );
+  peripheral.services.addAll(template.services);
+  peripheral.readValues.addAll(template.readValues);
   return peripheral;
 }
 
@@ -184,3 +205,35 @@ List<int> zwiftRideNotification({List<RideButtonMask> pressed = const []}) {
 
 /// Encodes a Zwift battery-level notification.
 List<int> zwiftBatteryNotification(int percent) => [ZwiftConstants.BATTERY_LEVEL_TYPE, 0x00, percent];
+
+/// A WHEELTOP EDS TX Left shifter: manufacturer-data advertisement (company
+/// id 0x0F07 split off by the platform, type byte 0x36, fw 2.58, 2.92 V) and
+/// a Nordic-UART GATT database with the button characteristic notifiable.
+/// The real pod advertises no name.
+FakePeripheral buildWheeltopEdsTxLeft({String deviceId = 'fake-wheeltop-tx-left'}) {
+  final peripheral = FakePeripheral(
+    deviceId: deviceId,
+    name: null,
+    manufacturerData: ManufacturerData(
+      0x0F07,
+      Uint8List.fromList([0x00, 0x14, 0x55, 0x6a, 0x84, 0x36, 0x02, 0x3a, 0x01, 0x24, 0x00, 0x00, 0x00]),
+    ),
+  );
+  peripheral.services.add(
+    BleService(lcUuid(WheeltopEdsConstants.SERVICE_UUID), [
+      bleChar(WheeltopEdsConstants.TX_CHARACTERISTIC_UUID, [
+        CharacteristicProperty.write,
+        CharacteristicProperty.notify,
+      ]),
+      // Stock Nordic UART second slot — writable AND notify-capable, like the
+      // demo shifter firmware (which exposes both slots write+notify). The app
+      // subscribes here too so a keepalive reply on this slot is captured.
+      bleChar('6e400003-b5a3-f393-e0a9-e50e24dcca9e', [
+        CharacteristicProperty.write,
+        CharacteristicProperty.writeWithoutResponse,
+        CharacteristicProperty.notify,
+      ]),
+    ]),
+  );
+  return peripheral;
+}

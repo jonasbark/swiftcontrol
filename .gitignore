@@ -72,3 +72,4 @@ private_keys/
 # submodule (gitignored there). The listing text lives in prop/store_metadata/.
 ios/fastlane/screenshots/
 ios/fastlane/screenshots_macos/
+.superpowers/

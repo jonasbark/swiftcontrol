@@ -18,6 +18,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:version/version.dart';
 
+import '../pages/onboarding/onboarding_page.dart';
+import '../pages/onboarding/onboarding_trigger.dart';
+import '../utils/settings/settings.dart';
 import '../widgets/changelog_dialog.dart';
 
 class Navigation extends StatefulWidget {
@@ -113,6 +116,25 @@ class _NavigationState extends State<Navigation> {
           lastSeenVersion != null &&
           Version.parse(lastSeenVersion) <= Version(5, 0, 0)) {
         IAPManager.instance.setWinBoughtBefore50();
+      }
+
+      try {
+        final onboardingAction = decideOnboardingTrigger(
+          lastSeenVersion: lastSeenVersion,
+          onboardingState: core.settings.getOnboardingState(),
+        );
+        if (onboardingAction == OnboardingTriggerAction.markCompleted) {
+          await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+        } else if (onboardingAction == OnboardingTriggerAction.show && !screenshotMode) {
+          await core.settings.setOnboardingState(Settings.onboardingStatePending);
+          if (mounted) {
+            await Navigator.of(context).push(
+              MaterialPageRoute(fullscreenDialog: true, builder: (_) => OnboardingPage()),
+            );
+          }
+        }
+      } catch (e, s) {
+        recordError(e, s, context: 'onboarding trigger');
       }
 
       if (mounted) {

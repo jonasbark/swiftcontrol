@@ -1,22 +1,11 @@
-import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/pages/configuration.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
-import 'package:bike_control/widgets/apps/local_tile.dart';
-import 'package:bike_control/widgets/apps/mywhoosh_link_tile.dart';
-import 'package:bike_control/widgets/apps/openbikecontrol_ble_tile.dart';
-import 'package:bike_control/widgets/apps/openbikecontrol_mdns_tile.dart';
-import 'package:bike_control/widgets/apps/zwift_mdns_tile.dart';
-import 'package:bike_control/widgets/apps/di2_ble_tile.dart';
-import 'package:bike_control/widgets/apps/zwift_tile.dart';
-import 'package:bike_control/widgets/keyboard_pair_widget.dart';
-import 'package:bike_control/widgets/mouse_pair_widget.dart';
+import 'package:bike_control/widgets/apps/connection_tiles.dart';
 import 'package:bike_control/widgets/trainer_features.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
-
-import '../utils/keymap/apps/zwift.dart';
 
 class TrainerPage extends StatefulWidget {
   final bool isMobile;
@@ -54,48 +43,16 @@ class _TrainerPageState extends State<TrainerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final showLocalAsOther =
-        //(core.logic.showObpBluetoothEmulator || core.logic.showObpMdnsEmulator) &&
-        false && core.logic.showLocalControl && !core.settings.getLocalEnabled();
-    final showWhooshLinkAsOther =
-        (core.logic.showObpBluetoothEmulator || core.logic.showObpMdnsEmulator) && core.logic.showMyWhooshLink;
-
-    final recommendedTiles = [
-      if (core.logic.showObpMdnsEmulator) OpenBikeControlMdnsTile(small: false),
-      if (core.logic.showObpBluetoothEmulator) OpenBikeControlBluetoothTile(small: false),
-
-      if (core.logic.showZwiftMsdnEmulator)
-        ZwiftMdnsTile(
-          small: false,
-          onUpdate: () {
-            core.connection.signalNotification(
-              LogNotification('Zwift Emulator status changed to ${core.zwiftEmulator.isConnected.value}'),
-            );
-          },
-        ),
-      if (core.logic.showZwiftBleEmulator)
-        ZwiftTile(
-          small: false,
-          onUpdate: () {
-            if (mounted) {
-              core.connection.signalNotification(
-                LogNotification('Zwift Emulator status changed to ${core.zwiftEmulator.isConnected.value}'),
-              );
-              setState(() {});
-            }
-          },
-        ),
-      if (core.logic.showDi2Ble) Di2BleTile(small: false),
-      if (core.logic.showLocalControl && !showLocalAsOther) LocalTile(small: false),
-      if (core.logic.showMyWhooshLink && !showWhooshLinkAsOther) MyWhooshLinkTile(small: false),
-    ];
-
-    final otherTiles = [
-      if (showWhooshLinkAsOther) MyWhooshLinkTile(small: false),
-      if (core.logic.showRemote) RemoteMousePairingWidget(small: false),
-      if (core.logic.showLocalControl && showLocalAsOther) LocalTile(small: false),
-      if (core.logic.showRemote && core.settings.getTrainerApp() is! Zwift) RemoteKeyboardPairingWidget(small: false),
-    ];
+    final tiles = buildConnectionMethodTiles(
+      small: false,
+      onUpdate: () {
+        if (mounted) {
+          setState(() {});
+        }
+      },
+    );
+    final recommendedTiles = tiles.recommended;
+    final otherTiles = tiles.other;
 
     return Scrollbar(
       controller: _scrollController,

@@ -10,7 +10,9 @@ import 'package:bike_control/bluetooth/devices/thinkrider/thinkrider_vs200.dart'
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_play.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_play_fw2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -48,7 +50,11 @@ HelpArticle? helpArticleFor(
 /// trainer proxy). `ZwiftClickV2 extends ZwiftRide` — keep the V2 check first.
 ({String slug, String name})? _controllerArticle(BaseDevice device) {
   if (device is ZwiftClickV2) return (slug: 'zwift-click-v2', name: 'Zwift Click V2');
+  if (device is ZwiftClickV2RightSide) return (slug: 'zwift-click-v2', name: 'Zwift Click V2');
   if (device is ZwiftClick) return (slug: 'zwift-click', name: 'Zwift Click');
+  // A Play on firmware 2.x speaks the Ride protocol but is still a Play to
+  // the rider — must come before the ZwiftRide check it extends.
+  if (device is ZwiftPlayFw2) return (slug: 'zwift-play', name: 'Zwift Play');
   if (device is ZwiftPlay) return (slug: 'zwift-play', name: 'Zwift Play');
   if (device is ZwiftRide) return (slug: 'zwift-ride', name: 'Zwift Ride');
   if (device is ShimanoDi2) return (slug: 'shimano-di2', name: 'Shimano Di2');

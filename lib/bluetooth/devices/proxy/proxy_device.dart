@@ -693,6 +693,7 @@ class ProxyDevice extends BluetoothDevice {
   /// (scan-time / app-launch). Requires an explicit prior connect intent
   /// (`getAutoConnect`) and, for smart trainers, the one-time takeover-consent
   /// flag set via the consent dialog.
+  @override
   bool get shouldAutoConnect {
     if (!core.settings.getAutoConnect(trainerKey)) return false;
     if (isSmartTrainer && !core.settings.getSmartTrainerConsent(trainerKey)) return false;

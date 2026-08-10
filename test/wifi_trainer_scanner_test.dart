@@ -20,9 +20,14 @@ void main() {
     });
 
     test('excludes a service carrying our TXT fingerprint (other BikeControl on LAN)', () {
+      // The other install advertises its own mac-address — that field is
+      // per-install now, so only the constant manufacturer-data identifies it.
       final service = Service(name: 'KICKR - BikeControl', type: '_wahoo-fitness-tnp._tcp', port: 36870,
           addresses: [InternetAddress('192.168.1.99')],
-          txt: {'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.macAddress.codeUnits)});
+          txt: {
+            'mac-address': Uint8List.fromList('95E042B7-1337-039E-C35F-AABBCCDDEEFF'.codeUnits),
+            'manufacturer-data': Uint8List.fromList(BikeControlMdnsMarkers.manufacturerData.codeUnits),
+          });
       expect(WifiTrainerScanner.isSelfAdvertisement(service, localAddresses: {'192.168.1.10'}), isTrue);
     });
 
