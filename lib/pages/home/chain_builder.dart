@@ -103,10 +103,18 @@ ChainLink _trainerLink(ChainInputs inputs) {
   }
 
   final paired = _isPresent(trainer.presence);
-  final steps = <SetupStep>[
-    SetupStep(id: SetupStepId.trainerPaired, done: paired),
-    SetupStep(id: SetupStepId.trainerGears, done: trainer.gearsConfigured, hintArg: trainer.gearsSummary),
-  ];
+  // A checklist only earns its space once the rider has committed to bridging
+  // this trainer. Before that — a trainer merely in range, or one deliberately
+  // left on "let the app handle shifting" — a list of unticked boxes reads as
+  // work outstanding when nothing is outstanding at all.
+  final committed =
+      trainer.presence != DevicePresence.discovered && trainer.presence != DevicePresence.remembered;
+  final steps = committed
+      ? <SetupStep>[
+          SetupStep(id: SetupStepId.trainerPaired, done: paired),
+          SetupStep(id: SetupStepId.trainerGears, done: trainer.gearsConfigured, hintArg: trainer.gearsSummary),
+        ]
+      : const <SetupStep>[];
 
   final incomplete = steps.any((s) => !s.done);
   final presenceStatus = _presenceStatus(trainer.presence);

@@ -1,4 +1,10 @@
+import 'dart:async';
+
+import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
+import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
+import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
+import 'package:bike_control/utils/trainer_connect.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/utils/core.dart';
@@ -7,7 +13,6 @@ import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/widgets/guided_operation_sheet.dart';
 import 'package:bike_control/widgets/scan.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 /// The instruction sheets a chain card's active step opens.
 ///
@@ -95,9 +100,7 @@ class _AppGuide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final guide = onboardingGuideFor(context, app);
     final scheme = Theme.of(context).colorScheme;
-    final guideUrl = guide.guideUrl;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -112,38 +115,85 @@ class _AppGuide extends StatelessWidget {
         const Gap(14),
         Text(context.i18n.onboardingThenInApp(app.name)).h4,
         const Gap(12),
-        for (final (index, step) in guide.steps.indexed) ...[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(color: scheme.primary, shape: BoxShape.circle),
-                alignment: Alignment.center,
-                child: Text(
-                  '${index + 1}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
-                ),
-              ),
-              const Gap(12),
-              Expanded(child: Text(step).small),
-            ],
+        // The very card the wizard showed during setup — same numbered steps,
+        // same screenshots, same link. A rider who lost the connection should
+        // not be handed a different, thinner set of instructions than the ones
+        // that got them connected in the first place.
+        OnboardingAppGuideCard(app: app, bordered: false),
+        const Gap(16),
+        SizedBox(
+          width: double.infinity,
+          child: PrimaryButton(
+            onPressed: () => closeSheet(context),
+            child: Text(context.i18n.close),
           ),
-          const Gap(12),
-        ],
-        if (guideUrl != null) ...[
-          const Gap(2),
-          SizedBox(
-            width: double.infinity,
-            child: OutlineButton(
-              onPressed: () => launchUrlString(guideUrl, mode: LaunchMode.externalApplication),
-              trailing: const Icon(LucideIcons.externalLink, size: 14),
-              child: Text(context.i18n.onboardingFullSetupGuide(app.name)),
-            ),
-          ),
-          const Gap(8),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Picking a smart trainer to bridge — the onboarding trainer step, reached
+/// from the home screen's trainer card. Riders who skipped the trainer during
+/// setup, or bought one later, get the same list and the same explanation of
+/// what bridging buys them.
+Future<void> openTrainerConnectSheet(BuildContext context) {
+  final app = core.settings.getTrainerApp();
+  if (app == null) return openOnboardingHelpSheet(context, OnboardingStep.virtualShifting);
+
+  return openSheet<void>(
+    context: context,
+    position: OverlayPosition.bottom,
+    builder: (sheetContext) => _frame(sheetContext, _TrainerPicker(app: app)),
+  );
+}
+
+class _TrainerPicker extends StatefulWidget {
+  const _TrainerPicker({required this.app});
+
+  final SupportedApp app;
+
+  @override
+  State<_TrainerPicker> createState() => _TrainerPickerState();
+}
+
+class _TrainerPickerState extends State<_TrainerPicker> {
+  StreamSubscription<BaseDevice>? _connectionListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // The list is live: a trainer that wakes up mid-sheet should appear, and
+    // one that finishes connecting should flip to its connected state without
+    // the rider closing and reopening the sheet.
+    _connectionListener = core.connection.connectionStream.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectionListener?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        onboardingTrainerBody(
+          context,
+          app: widget.app,
+          trainers: core.connection.proxyDevices,
+          onPick: (device) async {
+            await connectTrainerFromPicker(context, device);
+            if (mounted) setState(() {});
+          },
+          virtualShiftingBlocked: onboardingVirtualShiftingBlocked(widget.app),
+        ),
+        const Gap(16),
         SizedBox(
           width: double.infinity,
           child: PrimaryButton(

@@ -53,6 +53,9 @@ class ChainCard extends StatefulWidget {
   State<ChainCard> createState() => _ChainCardState();
 }
 
+/// Long enough to read as a movement, short enough not to hold the rider up.
+const Duration _statusChangeDuration = Duration(milliseconds: 260);
+
 class _ChainCardState extends State<ChainCard> {
   /// Null means "follow the link's own default" — ready cards collapse,
   /// unresolved cards open. Once the rider taps the summary row, their choice
@@ -91,7 +94,9 @@ class _ChainCardState extends State<ChainCard> {
       width: 1.5,
     );
 
-    return Container(
+    return AnimatedContainer(
+      duration: _statusChangeDuration,
+      curve: Curves.easeOut,
       decoration: ShapeDecoration(
         color: theme.colorScheme.card,
         shape: RoundedRectangleBorder(
@@ -107,10 +112,24 @@ class _ChainCardState extends State<ChainCard> {
         children: [
           _header(context),
           if (widget.body != null) Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), child: widget.body!),
-          if (link.steps.isNotEmpty) ...[
-            _summaryRow(context),
-            if (_expanded) _checklist(context),
-          ],
+          // The checklist grows and shrinks rather than blinking in and out: when
+          // the last step of a card finally ticks, the card collapses to its
+          // one-line summary as a movement the eye can follow, which is what
+          // makes "that's done now" legible instead of just sudden.
+          AnimatedSize(
+            duration: _statusChangeDuration,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: link.steps.isEmpty
+                ? const SizedBox(width: double.infinity)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _summaryRow(context),
+                      if (_expanded) _checklist(context),
+                    ],
+                  ),
+          ),
         ],
       ),
     );

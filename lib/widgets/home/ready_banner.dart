@@ -55,7 +55,11 @@ class ReadyBanner extends StatelessWidget {
             : l.chainPendingSubtitleMultiple('${names.take(names.length - 1).join(', ')} & ${names.last}');
     }
 
-    return Container(
+    // The banner changes shape as well as colour between calm and alarmed, so
+    // it animates rather than snapping — the rider sees the screen resolve.
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
       margin: const EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.symmetric(horizontal: calm ? 13 : 14, vertical: calm ? 11 : 13),
       decoration: ShapeDecoration(
@@ -67,7 +71,9 @@ class ReadyBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutBack,
             width: calm ? 24 : 34,
             height: calm ? 24 : 34,
             decoration: BoxDecoration(color: style.color, shape: BoxShape.circle),

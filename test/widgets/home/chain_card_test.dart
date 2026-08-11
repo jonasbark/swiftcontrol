@@ -146,6 +146,44 @@ void main() async {
     expect(find.text(l.chainOptional.toUpperCase()), findsNothing);
   });
 
+  group('animating a status change', () {
+    testWidgets('a card that becomes ready collapses its checklist over time, not instantly', (tester) async {
+      await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, true, false]));
+      expect(find.byType(StepRow), findsNWidgets(3));
+
+      // The last step lands: the card is now ready and should fold away.
+      await tester.pumpWidget(
+        ShadcnApp(
+          localizationsDelegates: const [AppLocalizations.delegate],
+          supportedLocales: AppLocalizations.delegate.supportedLocales,
+          theme: ThemeData(colorScheme: ColorSchemes.lightSlate, radius: 0.5),
+          home: Scaffold(
+            child: SingleChildScrollView(
+              child: ChainCard(
+                link: link(),
+                tile: const Icon(LucideIcons.gamepad),
+                title: 'Zwift Click V2',
+                statusLabel: 'status',
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Mid-flight the card is still taller than its resting height — proof the
+      // collapse is animating rather than snapping shut in one frame.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final midHeight = tester.getSize(find.byType(ChainCard)).height;
+
+      await tester.pumpAndSettle();
+      final restHeight = tester.getSize(find.byType(ChainCard)).height;
+
+      expect(midHeight, greaterThan(restHeight));
+      expect(find.byType(StepRow), findsNothing);
+    });
+  });
+
   group('swipe to forget', () {
     testWidgets('a disconnected card can be swiped away', (tester) async {
       var dismissed = 0;

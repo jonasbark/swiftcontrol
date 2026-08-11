@@ -7,7 +7,6 @@ import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 const _success = Color(0xFF22C55E);
 const _warning = Color(0xFFF59E0B);
@@ -178,7 +177,6 @@ Widget onboardingConnectionBody(
   required String? trainerName,
   required VoidCallback onUpdate,
 }) {
-  final guide = onboardingGuideFor(context, app);
   final scheme = Theme.of(context).colorScheme;
   final bridgeEntry = '${trainerName ?? ''} - BikeControl';
 
@@ -244,61 +242,7 @@ Widget onboardingConnectionBody(
         Padding(padding: const EdgeInsets.only(bottom: 10), child: methodTile(method)),
     Gap(10),
     OnboardingGroupLabel(context.i18n.onboardingThenInApp(app.name)),
-    Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration:
-          BoxDecoration(border: Border.all(color: scheme.border, width: 1.5), borderRadius: BorderRadius.circular(12)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        for (var i = 0; i < guide.steps.length; i++)
-          Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 22,
-                height: 22,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: onboardingAccent(context)),
-                child: DefaultTextStyle.merge(
-                  style: const TextStyle(color: Color(0xFFFFFFFF)),
-                  child: Text('${i + 1}').xSmall.semiBold,
-                ),
-              ),
-              Gap(11),
-              Expanded(child: Padding(padding: const EdgeInsets.only(top: 2), child: Text(guide.steps[i]).small)),
-            ]),
-          ),
-        if (guide.screenshotUrls.isNotEmpty) ...[
-          Gap(13),
-          SizedBox(
-            height: 118,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              for (final url in guide.screenshotUrls)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(url, height: 118, errorBuilder: (_, _, _) => const SizedBox.shrink()),
-                  ),
-                ),
-            ]),
-          ),
-        ],
-        if (guide.guideUrl != null) ...[
-          Gap(12),
-          Button.ghost(
-            onPressed: () => launchUrlString(guide.guideUrl!, mode: LaunchMode.externalApplication),
-            child: Row(children: [
-              Icon(LucideIcons.bookOpen, size: 15),
-              Gap(8),
-              Text(context.i18n.onboardingFullSetupGuide(app.name)).small,
-              Gap(6),
-              Icon(LucideIcons.externalLink, size: 13),
-            ]),
-          ),
-        ],
-      ]),
-    ),
+    OnboardingAppGuideCard(app: app),
     if (hasTrainer) ...[
       Gap(20),
       OnboardingGroupLabel(context.i18n.onboardingPairAsTrainer),

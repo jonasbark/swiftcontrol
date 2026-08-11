@@ -1,0 +1,42 @@
+import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
+import 'package:bike_control/widgets/go_pro_dialog.dart';
+import 'package:bike_control/widgets/ui/toast.dart';
+import 'package:prop/prop.dart' show LogLevel, RetrofitMode;
+import 'package:shadcn_flutter/shadcn_flutter.dart';
+
+/// Connects a smart trainer the way the onboarding wizard does: pick it from a
+/// list, and it bridges over WiFi.
+///
+/// Shared by the onboarding trainer step and the home screen's trainer card, so
+/// "connect my trainer" behaves identically wherever a rider reaches it — same
+/// transport, same trial gate, same routing through the connection manager.
+///
+/// Returns true when a connect was actually started.
+Future<bool> connectTrainerFromPicker(BuildContext context, ProxyDevice device) async {
+  try {
+    if (device.isStartedListenable.value || device.isStarting.value || device.isConnectedListenable.value) {
+      return false;
+    }
+    if (IAPManager.instance.isTrialExpired) {
+      await showGoProDialog(context);
+      return false;
+    }
+    // WiFi transport: the trainer app finds "<trainer> - BikeControl" over the
+    // network, and no BLE-advertise permission prompt interrupts the flow.
+    device.setRetrofitMode(RetrofitMode.wifi);
+    await core.settings.setRetrofitMode(device.trainerKey, RetrofitMode.wifi);
+    await core.settings.setAutoConnect(device.trainerKey, true);
+    // Route through the connection manager (not device.startProxy directly) so
+    // the action / connection-state listeners are attached — same rationale as
+    // ConnectionCard._onSelect.
+    await core.connection.connectDevice(device);
+    return true;
+  } catch (e, s) {
+    recordError(e, s, context: 'connect trainer from picker');
+    buildToast(level: LogLevel.LOGLEVEL_ERROR, title: e.toString());
+    return false;
+  }
+}

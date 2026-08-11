@@ -168,10 +168,16 @@ class _HomePageState extends State<HomePage> {
     TrainerInput? trainer;
     if (proxy != null) {
       final config = core.shiftingConfigs.configsFor(proxy.trainerKey);
+      // Picking "No connection" — letting the trainer app handle shifting — is
+      // a deliberate resting state. Whatever happened earlier in the session,
+      // a trainer the rider has switched off is not a trainer that broke.
+      final wanted = core.settings.getAutoConnect(proxy.trainerKey);
       trainer = TrainerInput(
         deviceId: proxy.uniqueId,
         name: proxy.toString(),
-        presence: _presenceOf(proxy, isStandIn: false),
+        presence: !proxy.isConnected && !wanted
+            ? DevicePresence.discovered
+            : _presenceOf(proxy, isStandIn: false),
         gearsConfigured: config.isNotEmpty,
         gearsSummary: _gearsSummary(proxy),
         metrics: _trainerMetrics(proxy),
@@ -469,6 +475,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _trainerCard(ChainLink link, ChainInputs inputs) {
     final proxy = core.connection.proxyDevices.sortedBy((p) => p.isConnected ? 0 : 1).firstOrNull;
+    final connected = link.status == LinkStatus.ready || (proxy?.isConnected ?? false);
     final appReady = inputs.app.isConnected;
     final appName = inputs.app.name;
 
@@ -497,12 +504,14 @@ class _HomePageState extends State<HomePage> {
       ),
       title: link.title.isEmpty ? context.i18n.chainTrainerTitle : link.title,
       statusLabel: statusLabel,
-      editLabel: proxy == null ? context.i18n.connect : context.i18n.chainEdit,
+      // Until a trainer is actually bridged there is nothing to edit — the
+      // useful offer is to connect it, the same way onboarding does.
+      editLabel: connected ? context.i18n.chainEdit : context.i18n.connect,
       onEdit: () async {
-        if (proxy != null) {
+        if (connected && proxy != null) {
           await context.push(ProxyDeviceDetailsPage(device: proxy));
         } else {
-          await openControllerSetupSheet(context);
+          await openTrainerConnectSheet(context);
         }
         _update();
       },
@@ -555,7 +564,13 @@ class _HomePageState extends State<HomePage> {
           await openControllerHelpSheet(context);
         }
       case ChainLinkKey.trainer:
-        await openTrainerHelpSheet(context);
+        // Not connected yet? The useful next step is the picker, not a
+        // troubleshooting list for a connection that was never made.
+        if (link.status == LinkStatus.ready) {
+          await openTrainerHelpSheet(context);
+        } else {
+          await openTrainerConnectSheet(context);
+        }
       case ChainLinkKey.app:
         await openAppGuideSheet(context);
     }

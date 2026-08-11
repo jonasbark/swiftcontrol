@@ -199,6 +199,27 @@ void main() {
       expect(link.isBlocking, isFalse);
     });
 
+    test('a trainer we have only discovered offers no checklist', () {
+      final chain = buildChain(
+        ChainInputs(trainer: trainer(presence: DevicePresence.discovered), app: _readyApp),
+      );
+      // Unticked boxes on a trainer nobody has committed to read as work
+      // outstanding when there is none.
+      expect(chain.byKey(ChainLinkKey.trainer).steps, isEmpty);
+    });
+
+    test('a remembered trainer left disconnected offers no checklist either', () {
+      final chain = buildChain(
+        ChainInputs(trainer: trainer(presence: DevicePresence.remembered), app: _readyApp),
+      );
+      expect(chain.byKey(ChainLinkKey.trainer).steps, isEmpty);
+    });
+
+    test('a trainer that dropped keeps its checklist', () {
+      final chain = buildChain(ChainInputs(trainer: trainer(presence: DevicePresence.lost), app: _readyApp));
+      expect(chain.byKey(ChainLinkKey.trainer).steps, isNotEmpty);
+    });
+
     test('a connected trainer with gears set up is ready and shows its metrics', () {
       final chain = buildChain(ChainInputs(controllers: [controller()], trainer: trainer(), app: _readyApp));
       final link = chain.byKey(ChainLinkKey.trainer);

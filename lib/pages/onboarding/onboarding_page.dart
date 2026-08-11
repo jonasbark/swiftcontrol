@@ -22,6 +22,7 @@ import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_welcome.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/trainer_connect.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -30,9 +31,7 @@ import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
-import 'package:bike_control/widgets/go_pro_dialog.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
-import 'package:prop/prop.dart' show LogLevel, RetrofitMode;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 const double kOnboardingDesktopBreakpoint = 800;
@@ -581,36 +580,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// of ConnectionCard._onSelect (proxy_device_details/connection_card.dart);
   /// the details page stays reachable from the home screen for mode changes.
   Future<void> _onPickTrainer(ProxyDevice device) async {
-    try {
-      if (device.isStartedListenable.value || device.isStarting.value || device.isConnectedListenable.value) {
-        return;
-      }
-      if (IAPManager.instance.isTrialExpired) {
-        await showGoProDialog(context);
-        return;
-      }
-      if (device.isSmartTrainer) {
-      }
-      // WiFi transport: the app finds "<trainer> - BikeControl" over the
-      // network (step 5's bridge card), and no BLE-advertise permission
-      // prompts interrupt the wizard.
-      device.setRetrofitMode(RetrofitMode.wifi);
-      await core.settings.setRetrofitMode(device.trainerKey, RetrofitMode.wifi);
-      await core.settings.setAutoConnect(device.trainerKey, true);
-      // Route through the connection manager (not device.startProxy directly)
-      // so the action / connection-state listeners are attached — same
-      // rationale as ConnectionCard._onSelect.
-      await core.connection.connectDevice(device);
-      if (!mounted) return;
-      setState(() {});
-    } catch (e, s) {
-      recordError(e, s, context: 'onboarding pick trainer');
-      if (mounted) {
-        core.connection.signalNotification(
-          AlertNotification(LogLevel.LOGLEVEL_ERROR, 'Error: ${e.toString()}'),
-        );
-      }
-    }
+    await connectTrainerFromPicker(context, device);
+    if (mounted) setState(() {});
   }
 
   /// Same readiness the done body's headline uses: the app is connected
