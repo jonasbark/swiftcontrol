@@ -190,20 +190,6 @@ class Settings {
     await prefs.setBool(_autoConnectKey(trainerKey), autoConnect);
   }
 
-  static String _smartTrainerConsentKey(String trainerKey) => 'smart_trainer_consent_$trainerKey';
-
-  /// Whether the user has acknowledged the one-time explainer dialog the
-  /// first time they tap a smart trainer (BikeControl takes over Virtual
-  /// Shifting; the trainer app then connects to the virtual trainer instead).
-  /// Set to true only after they confirm via Continue.
-  bool getSmartTrainerConsent(String trainerKey) {
-    return prefs.getBool(_smartTrainerConsentKey(trainerKey)) ?? false;
-  }
-
-  Future<void> setSmartTrainerConsent(String trainerKey, bool consent) async {
-    await prefs.setBool(_smartTrainerConsentKey(trainerKey), consent);
-  }
-
   static const String _virtualShiftingIntroSeenKey = 'virtual_shifting_intro_seen';
 
   /// Whether the user has seen the one-time Virtual Shifting beta intro shown
@@ -838,6 +824,27 @@ class Settings {
 
   Future<void> setUnlockWithZwift(bool value) async {
     await prefs.setBool('unlock_mode', value);
+  }
+
+  /// Whether the rider runs their Zwift Click V2 as the right puck alone.
+  ///
+  /// This is the third Click V2 state, alongside [getUnlockWithZwift]: the
+  /// right side needs no unlock and never restarts, so it connects on its own
+  /// and the left side — the only one Zwift locks — is held out of the connect
+  /// queue. Keeping the two sides apart is what makes this mode work at all:
+  /// `ClickLogic` drives the left side's restart loop from a single shared
+  /// timer that the right side's handshake cancels, so the restart mode and the
+  /// right side cannot be live at the same time.
+  ///
+  /// Guarded like [getUseNewUnlockMethod] because the connect gates that read
+  /// it run during device detection, which can precede [init].
+  bool getClickV2RightSideOnly() {
+    if (!_initialized) return false;
+    return prefs.getBool('click_v2_right_side_only') ?? false;
+  }
+
+  Future<void> setClickV2RightSideOnly(bool value) async {
+    await prefs.setBool('click_v2_right_side_only', value);
   }
 
   /// Whether a Zwift Click V2 connects as separate left/right controllers with

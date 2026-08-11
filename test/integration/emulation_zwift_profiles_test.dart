@@ -32,13 +32,17 @@ Future<void> main() async {
     // don't hit a LateInitializationError.
     propPrefs.initialize(core.settings.prefs);
     // These tests exercise a *connected* Click V2's button/profile behaviour;
-    // the unlock-mode onboarding gate (ClickV2Onboarding.isPending) is
-    // orthogonal to that. env.resetState() starts from empty prefs, so
-    // isPending would otherwise read true and ZwiftClickV2.shouldAutoConnect
-    // would hold the controller out of the connect queue -- connect() returns
-    // early, no BLE link opens, and the handshake write these tests wait for
-    // never arrives. Mark onboarding done so the gate doesn't interfere.
+    // which unlock mode the rider picked is orthogonal to that. env.resetState()
+    // starts from empty prefs, so both connect gates would otherwise hold the
+    // controller out of the queue -- connect() returns early, no BLE link
+    // opens, and the handshake write these tests wait for never arrives.
+    //
+    // Onboarding done clears ClickV2Onboarding.isPending for both sides.
+    // Unlock-with-Zwift is then the one mode in which BOTH sides connect, so
+    // the left- and right-side cases below can share this setUp; the other two
+    // modes each deliberately hold one side back.
     await core.settings.setClickV2OnboardingDone(true);
+    await core.settings.setUnlockWithZwift(true);
     stubActions = StubActions();
     stubActions.supportedApp = Zwift();
     core.actionHandler = stubActions;

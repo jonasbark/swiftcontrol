@@ -21,6 +21,14 @@ mixin ManualInclineDevice on BluetoothDevice implements InclineSink {
   @override
   Future<bool> writeInclineRaw(int grade001Pct);
 
+  @override
+  List<InGameAction> get assignableActions => const [
+    InGameAction.inclineIncrease,
+    InGameAction.inclineDecrease,
+    InGameAction.inclineZero,
+    InGameAction.inclineAutoMode,
+  ];
+
   Future<ActionResult> handleKeypair(KeyPair keyPair, {required bool isKeyDown}) async {
     if (!isKeyDown) return NotHandled('', button: keyPair.buttons.firstOrNull);
     try {

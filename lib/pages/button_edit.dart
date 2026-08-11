@@ -1515,13 +1515,11 @@ class SelectableCard extends StatelessWidget {
     // ring is drawn as an overlay so AnimatedOpacity can cross-fade it in/out
     // without shadcn's internal style swap snapping between two border colors.
     //
-    // StackFit.passthrough hands the incoming constraints to the button
-    // unchanged: under a tight cell (the onboarding app grid) the visible card
-    // fills the cell exactly — matching the Positioned.fill active ring —
-    // instead of shrink-wrapping its caption into uneven tiles. In the
-    // existing loose-height contexts (settings rows) it behaves as before.
+    // The Stack keeps its default loose fit: passing constraints through
+    // handed the card an unbounded height inside scrolling drawers (the
+    // subscription sheet), which crashed layout. The onboarding app grid
+    // that once needed passthrough has its own tile widget now.
     return Stack(
-      fit: StackFit.passthrough,
       children: [
         Button.outline(
           style:

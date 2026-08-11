@@ -11,15 +11,14 @@ import 'package:bike_control/pages/proxy_device_details/live_metrics_section.dar
 import 'package:bike_control/pages/proxy_device_details/mini_workout_card.dart';
 import 'package:bike_control/pages/proxy_device_details/overlay_settings_section.dart';
 import 'package:bike_control/pages/proxy_device_details/trainer_settings_section.dart';
-import 'package:bike_control/pages/proxy_device_details/virtual_shifting_intro_page.dart';
 import 'package:bike_control/pages/proxy_device_details/virtual_shifting_pro_notice.dart';
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
-import 'package:bike_control/widgets/menu.dart' show debugText;
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
+import 'package:bike_control/widgets/menu.dart' show debugText;
 import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -47,18 +46,6 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
     widget.device.retrofitMode.addListener(_onEmulatorStateChanged);
     _connectionSub = core.connection.connectionStream.listen((_) {
       if (mounted) setState(() {});
-    });
-    _maybeShowVirtualShiftingIntro();
-  }
-
-  /// Show the one-time Virtual Shifting beta intro the first time this page is
-  /// opened. The flag is set as soon as it's shown so it appears exactly once.
-  void _maybeShowVirtualShiftingIntro() {
-    if (screenshotMode || core.settings.getVirtualShiftingIntroSeen()) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      core.settings.setVirtualShiftingIntroSeen(true);
-      showVirtualShiftingIntro(context);
     });
   }
 
@@ -236,8 +223,7 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
       MaterialPageRoute(
         builder: (_) => SupportChatPage(
           telemetryBuilder: () => snapshotFuture,
-          diagnosticPreviewFuture:
-              snapshotFuture.then((s) => JsonEncoder.withIndent('  ').convert(s.toJson())),
+          diagnosticPreviewFuture: snapshotFuture.then((s) => JsonEncoder.withIndent('  ').convert(s.toJson())),
           initialText: '$label\n',
           initialAttachment: screenshot,
         ),

@@ -1,0 +1,13 @@
+# Test runner config, read by `flutter test`.
+#
+# The screenshot/snapshot suites don't assert anything — they render widgets to
+# PNGs for the app stores, the blog and the docs. They are by far the slowest
+# files in the suite (fonts, real themes, one render per locale) and their
+# goldens flap on unrelated machines, so a normal `flutter test` skips them.
+#
+# To regenerate the images:
+#   flutter test --run-skipped --tags screenshots
+#   flutter test --run-skipped --update-goldens test/screenshot_test.dart
+tags:
+  screenshots:
+    skip: "Image generation only — run with `flutter test --run-skipped --tags screenshots`"

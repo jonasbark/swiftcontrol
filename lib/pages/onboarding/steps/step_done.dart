@@ -1,4 +1,5 @@
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -26,7 +27,7 @@ Widget onboardingDoneBody(BuildContext context,
           ? (LucideIcons.bike, trainerName, context.i18n.onboardingSummaryBridged, true)
           : (LucideIcons.bike, trainerName, context.i18n.onboardingSummaryWaitingFor(app.name), false),
   ];
-  return Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+  return Column(crossAxisAlignment: CrossAxisAlignment.center, children: onboardingReveal([
     Gap(8),
     _SuccessBurst(reduceMotion: reduceMotion, ready: allReady),
     Gap(14),
@@ -79,7 +80,7 @@ Widget onboardingDoneBody(BuildContext context,
         ]),
       ),
     ],
-  ]);
+  ]));
 }
 
 /// Green success circle shown at the top of the "done" step. Pops in with a

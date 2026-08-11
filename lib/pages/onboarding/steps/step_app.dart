@@ -1,3 +1,6 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_update_banner.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_group_label.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_note.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -27,7 +30,7 @@ class OnboardingAppTile extends StatelessWidget {
           height: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            border: Border.all(color: selected ? scheme.primary : scheme.border, width: 1.5),
+            border: Border.all(color: selected ? onboardingAccent(context) : scheme.border, width: 1.5),
             borderRadius: BorderRadius.circular(12),
             color: scheme.card,
           ),
@@ -63,8 +66,8 @@ class OnboardingAppTile extends StatelessWidget {
               width: 18,
               height: 18,
               alignment: Alignment.center,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.primary),
-              child: Icon(LucideIcons.check, size: 11, color: const Color(0xFFFFFFFF)),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: onboardingAccent(context)),
+              child: Icon(LucideIcons.check, size: 11, color: onboardingOnAccent),
             ),
           ),
       ]),
@@ -85,7 +88,9 @@ Widget _verifiedBadge(BuildContext context) => Container(
     );
 
 Widget onboardingAppBody(BuildContext context,
-    {required SupportedApp? selected, required ValueChanged<SupportedApp> onSelect}) {
+    {required SupportedApp? selected,
+    required ValueChanged<SupportedApp> onSelect,
+    bool showUpdateBanner = false}) {
   final official = SupportedApp.supportedApps.where((a) => a.officialIntegration).toList();
   final other = SupportedApp.supportedApps.where((a) => !a.officialIntegration).toList();
 
@@ -107,7 +112,9 @@ Widget onboardingAppBody(BuildContext context,
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+    children: onboardingReveal([
+      // Shown only when the welcome screen didn't already make the offer.
+      if (showUpdateBanner) const OnboardingUpdateBanner(),
       Text(context.i18n.onboardingAppTitle).h4,
       Gap(6),
       Text(context.i18n.onboardingAppSubtitle).small.muted,
@@ -119,6 +126,6 @@ Widget onboardingAppBody(BuildContext context,
       grid(other),
       Gap(14),
       OnboardingNote(context.i18n.onboardingAppNote),
-    ],
+    ]),
   );
 }

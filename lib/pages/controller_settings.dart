@@ -7,6 +7,7 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/customize.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/help_article.dart';
+import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
@@ -16,6 +17,7 @@ import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/trainer_label.dart';
+import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -48,6 +50,10 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
     super.dispose();
   }
 
+  /// Context under this page's [DrawerOverlay]; see the note in [build].
+  BuildContext? _overlayContext;
+  BuildContext get _sheetContext => _overlayContext ?? context;
+
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
@@ -58,6 +64,13 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
     return DrawerOverlay(
       child: Builder(
         builder: (context) {
+          // Everything below is built from THIS context, not the State's: the
+          // DrawerOverlay that hosts openDrawer is created right above this
+          // Builder, so `State.context` sits outside it and any drawer opened
+          // from a helper method that closes over it dies on "No DrawerOverlay
+          // found in the widget tree" (the "Unlock again" button did exactly
+          // that).
+          _overlayContext = context;
           return Scaffold(
             headers: [
               AppBar(
@@ -69,7 +82,9 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                   ),
                 ],
                 title: Text(
-                  AppLocalizations.of(context).controllerSettings,
+                  device is Accessory
+                      ? AppLocalizations.of(context).deviceSettings
+                      : AppLocalizations.of(context).controllerSettings,
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
                 ),
                 trailing: [
@@ -105,14 +120,27 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                       ],
                       const Gap(24),
 
-                      // Button mapping
-                      _buildSectionHeader(
-                        AppLocalizations.of(context).buttonMapping,
-                        trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
-                      ),
-                      const Gap(12),
-                      CustomizePage(isMobile: false, filterDevice: widget.device),
-                      const Gap(24),
+                      // Button mapping. An accessory — a Headwind fan, a Climb —
+                      // has no buttons of its own, so the section would render an
+                      // empty mapping table under a heading that promises one.
+                      if (device is! Accessory) ...[
+                        _buildSectionHeader(
+                          AppLocalizations.of(context).buttonMapping,
+                          trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
+                        ),
+                        const Gap(12),
+                        CustomizePage(isMobile: false, filterDevice: widget.device),
+                        const Gap(24),
+                      ],
+
+                      // What an accessory gets instead: the actions it obeys,
+                      // and the controller whose buttons can carry them.
+                      if (device is Accessory && device.assignableActions.isNotEmpty) ...[
+                        _buildSectionHeader(AppLocalizations.of(context).accessoryActions),
+                        const Gap(12),
+                        _buildAssignableActions(device),
+                        const Gap(24),
+                      ],
 
                       // Preferences
                       if (device.buildPreferences(context) != null) ...[
@@ -171,7 +199,7 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Theme.of(context).colorScheme.border),
       ),
-      child: device.showInformation(context, showFull: true, footer: footer),
+      child: device.showInformation(_sheetContext, showFull: true, footer: footer),
     );
   }
 
@@ -194,12 +222,69 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
     return TrainerLabel(name: name);
   }
 
+  /// The actions an accessory obeys, and the way to actually assign one.
+  ///
+  /// Nothing here is editable in place: an accessory has no buttons, so these
+  /// live on a *controller's* button. The page therefore names them and hands
+  /// over to the controller that can carry them — the connected one, since
+  /// that is the one the rider can test a mapping on right away.
+  Widget _buildAssignableActions(BaseDevice device) {
+    final theme = Theme.of(context);
+    final controller =
+        core.connection.controllerDevices.firstOrNullWhere((d) => d.isConnected) ??
+        core.connection.controllerDevices.firstOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.card,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.colorScheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final action in device.assignableActions)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(action.icon ?? LucideIcons.circleDot, size: 16, color: theme.colorScheme.mutedForeground),
+                      const Gap(10),
+                      Expanded(child: Text(action.title).small),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const Gap(12),
+        if (controller != null)
+          _buildActionButton(
+            icon: LucideIcons.gamepad2,
+            label: AppLocalizations.of(context).accessorySetUpOnController(controller.displayName(context)),
+            onTap: () async {
+              await context.push(ControllerSettingsPage(device: controller));
+              if (mounted) setState(() {});
+            },
+          )
+        else
+          Text(AppLocalizations.of(context).accessoryNoControllerYet).xSmall.muted,
+      ],
+    );
+  }
+
   Widget _buildActions(BaseDevice device, Keymap? keymap) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 8,
       children: [
-        if (keymap != null) ...[
+        // Same reason the mapping section is hidden: there is nothing to reset
+        // for a device that never had a mapping.
+        if (keymap != null && device is! Accessory) ...[
           Button.outline(
             onPressed: () {
               core.settings.getTrainerApp()?.keymap.resetForDevice(device);
@@ -224,7 +309,7 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                   return;
                 }
                 openDrawer(
-                  context: context,
+                  context: _sheetContext,
                   position: OverlayPosition.end,
                   builder: (c) => DeviceScriptDrawer(deviceType: device.runtimeType.toString()),
                 );

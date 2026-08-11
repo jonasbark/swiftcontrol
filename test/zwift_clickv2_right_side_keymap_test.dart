@@ -31,7 +31,7 @@ void main() {
     test('forks a built-in profile into a custom copy so the remap persists', () async {
       core.actionHandler.supportedApp = Zwift();
 
-      _rightSide().configureRightSideShiftingKeymap();
+      ZwiftClickV2RightSide.configureRightSideShiftingKeymap();
 
       // The active app is now an editable custom copy (built-in profiles are
       // read-only templates that reset on restart).
@@ -56,7 +56,7 @@ void main() {
       final custom = CustomApp(profileName: 'My Profile');
       core.actionHandler.supportedApp = custom;
 
-      _rightSide().configureRightSideShiftingKeymap();
+      ZwiftClickV2RightSide.configureRightSideShiftingKeymap();
 
       // No "(Copy)" fork — the already-custom profile is edited directly.
       final active = core.actionHandler.supportedApp;

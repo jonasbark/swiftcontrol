@@ -47,6 +47,11 @@ Future<void> main() async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
+    // Mobile opens on the welcome screen — enter the wizard first.
+    await tester.tap(find.byType(PrimaryButton).last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
     // Mobile header Help pill.
     final help = find.byIcon(LucideIcons.lifeBuoy).first;
     await tester.tap(help);

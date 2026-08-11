@@ -91,9 +91,15 @@ class ZwiftClickV2 extends ZwiftRide {
     },
   );
 
+  /// The name written to the ignored-devices list alongside the id. Matched
+  /// back by [ClickV2Onboarding.restoreLeftSides], which has to recognise both
+  /// this and [ZwiftClickV2LeftSide.label]: in the legacy representation the
+  /// left puck IS this unified controller.
+  static const label = 'Zwift Click V2';
+
   @override
   String toString() {
-    return screenshotMode ? 'Controller' : "Zwift Click V2";
+    return screenshotMode ? 'Controller' : label;
   }
 
   /// Whether the device was successfully unlocked within the last 24 hours,
@@ -109,6 +115,14 @@ class ZwiftClickV2 extends ZwiftRide {
 
   bool get isLikelyUnlocked {
     return propPrefs.notSureIfUnlocked(scanResult.deviceId);
+  }
+
+  /// When the current unlock runs out, or null if this Click was never
+  /// unlocked. Exposed so callers outside this file (the home chain's unlock
+  /// step) can show the deadline without reaching into `propPrefs` themselves.
+  DateTime? get unlockedUntil {
+    final lastUnlock = propPrefs.getZwiftClickV2LastUnlock(scanResult.deviceId);
+    return lastUnlock?.add(const Duration(days: 1));
   }
 
   /// Held out of the connect queue until the rider has chosen an unlock mode.

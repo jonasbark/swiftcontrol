@@ -142,9 +142,9 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
                   _option(
                     heroPage: 0,
                     fromPage: 0,
-                    title: l10n.clickV2Onboarding_leftOnlyTitle,
-                    pros: [l10n.clickV2Onboarding_leftOnlyPro1, l10n.clickV2Onboarding_leftOnlyPro2],
-                    cons: [l10n.clickV2Onboarding_leftOnlyCon1, l10n.clickV2Onboarding_leftOnlyCon2],
+                    title: l10n.clickV2Onboarding_rightOnlyTitle,
+                    pros: [l10n.clickV2Onboarding_rightOnlyPro1, l10n.clickV2Onboarding_rightOnlyPro2],
+                    cons: [l10n.clickV2Onboarding_rightOnlyCon1, l10n.clickV2Onboarding_rightOnlyCon2],
                   ),
                   _option(
                     heroPage: 1,
@@ -338,9 +338,9 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
           child: _staggered(
             0,
             _decisionOption(
-              cta: l10n.clickV2Onboarding_leftOnlyCta,
-              recap: l10n.clickV2Onboarding_leftOnlyRecap,
-              onPressed: () => _choose(ClickV2Onboarding.chooseLeftSideOnly),
+              cta: l10n.clickV2Onboarding_rightOnlyCta,
+              recap: l10n.clickV2Onboarding_rightOnlyRecap,
+              onPressed: () => _choose(ClickV2Onboarding.chooseRightSideOnly),
             ),
           ),
         ),

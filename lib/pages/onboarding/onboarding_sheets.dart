@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
@@ -32,7 +33,6 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep step, required VoidCallback onClose}) {
   final h = _stepHelp(context, step);
-  final scheme = Theme.of(context).colorScheme;
   final reduceMotion = MediaQuery.of(context).disableAnimations;
   final article = helpArticleFor(
     context,
@@ -45,8 +45,8 @@ Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep st
     children: [
       StageBadge(
         icon: LucideIcons.lifeBuoy,
-        tone: scheme.primary,
-        wash: scheme.primary.withValues(alpha: 0.1),
+        tone: onboardingAccent(context),
+        wash: onboardingAccent(context).withValues(alpha: 0.1),
         reduceMotion: reduceMotion,
       ),
       Gap(14),
@@ -59,9 +59,9 @@ Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep st
         width: double.infinity,
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          border: Border.all(color: scheme.primary, width: 1.5),
+          border: Border.all(color: onboardingAccent(context), width: 1.5),
           borderRadius: BorderRadius.circular(12),
-          color: scheme.primary.withValues(alpha: 0.06),
+          color: onboardingAccent(context).withValues(alpha: 0.06),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

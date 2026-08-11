@@ -1,10 +1,11 @@
 ### 6.4.0 (10-08-2026)
 **Features**:
 - Added a guided setup on first launch
-- Zwift Click V2: a new full-screen explainer lets you choose your unlock mode when the controller is first discovered — left side only (no Zwift unlock, ever) or unlock with Zwift (both controllers, re-unlock every 24 hours)
+- Zwift Click V2: a new full-screen explainer lets you choose your unlock mode when the controller is first discovered — right side only (no Zwift unlock and no restarts, ever) or unlock with Zwift (both controllers, re-unlock every 24 hours). Picking the right side also remaps it so ＋ shifts up and B shifts down, since one puck now covers both directions.
 - Trainer connection: a new "Help me decide" link explains the connect modes before you pick one.
 
 **Fixes**:
+- Accessories (Headwind, KICKR Climb) now appear on the main screen, so one that isn't yours — a neighbour's fan picked up through the wall — can be opened and put on the ignored list.
 - Windows: connection issues with virtual trainers are solved for MyWhoosh & Rouvy  
 - SRAM AXS: the shifter no longer disconnects after about three minutes of coasting.
 - Windows: Bluetooth advertising fixes when switching the Virtual Shifting transport.

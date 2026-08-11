@@ -1,6 +1,7 @@
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/controller/controller_layout.dart';
 import 'package:bike_control/widgets/unlock_toggle.dart';
@@ -40,10 +41,24 @@ class ZwiftClickV2LeftSide extends ZwiftClickV2 {
     },
   );
 
+  /// The name written to the ignored-devices list alongside the id, and the
+  /// only thing that identifies those entries as this puck later — see
+  /// [ClickV2Onboarding.chooseUnlockWithZwift], which has to find and un-ignore
+  /// them when the rider switches to the mode that needs both sides.
+  static const label = 'Zwift Click V2 (left)';
+
   @override
   String toString() {
-    return "Zwift Click V2 (left)";
+    return label;
   }
+
+  /// The card header is the only cue telling the two pucks apart, so the side
+  /// has to be readable in the rider's language — otherwise an English "(left)"
+  /// sits above translated copy that names the *other* side, and there is no
+  /// way to tell which card the copy belongs to. [toString] stays English for
+  /// logs and crash reports.
+  @override
+  String displayName(BuildContext context) => context.i18n.deviceSideLeft(super.toString());
 
   @override
   Future<void> setupHandshake() async {

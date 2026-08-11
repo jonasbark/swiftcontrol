@@ -1,3 +1,6 @@
+@Tags(['screenshots'])
+library;
+
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/utils/core.dart' show core;
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -11,7 +14,7 @@ import 'widget_snapshot.dart';
 /// Renders every SRAM AXS device UI state to a PNG for UX review.
 ///
 /// Output: `build/snapshots/sram_*-<locale>.png`.
-/// Run: `flutter test test/sram_states_snapshot_test.dart`
+/// Run: `flutter test --run-skipped test/sram_states_snapshot_test.dart`
 /// (run on its own — do not co-run with integration tests: app_links poison.)
 ///
 /// The guided setup/restore flow is a bottom-sheet overlay route, which this

@@ -1,3 +1,6 @@
+@Tags(['screenshots'])
+library;
+
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/cycplus/cycplus_bc2.dart';

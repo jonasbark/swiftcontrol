@@ -1,6 +1,7 @@
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
+import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -39,14 +40,19 @@ class ZwiftClickV2RightSide extends ZwiftRide {
   /// first would hand them a controller that half-works for reasons they have
   /// not been told about yet.
   ///
-  /// After the choice, left-side-only mode deliberately leaves the right
-  /// controller unused ("only the left controller sends button presses") —
-  /// connecting it anyway would just burn its battery and disturb
-  /// ClickLogic's restart cycle. This also keeps ClickV2Onboarding's
-  /// _connectPending from picking it up: connectDevice still runs, but
-  /// [connect] below is a no-op while this is false.
+  /// After the choice, this side connects in both of the modes the explainer
+  /// offers — right-side-only and unlock-with-Zwift. The one mode it stays out
+  /// of is the legacy left-side restart loop: `ClickLogic` drives that from a
+  /// single shared timer which this side's handshake cancels
+  /// (`ClickLogic.setupHandshake(isRight: true)`), so connecting here would
+  /// stop the left puck restarting and strand it locked.
+  ///
+  /// This also keeps ClickV2Onboarding's _connectPending from picking it up:
+  /// connectDevice still runs, but [connect] below is a no-op while false.
   @override
-  bool get shouldAutoConnect => !ClickV2Onboarding.isPending && core.settings.getUnlockWithZwift();
+  bool get shouldAutoConnect =>
+      !ClickV2Onboarding.isPending &&
+      (core.settings.getClickV2RightSideOnly() || core.settings.getUnlockWithZwift());
 
   @override
   Future<void> connect() async {
@@ -80,6 +86,13 @@ class ZwiftClickV2RightSide extends ZwiftRide {
     return "Zwift Click V2 (right)";
   }
 
+  /// See [ZwiftClickV2LeftSide.displayName]. This side doesn't extend
+  /// [ZwiftClickV2], so the unsuffixed name is spelled out rather than taken
+  /// from `super.toString()` (which would yield the advertised BLE name).
+  @override
+  String displayName(BuildContext context) =>
+      context.i18n.deviceSideRight(screenshotMode ? 'Controller' : 'Zwift Click V2');
+
   @override
   Future<void> setupHandshake() async {
     await sendCommandBuffer(Uint8List.fromList(startCommand));
@@ -88,8 +101,11 @@ class ZwiftClickV2RightSide extends ZwiftRide {
 
   @override
   List<Widget> showAdditionalInformation(BuildContext context) {
-    final hasLeftSide = core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty;
-    if (!hasLeftSide) return [];
+    // Connected, not merely discovered: right-side-only mode holds the left
+    // side back rather than forgetting it, so it stays in the device list.
+    // Offering to drop a puck that is already out would just be confusing.
+    final hasLiveLeftSide = core.connection.devices.whereType<ZwiftClickV2LeftSide>().any((d) => d.isConnected);
+    if (!hasLiveLeftSide) return [];
     return [
       Text(context.i18n.unlock_useRightSideOnlyDescription).xSmall.normal,
       SizedBox(
@@ -120,23 +136,15 @@ class ZwiftClickV2RightSide extends ZwiftRide {
   /// Switches to a "right side only" setup: the left controller (which needs
   /// unlocking / restarts) is dropped and the right side covers gear shifting
   /// on its own — ＋ still shifts up, B takes over shifting down.
+  ///
+  /// Delegates to [ClickV2Onboarding.chooseRightSideOnly] so this shortcut and
+  /// the explainer's own option leave the app in exactly the same state — the
+  /// left side held back by the setting rather than pushed onto the ignored
+  /// devices list, which is what makes "Set up again" able to undo it.
   Future<void> _useRightSideOnly(BuildContext context) async {
     // Read localised text before the awaits below remove this card.
     final confirmation = context.i18n.unlock_rightSideOnlyConfigured;
-
-    // Remap the keymap while both sides are still connected: if this has to fork
-    // a built-in profile into a custom copy, the copy should keep every
-    // connected controller's existing mappings (the left side's included).
-    configureRightSideShiftingKeymap();
-
-    // Then ignore (don't just disconnect) the left side, otherwise the active
-    // scan reconnects it within seconds. Ignoring is persistent and reversible
-    // from the Ignored Devices list.
-    final leftSides = core.connection.devices.whereType<ZwiftClickV2LeftSide>().toList();
-    for (final left in leftSides) {
-      await core.connection.disconnect(left, forget: true, persistForget: true);
-    }
-
+    await ClickV2Onboarding.chooseRightSideOnly();
     buildToast(title: confirmation);
   }
 
@@ -149,8 +157,10 @@ class ZwiftClickV2RightSide extends ZwiftRide {
   /// custom profiles. So, mirroring the button editor, a built-in profile is
   /// first forked into a custom copy (`"App (Copy)"`) which the remap then edits
   /// and persists — otherwise the change would be lost on the next launch.
-  @visibleForTesting
-  void configureRightSideShiftingKeymap() {
+  /// Static because [ClickV2Onboarding] applies this at the moment the rider
+  /// picks right-side-only, which is before any Click V2 has connected — there
+  /// is no instance to hang it off yet. It never touched instance state.
+  static void configureRightSideShiftingKeymap() {
     final app = core.actionHandler.supportedApp;
     if (app == null) return;
 

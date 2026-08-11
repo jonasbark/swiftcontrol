@@ -1,11 +1,12 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-bool onboardingTrainerBridged(List<ProxyDevice> trainers) =>
-    trainers.any((t) => t.isStartedListenable.value || t.isConnectedListenable.value);
+bool onboardingTrainerBridged(List<ProxyDevice> trainers) => trainers.any((t) => t.isBridged);
 
 Widget _alternative(BuildContext context, IconData icon, String title, String body) {
   final scheme = Theme.of(context).colorScheme;
@@ -14,7 +15,7 @@ Widget _alternative(BuildContext context, IconData icon, String title, String bo
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
     decoration: BoxDecoration(color: scheme.muted, borderRadius: BorderRadius.circular(10)),
     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(icon, size: 18, color: scheme.primary),
+      Icon(icon, size: 18, color: onboardingAccent(context)),
       Gap(12),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -31,14 +32,14 @@ Widget onboardingTrainerBody(BuildContext context,
     required List<ProxyDevice> trainers,
     required void Function(ProxyDevice) onPick,
     bool virtualShiftingBlocked = false}) {
-  final bridged = trainers.where((t) => t.isStartedListenable.value || t.isConnectedListenable.value).toList();
+  final bridged = trainers.where((t) => t.isBridged).toList();
   final scheme = Theme.of(context).colorScheme;
 
   // MyWhoosh on Android can't see a network virtual bike, so a bridge on this
   // same device would never be found — explain it and name the two setups
   // that do work instead of silently hiding the step.
   if (bridged.isEmpty && virtualShiftingBlocked) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
       Text(context.i18n.onboardingVsBlockedTitle).h4,
       Gap(6),
       Text(context.i18n.onboardingVsBlockedSubtitle(app.name)).small.muted,
@@ -78,12 +79,12 @@ Widget onboardingTrainerBody(BuildContext context,
           Icon(LucideIcons.externalLink, size: 13),
         ]),
       ),
-    ]);
+    ]));
   }
 
   if (bridged.isNotEmpty) {
     final t = bridged.first;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
       Text(context.i18n.onboardingTrainerConnectedTitle).h4,
       Gap(6),
       Text(context.i18n.onboardingTrainerConnectedSubtitle).small.muted,
@@ -103,7 +104,7 @@ Widget onboardingTrainerBody(BuildContext context,
       ),
       Gap(12),
       Text(context.i18n.onboardingTrainerNextStepNote(app.name)).xSmall.muted,
-    ]);
+    ]));
   }
 
   Widget benefit(IconData icon, String title, String sub) => Container(
@@ -111,7 +112,7 @@ Widget onboardingTrainerBody(BuildContext context,
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(color: scheme.muted, borderRadius: BorderRadius.circular(10)),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 18, color: scheme.primary),
+          Icon(icon, size: 18, color: onboardingAccent(context)),
           Gap(12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -122,7 +123,7 @@ Widget onboardingTrainerBody(BuildContext context,
         ]),
       );
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
     Text(context.i18n.onboardingTrainerTitle).h4,
     Gap(6),
     Text(context.i18n.onboardingTrainerSubtitle).small.muted,
@@ -177,5 +178,5 @@ Widget onboardingTrainerBody(BuildContext context,
         Icon(LucideIcons.externalLink, size: 13),
       ]),
     ),
-  ]);
+  ]));
 }

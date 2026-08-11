@@ -188,21 +188,11 @@ Future<void> main() async {
     expect(identical(before, after), isTrue);
   });
 
-  testWidgets('selecting a connection mode on a smart trainer shows the consent dialog', (tester) async {
-    await pumpCard(tester, smartTrainer());
-
-    await tester.tap(find.text('Virtual Shifting'));
-    await tester.pumpAndSettle();
-
-    // Task 5: the consent gate fires when an entry other than "No connection"
-    // is picked (the auto-connect-on-tap path is gone).
-    expect(find.text('Connecting to KICKR CORE'), findsOneWidget);
-    expect(find.text('Continue'), findsOneWidget);
-
-    // Cancelling leaves the device disconnected — back to the picker.
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(find.text('Connecting to KICKR CORE'), findsNothing);
-    expect(find.text('No connection'), findsOneWidget);
-  });
+  // The virtual-shifting takeover explainer that used to gate this tap is gone:
+  // picking a mode is the rider's decision, and acting on it immediately is the
+  // point. There is no widget test for its absence because there is nothing left
+  // to assert against — showSmartTrainerConsentDialog no longer exists, so
+  // bringing the gate back could not compile. What the gate actually affected —
+  // whether a smart trainer may auto-connect on intent alone — is covered in
+  // test/integration/virtual_shifting_connection_logic_test.dart.
 }

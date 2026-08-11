@@ -2,7 +2,13 @@
   "reconnect": "Połącz ponownie",
   "batterySaverTitle": "Oszczędzanie baterii",
   "controllersDisconnectedInactivity": "Kontrolery rozłączone po {minutes} minutach bezczynności, aby oszczędzać baterię. Włącz ponownie kontroler, aby go połączyć.",
-  "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
+  "@controllersDisconnectedInactivity": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "overlayDisabledIos": "Podczas jazdy Overlay trenażera unosi się nad aplikacją treningową (lub na Dynamic Island w obsługiwanych iPhone'ach) oraz na ekranie blokady.",
   "overlayUsePip": "Pływające okno (Picture-in-Picture)",
   "overlayUsePipSubtitle": "Pokazuje bieg w pływającym oknie nad aplikacją treningową, oprócz ekranu blokady (i Dynamic Island, jeśli jest dostępna).",
@@ -23,7 +29,13 @@
   "virtualShiftingHint": "Dodaje lub dostosowuje Virtual Shifting i ogłasza BikeControl jako trenażer.",
   "noConnection": "Brak połączenia",
   "noConnectionHint": "Pozwól, aby {trainerApp} obsługiwał Virtual Shifting, jeśli jest wspierany",
-  "@noConnectionHint": {"placeholders": {"trainerApp": {"type": "String"}}},
+  "@noConnectionHint": {
+    "placeholders": {
+      "trainerApp": {
+        "type": "String"
+      }
+    }
+  },
   "actionShiftUp": "Wyższy bieg",
   "actionShiftDown": "Niższy bieg",
   "actionFrontShift": "Zmiana tarczy",
@@ -174,12 +186,12 @@
   "clickV2Onboarding_title": "Konfiguracja Zwift Click V2",
   "clickV2Onboarding_intro": "Zwift przypisuje Click V2 do własnej aplikacji. BikeControl obchodzi to na dwa sposoby — wybierz ten, który Ci odpowiada.",
   "clickV2Onboarding_whyLink": "Dlaczego to konieczne?",
-  "clickV2Onboarding_leftOnlyTitle": "Używaj tylko lewej strony",
-  "clickV2Onboarding_leftOnlyPro1": "Żadnego odblokowywania przez Zwift",
-  "clickV2Onboarding_leftOnlyPro2": "Działa od razu, bez drugiej aplikacji",
-  "clickV2Onboarding_leftOnlyCon1": "Rozłącza się minutę po ostatnim naciśnięciu przycisku i łączy się ponownie samo",
-  "clickV2Onboarding_leftOnlyCon2": "Tylko lewy kontroler wysyła naciśnięcia przycisków",
-  "clickV2Onboarding_leftOnlyCta": "Używaj lewej strony",
+  "clickV2Onboarding_rightOnlyTitle": "Używaj tylko prawej strony",
+  "clickV2Onboarding_rightOnlyPro1": "Żadnego odblokowywania przez Zwift",
+  "clickV2Onboarding_rightOnlyPro2": "Bez restartów i przerw w trakcie jazdy",
+  "clickV2Onboarding_rightOnlyCon1": "Tylko prawy kontroler wysyła naciśnięcia przycisków",
+  "clickV2Onboarding_rightOnlyCon2": "Bez krzyżaka — bez sterowania i paska akcji",
+  "clickV2Onboarding_rightOnlyCta": "Używaj prawej strony",
   "clickV2Onboarding_zwiftTitle": "Odblokuj przez Zwift",
   "clickV2Onboarding_zwiftPro1": "Działają oba kontrolery",
   "clickV2Onboarding_zwiftPro2": "Bez przerw w trakcie jazdy",
@@ -191,7 +203,7 @@
   "clickV2Onboarding_swipeHint": "Przesuń, aby zobaczyć drugą możliwość",
   "clickV2Onboarding_decisionTitle": "Co wybierasz?",
   "clickV2Onboarding_decisionSubtitle": "Obie opcje działają. Wybierz kompromis, który bardziej Ci odpowiada — możesz to później zmienić w ustawieniach kontrolera.",
-  "clickV2Onboarding_leftOnlyRecap": "Bez Zwifta · tylko lewy kontroler",
+  "clickV2Onboarding_rightOnlyRecap": "Bez Zwifta · tylko prawy kontroler",
   "clickV2Onboarding_zwiftRecap": "Oba kontrolery · odblokowanie co 24 godziny",
   "clickV2Onboarding_connectFailed": "Nie udało się połączyć z Twoim Zwift Click V2. Dotknij go, aby spróbować ponownie.",
   "close": "Zamknij",
@@ -508,8 +520,8 @@
   "pasteExportedJsonData": "Wklej wyeksportowane dane JSON poniżej:",
   "pathCopiedToClipboard": "Ścieżka została skopiowana do schowka",
   "paywall_amountOfActions": "Ilość działań",
-  "paywall_billedAtPricemo": "{price}/miesiąc",
-  "paywall_billedAtYearly": "{cost}/rok",
+  "paywall_billedAtPricemo": "Rozliczenie {price}/mies.",
+  "paywall_billedAtYearly": "Rozliczenie {cost}/rok",
   "paywall_configure3ActionsPerButton": "Skonfiguruj 3 akcje na przycisk",
   "paywall_connectToYourTrainer": "Połącz się ze swoim trenerem",
   "paywall_controlYourDeviceMusic": "Kontroluj swoje urządzenie / muzykę",
@@ -667,7 +679,7 @@
   "trialDaysRemaining": "Pozostało {trialDaysRemaining} dni",
   "trialExpired": "Wersja próbna wygasła. Liczba poleceń ograniczona do {dailyCommandLimit} na dzień.",
   "trialPeriodActive": "Okres próbny jest aktywny - pozostało {trialDaysRemaining} dni",
-  "trialPeriodDescription": "Korzystaj z nieograniczonej liczby poleceń w okresie próbnym. Po zakończeniu okresu próbnego polecenia będą ograniczone do {dailyCommandLimit} na dzień.",
+  "trialPeriodDescription": "W okresie próbnym masz {dailyCommandLimit} poleceń dziennie. Po jego zakończeniu dzienny limit maleje – uaktualnij, aby korzystać z nieograniczonej liczby poleceń.",
   "troubleshootingGuide": "Pomoc i wsparcie",
   "tryingToConnectAgain": "Próba ponownego połączenia...",
   "unassignAction": "Anuluj przypisanie akcji",
@@ -688,7 +700,9 @@
   "unlock_modeZwiftDescription": "Co 24 godziny urządzenie musi zostać odblokowane za pomocą Zwift.",
   "unlock_notWorking": "Nie działa?",
   "unlock_openZwift": "Otwórz aplikację Zwift (nie Companion) na tym lub innym urządzeniu",
-  "unlock_rightSideNeedsNoUnlock": "Możesz używać tego kontrolera bez lewego kontrolera, ponieważ ten nie wymaga odblokowywania ani ponownych uruchomień.",
+  "deviceSettings": "Ustawienia urządzenia",
+  "deviceSideLeft": "{device} (lewy)",
+  "deviceSideRight": "{device} (prawy)",
   "unlock_newMethod": "Użyj nowej metody odblokowania",
   "unlock_newMethodDescription": "Połącz lewą i prawą stronę jako osobne kontrolery. Prawa strona nie wymaga odblokowywania. Wyłącz, aby używać jednego połączonego kontrolera.",
   "unlock_newMethodReconnecting": "Stosowanie… ponowne łączenie z Zwift Click.",
@@ -846,6 +860,8 @@
   "broadcastIntentDesc": "Dla aplikacji do automatyzacji, jak MacroDroid czy Tasker",
   "otherActions": "Inne akcje",
   "takeScreenshot": "Zrób zrzut ekranu",
+  "accessoryNoControllerYet": "Podłącz kontroler, aby przypisać te akcje do jego przycisków.",
+  "accessorySetUpOnController": "Skonfiguruj na {device}",
   "accessoryActions": "Akcje akcesoriów",
   "kickrHeadwind": "KICKR Headwind",
   "setHeadwindSpeedTo": "Ustaw prędkość na {value}%",
@@ -879,7 +895,6 @@
   "connectionSettings": "Ustawienia połączenia",
   "needsTargetLeavePrompt": "{appName} potrzebuje celu, żeby się połączyć. Wyjść mimo to?",
   "feedbackQuestion": "Działa?",
-  "feedbackNoDifference": "Bez różnicy",
   "supportChat": "Czat wsparcia",
   "knownIssues": "Znane problemy",
   "chatWithSupport": "Czat ze wsparciem",
@@ -992,37 +1007,63 @@
   },
   "smartTrainerConsentTitle": "Łączenie z {trainerName}",
   "@smartTrainerConsentTitle": {
-    "placeholders": {"trainerName": {"type": "String"}}
+    "placeholders": {
+      "trainerName": {
+        "type": "String"
+      }
+    }
   },
   "smartTrainerConsentMessage": "BikeControl połączy się teraz z Twoim Smart Trainerem i przejmie kontrolę nad wirtualnym przełączaniem biegów. Wszelkie zmiany biegów będą wykonywane bezpośrednio w BikeControl, a nie przez {appName}. W {appName} podłączysz się następnie do wirtualnego trenażera BikeControl zamiast bezpośrednio do {trainerName}.\n\nAby przywrócić domyślne zachowanie, kliknij przycisk „{disconnectLabel}” i ponownie połącz {appName} bezpośrednio z {trainerName}.",
   "@smartTrainerConsentMessage": {
     "placeholders": {
-      "trainerName": {"type": "String"},
-      "appName": {"type": "String"},
-      "disconnectLabel": {"type": "String"}
+      "trainerName": {
+        "type": "String"
+      },
+      "appName": {
+        "type": "String"
+      },
+      "disconnectLabel": {
+        "type": "String"
+      }
     }
   },
   "overlayFieldControls": "Przyciski biegów / mocy",
   "connectingToDevice": "Łączenie z: {device}",
   "@connectingToDevice": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionSucceeded": "Połączenie udane: {device}",
   "@connectionSucceeded": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionFailed": "Połączenie nie powiodło się: {device} - {error}",
   "@connectionFailed": {
     "placeholders": {
-      "device": {"type": "String"},
-      "error": {"type": "String"}
+      "device": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
     }
   },
   "connectionGaveUpAfterAttempts": "Nie udało się połączyć z {device} po kilku próbach.",
   "wheeltopClaimedByDerailleurHint": "Manetka jest prawdopodobnie zajęta przez tylną przerzutkę. Wyłącz przerzutkę lub pozwól jej przejść w stan uśpienia, a następnie naciśnij przycisk manetki podczas skanowania.",
   "unableToConnectToDeviceTimeout": "Nie można połączyć z {device}: Przekroczono limit czasu",
   "@unableToConnectToDeviceTimeout": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "scanningForDevicesShort": "Skanowanie urządzeń...",
   "disconnectingAllDevices": "Rozłączanie wszystkich urządzeń",
@@ -1047,13 +1088,13 @@
   "sramSetup": "Skonfiguruj sterowanie SRAM",
   "sramRestore": "Przywróć oryginalne przełączanie",
   "sramPanelIntro": "Pozwól BikeControl sterować przełączaniem: utworzy kopię zapasową bieżącej konfiguracji manetek, a następnie wyłączy własne przełączanie przerzutki, tak aby wysyłała tylko naciśnięcia przycisków. Możesz ją przywrócić w dowolnej chwili.",
-  "sramSetupIntro": "BikeControl utworzy kopię zapasową bieżącej konfiguracji manetek i wyłączy własne przełączanie przerzutki, tak aby wysyłała tylko naciśnięcia przycisków. Możesz ją przywrócić w dowolnej chwili.",
+  "sramSetupIntro": "BikeControl utworzy kopię obecnej konfiguracji manetek i wyłączy własną zmianę biegów przerzutki, aby dźwignie wysyłały naciśnięcia przycisków. Możesz to przywrócić w każdej chwili.",
   "sramSetupSuccess": "BikeControl steruje teraz Twoimi biegami. Każdy przycisk manetki to wejście kontrolera, które możesz przypisać w aplikacji.",
   "sramRestoreIntro": "Spowoduje to przywrócenie oryginalnego przełączania przerzutki.",
   "sramRestoreSuccess": "Przywrócono oryginalną konfigurację manetek.",
   "sramDialogRunning": "Łączenie z przerzutką… trzymaj ją blisko i aktywną.",
   "sramAuthorizeTitle": "Autoryzuj BikeControl",
-  "sramAuthorizeBody": "Przerzutka musi autoryzować BikeControl. Naciśnij i przytrzymaj przycisk AXS na przerzutce, aż zamiga dioda, a następnie dotknij Ponów.",
+  "sramAuthorizeBody": "Przytrzymaj przycisk AXS na przerzutce, aż zamiga jej dioda, a potem dotknij Ponów.",
   "sramErrorTitle": "Nie udało się",
   "sramGenericError": "Coś poszło nie tak. Spróbuj ponownie.",
   "sramShiftingOff": "Przełączanie w urządzeniu jest wyłączone — BikeControl steruje biegami.",
@@ -1065,5 +1106,565 @@
   "sramChecklistBackingUp": "Tworzenie kopii konfiguracji",
   "sramChecklistDisabling": "Wyłączanie przełączania w urządzeniu",
   "sramChecklistRestoring": "Przywracanie oryginalnego przełączania",
-  "sramPressHold": "Naciśnij i przytrzymaj na przerzutce"
+  "sramPressHold": "Naciśnij i przytrzymaj na przerzutce",
+  "actionInclineIncrease": "Zwiększ nachylenie",
+  "actionInclineDecrease": "Zmniejsz nachylenie",
+  "actionInclineZero": "Wypoziomuj nachylenie (0%)",
+  "actionInclineAutoMode": "Nachylenie automatyczne (podążaj za trasą)",
+  "inclineActions": "Nachylenie",
+  "kickrClimb": "KICKR Climb",
+  "enable": "Włącz",
+  "enableLocalConnectionMethodDescription": "Ta akcja korzysta z lokalnej metody połączenia, która nie jest jeszcze włączona. Włącz ją, aby użyć tej akcji.",
+  "enableLocalConnectionMethodTitle": "Włączyć lokalną metodę połączenia?",
+  "onboardingMenuEntry": "Przewodnik konfiguracji",
+  "onboardingUpdatePatchBody": "Już pobrane — uruchom ponownie, aby dokończyć konfigurację na najnowszej wersji.",
+  "onboardingUpdateStoreBody": "Najpierw zaktualizuj, aby konfiguracja działała na najnowszej wersji.",
+  "onboardingUpdateRestart": "Uruchom ponownie",
+  "onboardingUpdateOpenStore": "Aktualizuj",
+  "onboardingWelcomeTitle": "Skonfigurujmy wszystko",
+  "onboardingWelcomeSubtitle": "Kilka minut teraz i Twój kontroler będzie zmieniał biegi w aplikacji treningowej podczas każdej jazdy.",
+  "onboardingWelcomePointController": "Sparuj kontroler i zobacz, jak podświetlają się jego przyciski",
+  "onboardingWelcomePointTrainer": "Opcjonalnie podłącz trenażer do wirtualnej zmiany biegów",
+  "onboardingWelcomePointApp": "Połącz się z aplikacją treningową, krok po kroku",
+  "onboardingWelcomeStart": "Zaczynamy",
+  "onboardingWelcomeLater": "Zrobię to później",
+  "onboardingWelcomeFootnote": "Możesz wrócić tu w każdej chwili przez Menu → Przewodnik konfiguracji.",
+  "onboardingStepOf": "Krok {current} z {total}",
+  "@onboardingStepOf": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingStepApp": "Aplikacja treningowa",
+  "onboardingStepAppSub": "Z czym jeździsz",
+  "onboardingStepWhere": "Gdzie działa",
+  "onboardingStepWhereSub": "To lub inne urządzenie",
+  "onboardingStepController": "Kontroler",
+  "onboardingStepControllerSub": "Znajdź i połącz",
+  "onboardingStepVs": "Wirtualna zmiana biegów",
+  "onboardingStepVsSub": "Opcjonalnie",
+  "onboardingStepConnection": "Połączenie",
+  "onboardingStepConnectionSub": "Połącz aplikację",
+  "onboardingStepDone": "Gotowe",
+  "onboardingStepDoneSub": "Przetestuj i jedź",
+  "onboardingVerified": "Zweryfikowane",
+  "onboardingAppTitle": "W jakiej aplikacji jeździsz?",
+  "onboardingAppSubtitle": "Wybierzemy dla niej odpowiednią metodę połączenia i mapowanie przycisków.",
+  "onboardingAppNote": "Oficjalne aplikacje są testowane z BikeControl i mają zweryfikowane mapowania przycisków. Pozostałe działają przez ogólne metody połączenia.",
+  "onboardingAppPickToContinue": "Wybierz aplikację, aby kontynuować",
+  "onboardingAppContinueWith": "Kontynuuj z {app}",
+  "@onboardingAppContinueWith": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereTitle": "Gdzie działa {app}?",
+  "@onboardingWhereTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereSubtitle": "To decyduje, jak BikeControl się z nią komunikuje.",
+  "onboardingWhereEnablesLocal": "Włącza metodę lokalną — naciśnięcia i dotknięcia trafiają prosto do aplikacji.",
+  "onboardingWhereEnablesNetwork": "Włącza metodę sieciową — BikeControl znajduje aplikację przez Wi-Fi.",
+  "onboardingWhereChangeLater": "Możesz to zmienić później w ustawieniach połączenia.",
+  "onboardingHelp": "Pomoc",
+  "onboardingHelpAndSupport": "Pomoc i wsparcie",
+  "onboardingBack": "Wstecz",
+  "onboardingContinue": "Dalej",
+  "onboardingHelpSheetTitle": "Potrzebujesz pomocy?",
+  "onboardingHelpSheetIntro": "Konfiguracja zajmuje kilka minut. Jeśli coś się zacięło, zacznij tutaj.",
+  "onboardingHelpAppTitle": "Którą aplikację wybrać?",
+  "onboardingHelpAppBody": "Wybierz aplikację, w której naprawdę jeździsz. Oficjalne integracje są testowane z BikeControl; pozostałe łączą się metodami ogólnymi.",
+  "onboardingHelpWhereTitle": "To samo urządzenie czy inne?",
+  "onboardingHelpWhereBody": "Jeśli aplikacja treningowa działa na Apple TV, PC lub tablecie, a BikeControl gdzie indziej, wybierz „Na innym urządzeniu”.",
+  "onboardingHelpControllerTitle": "Mój kontroler się nie pojawia",
+  "onboardingHelpControllerBody": "Obudź go naciśnięciem przycisku, zamknij aplikacje, które już go zajmują (zwłaszcza Zwift), i trzymaj w odległości kilku metrów.",
+  "onboardingHelpVsTitle": "Czy potrzebuję trenażera?",
+  "onboardingHelpVsBody": "Nie — ten krok jest opcjonalny. Podłącz go tylko wtedy, gdy chcesz, aby BikeControl liczył biegi i opór.",
+  "onboardingHelpConnectionTitle": "Nie łączy się",
+  "onboardingHelpConnectionBody": "Dla sieci sprawdź, czy oba urządzenia są w tym samym Wi-Fi, albo włącz metodę lokalną jako zapas na macOS, Windows i Androidzie.",
+  "onboardingHelpDoneTitle": "Jakie są limity trybu testowego?",
+  "onboardingHelpDoneBody": "Dzienny limit komend oraz ograniczona wirtualna zmiana biegów na dzień. Wystarczy, aby sprawdzić, że konfiguracja działa.",
+  "onboardingHelpDoneProTitle": "Gdzie zmienię to później?",
+  "onboardingHelpDoneProBody": "Wszystko z tej konfiguracji znajdziesz w zwykłej aplikacji: kontrolery i mapowania na ekranie głównym, metody połączenia w Połączeniach trenażera, a most trenażera na jego karcie urządzenia.",
+  "onboardingHelpGuides": "Przewodniki konfiguracji",
+  "onboardingHelpTroubleshooting": "Rozwiązywanie problemów",
+  "onboardingHelpSupport": "Skontaktuj się z pomocą",
+  "onboardingHelpBackToSetup": "Wróć do konfiguracji",
+  "onboardingPermissionDeniedTitle": "BikeControl nie znajduje urządzeń",
+  "onboardingPermissionDeniedBody": "Bez uprawnienia Bluetooth nie ma jak dotrzeć do kontrolera. Możesz dokończyć konfigurację i nadać je później w ustawieniach.",
+  "onboardingContinueAnyway": "Kontynuuj mimo to",
+  "onboardingAllowBluetooth": "Zezwól na Bluetooth",
+  "onboardingBluetoothTitle": "Zezwól BikeControl na Bluetooth",
+  "onboardingBluetoothSubtitle": "BikeControl musi wyszukiwać urządzenia w pobliżu i informować Cię o zmianach połączenia.",
+  "onboardingBluetoothFindTitle": "Znajdź kontrolery w pobliżu",
+  "onboardingBluetoothFindSub": "Szuka Twojej manetki lub urządzenia click.",
+  "onboardingBluetoothNotifyTitle": "Informowanie na bieżąco",
+  "onboardingBluetoothNotifySub": "Powiadamia, gdy urządzenie się łączy lub rozłącza.",
+  "onboardingBluetoothPrivacy": "BikeControl nigdy nie używa tego do lokalizacji ani śledzenia.",
+  "onboardingNotNow": "Nie teraz",
+  "onboardingScanTitle": "Szukam Twojego kontrolera",
+  "onboardingScanSubtitle": "Upewnij się, że jest włączony, w zasięgu i nie połączony z inną aplikacją.",
+  "onboardingScanEmptyTitle": "Nie znaleziono kontrolerów",
+  "onboardingScanEmptySubtitle": "Nic nie odpowiedziało na wyszukiwanie. Zwykle pomaga to:",
+  "onboardingScanEmptyWakeTitle": "Obudź urządzenie",
+  "onboardingScanEmptyWakeSub": "Naciśnij przycisk lub dźwignię, aby je obudzić.",
+  "onboardingScanEmptyDisconnectTitle": "Rozłącz je gdzie indziej",
+  "onboardingScanEmptyDisconnectSub": "Zamknij Zwift lub inną aplikację, która już trzyma połączenie.",
+  "onboardingScanEmptyCloserTitle": "Podejdź bliżej",
+  "onboardingScanEmptyCloserSub": "Podczas parowania trzymaj je w odległości kilku metrów.",
+  "onboardingScanAgain": "Szukaj ponownie",
+  "onboardingSetUpLater": "Skonfiguruj później",
+  "onboardingCantFindController": "Nie możesz znaleźć kontrolera?",
+  "onboardingControllerListTitle": "Kontrolery",
+  "onboardingControllerListSubtitle": "Urządzenia łączą się automatycznie, gdy zostaną znalezione.",
+  "onboardingControllerReadyTitle": "Twój kontroler jest gotowy",
+  "onboardingControllerReadySubtitle": "Wypróbuj go — naciśnij przycisk i zobacz, jak BikeControl reaguje.",
+  "onboardingStillScanning": "Nadal szukam…",
+  "onboardingDeviceConnected": "Połączono",
+  "onboardingDeviceConnecting": "Łączenie…",
+  "onboardingSetupNeeded": "Wymaga konfiguracji",
+  "onboardingControllerMapped": "Twoje przyciski są już zmapowane dla {app}. Każdy z nich dostroisz później.",
+  "@onboardingControllerMapped": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedTitle": "Opcjonalnie: podłącz trenażer",
+  "onboardingVsBlockedSubtitle": "BikeControl może liczyć biegi dla każdej aplikacji — z {app} na Androidzie potrzebny jest tylko inny układ.",
+  "@onboardingVsBlockedSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedExplainer": "Wirtualna zmiana biegów działa z {app} — tylko nie z obiema aplikacjami na tym jednym telefonie: BikeControl udostępnia trenażer przez Wi-Fi, wersja {app} na Androida paruje trenażery wyłącznie przez Bluetooth, a BikeControl nie może rozgłaszać Bluetooth do aplikacji na tym samym urządzeniu.",
+  "@onboardingVsBlockedExplainer": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAlternatives": "Dwa układy, które działają",
+  "onboardingVsBlockedAltAppTitle": "Uruchom {app} na innym urządzeniu",
+  "@onboardingVsBlockedAltAppTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltAppBody": "Zostaw BikeControl na tym telefonie i jeźdź w {app} na PC, Apple TV lub tablecie — znajdzie most przez Wi-Fi. Cofnij się o krok i wybierz „Na innym urządzeniu”.",
+  "@onboardingVsBlockedAltAppBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltBtTitle": "Uruchom BikeControl na innym urządzeniu",
+  "@onboardingVsBlockedAltBtTitle": {},
+  "onboardingVsBlockedAltBtBody": "Zainstaluj BikeControl na drugim telefonie lub tablecie obok roweru i pozwól mu udostępnić trenażer przez Bluetooth — to akceptuje {app} na Androidzie.",
+  "@onboardingVsBlockedAltBtBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingTrainerTitle": "Opcjonalnie: niech BikeControl zajmie się wirtualną zmianą biegów",
+  "onboardingTrainerSubtitle": "Podłącz trenażer, a BikeControl policzy za Ciebie każdy bieg — w każdej aplikacji.",
+  "onboardingTrainerBenefitRatiosTitle": "Twoje przełożenia",
+  "onboardingTrainerBenefitRatiosSub": "Ustaw własne tarcze, kasetę i liczbę biegów.",
+  "onboardingTrainerBenefitResistanceTitle": "Stały opór",
+  "onboardingTrainerBenefitResistanceSub": "Zmiany biegów czuć tak samo w każdej aplikacji i podczas każdej jazdy.",
+  "onboardingTrainerBenefitAppsTitle": "Działa tam, gdzie aplikacja nie",
+  "onboardingTrainerBenefitAppsSub": "Dodaje zmianę biegów aplikacjom, które jej nie mają.",
+  "onboardingNearbyTrainers": "Trenażery w pobliżu",
+  "onboardingTrainerMeta": "Obsługuje wirtualną zmianę biegów",
+  "onboardingTrainerHowItWorks": "Wirtualna zmiana biegów z BikeControl i bez — jaka jest różnica?",
+  "onboardingTrainerConnectedTitle": "Trenażer połączony",
+  "onboardingTrainerConnectedSubtitle": "BikeControl może teraz liczyć biegi i ustawiać opór.",
+  "onboardingTrainerNextStepNote": "W kolejnym kroku wskażesz w {app} wirtualny trenażer BikeControl, aby Twoje biegi docierały do aplikacji.",
+  "@onboardingTrainerNextStepNote": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingLetAppHandleVs": "Niech {app} zajmie się wirtualną zmianą biegów",
+  "@onboardingLetAppHandleVs": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionMethods": "Metody połączenia",
+  "onboardingMethodNetwork": "Sieć",
+  "onboardingMethodNetworkDesc": "Domyślnie włączone dla {app}. Oba urządzenia muszą być w tym samym Wi-Fi.",
+  "@onboardingMethodNetworkDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodBluetooth": "Bluetooth",
+  "onboardingMethodBluetoothBadge": "Najlepsze na iOS",
+  "onboardingMethodBluetoothDesc": "{app} przyjmuje BikeControl także przez Bluetooth — działa dalej, gdy BikeControl jest w tle.",
+  "@onboardingMethodBluetoothDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodLocal": "Lokalna",
+  "onboardingMethodLocalBadge": "macOS · Windows · Android",
+  "onboardingMethodLocalDesc": "Wysyła akcje klawiatury, dotyku i multimediów na tym urządzeniu. Dobra alternatywa, gdy pozostałe się nie łączą.",
+  "onboardingMethodLocalFeature1": "Sterowanie muzyką i multimediami",
+  "onboardingMethodLocalFeature2": "Dodatkowe akcje trenażera",
+  "onboardingMethodLocalFeature3": "Pełna personalizacja przycisków",
+  "onboardingMethodLocalIosNote": "Niedostępne na iOS — użyj sieci lub Bluetooth.",
+  "onboardingSelectItFor": "Wybierz to dla",
+  "onboardingSlotPower": "Źródło mocy",
+  "onboardingSlotControllable": "Sterowanie / opór",
+  "onboardingSlotCadence": "Kadencja",
+  "onboardingLive": "Na żywo",
+  "onboardingConnectionTitle": "Połącz z {app}",
+  "@onboardingConnectionTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleLocal": "{app} działa na tym urządzeniu, więc BikeControl może sterować nią bezpośrednio.",
+  "@onboardingConnectionSubtitleLocal": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleNetwork": "BikeControl ogłosi się w Twojej sieci, aby {app} mogła go znaleźć.",
+  "@onboardingConnectionSubtitleNetwork": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingThenInApp": "Następnie w {app}",
+  "@onboardingThenInApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFullSetupGuide": "Pełny przewodnik dla {app}",
+  "@onboardingFullSetupGuide": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideMyWhoosh1": "Otwórz ekran połączenia w MyWhoosh",
+  "onboardingGuideMyWhoosh2": "Dotknij ikony OpenBikeControl w prawym górnym rogu",
+  "onboardingGuideMyWhoosh3": "Dotknij Tak w oknie, aby pozwolić BikeControl się połączyć",
+  "onboardingGuideRouvy1": "Otwórz Rouvy i przejdź do ekranu połączenia",
+  "onboardingGuideRouvy2": "BikeControl pojawi się jako dostępny kontroler — połącz i jedź",
+  "onboardingGuideTp1": "Otwórz ekran połączenia w TrainingPeaks Virtual",
+  "onboardingGuideTp2": "Sparuj z BikeControl",
+  "onboardingGuideTp3": "Przypisz wybrane akcje do swoich przycisków",
+  "onboardingGuideStrappo1": "Otwórz ekran połączenia w Strappo",
+  "onboardingGuideStrappo2": "Sparuj z BikeControl przez protokół OpenBikeControl",
+  "onboardingGuideGeneric1": "Otwórz ekran połączenia w {app}",
+  "@onboardingGuideGeneric1": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideGeneric2": "Sparuj z BikeControl",
+  "onboardingPairAsTrainer": "Sparuj BikeControl jako trenażer",
+  "onboardingPairAsTrainerBody": "Na ekranie parowania w {app} nie wybieraj trenażera bezpośrednio — wybierz pozycję BikeControl. To ona przenosi Twoje biegi.",
+  "@onboardingPairAsTrainerBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVirtualTrainerGears": "Wirtualny trenażer · {gears} biegów",
+  "@onboardingVirtualTrainerGears": {
+    "placeholders": {
+      "gears": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingPairAsTrainerWarning": "Jeśli sparujesz {trainer} bezpośrednio, {app} weźmie surową moc, a Twoje biegi z BikeControl nie zadziałają.",
+  "@onboardingPairAsTrainerWarning": {
+    "placeholders": {
+      "trainer": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFinishSetup": "Zakończ konfigurację",
+  "onboardingDoneTitle": "Możesz ruszać",
+  "onboardingYourController": "Twój kontroler",
+  "onboardingDoneSubtitle": "{controller} jest połączony z {app}.",
+  "@onboardingDoneSubtitle": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingDoneSubtitleBridged": "{controller} jest połączony z {app}, a Twój trenażer działa przez BikeControl.",
+  "@onboardingDoneSubtitleBridged": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryReady": "Gotowe",
+  "onboardingAlmostThereTitle": "Już prawie",
+  "onboardingAlmostThereSubtitle": "Po stronie BikeControl wszystko jest gotowe — czekamy na połączenie {app}. Wykonaj kroki z poprzedniej strony w samej {app}.",
+  "@onboardingAlmostThereSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryWaitingFor": "Czekam na {app}…",
+  "@onboardingSummaryWaitingFor": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryBridged": "Połączony przez BikeControl",
+  "onboardingTestModeTitle": "Jesteś w trybie testowym",
+  "onboardingTestModeBody": "Rusz teraz i sprawdź, czy wszystko działa. Tryb testowy ogranicza Cię do dziennego limitu komend — wystarczy, by potwierdzić połączenie, ale nie na cały trening.",
+  "onboardingTestModeBodyVs": "Rusz teraz i sprawdź, czy wszystko działa. Tryb testowy ogranicza Cię do dziennego limitu komend i ograniczonej wirtualnej zmiany biegów dziennie — wystarczy, by potwierdzić połączenie, ale nie na cały trening.",
+  "onboardingSeeProOptions": "Zobacz opcje Pro i Base",
+  "onboardingDoneFinishLater": "Zakończ — połączę się później",
+  "onboardingDoneStartRiding": "Gotowe — ruszaj",
+  "chainReadyTitle": "Gotowy do jazdy",
+  "chainReadySubtitle": "Twoje przyciski docierają do {app}.",
+  "@chainReadySubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainReadySubtitleNoApp": "Wszystko, czego potrzebuje BikeControl, jest skonfigurowane.",
+  "chainStepsLeftTitle": "{count, plural, =1{Został 1 krok} few{Zostały {count} kroki} other{Zostało {count} kroków}}",
+  "@chainStepsLeftTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chainBrokenTitle": "{name} utracił połączenie",
+  "@chainBrokenTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chainBrokenSubtitle": "Twoje przyciski nie zadziałają, dopóki połączenie nie wróci.",
+  "chainPendingSubtitleSingle": "Dokończ kartę „{name}” poniżej i wszystko będzie gotowe.",
+  "@chainPendingSubtitleSingle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chainPendingSubtitleMultiple": "{names} wymagają jeszcze konfiguracji.",
+  "@chainPendingSubtitleMultiple": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "chainBannerFix": "Napraw",
+  "chainBannerShow": "Pokaż",
+  "chainOptional": "Opcjonalnie",
+  "chainEdit": "Edytuj",
+  "chainSetUp": "Skonfiguruj",
+  "chainShowMeHow": "Pokaż mi jak",
+  "chainSomethingNotWorking": "Coś nie działa?",
+  "chainStatusOutOfRange": "Poza zasięgiem",
+  "chainStatusLostConnection": "Utracono połączenie",
+  "chainStatusNotSetUp": "Nieskonfigurowane",
+  "chainStatusReceivingCommands": "Odbiera polecenia",
+  "chainStatusWaitingForApp": "Czekam na {app}",
+  "@chainStatusWaitingForApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStatusHandledByApp": "{app} obsługuje zmianę biegów",
+  "@chainStatusHandledByApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainControllerTitle": "Kontroler",
+  "chainTrainerTitle": "Trenażer smart",
+  "chainAppTitle": "Aplikacja treningowa",
+  "chainStepBluetoothReady": "Bluetooth jest włączony",
+  "chainStepBluetoothReadyPending": "Włącz Bluetooth",
+  "chainStepBluetoothReadyHint": "BikeControl potrzebuje Bluetootha, aby znaleźć kontroler i utrzymać połączenie.",
+  "chainStepControllerPaired": "Sparowany przez Bluetooth",
+  "chainStepControllerPairedPending": "Znajdź swój kontroler",
+  "chainStepControllerPairedHint": "Najpierw wybudź go naciśnięciem przycisku.",
+  "chainStepButtonsMapped": "Przyciski przypisane",
+  "chainStepButtonsMappedPending": "Przypisz swoje przyciski",
+  "chainStepButtonsMappedHint": "Przypisz akcję do co najmniej jednego przycisku.",
+  "chainStepInRange": "W zasięgu",
+  "chainStepInRangePending": "Umieść go z powrotem w zasięgu",
+  "chainStepInRangeHint": "Naciśnij dowolny przycisk, aby go wybudzić, i zamknij każdą inną aplikację, która może go zajmować.",
+  "chainStepUnlocked": "Odblokowany",
+  "chainStepUnlockedPending": "Odblokuj go w Zwift",
+  "chainStepUnlockedHint": "Zwift przypisuje Click V2 do własnej aplikacji — otwórz Zwift raz, a kontroler będzie działać przez 24 godziny.",
+  "chainStepUnlockedUntil": "Odblokowany do {date}",
+  "chainStepUnlockedLikelyUntil": "Prawdopodobnie odblokowany do {date}",
+  "chainStepSramSetup": "Sterowanie skonfigurowane",
+  "chainStepSramSetupHint": "Przerzutka wciąż zmienia biegi sama — przekaż je BikeControl, aby manetki wysyłały naciśnięcia.",
+  "chainStepClickV2Setup": "Wybierz sposób odblokowania",
+  "chainStepClickV2SetupHint": "Zwift przypisuje Click V2 do własnej aplikacji. Wybierz, jak BikeControl to obchodzi — połączy się od razu.",
+  "chainStepTrainerPaired": "Trenażer połączony",
+  "chainStepTrainerPairedPending": "Połącz swój trenażer",
+  "chainStepAppSelected": "Wybrano aplikację treningową",
+  "chainStepAppSelectedPending": "Wybierz aplikację treningową",
+  "chainStepAppSelectedHint": "Wybierz aplikację, w której jeździsz.",
+  "chainStepAppConnectionMethod": "Metoda połączenia włączona",
+  "chainStepAppConnectionMethodPending": "Włącz metodę połączenia",
+  "chainStepAppConnectionMethodHint": "Wybierz, jak BikeControl ma docierać do Twojej aplikacji.",
+  "chainStepAppConnected": "Połączono z {app}",
+  "@chainStepAppConnected": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepAppConnectedPending": "Czekam, aż {app} się połączy",
+  "@chainStepAppConnectedPending": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepAppConnectedHint": "Otwórz aplikację i wybierz w niej BikeControl na ekranie parowania.",
+  "chainStepTrainerBridged": "Wykryty przez {app}",
+  "@chainStepTrainerBridged": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepTrainerBridgedPending": "Czekam, aż {app} go wykryje",
+  "@chainStepTrainerBridgedPending": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepTrainerBridgedHint": "Wybierz „{bridge}” jako trenażer w {app}.",
+  "@chainStepTrainerBridgedHint": {
+    "placeholders": {
+      "bridge": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStatusBridged": "Połączony przez mostek",
+  "chainTrialTitle": "Tryb testowy",
+  "chainTrialExpiredTitle": "Okres próbny wygasł",
+  "chainTrialDaysMeter": "Dni próbne",
+  "chainTrialDaysLeft": "{count, plural, =0{Kończy się dzisiaj} =1{Został 1 dzień} few{Zostały {count} dni} other{Zostało {count} dni}}",
+  "@chainTrialDaysLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chainTrialCommandsMeter": "Polecenia dzisiaj",
+  "chainTrialCommandsLimited": "Polecenia ograniczone do {limit} dziennie",
+  "@chainTrialCommandsLimited": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "chainTrialBridgeMeter": "Wirtualna zmiana biegów dzisiaj",
+  "chainTrialBridgeMeterSuffix": "min",
+  "chainTrialRestoreRow": "Masz już zakup? Przywróć zakupy",
+  "chainOfflineEditNotice": "Brak połączenia – nadal możesz zmienić działanie jego przycisków.",
+  "chainForgotten": "Usunięto {name}",
+  "@chainForgotten": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chainUndo": "Cofnij",
+  "chainUpgrade": "Uaktualnij",
+  "chainMoreOptions": "Więcej opcji",
+  "chainCloseAndQuit": "Zamknij połączenia i wyjdź z aplikacji"
 }

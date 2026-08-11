@@ -1,3 +1,5 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -61,7 +63,10 @@ Widget onboardingDeviceRow(BuildContext context, BaseDevice device,
       Gap(12),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(device.name).small.semiBold,
+          // displayName, not `name`: `name` is the raw BLE advertised name,
+          // which is plain "Zwift Click" for both Click V2 pucks — the two
+          // rows were indistinguishable.
+          Text(device.displayName(context)).small.semiBold,
           // A device held for setup (Click V2 pending its unlock-mode choice)
           // is deliberately not connecting — don't pretend it is.
           Text(connected
@@ -138,12 +143,11 @@ Widget onboardingControllerBody(BuildContext context,
     void Function(BaseDevice)? onSetupDevice,
     VoidCallback? onUpdate}) {
   final reduceMotion = MediaQuery.of(context).disableAnimations;
-  final scheme = Theme.of(context).colorScheme;
   final anyConnected = devices.any((d) => d.isConnected);
 
   switch (phase) {
     case ControllerPhase.permission:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(context.i18n.onboardingBluetoothTitle).h4,
         Gap(6),
         Text(context.i18n.onboardingBluetoothSubtitle).small.muted,
@@ -151,8 +155,8 @@ Widget onboardingControllerBody(BuildContext context,
         Center(
           child: StageBadge(
             icon: LucideIcons.bluetooth,
-            tone: scheme.primary,
-            wash: scheme.primary.withValues(alpha: 0.1),
+            tone: onboardingAccent(context),
+            wash: onboardingAccent(context).withValues(alpha: 0.1),
             reduceMotion: reduceMotion,
           ),
         ),
@@ -162,9 +166,9 @@ Widget onboardingControllerBody(BuildContext context,
             context, LucideIcons.bell, context.i18n.onboardingBluetoothNotifyTitle, context.i18n.onboardingBluetoothNotifySub),
         Gap(6),
         _infoRow(context, LucideIcons.shieldCheck, context.i18n.onboardingBluetoothPrivacy, ''),
-      ]);
+      ]));
     case ControllerPhase.scanning:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(context.i18n.onboardingScanTitle).h4,
         Gap(6),
         Text(context.i18n.onboardingScanSubtitle).small.muted,
@@ -172,9 +176,9 @@ Widget onboardingControllerBody(BuildContext context,
         Center(child: SmoothWifiAnimation()),
         Gap(20),
         Center(child: Text(context.i18n.scanningForDevices).small.muted),
-      ]);
+      ]));
     case ControllerPhase.empty:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(context.i18n.onboardingScanEmptyTitle).h4,
         Gap(6),
         Text(context.i18n.onboardingScanEmptySubtitle).small.muted,
@@ -185,9 +189,9 @@ Widget onboardingControllerBody(BuildContext context,
             context.i18n.onboardingScanEmptyDisconnectSub),
         _infoRow(context, LucideIcons.ruler, context.i18n.onboardingScanEmptyCloserTitle,
             context.i18n.onboardingScanEmptyCloserSub),
-      ]);
+      ]));
     case ControllerPhase.list:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(anyConnected ? context.i18n.onboardingControllerReadyTitle : context.i18n.onboardingControllerListTitle).h4,
         Gap(6),
         Text(anyConnected ? context.i18n.onboardingControllerReadySubtitle : context.i18n.onboardingControllerListSubtitle)
@@ -220,6 +224,6 @@ Widget onboardingControllerBody(BuildContext context,
           Gap(12),
           _infoRow(context, LucideIcons.lightbulb, context.i18n.onboardingControllerMapped(appName), ''),
         ],
-      ]);
+      ]));
   }
 }

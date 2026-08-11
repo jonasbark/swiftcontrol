@@ -500,6 +500,20 @@ abstract class BaseDevice {
   /// identically-named entries can be told apart. Returns null by default.
   Widget? nameBadge(BuildContext context) => null;
 
+  /// The device name as shown to the rider. Defaults to [toString], which stays
+  /// English on purpose so logs, crash reports and notifications keep a stable
+  /// identity; only overrides that carry a translatable part (the Click V2
+  /// left/right suffix) differ from it.
+  String displayName(BuildContext context) => toString();
+
+  /// In-game actions this device *receives* rather than sends — the fan speeds
+  /// a Headwind reacts to, the incline steps a Climb takes.
+  ///
+  /// They are assigned to a controller's buttons, never to this device's own
+  /// (an accessory has none), so its settings page can only name them and send
+  /// the rider to a controller.
+  List<InGameAction> get assignableActions => const [];
+
   Widget showInformation(BuildContext context,
       {required bool showFull,
       Widget? footer,
@@ -537,7 +551,7 @@ abstract class BaseDevice {
                       spacing: 6,
                       children: [
                         Text(
-                          toString(),
+                          displayName(context),
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: -0.2),
                         ),
                         if (badge != null) badge,

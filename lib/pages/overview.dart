@@ -3,48 +3,34 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
-import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
-import 'package:bike_control/pages/proxy.dart';
+import 'package:bike_control/pages/home/home_page.dart';
+import 'package:bike_control/pages/home/home_sheets.dart';
 import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/services/blog_service.dart';
-import 'package:bike_control/services/screen_recording/screen_recording_service.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
-import 'package:bike_control/utils/keymap/apps/bike_control.dart';
-import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/blog_posts_widget.dart';
-import 'package:bike_control/bluetooth/devices/steering_device.dart';
-import 'package:bike_control/widgets/controller/controller_canvas.dart';
-import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
-import 'package:bike_control/widgets/iap_status_widget.dart';
-import 'package:bike_control/widgets/ignored_devices_dialog.dart';
 import 'package:bike_control/widgets/review_banner.dart';
-import 'package:bike_control/widgets/status_icon.dart';
-import 'package:bike_control/widgets/trainer_features.dart';
-import 'package:bike_control/widgets/ui/animated_button_widget.dart';
 import 'package:bike_control/widgets/ui/button_widget.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show ConnectionMethodTypeActivityIcon;
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
-import 'package:prop/prop.dart' show LogLevel, Logger, RetrofitMode;
+import 'package:prop/prop.dart' show LogLevel, Logger;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../main.dart';
-import '../utils/iap/iap_manager.dart';
-import 'device.dart';
 
 // ── Activity log entry ───────────────────────────────────────────────
 
@@ -95,16 +81,8 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
   late double _screenWidth;
 
   // Layout keys
-  final Map<String, GlobalKey> _cardKeys = {};
-  final GlobalKey _trainerKey = GlobalKey();
-  final GlobalKey _errorBannerKey = GlobalKey();
-
   final GlobalKey _activityLogKey = GlobalKey();
   bool _isInForeground = true;
-
-  // Per-device button press animation state (separate from flow)
-  final Map<String, ControllerButton> _pressedButton = {};
-  final Map<String, int> _pressGeneration = {};
 
   // Activity log
   final List<_ActivityEntry> _activityLog = [];
@@ -113,17 +91,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
 
   // Blog
   bool _hasNewBlogPosts = false;
-
-  // Error banner
-  _ActivityEntry? _latestError;
-  late final AnimationController _errorBannerController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 350),
-  );
-  late final AnimationController _errorShakeController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 300),
-  );
 
   void _onProxyStateChanged() {
     if (mounted) setState(() {});
@@ -143,9 +110,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     });
     _actionListener = core.connection.actionStream.listen((notification) {
       Logger.warn('Notification received: ${notification.runtimeType} - $notification');
-      if (notification is ButtonNotification && notification.buttonsClicked.isNotEmpty) {
-        _onButtonPressed(notification.device, notification.buttonsClicked.first);
-      } else if (notification is ActionNotification && notification.result.button != null) {
+      if (notification is ActionNotification && notification.result.button != null) {
         _onActionResult(notification.result, notification.result.button!);
       } else if (notification is AlertNotification) {
         _onAlert(notification);
@@ -211,14 +176,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     }
   }
 
-  void _onButtonPressed(BaseDevice device, ControllerButton button) {
-    final id = device.uniqueId;
-    _pressGeneration[id] = (_pressGeneration[id] ?? 0) + 1;
-    setState(() {
-      _pressedButton[id] = button;
-    });
-  }
-
   void _insertActivityEntry(_ActivityEntry entry) {
     _activityLog.insert(0, entry);
     _activityListKey.currentState?.insertItem(0, duration: const Duration(milliseconds: 300));
@@ -251,9 +208,12 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     _insertActivityEntry(entry);
 
     if (entry.isError) {
-      final alreadyShown = _latestError != null && _errorBannerController.value > 0;
-
-      if (_screenWidth < 800 && _horizontalScrollController.page != 1) {
+      // Not during onboarding: the wizard asks the rider to press a button
+      // precisely while the trainer app or the keymap is not set up yet, so
+      // every one of those presses fails by design. Toasting "X could not be
+      // performed" over the step that told them to press it reads as the
+      // wizard being broken. The entry is still logged to the activity list.
+      if (!onboardingActive && _screenWidth < 800 && _horizontalScrollController.page != 1) {
         final fix = _errorFixAction(entry);
         buildToast(
           level: LogLevel.LOGLEVEL_WARNING,
@@ -266,17 +226,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
               : null,
         );
       }
-      _latestError = entry;
-      if (alreadyShown) {
-        _errorShakeController.forward(from: 0);
-      } else {
-        _errorBannerController.forward(from: 0);
-      }
       setState(() {});
-    } else if (_latestError != null) {
-      _errorBannerController.reverse().then((_) {
-        if (mounted) setState(() => _latestError = null);
-      });
     } else {
       setState(() {});
     }
@@ -320,16 +270,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     );
     _insertActivityEntry(entry);
 
-    if (notification.onTap != null) {
-      final alreadyShown = _latestError != null && _errorBannerController.value > 0;
-      _latestError = entry;
-      if (alreadyShown) {
-        _errorShakeController.forward(from: 0);
-      } else {
-        _errorBannerController.forward(from: 0);
-      }
-    }
-
     setState(() {});
   }
 
@@ -341,8 +281,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     WidgetsBinding.instance.removeObserver(this);
     _horizontalScrollController.dispose();
 
-    _errorBannerController.dispose();
-    _errorShakeController.dispose();
     _timeRefreshTimer.cancel();
     _actionListener.cancel();
     for (final proxy in core.connection.proxyDevices) {
@@ -357,198 +295,23 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final devices = core.connection.controllerDevices;
-    final trainerApp = core.settings.getTrainerApp();
-    final enabledTrainers = core.logic.enabledTrainerConnections;
-
-    for (final d in devices) {
-      _cardKeys.putIfAbsent(d.uniqueId, GlobalKey.new);
-    }
+    // Wide desktop promotes the activity log to a permanent rail, and that rail
+    // carries its own Help button — a second one in the chain would be a
+    // duplicate of something already on screen.
+    final showsActivityRail = _screenWidth >= 800;
 
     final leftColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Gap(8),
         ReviewBanner(service: core.reviewPromptService),
-        ValueListenableBuilder(
-          valueListenable: IAPManager.instance.isPurchased,
-          builder: (context, value, child) => value ? SizedBox(height: 12) : IAPStatusWidget(small: false),
+        HomePage(
+          isMobile: widget.isMobile,
+          showHelpRow: !showsActivityRail,
+          onUpdate: () {
+            setState(() {});
+          },
         ),
-        Card(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 12.0, left: 12, right: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildSectionHeader(icon: Icons.gamepad, title: AppLocalizations.of(context).controllers),
-                    ),
-                    ValueListenableBuilder<ScreenRecordingState>(
-                      valueListenable: core.screenRecording.state,
-                      builder: (context, state, _) {
-                        if (state != ScreenRecordingState.recording) return const SizedBox.shrink();
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.fiber_manual_record, color: Colors.red, size: 12),
-                            const SizedBox(width: 4),
-                            Text(context.i18n.screenRecordingStarted).xSmall.muted,
-                          ],
-                        );
-                      },
-                    ),
-                    if (core.settings.getIgnoredDevices().isNotEmpty)
-                      Button.text(
-                        style: ButtonStyle.menu(),
-                        leading: Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.muted,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          margin: EdgeInsets.only(right: 4),
-                          child: Text(
-                            core.settings.getIgnoredDevices().length.toString(),
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.mutedForeground,
-                            ),
-                          ),
-                        ),
-                        onPressed: () async {
-                          await showDialog(
-                            context: context,
-                            builder: (context) => IgnoredDevicesDialog(),
-                          );
-                          setState(() {});
-                        },
-                        child: Text(context.i18n.manageIgnoredDevices).small,
-                      ),
-                    if (devices.isNotEmpty || core.connection.proxyDevices.isNotEmpty)
-                      Builder(
-                        builder: (context) => IconButton.ghost(
-                          icon: Icon(Icons.more_vert, size: 16),
-                          onPressed: () {
-                            showDropdown(
-                              context: context,
-                              builder: (c) => DropdownMenu(
-                                children: [
-                                  MenuButton(
-                                    leading: const Icon(Icons.power_settings_new_rounded),
-                                    onPressed: (c) async {
-                                      await core.connection.disconnectAll();
-                                      await core.connection.stop();
-                                      SystemNavigator.pop();
-                                    },
-                                    child: Text(context.i18n.close),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Gap(8),
-              DevicePage(
-                cardKeys: _cardKeys,
-                isMobile: widget.isMobile,
-                footerBuilder: (device) {
-                  final id = device.uniqueId;
-                  final pressedButton = _pressedButton[id];
-                  final generation = _pressGeneration[id] ?? 0;
-                  final keymap = core.actionHandler.supportedApp?.keymap;
-                  final size = 56 / Theme.of(context).scaling;
-                  Widget btnFor(ControllerButton btn) {
-                    final pressGen = pressedButton?.name == btn.name ? generation : 0;
-                    return AnimatedButtonWidget(
-                      key: ValueKey(btn.name),
-                      button: btn,
-                      pressGeneration: pressGen,
-                      keymap: keymap,
-                      device: device,
-                      size: size,
-                      onUpdate: () {
-                        _clearErrorBanner();
-                        setState(() {});
-                      },
-                    );
-                  }
-
-                  if (device is SteeringDevice) {
-                    final steering = device as SteeringDevice;
-                    return SteeringGauge(
-                      angle: steering.steeringAngle,
-                      calibrated: steering.steeringCalibrated,
-                      threshold: steering.steeringThreshold,
-                      device: device,
-                      leftButton: steering.steerLeftButton,
-                      rightButton: steering.steerRightButton,
-                      keymap: keymap,
-                      onUpdate: () {
-                        _clearErrorBanner();
-                        setState(() {});
-                      },
-                    );
-                  }
-
-                  final layout = device.controllerLayout;
-                  if (layout != null) {
-                    return ControllerCanvas(
-                      layout: layout,
-                      availableButtons: device.availableButtons,
-                      buttonBuilder: btnFor,
-                      buttonSize: size,
-                    );
-                  }
-                  return Wrap(
-                    alignment: WrapAlignment.start,
-                    spacing: 9,
-                    runSpacing: 9,
-                    children: device.availableButtons.map(btnFor).toList(),
-                  );
-                },
-                onUpdate: () {
-                  _clearErrorBanner();
-                  setState(() {});
-                },
-              ),
-            ],
-          ),
-        ),
-        Container(
-          margin: EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.muted.withAlpha(60),
-            border: Border(
-              left: BorderSide(color: Theme.of(context).colorScheme.border, width: 1),
-              right: BorderSide(color: Theme.of(context).colorScheme.border, width: 1),
-              bottom: BorderSide(color: Theme.of(context).colorScheme.border, width: 1),
-            ),
-            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
-          ),
-          child: ProxyPage(
-            onUpdate: () {
-              setState(() {});
-            },
-            isMobile: widget.isMobile,
-          ),
-        ),
-        const Gap(12),
-        _buildErrorBanner(),
-        const Gap(12),
-
-        KeyedSubtree(
-          key: _trainerKey,
-          child: _buildTrainerCard(trainerApp, enabledTrainers),
-        ),
-        const Gap(22),
-
-        if (widget.isMobile) Gap(MediaQuery.viewPaddingOf(context).bottom + 32),
       ],
     );
 
@@ -627,14 +390,21 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
       );
     }
 
-    // Desktop: two-column layout
+    // Desktop: the chain in one centred column — it is a sequence, not a grid,
+    // so widening it past a comfortable measure only makes it harder to read —
+    // with the activity log promoted from a tab to a permanent rail.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Gap(20),
         Expanded(
           child: SingleChildScrollView(
-            child: leftColumn,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: leftColumn,
+              ),
+            ),
           ),
         ),
         const Gap(20),
@@ -658,8 +428,25 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
               ),
               Divider(),
               Padding(
-                padding: const EdgeInsets.only(right: 20, top: 8, bottom: 20),
+                padding: const EdgeInsets.only(right: 20, top: 8, bottom: 8),
                 child: BlogPostsWidget(maxPosts: 4),
+              ),
+              Divider(),
+              // The rail's foot is where a stuck rider is already looking, so
+              // Help lives here on desktop instead of at the end of the chain.
+              Padding(
+                padding: const EdgeInsets.only(left: 12, right: 20, top: 8, bottom: 16),
+                child: Button.outline(
+                  onPressed: () => openControllerHelpSheet(context),
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.lifeBuoy, size: 16, color: Theme.of(context).colorScheme.primary),
+                      const Gap(9),
+                      Expanded(child: Text(context.i18n.chainSomethingNotWorking).small.semiBold),
+                      Icon(LucideIcons.chevronRight, size: 14, color: Theme.of(context).colorScheme.mutedForeground),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -674,156 +461,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
 
   Future<void> _openTrainerConnectionSettings() async {
     await context.push(const TrainerConnectionSettingsPage());
-    _clearErrorBanner();
     setState(() {});
-  }
-
-  void _clearErrorBanner() {
-    if (_latestError != null) {
-      _errorBannerController.reverse().then((_) {
-        if (mounted) setState(() => _latestError = null);
-      });
-    }
-  }
-
-  // ── Trainer card ──────────────────────────────────────────────────
-
-  Widget _buildTrainerCard(
-    SupportedApp? trainerApp,
-    List<TrainerConnection> enabledTrainers,
-  ) {
-    final appName = trainerApp?.name ?? 'No app selected';
-    final proxies = core.connection.proxyDevices.where((p) => p.isConnected).toList();
-
-    return Card(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Button.ghost(
-            onPressed: _openTrainerConnectionSettings,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Gap(4),
-                _buildSectionHeader(icon: Icons.monitor, title: AppLocalizations.of(context).trainerConnection),
-                const Gap(16),
-                Row(
-                  spacing: 12,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.muted,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            if (trainerApp?.logoAsset != null) ...[
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: Image.asset(trainerApp!.logoAsset!, width: 18, height: 18),
-                              ),
-                              const Gap(8),
-                            ],
-                            Expanded(child: Text(appName).small.semiBold),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 14,
-                              color: Theme.of(context).colorScheme.mutedForeground,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.muted,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          LucideIcons.settings,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (enabledTrainers.isNotEmpty || proxies.isNotEmpty) ...[
-                  const Gap(18),
-                  for (final enabledTrainer in enabledTrainers) ...[
-                    _buildTrainerConnectionRow(enabledTrainer),
-                    if (enabledTrainer != enabledTrainers.last || proxies.isNotEmpty) const Gap(12),
-                  ],
-                  for (final proxy in proxies) ...[
-                    _buildBridgeConnectionRow(proxy),
-                    if (proxy != proxies.last) const Gap(12),
-                  ],
-                  const Gap(12),
-                ] else ...[
-                  const Gap(12),
-                  if (trainerApp is! BikeControl && trainerApp != null) ...[
-                    Text(context.i18n.noConnectionMethodIsConnectedOrActive).small.muted,
-                    const Gap(12),
-                  ],
-                ],
-              ],
-            ),
-          ),
-          if (trainerApp != null) ...[
-            Divider(
-              thickness: Theme.of(context).brightness == Brightness.dark ? 1.5 : 0.5,
-            ),
-            TrainerFeatures(withCard: false),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrainerConnectionRow(TrainerConnection trainer) {
-    return trainer.getTile(small: true);
-  }
-
-  Widget _buildBridgeConnectionRow(ProxyDevice device) {
-    return ValueListenableBuilder<RetrofitMode>(
-      valueListenable: device.retrofitMode,
-      builder: (context, mode, _) {
-        // Proxy mode mirrors raw FTMS over WiFi — surface a wifi icon, not the
-        // bridge-specific bluetooth/cog visuals.
-        final IconData icon = device.icon;
-        return ValueListenableBuilder<bool>(
-          valueListenable: device.isConnectedListenable,
-          builder: (context, connected, _) {
-            return ValueListenableBuilder<bool>(
-              valueListenable: device.isStartedListenable,
-              builder: (context, starting, _) {
-                final title = 'Bridge (${device.toString()})';
-                return SizedBox(
-                  width: double.infinity,
-                  child: Basic(
-                    leading: StatusIcon(icon: icon, status: connected, started: starting),
-                    title: connected ? Text(title).small.semiBold : Text(title).small.muted,
-                    subtitle: Text(
-                      context.i18n.chooseBikeControlInConnectionScreen.replaceAll(
-                        screenshotMode ? '1337' : 'BikeControl',
-                        device.advertisementName,
-                      ),
-                    ).xSmall.textMuted,
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
-    );
   }
 
   // ── Activity log ────────────────────────────────────────────────────
@@ -837,7 +475,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
           children: [
             Gap(16),
             Expanded(
-              child: _buildSectionHeader(icon: Icons.list, title: AppLocalizations.of(context).activity),
+              child: ColoredTitle(text: AppLocalizations.of(context).activity),
             ),
             GhostButton(
               onPressed: _clearActivityLog,
@@ -1021,7 +659,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
               button: button,
               keymap: core.actionHandler.supportedApp!.keymap,
               onUpdate: () {
-                _clearErrorBanner();
                 setState(() {});
               },
             );
@@ -1053,52 +690,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     };
   }
 
-  Widget _buildErrorBanner() {
-    final entry = _latestError;
-    if ((entry == null && _errorBannerController.value == 0) || _screenWidth > 800) {
-      return const SizedBox.shrink();
-    }
 
-    Widget buildCard() => Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Card(
-          padding: const EdgeInsets.all(2),
-          borderRadius: BorderRadius.circular(22),
-          child: _buildActivityRow(entry!, isLatest: true),
-        ),
-      ),
-    );
-
-    return KeyedSubtree(
-      key: _errorBannerKey,
-      child: SizeTransition(
-        sizeFactor: CurvedAnimation(
-          parent: _errorBannerController,
-          curve: Curves.easeOutCubic,
-        ),
-        axisAlignment: -1.0,
-        child: entry != null
-            ? Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: AnimatedBuilder(
-                  animation: _errorShakeController,
-                  builder: (context, child) {
-                    final t = _errorShakeController.value;
-                    final scale = 1.0 + 0.03 * sin(t * pi);
-                    return Transform.scale(scale: scale, child: child);
-                  },
-                  child: buildCard(),
-                ),
-              )
-            : const SizedBox.shrink(),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader({required IconData icon, required String title}) {
-    return ColoredTitle(text: title);
-  }
 }
 
 class _Tabs extends StatefulWidget {

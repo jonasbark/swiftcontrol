@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/paywall.dart';
+import 'package:bike_control/widgets/ui/sheet_pull_to_dismiss.dart';
 import 'package:bike_control/services/device_identity_service.dart';
 import 'package:bike_control/services/device_management_service.dart';
 import 'package:bike_control/services/entitlements_service.dart';
@@ -301,7 +302,11 @@ class IAPManager {
       }
       return _windowsIapService!.purchaseFullVersionViaStripe(context);
     }
-    if ((Platform.isWindows || Platform.isMacOS) && !fromPaywall) {
+    // The in-app paywall is what riders see on every platform — RevenueCat's
+    // hosted sheet is only reached as a fallback when an offering has no
+    // matching package (see RevenueCatService.purchase*). `fromPaywall` is
+    // the paywall's own buttons asking for the direct store purchase.
+    if (!fromPaywall) {
       return _showPaywall(context, false);
     } else if (_revenueCatService != null) {
       return _revenueCatService!.purchaseFullVersion(
@@ -319,7 +324,7 @@ class IAPManager {
     SubscriptionPlan plan = SubscriptionPlan.monthly,
     bool fromPaywall = false,
   }) async {
-    if ((Platform.isWindows || Platform.isMacOS) && !fromPaywall) {
+    if (!fromPaywall) {
       return _showPaywall(context, true);
     } else if (_revenueCatService != null) {
       return _revenueCatService!.purchaseSubscription(
@@ -338,7 +343,9 @@ class IAPManager {
   Future<void> _showPaywall(BuildContext context, bool subscription) async {
     openDrawer(
       context: context,
-      builder: (c) => Paywall(defaultToFullVersion: !subscription),
+      // The paywall scrolls, which swallows the drawer's own swipe-to-close —
+      // SheetPullToDismiss restores it (pull down past the top).
+      builder: (c) => SheetPullToDismiss(child: Paywall(defaultToFullVersion: !subscription)),
       position: OverlayPosition.bottom,
     );
   }

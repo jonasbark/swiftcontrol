@@ -11,6 +11,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_emulator.dart';
 import 'package:bike_control/bluetooth/emulation/emulation_manager.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/bluetooth/remote_keyboard_pairing.dart';
+import 'package:bike_control/repositories/remembered_devices_repository.dart';
 import 'package:bike_control/bluetooth/remote_pairing.dart';
 import 'package:bike_control/utils/demo_mode.dart';
 import 'package:bike_control/main.dart';
@@ -54,6 +55,7 @@ class Core {
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   final settings = Settings();
   late final shiftingConfigs = ShiftingConfigsController(settings.prefs);
+  late final rememberedDevices = RememberedDevicesRepository(settings.prefs);
   final connection = Connection();
   late final workoutRecorder = WorkoutRecorder();
   ScreenRecordingService screenRecording = ScreenRecordingService(backend: createScreenRecorderBackend());
@@ -407,6 +409,23 @@ class CoreLogic {
       }
     }
     return null;
+  }
+
+  /// The connections that count as "the trainer app is receiving commands".
+  ///
+  /// Local control is a fallback, not an answer: it types into whatever window
+  /// happens to be in front, so it reports connected the moment it is switched
+  /// on and says nothing about whether the trainer app is reachable. With a
+  /// network method also enabled — the default for MyWhoosh — counting Local
+  /// would call the app connected while the method the rider actually rides on
+  /// sat unactivated.
+  ///
+  /// When Local is all there is, it IS the answer and counts. Same distinction
+  /// [InactivityDisconnector] draws between `isTrainerAppConnected` and
+  /// `isOnlyLocalActive`.
+  List<TrainerConnection> get appFacingConnections {
+    final onlyLocal = enabledNonLocalTrainerConnections.isEmpty && core.settings.getLocalEnabled();
+    return onlyLocal ? connectedTrainerConnections : connectedNonLocalTrainerConnections;
   }
 
   List<TrainerConnection> get enabledNonLocalTrainerConnections => [

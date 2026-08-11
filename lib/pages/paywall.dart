@@ -2,7 +2,6 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/widgets/ui/colors.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
-import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -51,17 +50,36 @@ class _PaywallPricing {
     required this.discountBadge,
   });
 
+  // Only the Windows/Stripe build falls back to these — keep them short
+  // enough to fit the cards on one line each.
   static const fallback = _PaywallPricing(
     yearlyPrice: 'About 2.25 \$/mo',
-    yearlyBilled: 'Price calculated at checkout',
+    yearlyBilled: 'Billed yearly',
     monthlyPrice: 'About 2.50 \$/mo',
-    monthlyBilled: 'Price calculated at checkout',
-    fullVersionSubtitle: 'About 4.99 \$ - price calculated at checkout',
+    monthlyBilled: '',
+    fullVersionSubtitle: 'About 4.99 \$ \u2014 one-time',
     discountBadge: '10% OFF',
   );
 }
 
+/// Formats [value] the way the store would. `NumberFormat.currency(name:)`
+/// renders the ISO code ("EUR 2,08"), so prefer the symbol: take it from the
+/// store's own formatted [sampleFormattedPrice] when there is one (it already
+/// carries the locale's symbol), else fall back to intl's simpleCurrency.
+String paywallFormatPrice(double value, String currencyCode, {String? sampleFormattedPrice}) {
+  final symbol = sampleFormattedPrice == null
+      ? null
+      : RegExp(r'[^\d\s.,\u00a0]+').firstMatch(sampleFormattedPrice)?.group(0);
+  final formatter = symbol != null
+      ? NumberFormat.currency(symbol: symbol, decimalDigits: 2)
+      : NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 2);
+  return formatter.format(value).trim();
+}
+
 class Paywall extends StatefulWidget {
+  /// True when the rider arrived via a "full version / Base" entry point.
+  /// Yearly is always the preselected plan (it's the recommended one), so
+  /// this only highlights the one-time Full version card.
   final bool defaultToFullVersion;
 
   const Paywall({
@@ -142,7 +160,7 @@ class _PaywallState extends State<Paywall> {
   @override
   void initState() {
     super.initState();
-    _selectedPlan = widget.defaultToFullVersion ? _PaywallPlan.fullVersion : _PaywallPlan.yearly;
+    _selectedPlan = _PaywallPlan.yearly;
     _iapManager.entitlements.addListener(_onEntitlementsChanged);
     _iapManager.isPurchased.addListener(_onEntitlementsChanged);
     _loadRevenueCatPricing();
@@ -231,7 +249,12 @@ class _PaywallState extends State<Paywall> {
   }
 
   Future<void> _loadRevenueCatPricing() async {
-    if (defaultTargetPlatform != TargetPlatform.macOS) {
+    // Every RevenueCat platform (iOS, Android, macOS) shows this paywall, so
+    // every one of them needs the live store prices — without this the
+    // hardcoded [_PaywallPricing.fallback] placeholders ("About 2.25 $/mo")
+    // leak into the UI. The Windows-outside-store build sells via Stripe and
+    // has no offerings to read, so it keeps the fallback.
+    if (!_iapManager.isUsingRevenueCat) {
       return;
     }
 
@@ -277,18 +300,20 @@ class _PaywallState extends State<Paywall> {
     final lifetimeStoreProduct = lifetimePackage?.storeProduct;
 
     final yearlyPrice = yearlyStoreProduct != null
-        ? '${_formatCurrency(yearlyStoreProduct.price / 12, yearlyStoreProduct.currencyCode)}/mo'
+        ? '${_formatCurrency(yearlyStoreProduct.price / 12, yearlyStoreProduct.currencyCode, sampleFormattedPrice: yearlyStoreProduct.priceString)}/mo'
         : _pricing.yearlyPrice;
 
     final yearlyBilled = yearlyStoreProduct != null
         ? AppLocalizations.of(context).paywall_billedAtYearly(yearlyStoreProduct.priceString)
         : _pricing.yearlyBilled;
 
-    final monthlyPrice = monthlyStoreProduct != null ? '' : _pricing.monthlyPrice;
+    final monthlyPrice = monthlyStoreProduct != null
+        ? '${_formatCurrency(monthlyStoreProduct.price, monthlyStoreProduct.currencyCode, sampleFormattedPrice: monthlyStoreProduct.priceString)}/mo'
+        : _pricing.monthlyPrice;
 
-    final monthlyBilled = monthlyStoreProduct != null
-        ? AppLocalizations.of(context).paywall_billedAtPricemo(monthlyStoreProduct.priceString)
-        : _pricing.monthlyBilled;
+    // The monthly card's price line already reads "2,99 €/mo" — repeating it
+    // as "Billed at 2,99 €/mo." adds nothing.
+    const monthlyBilled = '';
 
     final fullVersionSubtitle = lifetimeStoreProduct != null
         ? '${AppLocalizations.of(context).only} ${lifetimeStoreProduct.priceString}'
@@ -327,13 +352,8 @@ class _PaywallState extends State<Paywall> {
     return null;
   }
 
-  String _formatCurrency(double value, String currencyCode) {
-    final formatter = NumberFormat.currency(
-      name: currencyCode,
-      decimalDigits: 2,
-    );
-    return formatter.format(value);
-  }
+  String _formatCurrency(double value, String currencyCode, {String? sampleFormattedPrice}) =>
+      paywallFormatPrice(value, currencyCode, sampleFormattedPrice: sampleFormattedPrice);
 
   @override
   Widget build(BuildContext context) {
@@ -347,6 +367,7 @@ class _PaywallState extends State<Paywall> {
             spacing: 18,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Center(child: Image.asset('icon.png', width: 54, height: 54)),
               _buildComparisonTable(context),
               _buildPlansSection(context),
               _buildPurchaseButton(context),
@@ -364,27 +385,28 @@ class _PaywallState extends State<Paywall> {
                       ],
                       Text(
                         _isRestoring ? 'Restoring purchases...' : AppLocalizations.of(context).restorePurchases,
-                        style: const TextStyle(
-                          fontSize: 16,
-                        ),
+                        style: const TextStyle(fontSize: 14),
                       ),
                     ],
                   ),
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Button.text(
-                    onPressed: () => launchUrlString('https://bikecontrol.app/terms-of-use'),
-                    child: Text(AppLocalizations.of(context).termsOfUse).small.muted,
-                  ),
-                  Text('|').small.muted,
-                  Button.text(
-                    onPressed: () => launchUrlString('https://bikecontrol.app/privacy-policy'),
-                    child: Text(AppLocalizations.of(context).privacyPolicy).small.muted,
-                  ),
-                ],
+              // One line, whatever the language: shrink before wrapping.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Button.text(
+                      onPressed: () => launchUrlString('https://bikecontrol.app/terms-of-use'),
+                      child: Text(AppLocalizations.of(context).termsOfUse, maxLines: 1).xSmall.muted.underline,
+                    ),
+                    Button.text(
+                      onPressed: () => launchUrlString('https://bikecontrol.app/privacy-policy'),
+                      child: Text(AppLocalizations.of(context).privacyPolicy, maxLines: 1).xSmall.muted.underline,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -396,8 +418,8 @@ class _PaywallState extends State<Paywall> {
   Widget _buildComparisonTable(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final fullColumnWidth = 80.0;
-        final proColumnWidth = 102.0;
+        final fullColumnWidth = 72.0;
+        final proColumnWidth = 92.0;
 
         return ClipRRect(
           borderRadius: BorderRadius.circular(24),
@@ -456,7 +478,7 @@ class _PaywallState extends State<Paywall> {
               AppLocalizations.of(context).full,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: 14,
                 letterSpacing: 0.8,
                 color: Color(0xFF55565C),
               ),
@@ -491,7 +513,7 @@ class _PaywallState extends State<Paywall> {
                 Icon(
                   feature.icon,
                   color: const Color(0xFF94959A),
-                  size: compact ? 18 : 22,
+                  size: compact ? 16 : 22,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -500,7 +522,7 @@ class _PaywallState extends State<Paywall> {
                     style: TextStyle(
                       color: const Color(0xFF4D4E54),
                       fontWeight: FontWeight.normal,
-                      fontSize: compact ? 16 : 19,
+                      fontSize: compact ? 13.5 : 19,
                       height: 1.2,
                     ),
                   ),
@@ -510,14 +532,16 @@ class _PaywallState extends State<Paywall> {
           ),
           SizedBox(
             width: fullColumnWidth,
-            child: Center(
-              child: _buildCell(feature.full, compact: compact),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Center(child: _buildCell(feature.full, compact: compact)),
             ),
           ),
           SizedBox(
             width: proColumnWidth,
-            child: Center(
-              child: _buildCell(feature.pro, compact: compact),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(child: _buildCell(feature.pro, compact: compact)),
             ),
           ),
         ],
@@ -529,15 +553,16 @@ class _PaywallState extends State<Paywall> {
     return switch (value) {
       _PaywallCell.unlimited => Text(
         AppLocalizations.of(context).unlimited,
+        textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: compact ? 14 : 24,
+          fontSize: compact ? 12 : 24,
           fontWeight: FontWeight.w500,
           color: Colors.black,
         ),
       ),
       _PaywallCell.check => Icon(
         Icons.check_rounded,
-        size: compact ? 28 : 48,
+        size: compact ? 22 : 48,
         color: Colors.black,
       ),
       _PaywallCell.dash => Container(
@@ -554,49 +579,39 @@ class _PaywallState extends State<Paywall> {
   Widget _buildPlansSection(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final stackPlans = constraints.maxWidth < 420;
-
         return Column(
           spacing: 12,
           children: [
-            if (!stackPlans)
-              Row(
-                spacing: 12,
-                children: [
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: _PaywallPlan.yearly,
-                      title: AppLocalizations.of(context).paywall_yearly,
-                      price: _pricing.yearlyPrice,
-                      billed: _pricing.yearlyBilled,
-                      badge: _pricing.discountBadge,
-                    ),
+            // Yearly and monthly always sit side by side — they're a
+            // comparison. IntrinsicHeight bounds the row to its tallest card
+            // so stretch can equalise them: inside the sheet's scroll view
+            // the cross axis is unbounded, and stretching against that hands
+            // the cards an infinite height ("RenderBox was not laid out").
+            IntrinsicHeight(
+              child: Row(
+              spacing: 12,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _buildPlanCard(
+                    plan: _PaywallPlan.yearly,
+                    title: AppLocalizations.of(context).paywall_yearly,
+                    price: _pricing.yearlyPrice,
+                    billed: _pricing.yearlyBilled,
+                    badge: _pricing.discountBadge,
                   ),
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: _PaywallPlan.monthly,
-                      title: AppLocalizations.of(context).paywall_monthly,
-                      price: _pricing.monthlyPrice,
-                      billed: _pricing.monthlyBilled,
-                    ),
+                ),
+                Expanded(
+                  child: _buildPlanCard(
+                    plan: _PaywallPlan.monthly,
+                    title: AppLocalizations.of(context).paywall_monthly,
+                    price: _pricing.monthlyPrice,
+                    billed: _pricing.monthlyBilled,
                   ),
-                ],
-              )
-            else ...[
-              _buildPlanCard(
-                plan: _PaywallPlan.yearly,
-                title: AppLocalizations.of(context).paywall_yearly,
-                price: _pricing.yearlyPrice,
-                billed: _pricing.yearlyBilled,
-                badge: _pricing.discountBadge,
+                ),
+              ],
               ),
-              _buildPlanCard(
-                plan: _PaywallPlan.monthly,
-                title: AppLocalizations.of(context).paywall_monthly,
-                price: _pricing.monthlyPrice,
-                billed: _pricing.monthlyBilled,
-              ),
-            ],
+            ),
             if (!_iapManager.isPurchased.value) _buildFullVersionCard(context),
           ],
         );
@@ -615,6 +630,9 @@ class _PaywallState extends State<Paywall> {
 
     return Stack(
       clipBehavior: Clip.none,
+      // Hand the row's stretched height to the card itself, so both plans
+      // stay the same height even though only yearly has a billing line.
+      fit: StackFit.passthrough,
       children: [
         GestureDetector(
           onTap: () => _selectPlan(plan),
@@ -637,35 +655,52 @@ class _PaywallState extends State<Paywall> {
                   spacing: 8,
                   children: [
                     Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF07070A),
+                      // "Monatlich" must not wrap on a narrow card — shrink
+                      // rather than break the word.
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF07070A),
+                          ),
                         ),
                       ),
                     ),
                     _buildRadioIndicator(selected, compact: true),
                   ],
                 ),
-                Text(
-                  billed,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF111216),
+                const SizedBox(height: 4),
+                // Per-month equivalent leads; the actual billing follows.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    price,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111216),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF7A7B85),
+                const SizedBox(height: 4),
+                if (billed.isNotEmpty)
+                  Text(
+                    billed,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF7A7B85),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -714,19 +749,20 @@ class _PaywallState extends State<Paywall> {
       onTap: () => _selectPlan(_PaywallPlan.fullVersion),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F2F7),
-          borderRadius: BorderRadius.circular(16),
+          // The one-time Base plan sits quieter than the Pro cards above it.
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? const Color(0xFF5A6ED6) : const Color(0xFFC1C2C8),
-            width: selected ? 2.4 : 2,
+            color: selected ? const Color(0xFF5A6ED6) : const Color(0xFFDDDEE5),
+            width: selected ? 2 : 1.5,
           ),
         ),
         child: Row(
           children: [
-            _buildRadioIndicator(selected, compact: true),
-            const SizedBox(width: 14),
+            _buildRadioIndicator(selected, compact: true, small: true),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -735,16 +771,17 @@ class _PaywallState extends State<Paywall> {
                     AppLocalizations.of(context).fullVersion,
                     style: const TextStyle(
                       color: Color(0xFF07070A),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     _pricing.fullVersionSubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF4E4E53),
+                      fontSize: 11.5,
+                      color: Color(0xFF6C6D73),
                     ),
                   ),
                 ],
@@ -756,18 +793,23 @@ class _PaywallState extends State<Paywall> {
     );
   }
 
-  Widget _buildRadioIndicator(bool selected, {bool compact = false}) {
+  Widget _buildRadioIndicator(bool selected, {bool compact = false, bool small = false}) {
+    final size = small
+        ? 16.0
+        : compact
+            ? 20.0
+            : 34.0;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      width: compact ? 28 : 38,
-      height: compact ? 28 : 38,
-      margin: EdgeInsets.only(top: 8),
+      width: size,
+      height: size,
+      margin: EdgeInsets.only(top: compact ? 2 : 8),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: selected ? const Color(0xFF5A6ED6) : Colors.transparent,
         border: Border.all(
           color: selected ? const Color(0xFF5A6ED6) : const Color(0xFFB8B9C0),
-          width: selected ? 3 : 2,
+          width: selected ? 2 : 1.6,
         ),
         boxShadow: selected
             ? [
@@ -782,7 +824,7 @@ class _PaywallState extends State<Paywall> {
       child: selected
           ? Icon(
               Icons.check,
-              size: compact ? 17 : 20,
+              size: small ? 10 : (compact ? 13 : 18),
               color: Colors.white,
             )
           : null,

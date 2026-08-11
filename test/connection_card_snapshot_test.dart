@@ -1,3 +1,6 @@
+@Tags(['screenshots'])
+library;
+
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/pages/proxy_device_details/connection_card.dart';
 import 'package:bike_control/utils/core.dart' show core;
@@ -13,7 +16,7 @@ import 'widget_snapshot.dart';
 /// trainer, so the accordion starts expanded and all three rows are visible,
 /// including "No connection → Let MyWhoosh handle virtual shifting".
 ///
-/// Run: `flutter test test/connection_card_snapshot_test.dart`
+/// Run: `flutter test --run-skipped test/connection_card_snapshot_test.dart`
 Future<void> main() async {
   await ensureSnapshotHarness();
 

@@ -53,7 +53,6 @@ Future<void> main() async {
     device.setRetrofitMode(RetrofitMode.wifi);
     await core.settings.setRetrofitMode(device.trainerKey, RetrofitMode.wifi);
     await core.settings.setAutoConnect(device.trainerKey, true);
-    await core.settings.setSmartTrainerConsent(device.trainerKey, true);
     return device;
   }
 
@@ -94,8 +93,10 @@ Future<void> main() async {
 
       // The advertised port accepts a real TCP connection — and the bridge
       // reports the client as connected.
-      final socket = await Socket.connect(InternetAddress.loopbackIPv4, found!.port!)
-          .timeout(const Duration(seconds: 5));
+      final socket = await Socket.connect(
+        InternetAddress.loopbackIPv4,
+        found!.port!,
+      ).timeout(const Duration(seconds: 5));
       await OnDeviceEnv.waitFor(
         () => device.isConnectedListenable.value,
         description: 'bridge to register the TCP client',
@@ -153,8 +154,12 @@ Future<void> main() async {
 
   group('UI → mDNS packets on the wire', () {
     /// Pump with real time until [condition] holds, keeping the UI alive.
-    Future<void> pumpUntil(WidgetTester tester, bool Function() condition,
-        {Duration timeout = const Duration(seconds: 20), required String description}) async {
+    Future<void> pumpUntil(
+      WidgetTester tester,
+      bool Function() condition, {
+      Duration timeout = const Duration(seconds: 20),
+      required String description,
+    }) async {
       final deadline = DateTime.now().add(timeout);
       while (DateTime.now().isBefore(deadline)) {
         if (condition()) return;
@@ -191,8 +196,7 @@ Future<void> main() async {
 
       // Click "Virtual Shifting" → the takeover consent dialog appears.
       await tester.tap(find.text('Virtual Shifting'));
-      await pumpUntil(tester, () => find.text('Continue').evaluate().isNotEmpty,
-          description: 'consent dialog');
+      await pumpUntil(tester, () => find.text('Continue').evaluate().isNotEmpty, description: 'consent dialog');
 
       // Confirm — this connects the (fake) BLE upstream and starts the real
       // WiFi bridge: real TCP server, real Bonjour registration.

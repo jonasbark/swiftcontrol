@@ -73,6 +73,59 @@ class ProxyDevice extends BluetoothDevice {
   /// mode swaps.
   ValueListenable<bool> get isConnectedListenable => _isConnectedN;
 
+  /// Whether BikeControl is bridging this trainer: the emulator is running, or
+  /// a trainer app is already holding the virtual trainer.
+  ///
+  /// This — not [isConnected], which only says the Bluetooth link to the
+  /// trainer is up — is what "connected" means for a trainer everywhere in the
+  /// app. A trainer BikeControl can talk to but isn't bridging does nothing for
+  /// the rider, and calling that "connected" is technically true and useless.
+  /// Onboarding has always drawn the line here; this getter is that line, in
+  /// one place, so onboarding and the home screen cannot drift apart.
+  bool get isBridged => _isStartedN.value || _isConnectedN.value;
+
+  /// A compact, plain-text readout of what the trainer is reporting right now
+  /// — "250 W · 90 rpm · gear 12/24" — for places that want one line rather
+  /// than the full metric row [showMetaInformation] builds.
+  ///
+  /// Deliberately gated on [isConnected], not [isBridged]: these numbers come
+  /// off the trainer itself, so they are just as real, and just as worth
+  /// showing, before BikeControl starts bridging it.
+  String? get liveReadout {
+    if (!isConnected) return null;
+    if (screenshotMode) return '250 W · 90 rpm';
+
+    final proxyDef = emulator.composite.firstOfType<ProxyBikeDefinition>();
+    final fitnessDef = emulator.fitnessBike;
+    final int? power = proxyDef?.powerW.value ?? fitnessDef?.powerW.value;
+    final int? cadence = proxyDef?.cadenceRpm.value ?? fitnessDef?.cadenceRpm.value;
+
+    final parts = <String>[
+      if ((power ?? 0) > 0) '$power W',
+      if ((cadence ?? 0) > 0) '$cadence rpm',
+    ];
+
+    // The gear only exists while BikeControl is computing it, so it appears
+    // alongside the trainer's own numbers rather than instead of them.
+    if (fitnessDef != null && proxyDef == null) {
+      if (fitnessDef.trainerMode.value == TrainerMode.ergMode) {
+        final watts = fitnessDef.ergTargetPower.value;
+        if (watts != null) parts.add('ERG $watts W');
+      } else {
+        parts.add(
+          'Gear ${formatGearReadout(
+            currentGear: fitnessDef.currentGear.value,
+            maxGear: fitnessDef.maxGear,
+            frontShiftEnabled: fitnessDef.frontShiftEnabled,
+            largeRing: fitnessDef.frontRing.value == FrontRing.large,
+          )}',
+        );
+      }
+    }
+
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   final ValueNotifier<String?> _localAddressN = ValueNotifier(null);
 
   /// Local IPv4 address currently advertised, if any. Stable across mode swaps.
@@ -535,10 +588,14 @@ class ProxyDevice extends BluetoothDevice {
         ),
       ];
     }
-    return [_buildFeatureList(context)];
+    return [buildFeatureList(context)];
   }
 
-  Widget _buildFeatureList(BuildContext context) {
+  /// What bridging this trainer would buy the rider — virtual shifting, gear
+  /// tuning, control from their own controller. Public because the home
+  /// chain shows it too: a trainer that has never been connected is exactly
+  /// the rider who has not seen any of this yet.
+  Widget buildFeatureList(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final muted = TextStyle(fontSize: 11, color: cs.mutedForeground);
 
@@ -691,14 +748,10 @@ class ProxyDevice extends BluetoothDevice {
 
   /// Whether the auto-connect path is allowed to start this device on its own
   /// (scan-time / app-launch). Requires an explicit prior connect intent
-  /// (`getAutoConnect`) and, for smart trainers, the one-time takeover-consent
-  /// flag set via the consent dialog.
+  /// (`getAutoConnect`) — tapping Connect once is the whole consent story now
+  /// that the virtual-shifting takeover dialog is gone.
   @override
-  bool get shouldAutoConnect {
-    if (!core.settings.getAutoConnect(trainerKey)) return false;
-    if (isSmartTrainer && !core.settings.getSmartTrainerConsent(trainerKey)) return false;
-    return true;
-  }
+  bool get shouldAutoConnect => core.settings.getAutoConnect(trainerKey);
 
   @override
   Future<void> connect() async {

@@ -174,20 +174,32 @@ abstract class BaseActions {
 
   /// Whether an internally-handled trainer action — one the active
   /// [FitnessBikeDefinition] accepted, i.e. [handledInternally] — should be
-  /// exempt from the daily command count. Free testers (neither Pro on this
-  /// device, [isProForDevice], nor the full version, [hasFullVersion]) changing
-  /// gears on the bridge while the 20-minute budget is still ticking down
-  /// ([bridgeCountingDown]) don't spend their daily command budget on commands
-  /// the trainer handles locally. Pure for testability; call sites pass the live
-  /// values from [IAPManager] and `core.bridgeUsageTracker`.
+  /// exempt from the daily command count.
+  ///
+  /// Two ways a free tester's shift earns its exemption:
+  ///
+  /// * [bridgeCountingDown] — the 20-minute virtual-shifting budget is already
+  ///   ticking, so the shift is being paid for out of that budget and charging
+  ///   the daily command count as well would bill it twice.
+  /// * [appHoldsBridge] is false — the bridge is running but no trainer app has
+  ///   picked the virtual trainer up, so the shift reaches nothing. A command
+  ///   that was never delivered anywhere is not a command the rider spent.
+  ///
+  /// Owners (Pro on this device via [isProForDevice], or the full version via
+  /// [hasFullVersion]) have no daily budget to protect either way. Pure for
+  /// testability; call sites pass the live values from [IAPManager],
+  /// `core.bridgeUsageTracker` and the trainer's own bridge state.
   @visibleForTesting
   static bool isExemptInternalTrainerAction({
     required bool handledInternally,
     required bool isProForDevice,
     required bool hasFullVersion,
     required bool bridgeCountingDown,
+    required bool appHoldsBridge,
   }) {
-    return handledInternally && !isProForDevice && !hasFullVersion && bridgeCountingDown;
+    if (!handledInternally) return false;
+    if (isProForDevice || hasFullVersion) return false;
+    return bridgeCountingDown || !appHoldsBridge;
   }
 
   /// Reads the live entitlement / bridge state and decides whether the daily
@@ -199,6 +211,7 @@ abstract class BaseActions {
       isProForDevice: IAPManager.instance.isProEnabledForCurrentDevice,
       hasFullVersion: IAPManager.instance.isPurchased.value,
       bridgeCountingDown: core.bridgeUsageTracker.isCountingDown,
+      appHoldsBridge: core.connection.proxyDevices.any((d) => d.isConnectedListenable.value),
     );
   }
 

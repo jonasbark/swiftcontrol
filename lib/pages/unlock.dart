@@ -13,7 +13,6 @@ import 'package:prop/prop.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-import '../main.dart';
 import '../widgets/ui/small_progress_indicator.dart';
 
 class UnlockPage extends StatefulWidget {
@@ -173,6 +172,7 @@ class _UnlockPageState extends State<UnlockPage> with SingleTickerProviderStateM
               onPressed: () {
                 propPrefs.setZwiftClickV2LastUnlock(widget.device.scanResult.deviceId, DateTime.now());
                 propPrefs.setNotSureIfUnlocked(widget.device.scanResult.deviceId, true);
+                widget.device.setupHandshake();
                 closeDrawer(context);
               },
             ),

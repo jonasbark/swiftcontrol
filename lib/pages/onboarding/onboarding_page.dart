@@ -1,3 +1,4 @@
+import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'dart:async';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
@@ -11,16 +12,16 @@ import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
-import 'package:bike_control/pages/onboarding/widgets/onboarding_fade_up.dart';
-import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
 import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
+import 'package:bike_control/pages/onboarding/steps/step_welcome.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/trainer_connect.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -29,10 +30,7 @@ import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/trainer_setup.dart';
-import 'package:bike_control/widgets/go_pro_dialog.dart';
-import 'package:bike_control/widgets/ui/sheet_pull_to_dismiss.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
-import 'package:prop/prop.dart' show LogLevel, RetrofitMode;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 const double kOnboardingDesktopBreakpoint = 800;
@@ -105,7 +103,7 @@ Widget onboardingShell(
                         color: Theme.of(context).colorScheme.card,
                       ),
                       child: Row(children: [
-                        Icon(LucideIcons.lifeBuoy, size: 14, color: Theme.of(context).colorScheme.primary),
+                        Icon(LucideIcons.lifeBuoy, size: 14, color: onboardingAccent(context)),
                         Gap(5),
                         Text(context.i18n.onboardingHelp).xSmall.semiBold,
                       ]),
@@ -129,7 +127,7 @@ Widget onboardingShell(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(3),
                             color: i <= step.index
-                                ? Theme.of(context).colorScheme.primary
+                                ? onboardingAccent(context)
                                 : Theme.of(context).colorScheme.border,
                           ),
                         );
@@ -207,7 +205,7 @@ Widget onboardingShell(
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(children: [
-                      Icon(LucideIcons.lifeBuoy, size: 16, color: Theme.of(context).colorScheme.primary),
+                      Icon(LucideIcons.lifeBuoy, size: 16, color: onboardingAccent(context)),
                       Gap(9),
                       Expanded(child: Text(context.i18n.onboardingHelpAndSupport).small.semiBold),
                       Icon(LucideIcons.chevronRight, size: 14, color: Theme.of(context).colorScheme.mutedForeground),
@@ -277,13 +275,13 @@ Widget _railStep(BuildContext context, OnboardingStep s, OnboardingStep current,
             color: done
                 ? const Color(0xFF22C55E)
                 : active
-                    ? scheme.primary
+                    ? onboardingAccent(context)
                     : scheme.border,
           ),
           child: done
-              ? Icon(LucideIcons.check, size: 13, color: const Color(0xFFFFFFFF))
+              ? Icon(LucideIcons.check, size: 13, color: onboardingOnAccent)
               : DefaultTextStyle.merge(
-                  style: TextStyle(color: active ? const Color(0xFFFFFFFF) : scheme.mutedForeground),
+                  style: TextStyle(color: active ? onboardingOnAccent : scheme.mutedForeground),
                   child: Text('${s.index + 1}').xSmall.semiBold,
                 ),
         ),
@@ -325,6 +323,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Target? _selectedTarget;
 
   ControllerPhase _controllerPhase = ControllerPhase.permission;
+  // Mobile opens on a welcome screen; the desktop rail already frames the
+  // flow, so it starts on step 1. Re-runs from the menu skip it too.
+  bool _showWelcome = core.settings.getOnboardingState() != Settings.onboardingStateCompleted;
+  // True once the welcome screen has been shown — step 1 then skips its own
+  // update banner, so the offer never appears twice.
+  bool _showedWelcome = false;
 
   /// All connection-method singletons the done step's readiness reads —
   /// listened so "Almost there" flips to "You're ready to ride" live.
@@ -575,37 +579,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// of ConnectionCard._onSelect (proxy_device_details/connection_card.dart);
   /// the details page stays reachable from the home screen for mode changes.
   Future<void> _onPickTrainer(ProxyDevice device) async {
-    try {
-      if (device.isStartedListenable.value || device.isStarting.value || device.isConnectedListenable.value) {
-        return;
-      }
-      if (IAPManager.instance.isTrialExpired) {
-        await showGoProDialog(context);
-        return;
-      }
-      if (device.isSmartTrainer) {
-        await core.settings.setSmartTrainerConsent(device.trainerKey, true);
-      }
-      // WiFi transport: the app finds "<trainer> - BikeControl" over the
-      // network (step 5's bridge card), and no BLE-advertise permission
-      // prompts interrupt the wizard.
-      device.setRetrofitMode(RetrofitMode.wifi);
-      await core.settings.setRetrofitMode(device.trainerKey, RetrofitMode.wifi);
-      await core.settings.setAutoConnect(device.trainerKey, true);
-      // Route through the connection manager (not device.startProxy directly)
-      // so the action / connection-state listeners are attached — same
-      // rationale as ConnectionCard._onSelect.
-      await core.connection.connectDevice(device);
-      if (!mounted) return;
-      setState(() {});
-    } catch (e, s) {
-      recordError(e, s, context: 'onboarding pick trainer');
-      if (mounted) {
-        core.connection.signalNotification(
-          AlertNotification(LogLevel.LOGLEVEL_ERROR, 'Error: ${e.toString()}'),
-        );
-      }
-    }
+    await connectTrainerFromPicker(context, device);
+    if (mounted) setState(() {});
   }
 
   /// Same readiness the done body's headline uses: the app is connected
@@ -635,6 +610,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget _body(BuildContext context) => switch (_step) {
         OnboardingStep.app => onboardingAppBody(
             context,
+            // Mobile shows it on the welcome screen instead.
+            showUpdateBanner: !_showedWelcome,
             selected: _selectedApp,
             onSelect: (a) => setState(() => _selectedApp = a),
           ),
@@ -669,20 +646,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
             // pinned `Target.thisDevice` into settings for that case.
             target: core.settings.getLastTarget() ?? _selectedTarget ?? Target.otherDevice,
             hasTrainer: onboardingTrainerBridged(core.connection.proxyDevices),
-            trainerName: core.connection.proxyDevices
-                .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
-                .firstOrNull
-                ?.name,
+            trainerName: core.connection.proxyDevices.where((t) => t.isBridged).firstOrNull?.name,
             onUpdate: () => setState(() {}),
           ),
         OnboardingStep.done => onboardingDoneBody(
             context,
             app: _selectedApp!,
             controllerName: core.connection.controllerDevices.where((d) => d.isConnected).firstOrNull?.name,
-            trainerName: core.connection.proxyDevices
-                .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
-                .firstOrNull
-                ?.name,
+            trainerName: core.connection.proxyDevices.where((t) => t.isBridged).firstOrNull?.name,
             // isConnectedListenable mirrors emulator.isConnected — i.e. the
             // trainer app actually holds the virtual trainer, not just "the
             // bridge is running".
@@ -785,19 +756,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   try {
                     await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
                     if (!mounted || !context.mounted) return;
-                    // The actual Base/Pro paywall — not the "Pro required"
-                    // nag dialog. Closing it returns HERE: the rider leaves
-                    // the wizard via "Done — start riding", never implicitly.
-                    await openDrawer(
-                      context: _sheetContext,
-                      // Pulling down past the paywall's scroll top dismisses
-                      // the sheet (shadcn's own drag gesture loses to the
-                      // inner scrollable) — see SheetPullToDismiss.
-                      builder: (c) => const SheetPullToDismiss(
-                        child: Paywall(defaultToFullVersion: false),
-                      ),
-                      position: OverlayPosition.bottom,
-                    );
+                    // Platform-correct paywall: RevenueCat's hosted sheet on
+                    // iOS/Android, the in-app Paywall drawer on desktop. Going
+                    // through IAPManager is what picks the right one — opening
+                    // the Paywall widget directly showed mobile riders the
+                    // desktop fallback with placeholder "about x €" prices.
+                    await IAPManager.instance.purchaseFullVersion(_sheetContext);
                     if (mounted) setState(() {});
                   } catch (e, s) {
                     recordError(e, s, context: 'onboarding done see pro options');
@@ -823,18 +787,50 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ],
       };
 
+  /// Leaves the wizard from the welcome screen and records it as done, so a
+  /// rider who declines isn't asked again on every launch.
+  Future<void> _onWelcomeLater() async {
+    try {
+      await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding welcome later');
+    }
+    if (mounted) Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       child: Builder(builder: (overlayContext) {
         _overlayContext = overlayContext;
-        return SafeArea(
+        if (_showWelcome) {
+          // Every platform opens on the welcome screen. Desktop used to drop
+          // riders straight into step 1's rail, which asked them to pick a
+          // trainer app before anything had said what BikeControl does or how
+          // long setup takes — the one screen that answers "what am I about to
+          // agree to" was the one desktop never saw.
+          _showedWelcome = true;
+          return OnboardingWelcome(
+            onStart: () => setState(() => _showWelcome = false),
+            onLater: _onWelcomeLater,
+          );
+        }
+        return _shell(overlayContext);
+      }),
+    );
+  }
+
+  Widget _shell(BuildContext overlayContext) {
+    final context = overlayContext;
+    return SafeArea(
         child: onboardingShell(
           overlayContext,
           step: _step,
-          // Re-keyed per step + controller phase so every screen slides in
-          // like the design's bk-fade-up entrance.
-          body: OnboardingFadeUp(
+          // Re-keyed per step + controller phase so every screen re-mounts and
+          // its contents reveal themselves again. The reveal lives on the
+          // children (see onboardingReveal) rather than on one wrapper, so a
+          // screen arrives in reading order instead of all at once.
+          body: KeyedSubtree(
             key: ValueKey('onboarding-body-$_step-$_controllerPhase'),
             child: _body(overlayContext),
           ),
@@ -851,8 +847,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
             }
           },
         ),
-      );
-      }),
     );
   }
 }

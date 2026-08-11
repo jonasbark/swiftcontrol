@@ -24,6 +24,7 @@ import 'package:bike_control/utils/requirements/android.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:bike_control/models/remembered_device.dart';
 import 'package:gamepads/gamepads.dart';
 import 'package:prop/prop.dart';
 import 'package:universal_ble/universal_ble.dart';
@@ -107,6 +108,117 @@ class Connection {
   _ClimbRelaySink? _relaySink;
   FitnessBikeDefinition? _relaySinkFbd;
 
+  // ── Remembered devices ────────────────────────────────────────────────
+  // A controller that is switched off or out of range used to vanish from the
+  // app entirely. These three members keep it on screen instead: rebuilt from
+  // the advertisement we stored the last time it connected, greyed out, and
+  // still editable.
+
+  /// Controllers known from a previous session, rebuilt from their stored
+  /// advertisement. Kept deliberately OUT of [devices] and out of
+  /// [_connectionQueue] so a remembered entry never triggers a connection
+  /// attempt on its own — it is a picture of a device, not a device.
+  final Map<String, BaseDevice> _offlineControllers = {};
+
+  /// The last smart trainer that connected, as data. Unlike controllers this is
+  /// never rebuilt into an object: the trainer card needs a name and a route
+  /// into its settings page, not buttons or a contour, and constructing a
+  /// [ProxyDevice] allocates an emulator we would never start.
+  RememberedDevice? rememberedTrainer;
+
+  /// Ids of devices that have connected at least once in this app session.
+  ///
+  /// This is what separates "lost connection" (red — it was working and broke)
+  /// from "out of range" (amber — you just haven't switched it on yet). A fresh
+  /// launch with the controller in a drawer must not paint the screen red.
+  // Not annotated `Set<String>`: `prop` exports its own non-generic `Set`,
+  // which shadows dart:core's here. The literal infers the right type.
+  final _connectedThisSession = <String>{};
+
+  bool wasConnectedThisSession(String uniqueId) => _connectedThisSession.contains(uniqueId);
+
+  /// Remembered controllers that no live device has taken over yet. Once the
+  /// real device is discovered and enters [devices], its offline stand-in drops
+  /// out of this list so the rider never sees the same controller twice.
+  List<BaseDevice> get offlineControllers {
+    final liveIds = devices.map((d) => d.uniqueId).toSet();
+    return _offlineControllers.values.where((d) => !liveIds.contains(d.uniqueId)).toList();
+  }
+
+  /// Rebuilds the remembered controllers and restores the remembered trainer.
+  /// Safe to call more than once — entries already present are left alone.
+  void loadRememberedDevices() {
+    final ignoredIds = core.settings.getIgnoredDevices().map((d) => d.id).toSet();
+    for (final remembered in core.rememberedDevices.load()) {
+      if (ignoredIds.contains(remembered.deviceId)) continue;
+
+      if (remembered.kind == RememberedDeviceKind.trainer) {
+        rememberedTrainer ??= remembered;
+        continue;
+      }
+      if (_offlineControllers.containsKey(remembered.deviceId)) continue;
+
+      try {
+        // The stored advert is exactly what the factory reads, so this yields a
+        // real device of the right subclass — correct buttons, correct contour.
+        final device = BluetoothDevice.fromScanResult(remembered.toScanResult());
+        if (device != null) _offlineControllers[remembered.deviceId] = device;
+      } catch (e, s) {
+        recordError(e, s, context: 'Connection.loadRememberedDevices ${remembered.deviceId}');
+      }
+    }
+  }
+
+  /// Drops a remembered device and returns the index it sat at, so an Undo can
+  /// put it back exactly where the rider saw it. Bindings in the keymap are
+  /// left alone and the device is NOT ignored, so switching it on nearby still
+  /// connects it normally.
+  Future<int?> forgetRemembered(String deviceId) async {
+    _offlineControllers.remove(deviceId);
+    if (rememberedTrainer?.deviceId == deviceId) rememberedTrainer = null;
+    final index = await core.rememberedDevices.forget(deviceId);
+    hasDevices.value = devices.isNotEmpty || _offlineControllers.isNotEmpty;
+    return index;
+  }
+
+  Future<void> restoreRemembered(RememberedDevice device, {int? atIndex}) async {
+    await core.rememberedDevices.restore(device, atIndex: atIndex);
+    loadRememberedDevices();
+    hasDevices.value = devices.isNotEmpty || _offlineControllers.isNotEmpty;
+  }
+
+  /// Marks a device as genuinely connected in this session, and remembers it.
+  ///
+  /// Called from both the BLE connection-state listener and the post-connect
+  /// path, since neither covers every device type on its own. Remembering is
+  /// idempotent (the repository dedupes by id and refreshes the timestamp), so
+  /// arriving twice for one connect is harmless.
+  void _noteConnected(BaseDevice device) {
+    _connectedThisSession.add(device.uniqueId);
+    unawaited(_rememberConnectedDevice(device));
+  }
+
+  /// Records a device we just connected to. Accessories are skipped — they are
+  /// not links in the setup chain and would only clutter the remembered list.
+  Future<void> _rememberConnectedDevice(BaseDevice device) async {
+    if (device is! BluetoothDevice) return;
+    if (device is Accessory) return;
+
+    final kind = device is ProxyDevice ? RememberedDeviceKind.trainer : RememberedDeviceKind.controller;
+    final remembered = RememberedDevice.fromScanResult(
+      device.device,
+      kind: kind,
+      lastConnected: DateTime.now(),
+    );
+    if (kind == RememberedDeviceKind.trainer) {
+      rememberedTrainer = remembered;
+    } else {
+      // The live device supersedes its own stand-in.
+      _offlineControllers.remove(device.uniqueId);
+    }
+    await core.rememberedDevices.remember(remembered);
+  }
+
   /// Devices whose in-place ("No connection") disconnect is currently in
   /// flight. UniversalBle.disconnect resolves only after the platform's
   /// disconnect event has fired — while our connectionStream listener is
@@ -187,6 +299,9 @@ class Connection {
   }
 
   void initialize() {
+    // Show what the rider owns before any radio has said a word.
+    loadRememberedDevices();
+
     actionStream.listen((log) {
       lastLogEntries.add((date: DateTime.now(), entry: log.toString()));
       lastLogEntries = lastLogEntries.takeLast(kIsWeb ? 1000 : 60).toList();
@@ -798,6 +913,7 @@ class Connection {
     if (device is BluetoothDevice) {
       final connectionStateSubscription = device.device.connectionStream.listen((state) {
         device.isConnected = state;
+        if (state) _noteConnected(device);
         _connectionStreams.add(device);
 
         // Quick-drop tracking (Wheeltop TX pods connect then drop within
@@ -862,6 +978,12 @@ class Connection {
       if (device is BluetoothDevice) {
         _consecutiveConnectFailures.remove(device.device.deviceId);
       }
+      // Deliberately gated on isConnected, not on connect() returning:
+      // ProxyDevice.connect() is a no-op unless the rider has actually asked
+      // for that trainer, so an ungated add here marks a trainer that never
+      // connected as "connected this session" — and the home screen then
+      // reports a brand-new trainer as having lost its connection.
+      if (device.isConnected) _noteConnected(device);
       signalChange(device);
 
       IAPManager.instance.setAttributes();
