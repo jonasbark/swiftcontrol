@@ -30,6 +30,7 @@ ControllerInput controller({
 TrainerInput trainer({
   DevicePresence presence = DevicePresence.connected,
   bool appHoldsBridge = true,
+  String? metrics = '250 W · 90 rpm',
 }) {
   return TrainerInput(
     deviceId: 'trainer-1',
@@ -37,7 +38,7 @@ TrainerInput trainer({
     presence: presence,
     appHoldsBridge: appHoldsBridge,
     bridgeName: 'KICKR CORE - BikeControl',
-    metrics: '250 W · 90 rpm',
+    metrics: metrics,
   );
 }
 
@@ -227,9 +228,20 @@ void main() {
       expect(link.subtitleArg, '250 W · 90 rpm');
     });
 
-    test('metrics are withheld unless the trainer is actually ready', () {
+    // The numbers come off the trainer, not off the bridge: a trainer that is
+    // reporting watts is reporting watts whether or not the app has picked the
+    // bridge up, and hiding them until the whole link is green would withhold
+    // something both true and useful.
+    test('live values show even while the app has not picked the bridge up', () {
+      final chain = buildChain(ChainInputs(trainer: trainer(appHoldsBridge: false), app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.trainer);
+      expect(link.status, LinkStatus.attention);
+      expect(link.subtitleArg, '250 W · 90 rpm');
+    });
+
+    test('a trainer reporting nothing shows no readout', () {
       final chain = buildChain(
-        ChainInputs(trainer: trainer(presence: DevicePresence.remembered), app: _readyApp),
+        ChainInputs(trainer: trainer(presence: DevicePresence.remembered, metrics: null), app: _readyApp),
       );
       expect(chain.byKey(ChainLinkKey.trainer).subtitleArg, isNull);
     });

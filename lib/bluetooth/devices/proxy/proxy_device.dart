@@ -84,6 +84,48 @@ class ProxyDevice extends BluetoothDevice {
   /// one place, so onboarding and the home screen cannot drift apart.
   bool get isBridged => _isStartedN.value || _isConnectedN.value;
 
+  /// A compact, plain-text readout of what the trainer is reporting right now
+  /// — "250 W · 90 rpm · gear 12/24" — for places that want one line rather
+  /// than the full metric row [showMetaInformation] builds.
+  ///
+  /// Deliberately gated on [isConnected], not [isBridged]: these numbers come
+  /// off the trainer itself, so they are just as real, and just as worth
+  /// showing, before BikeControl starts bridging it.
+  String? get liveReadout {
+    if (!isConnected) return null;
+    if (screenshotMode) return '250 W · 90 rpm';
+
+    final proxyDef = emulator.composite.firstOfType<ProxyBikeDefinition>();
+    final fitnessDef = emulator.fitnessBike;
+    final int? power = proxyDef?.powerW.value ?? fitnessDef?.powerW.value;
+    final int? cadence = proxyDef?.cadenceRpm.value ?? fitnessDef?.cadenceRpm.value;
+
+    final parts = <String>[
+      if ((power ?? 0) > 0) '$power W',
+      if ((cadence ?? 0) > 0) '$cadence rpm',
+    ];
+
+    // The gear only exists while BikeControl is computing it, so it appears
+    // alongside the trainer's own numbers rather than instead of them.
+    if (fitnessDef != null && proxyDef == null) {
+      if (fitnessDef.trainerMode.value == TrainerMode.ergMode) {
+        final watts = fitnessDef.ergTargetPower.value;
+        if (watts != null) parts.add('ERG $watts W');
+      } else {
+        parts.add(
+          'Gear ${formatGearReadout(
+            currentGear: fitnessDef.currentGear.value,
+            maxGear: fitnessDef.maxGear,
+            frontShiftEnabled: fitnessDef.frontShiftEnabled,
+            largeRing: fitnessDef.frontRing.value == FrontRing.large,
+          )}',
+        );
+      }
+    }
+
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   final ValueNotifier<String?> _localAddressN = ValueNotifier(null);
 
   /// Local IPv4 address currently advertised, if any. Stable across mode swaps.

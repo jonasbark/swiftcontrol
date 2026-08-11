@@ -103,7 +103,7 @@ class _HomePageState extends State<HomePage> {
     // there anyway.
     if (!screenshotMode) {
       _metricsTicker = Timer.periodic(const Duration(seconds: 2), (_) {
-        if (mounted && core.connection.proxyDevices.any((p) => p.isBridged)) setState(() {});
+        if (mounted && core.connection.proxyDevices.any((p) => p.isConnected)) setState(() {});
       });
     }
 
@@ -222,7 +222,7 @@ class _HomePageState extends State<HomePage> {
         appHoldsBridge: proxy.isConnectedListenable.value,
         // The exact entry to look for in the trainer app's device list.
         bridgeName: proxy.advertisementName,
-        metrics: _trainerMetrics(proxy),
+        metrics: proxy.liveReadout,
       );
     } else if (remembered != null) {
       trainer = TrainerInput(
@@ -262,19 +262,6 @@ class _HomePageState extends State<HomePage> {
   /// The bridged trainer's own name, which the pairing instructions use to
   /// spell out the entry to look for ("KICKR CORE - BikeControl").
   String? get _bridgedTrainerName => core.connection.proxyDevices.firstOrNullWhere((p) => p.isBridged)?.name;
-
-  /// A compact, plain-text version of the trainer's live telemetry for the
-  /// status line. The full metric row still lives on the trainer's own page.
-  String? _trainerMetrics(ProxyDevice proxy) {
-    if (!proxy.isBridged) return null;
-    final bike = proxy.fitnessBike;
-    if (bike == null) return null;
-    final parts = <String>[
-      if ((bike.powerW.value ?? 0) > 0) '${bike.powerW.value} W',
-      if ((bike.cadenceRpm.value ?? 0) > 0) '${bike.cadenceRpm.value} rpm',
-    ];
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
 
   // ── Build ─────────────────────────────────────────────────────────────
 
@@ -523,8 +510,11 @@ class _HomePageState extends State<HomePage> {
     final appName = inputs.app.name ?? context.i18n.chainAppTitle;
     final appHoldsBridge = inputs.trainer?.appHoldsBridge ?? false;
 
-    // Same three answers onboarding's summary gives for a trainer: bridged,
-    // waiting for the app to pick the bridge up, or not connected at all.
+    // Onboarding's answers for a bridged trainer, plus the honest one for a
+    // trainer that is talking to BikeControl without being bridged. That last
+    // case matters now that live watts are shown whenever the trainer reports
+    // them: "Not connected" beside a cadence reading is a contradiction the
+    // rider has to resolve, so a connected-but-unbridged trainer says so.
     final String statusLabel;
     if (link.status == LinkStatus.problem) {
       statusLabel = context.i18n.chainStatusLostConnection;
@@ -536,6 +526,8 @@ class _HomePageState extends State<HomePage> {
       // Only vouch for the app handling shifting when the app is actually
       // working — otherwise this card would excuse a broken link.
       statusLabel = context.i18n.chainStatusHandledByApp(appName);
+    } else if (proxy?.isConnected ?? false) {
+      statusLabel = context.i18n.connected;
     } else {
       statusLabel = context.i18n.notConnected;
     }

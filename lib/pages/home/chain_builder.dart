@@ -134,7 +134,10 @@ ChainLink _trainerLink(ChainInputs inputs) {
     title: trainer.name,
     optional: true,
     steps: steps,
-    subtitleArg: status == LinkStatus.ready ? trainer.metrics : null,
+    // Live numbers are shown whenever the trainer is reporting them — they
+    // come off the trainer, not off the bridge, so withholding them until the
+    // whole link is green would hide something true and useful.
+    subtitleArg: trainer.metrics,
     deviceId: trainer.deviceId,
     dismissible: !paired && trainer.presence != DevicePresence.resetting,
   );
