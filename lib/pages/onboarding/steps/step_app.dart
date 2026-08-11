@@ -1,4 +1,5 @@
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_update_banner.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_group_label.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_note.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -86,7 +87,9 @@ Widget _verifiedBadge(BuildContext context) => Container(
     );
 
 Widget onboardingAppBody(BuildContext context,
-    {required SupportedApp? selected, required ValueChanged<SupportedApp> onSelect}) {
+    {required SupportedApp? selected,
+    required ValueChanged<SupportedApp> onSelect,
+    bool showUpdateBanner = false}) {
   final official = SupportedApp.supportedApps.where((a) => a.officialIntegration).toList();
   final other = SupportedApp.supportedApps.where((a) => !a.officialIntegration).toList();
 
@@ -109,6 +112,8 @@ Widget onboardingAppBody(BuildContext context,
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      // Desktop has no welcome screen, so the update offer lives here.
+      if (showUpdateBanner) const OnboardingUpdateBanner(),
       Text(context.i18n.onboardingAppTitle).h4,
       Gap(6),
       Text(context.i18n.onboardingAppSubtitle).small.muted,

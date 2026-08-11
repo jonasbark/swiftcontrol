@@ -1,5 +1,6 @@
 import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_update_banner.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -72,6 +73,7 @@ class OnboardingWelcome extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Spacer(flex: 2),
+            const OnboardingUpdateBanner(),
             _Reveal(
               delay: Duration.zero,
               child: Image.asset('icon.png', width: 64, height: 64),

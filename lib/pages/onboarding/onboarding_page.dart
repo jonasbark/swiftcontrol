@@ -328,6 +328,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
   // Mobile opens on a welcome screen; the desktop rail already frames the
   // flow, so it starts on step 1. Re-runs from the menu skip it too.
   bool _showWelcome = core.settings.getOnboardingState() != Settings.onboardingStateCompleted;
+  // True once the welcome screen has been shown — step 1 then skips its own
+  // update banner, so the offer never appears twice.
+  bool _showedWelcome = false;
 
   /// All connection-method singletons the done step's readiness reads —
   /// listened so "Almost there" flips to "You're ready to ride" live.
@@ -638,6 +641,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget _body(BuildContext context) => switch (_step) {
         OnboardingStep.app => onboardingAppBody(
             context,
+            // Mobile shows it on the welcome screen instead.
+            showUpdateBanner: !_showedWelcome,
             selected: _selectedApp,
             onSelect: (a) => setState(() => _selectedApp = a),
           ),
@@ -841,6 +846,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               // Desktop keeps its rail-framed step 1 — no welcome screen.
               return _shell(overlayContext);
             }
+            _showedWelcome = true;
             return OnboardingWelcome(
               onStart: () => setState(() => _showWelcome = false),
               onLater: _onWelcomeLater,
