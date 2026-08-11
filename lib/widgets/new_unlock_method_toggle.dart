@@ -41,8 +41,19 @@ class _NewUnlockMethodToggleState extends State<NewUnlockMethodToggle> {
       // chain falls back to its empty "Controller" placeholder.
       await core.settings.setClickV2RightSideOnly(false);
       await ClickV2Onboarding.restoreLeftSides();
-    } else {
-      await core.settings.setClickV2RightSideOnly(true);
+    } else if (!core.settings.getUnlockWithZwift()) {
+      // Switching the split representation ON is the rider asking for the
+      // handling whose whole point is the right puck needing no unlock — so
+      // land them on it, rather than on the left puck's restart loop, which is
+      // what the legacy mode they just left already was. A rider who
+      // deliberately chose unlock-with-Zwift keeps both sides; this only
+      // covers the default.
+      //
+      // Before the disconnect below, while the left puck is still a live
+      // device: that is what puts it on the ignored list, and it is the same
+      // physical device whether it currently exists as the unified controller
+      // or as a split left side.
+      await ClickV2Onboarding.chooseRightSideOnly();
     }
 
     final clicks = core.connection.bluetoothDevices
@@ -51,6 +62,14 @@ class _NewUnlockMethodToggleState extends State<NewUnlockMethodToggle> {
     for (final device in clicks) {
       await core.connection.disconnect(device, forget: false, persistForget: false);
     }
+    // A full restart, not just the disconnects above. The scanner dedupes
+    // against its cached adverts, and in the legacy representation the right
+    // puck's advert was cached while resolving to no device at all
+    // (fromScanResult returns null for it) — so without clearing that cache the
+    // right side is never rebuilt, and the rider ends up with the one puck this
+    // switch was meant to move them off.
+    await core.connection.stop();
+    await core.connection.performScanning();
     if (clicks.isNotEmpty) {
       buildToast(title: reconnectingMessage);
     }

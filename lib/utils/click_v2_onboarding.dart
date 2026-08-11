@@ -113,13 +113,19 @@ abstract final class ClickV2Onboarding {
   /// Both matter: the home chain lists remembered controllers next to live
   /// ones, so ignoring only what is currently connected leaves the stand-in
   /// behind as an orphaned "not set up" card.
+  ///
+  /// Matched as [ZwiftClickV2] rather than [ZwiftClickV2LeftSide], which covers
+  /// the legacy unified controller too: that is built from the LEFT puck's
+  /// advert (the right one builds nothing at all), so it is the same physical
+  /// device under a different class. [ZwiftClickV2RightSide] extends ZwiftRide,
+  /// not this, so it is never caught here.
   static Future<void> _ignoreLeftSides() async {
     // Materialised, and unioned across both sources: disconnect() mutates
     // core.connection.devices, so a lazy view over it throws a
     // concurrent-modification error mid-loop.
-    final leftSides = <ZwiftClickV2LeftSide>{
-      ...core.connection.devices.whereType<ZwiftClickV2LeftSide>(),
-      ...core.connection.offlineControllers.whereType<ZwiftClickV2LeftSide>(),
+    final leftSides = <ZwiftClickV2>{
+      ...core.connection.devices.whereType<ZwiftClickV2>(),
+      ...core.connection.offlineControllers.whereType<ZwiftClickV2>(),
     };
     for (final device in leftSides) {
       try {
@@ -145,10 +151,8 @@ abstract final class ClickV2Onboarding {
   /// LEFT puck as the legacy unified controller, so leaving it ignored would
   /// leave the rider with no Click at all.
   static Future<void> restoreLeftSides() async {
-    final ignored = core.settings
-        .getIgnoredDevices()
-        .where((d) => d.name == ZwiftClickV2LeftSide.label)
-        .toList();
+    const labels = {ZwiftClickV2LeftSide.label, ZwiftClickV2.label};
+    final ignored = core.settings.getIgnoredDevices().where((d) => labels.contains(d.name)).toList();
     for (final entry in ignored) {
       try {
         await core.settings.removeIgnoredDevice(entry.id);

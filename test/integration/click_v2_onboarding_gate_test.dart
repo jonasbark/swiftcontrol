@@ -162,6 +162,37 @@ Future<void> main() async {
     expect(core.connection.controllerDevices.whereType<ZwiftClickV2LeftSide>(), isEmpty);
   });
 
+  // Reported from a device: turning "use new unlock method" ON from the legacy
+  // unified controller connected only the LEFT puck -- the one that needs
+  // unlocking -- which is the setup the switch is meant to move the rider off.
+  test('turning the split representation on ignores the left puck', () async {
+    await core.settings.setClickV2OnboardingDone(true);
+    await core.settings.setUnlockWithZwift(false);
+    await core.settings.setUseNewUnlockMethod(false);
+
+    // Legacy: the unified ZwiftClickV2 is built from the LEFT puck's advert.
+    final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
+    env.ble.addPeripheral(left);
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2>().isNotEmpty,
+      description: 'the legacy unified Click V2 to appear',
+    );
+
+    // What NewUnlockMethodToggle does when switched on.
+    await core.settings.setUseNewUnlockMethod(true);
+    await ClickV2Onboarding.chooseRightSideOnly();
+
+    expect(core.settings.getClickV2RightSideOnly(), isTrue);
+    // The unified controller is the left puck under another class, so it has
+    // to land on the ignored list under ITS name.
+    expect(
+      core.settings.getIgnoredDevices().map((d) => d.name),
+      contains(ZwiftClickV2.label),
+    );
+    expect(core.connection.devices.whereType<ZwiftClickV2>(), isEmpty);
+  });
+
   // Reported from a device: right-side-only, then "use new unlock method" off,
   // left the rider with no Click at all and the chain showing its empty
   // "Controller" placeholder. In the legacy representation the LEFT puck is

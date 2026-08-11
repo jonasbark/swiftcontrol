@@ -91,9 +91,15 @@ class ZwiftClickV2 extends ZwiftRide {
     },
   );
 
+  /// The name written to the ignored-devices list alongside the id. Matched
+  /// back by [ClickV2Onboarding.restoreLeftSides], which has to recognise both
+  /// this and [ZwiftClickV2LeftSide.label]: in the legacy representation the
+  /// left puck IS this unified controller.
+  static const label = 'Zwift Click V2';
+
   @override
   String toString() {
-    return screenshotMode ? 'Controller' : "Zwift Click V2";
+    return screenshotMode ? 'Controller' : label;
   }
 
   /// Whether the device was successfully unlocked within the last 24 hours,
