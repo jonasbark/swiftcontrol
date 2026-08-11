@@ -56,9 +56,13 @@ abstract final class ClickV2Onboarding {
   /// unlock, ever, and no restarts — the price is that the left puck's D-pad
   /// (steering, action bar) is not available.
   ///
-  /// The left side is held back rather than ignored, so this stays reversible
-  /// from the explainer's "Set up again" without a trip through the ignored
-  /// devices list.
+  /// The left side is put on the ignored list rather than merely disconnected.
+  /// A plain disconnect leaves it in the device list and lets the active scan
+  /// rediscover it seconds later, so it reappears everywhere the rider's
+  /// controllers are listed — the home chain included — as an entry stuck on
+  /// "connecting" that never can. Ignoring is the one mechanism the scan
+  /// filter, the remembered-device loader and the device list all already
+  /// honour. [chooseUnlockWithZwift] undoes it.
   static Future<void> chooseRightSideOnly() async {
     await core.settings.setUnlockWithZwift(false);
     await core.settings.setClickV2RightSideOnly(true);
@@ -98,19 +102,64 @@ abstract final class ClickV2Onboarding {
     // next drops the link: the left side is no longer part of this setup, and
     // ClickLogic's timer is shared with the right side's handshake.
     ClickLogic.resetTimer();
-    // Materialised: disconnect() mutates core.connection.devices, and a lazy
-    // whereType view over it throws a concurrent-modification error mid-loop.
-    final connectedLeftSides = core.connection.devices.whereType<ZwiftClickV2LeftSide>().toList();
-    for (final device in connectedLeftSides) {
-      if (!device.isConnected) continue;
-      try {
-        await core.connection.disconnect(device, forget: false, persistForget: false);
-      } catch (e, stack) {
-        recordError(e, stack, context: 'ClickV2Onboarding.chooseRightSideOnly');
-      }
-    }
+    await _ignoreLeftSides();
     await _complete();
     await _connectPending();
+  }
+
+  /// Takes every left puck out of the setup — live, or a remembered stand-in
+  /// for one that simply isn't switched on right now.
+  ///
+  /// Both matter: the home chain lists remembered controllers next to live
+  /// ones, so ignoring only what is currently connected leaves the stand-in
+  /// behind as an orphaned "not set up" card.
+  static Future<void> _ignoreLeftSides() async {
+    // Materialised, and unioned across both sources: disconnect() mutates
+    // core.connection.devices, so a lazy view over it throws a
+    // concurrent-modification error mid-loop.
+    final leftSides = <ZwiftClickV2LeftSide>{
+      ...core.connection.devices.whereType<ZwiftClickV2LeftSide>(),
+      ...core.connection.offlineControllers.whereType<ZwiftClickV2LeftSide>(),
+    };
+    for (final device in leftSides) {
+      try {
+        // persistForget adds it to the ignored list, which is what stops the
+        // active scan handing it straight back.
+        await core.connection.disconnect(device, forget: true, persistForget: true);
+        // And drop the remembered entry, or loadRememberedDevices rebuilds it
+        // as an offline stand-in on the next launch.
+        await core.connection.forgetRemembered(device.device.deviceId);
+      } catch (e, stack) {
+        recordError(e, stack, context: 'ClickV2Onboarding.ignoreLeftSides');
+      }
+    }
+  }
+
+  /// Undoes [_ignoreLeftSides] so a rider coming from right-side-only actually
+  /// gets both controllers back. Matched by the name stored alongside the id —
+  /// which is exactly [ZwiftClickV2LeftSide.label], since that is what
+  /// `Connection.disconnect` wrote there.
+  static Future<void> _unignoreLeftSides() async {
+    final ignored = core.settings
+        .getIgnoredDevices()
+        .where((d) => d.name == ZwiftClickV2LeftSide.label)
+        .toList();
+    for (final entry in ignored) {
+      try {
+        await core.settings.removeIgnoredDevice(entry.id);
+      } catch (e, stack) {
+        recordError(e, stack, context: 'ClickV2Onboarding.unignoreLeftSides');
+      }
+    }
+    if (ignored.isNotEmpty) {
+      // A full restart, not just performScanning(): that returns immediately
+      // while a scan is already running, and the puck has to be re-advertised
+      // to be picked up again. Restarting also clears the whole scan cache, so
+      // the rider gets the controller back while still looking at the screen
+      // that promised it, instead of on the next app launch.
+      await core.connection.stop();
+      await core.connection.performScanning();
+    }
   }
 
   /// Unlock with Zwift: both controllers work, at the cost of re-unlocking
@@ -118,6 +167,10 @@ abstract final class ClickV2Onboarding {
   static Future<void> chooseUnlockWithZwift() async {
     await core.settings.setUnlockWithZwift(true);
     await core.settings.setClickV2RightSideOnly(false);
+    // This mode is "both controllers", so a left side that right-side-only put
+    // on the ignored list has to come back off it — otherwise the rider picks
+    // the both-sides option and only ever gets one.
+    await _unignoreLeftSides();
     // Mirrors UnlockToggle's own Select.onChanged: switching to Zwift mode
     // must cancel any live ClickLogic reset timer immediately, or the rider
     // gets one spurious restart right after choosing the mode whose whole

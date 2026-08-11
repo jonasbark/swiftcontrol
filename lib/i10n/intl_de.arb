@@ -708,7 +708,7 @@
   "unlock_newMethodReconnecting": "Wird übernommen… dein Zwift Click wird neu verbunden.",
   "unlock_useRightSideOnly": "Nur die rechte Seite verwenden",
   "unlock_useRightSideOnlyDescription": "Die rechte Seite muss nicht entsperrt werden. Trenne die linke Seite und lass die rechte Seite das Schalten übernehmen – + schaltet hoch, B schaltet runter.",
-  "unlock_rightSideOnlyConfigured": "Fertig – es wird nur die rechte Seite verwendet. Mit „Erneut einrichten“ holst du die linke Seite jederzeit zurück.",
+  "unlock_rightSideOnlyConfigured": "Fertig – es wird nur die rechte Seite verwendet. Du kannst die linke Seite jederzeit unter „Ignorierte Geräte“ wieder aktivieren.",
   "unlock_unlockManually": "Manuelles Entsperren",
   "unlock_unlockNow": "Jetzt freischalten",
   "unlock_unlockedUntilAroundDate": "Entsperrt bis etwa {date}",

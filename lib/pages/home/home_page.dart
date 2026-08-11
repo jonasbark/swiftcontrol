@@ -240,7 +240,9 @@ class _HomePageState extends State<HomePage> {
         for (final device in controllers)
           ControllerInput(
             deviceId: device.uniqueId,
-            name: device.toString(),
+            // displayName, not toString: the Click V2 pucks carry a
+            // translatable left/right suffix, and toString stays English.
+            name: device.displayName(context),
             presence: _presenceOf(device, isStandIn: standInIds.contains(device.uniqueId)),
             hasMappedButtons: _hasMappedButtons(device),
             requiresBluetooth: device is BluetoothDevice,
@@ -279,7 +281,12 @@ class _HomePageState extends State<HomePage> {
     final trial = _trialState();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 26),
+      // No horizontal inset on mobile: the shell's scroll view already pads the
+      // chain by 12 (Overview's hPad), and adding another 12 here cost 24px a
+      // side — a sixth of a phone's width spent on nothing, and it stacks again
+      // with each card's own padding. Desktop keeps it: there the chain sits in
+      // a centred max-width box with no padding of its own.
+      padding: EdgeInsets.fromLTRB(widget.isMobile ? 0 : 12, 12, widget.isMobile ? 0 : 12, 26),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

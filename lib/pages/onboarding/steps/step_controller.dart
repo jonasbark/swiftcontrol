@@ -62,7 +62,10 @@ Widget onboardingDeviceRow(BuildContext context, BaseDevice device,
       Gap(12),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(device.name).small.semiBold,
+          // displayName, not `name`: `name` is the raw BLE advertised name,
+          // which is plain "Zwift Click" for both Click V2 pucks — the two
+          // rows were indistinguishable.
+          Text(device.displayName(context)).small.semiBold,
           // A device held for setup (Click V2 pending its unlock-mode choice)
           // is deliberately not connecting — don't pretend it is.
           Text(connected

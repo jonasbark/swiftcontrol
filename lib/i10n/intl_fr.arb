@@ -708,7 +708,7 @@
   "unlock_newMethodReconnecting": "Application… reconnexion de ton Zwift Click.",
   "unlock_useRightSideOnly": "Utiliser uniquement le côté droit",
   "unlock_useRightSideOnlyDescription": "Le côté droit ne nécessite aucun déverrouillage. Déconnecte le côté gauche et laisse le côté droit gérer les changements de vitesse : + monte, B descend.",
-  "unlock_rightSideOnlyConfigured": "Terminé — seul le côté droit est utilisé. Tu peux récupérer le côté gauche à tout moment avec « Configurer à nouveau ».",
+  "unlock_rightSideOnlyConfigured": "Terminé — seul le côté droit est utilisé. Tu peux réactiver le côté gauche à tout moment dans Appareils ignorés.",
   "unlock_unlockManually": "Déverrouiller manuellement",
   "unlock_unlockNow": "Déverrouiller maintenant",
   "unlock_unlockedUntilAroundDate": "Déverrouillé jusqu'à environ {date}",

@@ -1122,7 +1122,7 @@
   "unlock_newMethodReconnecting": "Applying… reconnecting your Zwift Click.",
   "unlock_useRightSideOnly": "Use the right side only",
   "unlock_useRightSideOnlyDescription": "The right side needs no unlocking. Drop the left side and let the right side handle shifting — + shifts up, B shifts down.",
-  "unlock_rightSideOnlyConfigured": "Done — using the right side only. Bring the left side back anytime with \"Set up again\".",
+  "unlock_rightSideOnlyConfigured": "Done — using the right side only. Re-enable the left side anytime under Ignored devices.",
   "unlock_unlockManually": "Unlock manually",
   "unlock_unlockNow": "Unlock now",
   "unlock_unlockedUntilAroundDate": "Unlocked until around {date}",

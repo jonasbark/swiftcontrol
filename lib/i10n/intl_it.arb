@@ -708,7 +708,7 @@
   "unlock_newMethodReconnecting": "Applicazione… riconnessione del tuo Zwift Click.",
   "unlock_useRightSideOnly": "Usa solo il lato destro",
   "unlock_useRightSideOnlyDescription": "Il lato destro non richiede alcuno sblocco. Scollega il lato sinistro e lascia che il destro gestisca il cambio: + sale, B scende.",
-  "unlock_rightSideOnlyConfigured": "Fatto: viene usato solo il lato destro. Puoi riportare il lato sinistro in qualsiasi momento con \"Configura di nuovo\".",
+  "unlock_rightSideOnlyConfigured": "Fatto: viene usato solo il lato destro. Puoi riattivare il lato sinistro in qualsiasi momento in Dispositivi ignorati.",
   "unlock_unlockManually": "Sblocca manualmente",
   "unlock_unlockNow": "Sblocca ora",
   "unlock_unlockedUntilAroundDate": "Sbloccato fino a circa {date}",

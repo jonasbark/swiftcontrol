@@ -24,13 +24,6 @@ class ZwiftClickV2LeftSide extends ZwiftClickV2 {
   @override
   List<int> get startCommand => ZwiftConstants.RIDE_ON + ZwiftConstants.RESPONSE_START_CLICK_V2;
 
-  /// This is the side Zwift locks, so right-side-only mode leaves it out: it
-  /// would either sit there locked or drag its 60-second restart cycle into a
-  /// setup whose whole point is not having one. [ZwiftClickV2]'s gate (wait for
-  /// the unlock-mode choice) still applies on top.
-  @override
-  bool get shouldAutoConnect => super.shouldAutoConnect && !core.settings.getClickV2RightSideOnly();
-
   @override
   bool get isResetting => ClickLogic.isResetting(device.deviceId);
 
@@ -48,9 +41,15 @@ class ZwiftClickV2LeftSide extends ZwiftClickV2 {
     },
   );
 
+  /// The name written to the ignored-devices list alongside the id, and the
+  /// only thing that identifies those entries as this puck later — see
+  /// [ClickV2Onboarding.chooseUnlockWithZwift], which has to find and un-ignore
+  /// them when the rider switches to the mode that needs both sides.
+  static const label = 'Zwift Click V2 (left)';
+
   @override
   String toString() {
-    return "Zwift Click V2 (left)";
+    return label;
   }
 
   /// The card header is the only cue telling the two pucks apart, so the side
