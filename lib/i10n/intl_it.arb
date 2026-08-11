@@ -1576,6 +1576,8 @@
   "chainStepUnlockedLikelyUntil": "Probabilmente sbloccato fino a {date}",
   "chainStepSramSetup": "Controllo configurato",
   "chainStepSramSetupHint": "Il cambio gestisce ancora le marce da solo: affidale a BikeControl così le leve inviano pressioni.",
+  "chainStepClickV2Setup": "Scegli come sbloccarlo",
+  "chainStepClickV2SetupHint": "Zwift vincola il Click V2 alla propria app. Scegli come BikeControl aggira il problema e si collegherà subito.",
   "chainStepTrainerPaired": "Rullo collegato",
   "chainStepTrainerPairedPending": "Collega il tuo rullo",
   "chainStepAppSelected": "App di allenamento scelta",

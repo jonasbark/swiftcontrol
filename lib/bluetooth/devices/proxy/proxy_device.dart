@@ -588,10 +588,14 @@ class ProxyDevice extends BluetoothDevice {
         ),
       ];
     }
-    return [_buildFeatureList(context)];
+    return [buildFeatureList(context)];
   }
 
-  Widget _buildFeatureList(BuildContext context) {
+  /// What bridging this trainer would buy the rider — virtual shifting, gear
+  /// tuning, control from their own controller. Public because the home
+  /// chain shows it too: a trainer that has never been connected is exactly
+  /// the rider who has not seen any of this yet.
+  Widget buildFeatureList(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final muted = TextStyle(fontSize: 11, color: cs.mutedForeground);
 

@@ -45,6 +45,7 @@ class ControllerInput {
     this.unlockedUntil,
     this.unlockUncertain = false,
     this.sramSetupDone,
+    this.needsUnlockModeChoice = false,
   });
 
   final String deviceId;
@@ -86,6 +87,16 @@ class ControllerInput {
   /// second device with its own guided setup wants its own id, not this one
   /// silently mislabelled.
   final bool? sramSetupDone;
+
+  /// Whether this controller is a Zwift Click V2 still held out of the connect
+  /// queue until the rider picks an unlock mode.
+  ///
+  /// It is discovered, in range and perfectly healthy — BikeControl is
+  /// deliberately not connecting it. Every other step is therefore unknowable
+  /// and unactionable, which is why this one replaces them rather than joining
+  /// them; without it the card reported "never paired" and "bring it back in
+  /// range" about a controller sitting switched on beside the rider.
+  final bool needsUnlockModeChoice;
 }
 
 class TrainerInput {

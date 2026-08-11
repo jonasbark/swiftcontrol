@@ -45,6 +45,12 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
                 : l.chainStepUnlockedUntil(step.hintArg!),
           )
         : ChainStepText(l.chainStepUnlockedPending, l.chainStepUnlockedHint),
+    // Only ever emitted while outstanding — once the rider has chosen, the step
+    // disappears rather than sitting ticked forever on every Click V2 card.
+    SetupStepId.controllerClickV2Setup => ChainStepText(
+      l.chainStepClickV2Setup,
+      l.chainStepClickV2SetupHint,
+    ),
     SetupStepId.controllerSramSetup => step.done
         ? ChainStepText(l.chainStepSramSetup)
         : ChainStepText(l.sramSetup, l.chainStepSramSetupHint),

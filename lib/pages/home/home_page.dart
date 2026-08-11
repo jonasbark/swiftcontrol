@@ -6,11 +6,15 @@ import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/models/remembered_device.dart';
 import 'package:bike_control/pages/controller_settings.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
+import 'package:bike_control/pages/click_v2_onboarding.dart';
+import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/pages/unlock.dart';
 import 'package:intl/intl.dart';
 import 'package:bike_control/pages/home/chain_builder.dart';
@@ -281,6 +285,8 @@ class _HomePageState extends State<HomePage> {
             unlockedUntil: _unlockedUntil(device),
             unlockUncertain: device is ZwiftClickV2 && device.isLikelyUnlocked,
             sramSetupDone: device is SramAxs ? !device.needsGuidedSetup : null,
+            needsUnlockModeChoice:
+                (device is ZwiftClickV2 || device is ZwiftClickV2RightSide) && ClickV2Onboarding.isPending,
           ),
       ],
       trainer: trainer,
@@ -455,6 +461,7 @@ class _HomePageState extends State<HomePage> {
       ),
       title: placeholder ? context.i18n.chainControllerTitle : link.title,
       statusLabel: _controllerStatusLabel(link, device),
+      statusBadges: placeholder ? const [] : _controllerBadges(device),
       editLabel: placeholder ? context.i18n.chainSetUp : context.i18n.chainEdit,
       onEdit: placeholder
           ? () => openControllerSetupSheet(context).then((_) => _update())
@@ -463,7 +470,9 @@ class _HomePageState extends State<HomePage> {
               _update();
             },
       onInstructions: () => _openInstructions(link),
-      instructionsLabel: placeholder ? context.i18n.chainSetUp : null,
+      instructionsLabel: placeholder || link.activeStep?.id == SetupStepId.controllerClickV2Setup
+          ? context.i18n.chainSetUp
+          : null,
       body: placeholder ? null : _controllerBody(device, connected: device.isConnected),
     );
   }
@@ -483,6 +492,26 @@ class _HomePageState extends State<HomePage> {
       LinkStatus.attention => context.i18n.chainStatusOutOfRange,
       LinkStatus.off => context.i18n.chainStatusNotSetUp,
     };
+  }
+
+  /// The things that qualify "Connected": a battery about to die, a firmware
+  /// update waiting, a signal on the edge of dropping. Shown only when they are
+  /// actually a problem — a healthy device carries no glyphs, so one appearing
+  /// means something, and the detail lives one tap away on the device page.
+  List<Widget> _controllerBadges(BaseDevice device) {
+    if (!device.isConnected || device is! BluetoothDevice) return const [];
+    final scheme = Theme.of(context).colorScheme;
+    final battery = device.batteryLevel;
+    final rssi = device.rssi;
+    return [
+      // Same threshold the device page already paints red at.
+      if (battery != null && battery < 20)
+        Icon(LucideIcons.batteryWarning, size: 14, color: scheme.destructive),
+      if (device is ZwiftDevice && (device as ZwiftDevice).hasNewerFirmwareVersion)
+        Icon(LucideIcons.circleArrowUp, size: 13, color: scheme.mutedForeground),
+      // -70 dBm is where the device page stops calling the link "Good".
+      if (rssi != null && rssi < -70) Icon(LucideIcons.signalLow, size: 13, color: scheme.mutedForeground),
+    ];
   }
 
   /// For an unlocked Click V2, when its unlock runs out — which is worth more
@@ -631,6 +660,28 @@ class _HomePageState extends State<HomePage> {
         _update();
       },
       onInstructions: () => _openInstructions(link),
+      // A trainer that has never been connected is the rider who has never
+      // seen what bridging one does — so the card makes the case instead of
+      // sitting empty. Dropped the moment it has actually been connected:
+      // then the useful content is its live numbers, not a pitch.
+      body: _trainerFeatureList(proxy),
+    );
+  }
+
+  /// The bridging pitch, but only for a trainer that is here and has never
+  /// been connected. Null once it has been — including a trainer that broke
+  /// mid-session, where a feature list would read as if nothing were wrong.
+  Widget? _trainerFeatureList(ProxyDevice? proxy) {
+    if (proxy == null || proxy.isConnected || proxy.isBridged) return null;
+    if (core.connection.wasConnectedThisSession(proxy.uniqueId)) return null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.muted,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: proxy.buildFeatureList(context),
     );
   }
 
@@ -719,6 +770,10 @@ class _HomePageState extends State<HomePage> {
             position: OverlayPosition.bottom,
             builder: (_) => UnlockPage(device: device),
           );
+        } else if (active == SetupStepId.controllerClickV2Setup) {
+          // The explainer itself — the choice is what releases the controller
+          // into the connect queue, so there is nothing else to offer here.
+          await context.push(const ClickV2OnboardingPage());
         } else if (active == SetupStepId.controllerSramSetup && device is SramAxs) {
           // The same guided sheet the device card and the onboarding wizard
           // run — the derailleur cannot send anything until it has.
