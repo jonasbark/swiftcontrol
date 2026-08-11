@@ -17,6 +17,7 @@ ControllerInput controller({
   DevicePresence presence = DevicePresence.connected,
   bool hasMappedButtons = true,
   bool requiresBluetooth = true,
+  bool? unlocked,
 }) {
   return ControllerInput(
     deviceId: deviceId,
@@ -24,6 +25,7 @@ ControllerInput controller({
     presence: presence,
     hasMappedButtons: hasMappedButtons,
     requiresBluetooth: requiresBluetooth,
+    unlocked: unlocked,
   );
 }
 
@@ -79,6 +81,34 @@ void main() {
       expect(link.remainingSteps, 0);
       expect(link.activeStepIndex, isNull);
       expect(_stepDone(link, SetupStepId.controllerInRange), isTrue);
+    });
+
+    // Zwift locks the Click V2 to their own app and it stops sending presses a
+    // minute later, which is indistinguishable from a flat battery unless the
+    // chain says so. Every other controller must not grow a line it can never
+    // tick.
+    test('a locked controller carries an outstanding unlock step', () {
+      final chain = buildChain(ChainInputs(controllers: [controller(unlocked: false)], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_stepDone(link, SetupStepId.controllerUnlocked), isFalse);
+      // And it is the thing to do next: everything before it is already done.
+      expect(link.activeStep?.id, SetupStepId.controllerUnlocked);
+      // A card with work outstanding is never green.
+      expect(link.status, LinkStatus.attention);
+    });
+
+    test('an unlocked controller ticks the step and stays ready', () {
+      final chain = buildChain(ChainInputs(controllers: [controller(unlocked: true)], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_stepDone(link, SetupStepId.controllerUnlocked), isTrue);
+      expect(link.remainingSteps, 0);
+      expect(link.status, LinkStatus.ready);
+    });
+
+    test('a controller with no unlock concept has no unlock step at all', () {
+      final chain = buildChain(ChainInputs(controllers: [controller()], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.steps.any((s) => s.id == SetupStepId.controllerUnlocked), isFalse);
     });
 
     test('pairing stays ticked while the device is away — it is history', () {

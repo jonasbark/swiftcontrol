@@ -33,6 +33,9 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
     SetupStepId.controllerInRange => step.done
         ? ChainStepText(l.chainStepInRange)
         : ChainStepText(l.chainStepInRangePending, l.chainStepInRangeHint),
+    SetupStepId.controllerUnlocked => step.done
+        ? ChainStepText(l.chainStepUnlocked)
+        : ChainStepText(l.chainStepUnlockedPending, l.chainStepUnlockedHint),
     SetupStepId.trainerPaired => step.done
         ? ChainStepText(l.chainStepTrainerPaired)
         : ChainStepText(l.chainStepTrainerPairedPending),

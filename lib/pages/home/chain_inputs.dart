@@ -41,6 +41,7 @@ class ControllerInput {
     required this.presence,
     required this.hasMappedButtons,
     this.requiresBluetooth = true,
+    this.unlocked,
   });
 
   final String deviceId;
@@ -55,6 +56,16 @@ class ControllerInput {
   /// phone's gyroscope). Their card omits the Bluetooth step, which would
   /// otherwise be a permanently ticked line that means nothing.
   final bool requiresBluetooth;
+
+  /// Whether this controller is currently unlocked, or null when unlocking is
+  /// not a concept for it.
+  ///
+  /// Only Zwift's Click V2 has this: Zwift locks it to their own app, and it
+  /// stops sending button presses about a minute after the last one unless it
+  /// has been unlocked. Every other controller — and a Click V2 running the
+  /// restart workaround instead — passes null, so its card omits the step
+  /// rather than carrying a line that can never be actioned.
+  final bool? unlocked;
 }
 
 class TrainerInput {

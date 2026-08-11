@@ -64,6 +64,10 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
       ),
       SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
       SetupStep(id: SetupStepId.controllerInRange, done: inRange),
+      // Last, because unlocking needs the controller present. Omitted entirely
+      // for anything that has no such concept — see [ControllerInput.unlocked].
+      if (controller.unlocked != null)
+        SetupStep(id: SetupStepId.controllerUnlocked, done: controller.unlocked!),
     ];
 
     // An unfinished checklist outranks a healthy connection: a connected

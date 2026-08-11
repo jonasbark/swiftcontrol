@@ -4,10 +4,13 @@ import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/steering_device.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/models/remembered_device.dart';
 import 'package:bike_control/pages/controller_settings.dart';
+import 'package:bike_control/pages/unlock.dart';
 import 'package:bike_control/pages/home/chain_builder.dart';
 import 'package:bike_control/pages/home/chain_inputs.dart';
 import 'package:bike_control/pages/home/chain_state.dart';
@@ -167,6 +170,23 @@ class _HomePageState extends State<HomePage> {
     ...core.connection.offlineControllers,
   ];
 
+  BaseDevice? _controllerById(String? uniqueId) =>
+      uniqueId == null ? null : _knownControllers.firstOrNullWhere((d) => d.uniqueId == uniqueId);
+
+  /// Whether [device] is unlocked, or null when unlocking does not apply.
+  ///
+  /// Only the Zwift Click V2 needs it, and only in the modes that actually use
+  /// Zwift to unlock: the legacy unified controller (which has no other way)
+  /// and the left puck when the rider chose unlock-with-Zwift. The left puck on
+  /// the restart workaround never unlocks — it reboots itself instead — so a
+  /// step telling the rider to open Zwift would be wrong there, and the right
+  /// puck was never locked at all.
+  bool? _unlockState(BaseDevice device) {
+    if (device is! ZwiftClickV2) return null;
+    if (device is ZwiftClickV2LeftSide && !core.settings.getUnlockWithZwift()) return null;
+    return device.isPersistedUnlocked;
+  }
+
   DevicePresence _presenceOf(BaseDevice device, {required bool isStandIn}) {
     if (device.isConnected) return DevicePresence.connected;
     if (device.isResetting) return DevicePresence.resetting;
@@ -246,6 +266,7 @@ class _HomePageState extends State<HomePage> {
             presence: _presenceOf(device, isStandIn: standInIds.contains(device.uniqueId)),
             hasMappedButtons: _hasMappedButtons(device),
             requiresBluetooth: device is BluetoothDevice,
+            unlocked: _unlockState(device),
           ),
       ],
       trainer: trainer,
@@ -642,7 +663,18 @@ class _HomePageState extends State<HomePage> {
   Future<void> _openInstructions(ChainLink link) async {
     switch (link.key) {
       case ChainLinkKey.controller:
-        if (link.status == LinkStatus.off) {
+        // A locked Click V2 has one specific answer, and it is not the generic
+        // "can't find your controller" help: send the rider straight into the
+        // unlock flow for this exact device.
+        final locked = link.activeStep?.id == SetupStepId.controllerUnlocked;
+        final device = locked ? _controllerById(link.deviceId) : null;
+        if (device is ZwiftClickV2) {
+          await openDrawer(
+            context: context,
+            position: OverlayPosition.bottom,
+            builder: (_) => UnlockPage(device: device),
+          );
+        } else if (link.status == LinkStatus.off) {
           await openControllerSetupSheet(context);
         } else {
           await openControllerHelpSheet(context);
