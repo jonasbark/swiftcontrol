@@ -583,9 +583,12 @@ class _PaywallState extends State<Paywall> {
           spacing: 12,
           children: [
             // Yearly and monthly always sit side by side — they're a
-            // comparison. Stretch keeps them the same height even though
-            // only the yearly card carries a billing line.
-            Row(
+            // comparison. IntrinsicHeight bounds the row to its tallest card
+            // so stretch can equalise them: inside the sheet's scroll view
+            // the cross axis is unbounded, and stretching against that hands
+            // the cards an infinite height ("RenderBox was not laid out").
+            IntrinsicHeight(
+              child: Row(
               spacing: 12,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -607,6 +610,7 @@ class _PaywallState extends State<Paywall> {
                   ),
                 ),
               ],
+              ),
             ),
             if (!_iapManager.isPurchased.value) _buildFullVersionCard(context),
           ],
