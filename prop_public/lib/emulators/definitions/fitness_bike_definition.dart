@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:prop/emulators/ble_definition.dart';
+import 'package:prop/transports/ble_trainer_transport.dart';
+import 'package:prop/transports/trainer_transport.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 /// FitnessDircon implements a virtual Fitness Machine (bike) that apps like
@@ -28,12 +30,16 @@ class FitnessBikeDefinition extends BleDefinition {
   /// noise to their scan results and occasionally confuse their pairing flows.
   final bool shouldAdvertiseZwift;
 
+  /// Upstream I/O transport. Defaults to BLE via the device's id.
+  final TrainerTransport transport;
+
   FitnessBikeDefinition({
     required this.connectedDevice,
     required this.connectedDeviceServices,
     required this.data,
     this.shouldAdvertiseZwift = false,
-  });
+    TrainerTransport? transport,
+  }) : transport = transport ?? BleTrainerTransport(connectedDevice.deviceId);
 
   // ===========================================================================
   // BLE Service / characteristic UUIDs
@@ -167,7 +173,56 @@ class FitnessBikeDefinition extends BleDefinition {
   void resetGearRatios() {}
 
   void setTargetGear(int i) {}
+
+  // FAKE placeholder UUID.
+  static const String FEC_BLE_SERVICE_UUID = '00000000-0000-0000-0000-0000000000c0';
+
+  final ValueNotifier<bool> _cadenceFilterEnabledN = ValueNotifier(false);
+  ValueListenable<bool> get cadenceFilterEnabled => _cadenceFilterEnabledN;
+  void setCadenceFilterEnabled(bool enabled) {
+    _cadenceFilterEnabledN.value = enabled;
+  }
+
+  bool _frontShiftEnabled = false;
+  int _smallChainringTeeth = 34;
+  int _largeChainringTeeth = 50;
+  final ValueNotifier<FrontRing> _frontRingN = ValueNotifier<FrontRing>(FrontRing.small);
+  ValueListenable<FrontRing> get frontRing => _frontRingN;
+  int get smallChainringTeeth => _smallChainringTeeth;
+  int get largeChainringTeeth => _largeChainringTeeth;
+  bool get frontShiftEnabled => _frontShiftEnabled;
+
+  void setFrontShiftEnabled(bool enabled) {
+    _frontShiftEnabled = enabled;
+    if (!enabled) _frontRingN.value = FrontRing.small;
+  }
+
+  void setChainringTeeth(int small, int large) {
+    _smallChainringTeeth = small;
+    _largeChainringTeeth = large;
+    _frontRingN.value = FrontRing.small;
+  }
+
+  Future<bool> writeClimbInclineUpstream(int grade001Pct) async => false;
+
+  void subscribeToTrainer() {}
+
+  /// Test seam: stubbed.
+  void setDebugValues() {}
+
+  final ValueNotifier<int> _simGradeN = ValueNotifier<int>(0);
+  ValueListenable<int> get simGrade => _simGradeN;
+
+  bool get supportsClimbRelay => false;
+
+  bool toggleFrontChainring() {
+    if (!_frontShiftEnabled) return false;
+    _frontRingN.value = _frontRingN.value == FrontRing.small ? FrontRing.large : FrontRing.small;
+    return true;
+  }
 }
+
+enum FrontRing { small, large }
 
 enum TrainerMode { ergMode, simMode, simModeVirtualShifting }
 
