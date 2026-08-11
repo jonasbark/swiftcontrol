@@ -113,7 +113,7 @@ Widget onboardingAppBody(BuildContext context,
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: onboardingReveal([
-      // Desktop has no welcome screen, so the update offer lives here.
+      // Shown only when the welcome screen didn't already make the offer.
       if (showUpdateBanner) const OnboardingUpdateBanner(),
       Text(context.i18n.onboardingAppTitle).h4,
       Gap(6),
