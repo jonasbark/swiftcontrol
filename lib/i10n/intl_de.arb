@@ -1576,6 +1576,8 @@
   "chainStepUnlockedLikelyUntil": "Wahrscheinlich entsperrt bis {date}",
   "chainStepSramSetup": "Steuerung eingerichtet",
   "chainStepSramSetupHint": "Noch schaltet das Schaltwerk selbst — übergib die Gänge an BikeControl, damit die Hebel Tastendrücke senden.",
+  "chainStepClickV2Setup": "Wähle die Entsperrmethode",
+  "chainStepClickV2SetupHint": "Zwift bindet den Click V2 an die eigene App. Wähle, wie BikeControl das umgeht — danach verbindet er sich sofort.",
   "chainStepTrainerPaired": "Trainer verbunden",
   "chainStepTrainerPairedPending": "Verbinde deinen Trainer",
   "chainStepAppSelected": "Trainer-App gewählt",

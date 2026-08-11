@@ -1770,6 +1770,8 @@
   "chainStepUnlockedLikelyUntil": "Likely unlocked until {date}",
   "chainStepSramSetup": "Controls set up",
   "chainStepSramSetupHint": "Its own shifting still runs the gears — hand them to BikeControl so the paddles send button presses.",
+  "chainStepClickV2Setup": "Choose how it unlocks",
+  "chainStepClickV2SetupHint": "Zwift locks the Click V2 to their own app. Pick how BikeControl works around it and it connects straight away.",
   "chainStepTrainerPaired": "Trainer connected",
   "chainStepTrainerPairedPending": "Connect your trainer",
   "chainStepAppSelected": "Trainer app chosen",

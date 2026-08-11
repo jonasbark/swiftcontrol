@@ -1576,6 +1576,8 @@
   "chainStepUnlockedLikelyUntil": "Probablement déverrouillé jusqu'à {date}",
   "chainStepSramSetup": "Commande configurée",
   "chainStepSramSetupHint": "Le dérailleur gère encore les vitesses lui-même : confie-les à BikeControl pour que les leviers envoient des appuis.",
+  "chainStepClickV2Setup": "Choisis le mode de déverrouillage",
+  "chainStepClickV2SetupHint": "Zwift réserve le Click V2 à sa propre application. Choisis comment BikeControl contourne cela et il se connecte aussitôt.",
   "chainStepTrainerPaired": "Home trainer connecté",
   "chainStepTrainerPairedPending": "Connecte ton home trainer",
   "chainStepAppSelected": "Application d’entraînement choisie",

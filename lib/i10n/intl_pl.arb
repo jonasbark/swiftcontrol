@@ -1576,6 +1576,8 @@
   "chainStepUnlockedLikelyUntil": "Prawdopodobnie odblokowany do {date}",
   "chainStepSramSetup": "Sterowanie skonfigurowane",
   "chainStepSramSetupHint": "Przerzutka wciąż zmienia biegi sama — przekaż je BikeControl, aby manetki wysyłały naciśnięcia.",
+  "chainStepClickV2Setup": "Wybierz sposób odblokowania",
+  "chainStepClickV2SetupHint": "Zwift przypisuje Click V2 do własnej aplikacji. Wybierz, jak BikeControl to obchodzi — połączy się od razu.",
   "chainStepTrainerPaired": "Trenażer połączony",
   "chainStepTrainerPairedPending": "Połącz swój trenażer",
   "chainStepAppSelected": "Wybrano aplikację treningową",

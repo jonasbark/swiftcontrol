@@ -53,32 +53,42 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
 
   return inputs.controllers.map((controller) {
     final inRange = _isPresent(controller.presence);
-    final steps = <SetupStep>[
-      if (controller.requiresBluetooth)
-        SetupStep(id: SetupStepId.controllerBluetoothReady, done: inputs.bluetoothReady),
-      // Pairing is history: once done it stays ticked even while the device is
-      // away. A device we have merely discovered has no such history yet.
-      SetupStep(
-        id: SetupStepId.controllerPaired,
-        done: controller.presence != DevicePresence.discovered,
-      ),
-      // Ahead of mapping, because it is what produces the buttons to map: a
-      // derailleur whose own shifting is still enabled sends nothing at all, so
-      // "assign an action to a button" is advice the rider cannot act on yet.
-      if (controller.sramSetupDone != null)
-        SetupStep(id: SetupStepId.controllerSramSetup, done: controller.sramSetupDone!),
-      SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
-      SetupStep(id: SetupStepId.controllerInRange, done: inRange),
-      // Last, because unlocking needs the controller present. Omitted entirely
-      // for anything that has no such concept — see [ControllerInput.unlocked].
-      if (controller.unlocked != null)
-        SetupStep(
-          id: SetupStepId.controllerUnlocked,
-          done: controller.unlocked!,
-          hintArg: controller.unlockedUntil,
-          uncertain: controller.unlockUncertain,
-        ),
-    ];
+    // A Click V2 waiting for its unlock-mode choice gets that one step and
+    // nothing else. It is discovered and in range; the app is choosing not to
+    // connect it, so "pair it" and "bring it back in range" would both be
+    // false, and neither is what the rider has to do.
+    final steps = controller.needsUnlockModeChoice
+        ? <SetupStep>[
+            if (controller.requiresBluetooth)
+              SetupStep(id: SetupStepId.controllerBluetoothReady, done: inputs.bluetoothReady),
+            const SetupStep(id: SetupStepId.controllerClickV2Setup, done: false),
+          ]
+        : <SetupStep>[
+            if (controller.requiresBluetooth)
+              SetupStep(id: SetupStepId.controllerBluetoothReady, done: inputs.bluetoothReady),
+            // Pairing is history: once done it stays ticked even while the device is
+            // away. A device we have merely discovered has no such history yet.
+            SetupStep(
+              id: SetupStepId.controllerPaired,
+              done: controller.presence != DevicePresence.discovered,
+            ),
+            // Ahead of mapping, because it is what produces the buttons to map: a
+            // derailleur whose own shifting is still enabled sends nothing at all, so
+            // "assign an action to a button" is advice the rider cannot act on yet.
+            if (controller.sramSetupDone != null)
+              SetupStep(id: SetupStepId.controllerSramSetup, done: controller.sramSetupDone!),
+            SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
+            SetupStep(id: SetupStepId.controllerInRange, done: inRange),
+            // Last, because unlocking needs the controller present. Omitted entirely
+            // for anything that has no such concept — see [ControllerInput.unlocked].
+            if (controller.unlocked != null)
+              SetupStep(
+                id: SetupStepId.controllerUnlocked,
+                done: controller.unlocked!,
+                hintArg: controller.unlockedUntil,
+                uncertain: controller.unlockUncertain,
+              ),
+          ];
 
     // An unfinished checklist outranks a healthy connection: a connected
     // controller with no buttons mapped does nothing, so it must not be green.
@@ -130,7 +140,11 @@ ChainLink _trainerLink(ChainInputs inputs) {
   final steps = committed
       ? <SetupStep>[
           SetupStep(id: SetupStepId.trainerPaired, done: paired),
-          SetupStep(id: SetupStepId.trainerAppBridged, done: trainer.appHoldsBridge, hintArg: trainer.bridgeName),
+          SetupStep(
+            id: SetupStepId.trainerAppBridged,
+            done: trainer.appHoldsBridge,
+            hintArg: trainer.bridgeName,
+          ),
         ]
       : const <SetupStep>[];
 

@@ -18,6 +18,7 @@ class ChainCard extends StatefulWidget {
     required this.tile,
     required this.title,
     required this.statusLabel,
+    this.statusBadges = const [],
     this.appName,
     this.editLabel,
     this.onEdit,
@@ -33,6 +34,9 @@ class ChainCard extends StatefulWidget {
 
   final String title;
   final String statusLabel;
+
+  /// Inline warning glyphs beside the status — see [StatusLine.badges].
+  final List<Widget> statusBadges;
 
   /// Used to fill "{app} is connected" style step wording.
   final String? appName;
@@ -159,7 +163,12 @@ class _ChainCardState extends State<ChainCard> {
                     ],
                   ],
                 ),
-                StatusLine(status: link.status, label: widget.statusLabel, meta: link.subtitleArg),
+                StatusLine(
+                  status: link.status,
+                  label: widget.statusLabel,
+                  meta: link.subtitleArg,
+                  badges: widget.statusBadges,
+                ),
               ],
             ),
           ),

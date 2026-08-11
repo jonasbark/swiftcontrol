@@ -1,5 +1,6 @@
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/home/chain_state.dart';
+import 'package:bike_control/widgets/home/ampel.dart';
 import 'package:bike_control/widgets/home/chain_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -38,6 +39,7 @@ Future<void> pumpCard(
   ChainLink l, {
   VoidCallback? onInstructions,
   VoidCallback? onDismissed,
+  List<Widget> statusBadges = const [],
 }) async {
   await tester.pumpWidget(
     ShadcnApp(
@@ -56,6 +58,7 @@ Future<void> pumpCard(
                     tile: const Icon(LucideIcons.gamepad),
                     title: l.title,
                     statusLabel: 'status',
+                    statusBadges: statusBadges,
                     onInstructions: onInstructions,
                   ),
                 )
@@ -64,6 +67,7 @@ Future<void> pumpCard(
                   tile: const Icon(LucideIcons.gamepad),
                   title: l.title,
                   statusLabel: 'status',
+                  statusBadges: statusBadges,
                   onInstructions: onInstructions,
                 ),
         ),
@@ -224,5 +228,27 @@ void main() async {
       await pumpCard(tester, link());
       expect(find.byType(Dismissible), findsNothing);
     });
+  });
+
+  // Battery / firmware / signal warnings ride beside the status rather than in
+  // the body: they qualify "Connected" — it works, but not for much longer.
+  testWidgets('status badges render beside the status label', (tester) async {
+    await pumpCard(
+      tester,
+      link(),
+      statusBadges: const [Icon(LucideIcons.batteryWarning, key: ValueKey('badge-battery'))],
+    );
+
+    expect(find.byKey(const ValueKey('badge-battery')), findsOneWidget);
+    expect(
+      find.ancestor(of: find.byKey(const ValueKey('badge-battery')), matching: find.byType(StatusLine)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a healthy card carries no badges', (tester) async {
+    await pumpCard(tester, link());
+
+    expect(find.byKey(const ValueKey('badge-battery')), findsNothing);
   });
 }

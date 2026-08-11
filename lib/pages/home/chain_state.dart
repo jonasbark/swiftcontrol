@@ -43,6 +43,7 @@ enum SetupStepId {
   controllerInRange,
   controllerUnlocked,
   controllerSramSetup,
+  controllerClickV2Setup,
   trainerPaired,
   trainerAppBridged,
   appSelected,

@@ -21,6 +21,7 @@ ControllerInput controller({
   String? unlockedUntil,
   bool unlockUncertain = false,
   bool? sramSetupDone,
+  bool needsUnlockModeChoice = false,
 }) {
   return ControllerInput(
     deviceId: deviceId,
@@ -32,6 +33,7 @@ ControllerInput controller({
     unlockedUntil: unlockedUntil,
     unlockUncertain: unlockUncertain,
     sramSetupDone: sramSetupDone,
+    needsUnlockModeChoice: needsUnlockModeChoice,
   );
 }
 
@@ -182,6 +184,41 @@ void main() {
       );
       final link = chain.byKey(ChainLinkKey.controller);
       expect(link.activeStep?.id, SetupStepId.controllerSramSetup);
+    });
+
+    // Reported edge case: a brand-new install where the wizard was skipped or
+    // finished on another controller, then a Click V2 is switched on. It is
+    // discovered and in range, and BikeControl is deliberately not connecting
+    // it — so the card claimed "never paired" and "bring it back in range"
+    // about a controller sitting switched on beside the rider.
+    test('a Click V2 awaiting its unlock-mode choice shows only that step', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [
+            controller(
+              presence: DevicePresence.discovered,
+              hasMappedButtons: false,
+              needsUnlockModeChoice: true,
+            ),
+          ],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.activeStep?.id, SetupStepId.controllerClickV2Setup);
+      // The misleading ones are gone, not merely outranked.
+      expect(link.steps.any((s) => s.id == SetupStepId.controllerPaired), isFalse);
+      expect(link.steps.any((s) => s.id == SetupStepId.controllerInRange), isFalse);
+      expect(link.steps.any((s) => s.id == SetupStepId.controllerButtonsMapped), isFalse);
+    });
+
+    test('once the choice is made the normal checklist returns', () {
+      final chain = buildChain(
+        ChainInputs(controllers: [controller(presence: DevicePresence.discovered)], app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.steps.any((s) => s.id == SetupStepId.controllerClickV2Setup), isFalse);
+      expect(link.steps.any((s) => s.id == SetupStepId.controllerPaired), isTrue);
     });
 
     test('a controller with no guided setup has no such step', () {

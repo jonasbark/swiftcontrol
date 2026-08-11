@@ -180,11 +180,17 @@ class TileWithAmpel extends StatelessWidget {
 /// so a healthy screen stays calm and the one card that needs attention is the
 /// only coloured thing on it.
 class StatusLine extends StatelessWidget {
-  const StatusLine({super.key, required this.status, required this.label, this.meta});
+  const StatusLine({super.key, required this.status, required this.label, this.meta, this.badges = const []});
 
   final LinkStatus status;
   final String label;
   final String? meta;
+
+  /// Small warning glyphs shown inline after the status — a flat battery, a
+  /// firmware update, a weak signal. They ride here rather than in the card
+  /// body because they qualify "Connected": the device works, but not for
+  /// much longer or not well.
+  final List<Widget> badges;
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +221,7 @@ class StatusLine extends StatelessWidget {
             ),
             Text(metaText, style: TextStyle(fontSize: 12, color: muted)),
           ],
+          ...badges,
         ],
       ),
     );
