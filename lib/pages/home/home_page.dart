@@ -294,9 +294,9 @@ class _HomePageState extends State<HomePage> {
         name: trainerApp?.name,
         selfHosted: trainerApp is BikeControl,
         hasEnabledConnection: core.logic.enabledTrainerConnections.isNotEmpty,
-        isConnected: core.logic.connectedTrainerConnections.isNotEmpty,
+        isConnected: core.logic.appFacingConnections.isNotEmpty,
         wasConnectedThisSession: _appConnectedThisSession,
-        connectionSummary: core.logic.connectedTrainerConnections.firstOrNull?.title,
+        connectionSummary: core.logic.appFacingConnections.firstOrNull?.title,
       ),
     );
   }
