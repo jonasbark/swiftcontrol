@@ -1526,25 +1526,6 @@
   },
   "chainBannerFix": "Risolvi",
   "chainBannerShow": "Mostra",
-  "chainStepsDone": "{done} di {total} passaggi completati",
-  "@chainStepsDone": {
-    "placeholders": {
-      "done": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "chainAllStepsDone": "Tutti i {total} passaggi completati",
-  "@chainAllStepsDone": {
-    "placeholders": {
-      "total": {
-        "type": "int"
-      }
-    }
-  },
   "chainOptional": "Facoltativo",
   "chainEdit": "Modifica",
   "chainSetUp": "Configura",

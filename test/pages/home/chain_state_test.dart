@@ -48,7 +48,7 @@ void main() {
       expect(l.activeStepIndex, isNull);
       expect(l.doneSteps, 0);
       expect(l.remainingSteps, 0);
-      expect(l.startsExpanded, isFalse);
+      expect(l.pendingSteps, isEmpty);
     });
 
     test('a done step later in the list does not become active', () {
@@ -78,15 +78,20 @@ void main() {
     });
   });
 
-  group('startsExpanded', () {
-    test('ready cards collapse', () {
-      expect(link(id: 'a', status: LinkStatus.ready, steps: [true, true]).startsExpanded, isFalse);
+  group('pendingSteps', () {
+    test('lists only what is still to do, in order', () {
+      final l = link(id: 'a', steps: [true, false, true, false]);
+      expect(l.pendingSteps, hasLength(2));
+      expect(l.pendingSteps.every((s) => !s.done), isTrue);
     });
 
-    test('unresolved cards open themselves', () {
-      for (final status in [LinkStatus.attention, LinkStatus.problem, LinkStatus.off]) {
-        expect(link(id: 'a', status: status, steps: [false]).startsExpanded, isTrue, reason: status.name);
-      }
+    test('is empty once everything is done — a finished card has nothing to show', () {
+      expect(link(id: 'a', steps: [true, true]).pendingSteps, isEmpty);
+    });
+
+    test('the first pending step is the active one', () {
+      final l = link(id: 'a', steps: [true, false, false]);
+      expect(l.pendingSteps.first, same(l.activeStep));
     });
   });
 

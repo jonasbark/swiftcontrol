@@ -77,40 +77,41 @@ void main() async {
   await AppLocalizations.load(const Locale('en'));
   final l = AppLocalizations();
 
-  group('collapsing', () {
-    testWidgets('a ready card shows only the all-done summary', (tester) async {
+  group('only outstanding steps are shown', () {
+    testWidgets('a finished card shows no checklist at all', (tester) async {
       await pumpCard(tester, link());
 
-      expect(find.text(l.chainAllStepsDone(3)), findsOneWidget);
       expect(find.byType(StepRow), findsNothing);
+      // No summary, no counter, no way to unfold a list of ticked boxes.
+      expect(find.textContaining('steps done'), findsNothing);
+      expect(find.byIcon(LucideIcons.chevronDown), findsNothing);
+      expect(find.byIcon(LucideIcons.chevronUp), findsNothing);
     });
 
-    testWidgets('an unresolved card opens itself onto its steps', (tester) async {
+    testWidgets('only the pending steps are rendered', (tester) async {
       await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, false, false]));
 
-      expect(find.text(l.chainStepsDone(1, 3)), findsOneWidget);
-      expect(find.byType(StepRow), findsNWidgets(3));
+      expect(find.byType(StepRow), findsNWidgets(2));
+      // The two that are done have nothing left to say.
+      expect(find.text(l.chainStepBluetoothReady), findsNothing);
     });
 
-    testWidgets('tapping the summary expands a ready card', (tester) async {
-      await pumpCard(tester, link());
-
-      await tester.tap(find.text(l.chainAllStepsDone(3)));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(StepRow), findsNWidgets(3));
-    });
-
-    testWidgets('a card with no steps has no summary row at all', (tester) async {
+    testWidgets('a card with no steps renders no checklist', (tester) async {
       await pumpCard(tester, link(status: LinkStatus.off, steps: []));
-
       expect(find.byType(StepRow), findsNothing);
-      expect(find.textContaining('steps done'), findsNothing);
+    });
+
+    testWidgets('every rendered step is genuinely outstanding', (tester) async {
+      await pumpCard(tester, link(status: LinkStatus.attention, steps: [false, true, false, true]));
+
+      final rows = tester.widgetList<StepRow>(find.byType(StepRow)).toList();
+      expect(rows, hasLength(2));
+      expect(rows.every((r) => !r.step.done), isTrue);
     });
   });
 
   group('the active step', () {
-    testWidgets('is the first unfinished one, and the only one offering instructions', (tester) async {
+    testWidgets('is the first outstanding one, and the only one offering instructions', (tester) async {
       var opened = 0;
       await pumpCard(
         tester,
@@ -119,7 +120,7 @@ void main() async {
       );
 
       final rows = tester.widgetList<StepRow>(find.byType(StepRow)).toList();
-      expect(rows.map((r) => r.active), [false, true, false]);
+      expect(rows.map((r) => r.active), [true, false]);
       // Exactly one next action on the card, never two.
       expect(find.text(l.chainShowMeHow), findsOneWidget);
 
@@ -128,10 +129,8 @@ void main() async {
       expect(opened, 1);
     });
 
-    testWidgets('is absent when every step is done', (tester) async {
+    testWidgets('offers nothing when every step is done', (tester) async {
       await pumpCard(tester, link(status: LinkStatus.attention), onInstructions: () {});
-
-      expect(tester.widgetList<StepRow>(find.byType(StepRow)).every((r) => !r.active), isTrue);
       expect(find.text(l.chainShowMeHow), findsNothing);
     });
   });
@@ -147,36 +146,31 @@ void main() async {
   });
 
   group('alignment', () {
-    // The summary row sits inside a Button, whose own padding used to inset it
-    // past the steps below — so the checklist icon and the step ticks started
-    // at different x. They are one column and must read as one.
-    testWidgets('the summary icon and the step ticks share a left edge', (tester) async {
-      await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, false]));
+    testWidgets('every step tick shares one left edge', (tester) async {
+      await pumpCard(tester, link(status: LinkStatus.attention, steps: [false, false, false]));
 
-      final summaryIcon = find.byIcon(LucideIcons.listChecks);
-      expect(summaryIcon, findsOneWidget);
-
-      final summaryLeft = tester.getTopLeft(summaryIcon).dx;
       final ticks = find.byKey(stepTickKey);
-      expect(ticks, findsNWidgets(2));
-      for (var i = 0; i < 2; i++) {
-        expect(tester.getTopLeft(ticks.at(i)).dx, moreOrLessEquals(summaryLeft, epsilon: 0.5));
+      expect(ticks, findsNWidgets(3));
+      final first = tester.getTopLeft(ticks.at(0)).dx;
+      for (var i = 1; i < 3; i++) {
+        expect(tester.getTopLeft(ticks.at(i)).dx, moreOrLessEquals(first, epsilon: 0.5));
       }
     });
 
-    testWidgets('the summary label and the step labels share a left edge', (tester) async {
-      await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, false]));
+    testWidgets('every step label shares one left edge', (tester) async {
+      await pumpCard(tester, link(status: LinkStatus.attention, steps: [false, false]));
 
-      final summaryLabel = tester.getTopLeft(find.text(l.chainStepsDone(1, 2))).dx;
-      final stepLabel = tester.getTopLeft(find.text(l.chainStepBluetoothReady)).dx;
-      expect(stepLabel, moreOrLessEquals(summaryLabel, epsilon: 0.5));
+      final a = tester.getTopLeft(find.text(l.chainStepBluetoothReadyPending)).dx;
+      final b = tester.getTopLeft(find.text(l.chainStepControllerPairedPending)).dx;
+      expect(b, moreOrLessEquals(a, epsilon: 0.5));
     });
   });
 
   group('animating a status change', () {
     testWidgets('a card that becomes ready collapses its checklist over time, not instantly', (tester) async {
       await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, true, false]));
-      expect(find.byType(StepRow), findsNWidgets(3));
+      // Two done, one outstanding — only the outstanding one is on screen.
+      expect(find.byType(StepRow), findsOneWidget);
 
       // The last step lands: the card is now ready and should fold away.
       await tester.pumpWidget(

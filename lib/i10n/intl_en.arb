@@ -1720,25 +1720,6 @@
   },
   "chainBannerFix": "Fix",
   "chainBannerShow": "Show",
-  "chainStepsDone": "{done} of {total} steps done",
-  "@chainStepsDone": {
-    "placeholders": {
-      "done": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "chainAllStepsDone": "All {total} steps done",
-  "@chainAllStepsDone": {
-    "placeholders": {
-      "total": {
-        "type": "int"
-      }
-    }
-  },
   "chainOptional": "Optional",
   "chainEdit": "Edit",
   "chainSetUp": "Set up",

@@ -56,48 +56,17 @@ class ChainCard extends StatefulWidget {
 /// Long enough to read as a movement, short enough not to hold the rider up.
 const Duration _statusChangeDuration = Duration(milliseconds: 260);
 
-/// One left edge for everything in a card's checklist region — the summary
-/// row's icon and every step's tick share it, so the column reads as a column.
-/// The leading glyphs differ in size (a 15px icon, a 17px circle), so they are
-/// centred in a box of one width rather than laid out back to back, which is
-/// what let them drift apart.
+/// One left edge for every step in a card's checklist, so the column reads as a
+/// column however many steps are outstanding.
 const double _rowInset = 14;
 
-/// The tick circle, so a test can assert it lines up with the summary icon
-/// above it — the alignment is the point of the shared inset.
+/// The tick circle, so a test can assert the steps share a left edge.
 const Key stepTickKey = ValueKey('chain-step-tick');
 
 const double _leadingSize = 17;
 const double _leadingGap = 10;
 
 class _ChainCardState extends State<ChainCard> {
-  /// Null means "follow the link's own default" — ready cards collapse,
-  /// unresolved cards open. Once the rider taps the summary row, their choice
-  /// wins until the card's status changes under them.
-  bool? _expandedOverride;
-
-  LinkStatus? _lastStatus;
-
-  bool get _expanded => _expandedOverride ?? widget.link.startsExpanded;
-
-  @override
-  void didUpdateWidget(covariant ChainCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // A status change is new information — it re-earns the right to decide
-    // whether the checklist is open, so a card that just broke opens itself
-    // even if the rider had collapsed it earlier.
-    if (_lastStatus != null && widget.link.status != _lastStatus) {
-      _expandedOverride = null;
-    }
-    _lastStatus = widget.link.status;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _lastStatus = widget.link.status;
-  }
-
   @override
   Widget build(BuildContext context) {
     final link = widget.link;
@@ -127,22 +96,16 @@ class _ChainCardState extends State<ChainCard> {
           _header(context),
           if (widget.body != null) Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), child: widget.body!),
           // The checklist grows and shrinks rather than blinking in and out: when
-          // the last step of a card finally ticks, the card collapses to its
-          // one-line summary as a movement the eye can follow, which is what
-          // makes "that's done now" legible instead of just sudden.
+          // the last step of a card finally ticks, the card shrinks to its
+          // header as a movement the eye can follow, which is what makes
+          // "that's done now" legible instead of just sudden.
           AnimatedSize(
             duration: _statusChangeDuration,
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
-            child: link.steps.isEmpty
+            child: link.pendingSteps.isEmpty
                 ? const SizedBox(width: double.infinity)
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _summaryRow(context),
-                      if (_expanded) _checklist(context),
-                    ],
-                  ),
+                : _checklist(context),
           ),
         ],
       ),
@@ -219,73 +182,31 @@ class _ChainCardState extends State<ChainCard> {
     );
   }
 
-  /// The one-line summary. On a ready card this is the *entire* checklist the
-  /// rider sees — "All 3 steps done" and nothing else.
-  Widget _summaryRow(BuildContext context) {
-    final link = widget.link;
-    final theme = Theme.of(context);
-    final ready = link.status == LinkStatus.ready;
-
-    return Button.ghost(
-      // The button's own padding would inset this row past the steps below it.
-      style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
-      onPressed: () => setState(() => _expandedOverride = !_expanded),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: theme.colorScheme.border, width: 0.5)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: _rowInset, vertical: 12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: _leadingSize,
-              child: Icon(
-                ready ? LucideIcons.circleCheck : LucideIcons.listChecks,
-                size: 15,
-                color: theme.colorScheme.mutedForeground,
-              ),
-            ),
-            const Gap(_leadingGap),
-            Expanded(
-              child: Text(
-                ready
-                    ? context.i18n.chainAllStepsDone(link.steps.length)
-                    : context.i18n.chainStepsDone(link.doneSteps, link.steps.length),
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.mutedForeground,
-                ),
-              ),
-            ),
-            Icon(
-              _expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-              size: 15,
-              color: theme.colorScheme.mutedForeground,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
+  /// What is left to do, and only that. A ticked step has already told the
+  /// rider everything it can; keeping it on screen buries the one line that
+  /// still matters under a list of things that don't.
   Widget _checklist(BuildContext context) {
-    final link = widget.link;
-    final activeIndex = link.activeStepIndex;
+    final theme = Theme.of(context);
+    final pending = widget.link.pendingSteps;
 
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.colorScheme.border, width: 0.5)),
+      ),
       // Steps carry their own inset (see StepRow) so the active step's
       // highlight can bleed slightly wider than the text column.
-      padding: const EdgeInsets.fromLTRB(4, 2, 4, 12),
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final (index, step) in link.steps.indexed)
+          for (final (index, step) in pending.indexed)
             StepRow(
+              // The first outstanding step is the next thing to do, and the
+              // only one that offers instructions.
               step: step,
-              active: index == activeIndex,
+              active: index == 0,
               appName: widget.appName,
-              onInstructions: index == activeIndex ? widget.onInstructions : null,
+              onInstructions: index == 0 ? widget.onInstructions : null,
               instructionsLabel: widget.instructionsLabel,
             ),
         ],

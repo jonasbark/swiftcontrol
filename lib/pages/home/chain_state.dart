@@ -150,9 +150,10 @@ class ChainLink {
     return index == null ? null : steps[index];
   }
 
-  /// Ready cards collapse to a one-line summary; anything unresolved opens
-  /// itself, because that is where the rider needs to look.
-  bool get startsExpanded => status != LinkStatus.ready && steps.isNotEmpty;
+  /// The steps still to do. A finished step has served its purpose the moment
+  /// it ticks: it is the outstanding work a rider needs on screen, not a
+  /// receipt for the work already behind them.
+  List<SetupStep> get pendingSteps => steps.where((s) => !s.done).toList();
 
   ChainLink copyWith({LinkStatus? status, List<SetupStep>? steps, String? subtitleArg, bool? dismissible}) {
     return ChainLink(
