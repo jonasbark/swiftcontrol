@@ -21,6 +21,16 @@ class WahooKickrHeadwind extends BluetoothDevice with Accessory {
       );
 
   @override
+  List<InGameAction> get assignableActions => const [
+    InGameAction.headwindSpeed,
+    InGameAction.headwindSpeedInc,
+    InGameAction.headwindSpeedDec,
+    InGameAction.headwindSpeedCyclicInc,
+    InGameAction.headwindSpeedCyclicDec,
+    InGameAction.headwindHeartRateMode,
+  ];
+
+  @override
   Future<void> handleServices(List<BleService> services) async {
     final service = services.firstWhere(
       (e) => e.uuid == WahooKickrHeadwindConstants.SERVICE_UUID.toLowerCase(),

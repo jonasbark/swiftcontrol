@@ -506,6 +506,14 @@ abstract class BaseDevice {
   /// left/right suffix) differ from it.
   String displayName(BuildContext context) => toString();
 
+  /// In-game actions this device *receives* rather than sends — the fan speeds
+  /// a Headwind reacts to, the incline steps a Climb takes.
+  ///
+  /// They are assigned to a controller's buttons, never to this device's own
+  /// (an accessory has none), so its settings page can only name them and send
+  /// the rider to a controller.
+  List<InGameAction> get assignableActions => const [];
+
   Widget showInformation(BuildContext context,
       {required bool showFull,
       Widget? footer,

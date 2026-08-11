@@ -860,6 +860,8 @@
   "broadcastIntentDesc": "Per app di automazione come MacroDroid o Tasker",
   "otherActions": "Altre azioni",
   "takeScreenshot": "Fai screenshot",
+  "accessoryNoControllerYet": "Collega un controller per assegnare queste azioni ai suoi pulsanti.",
+  "accessorySetUpOnController": "Configura su {device}",
   "accessoryActions": "Azioni accessori",
   "kickrHeadwind": "KICKR Headwind",
   "setHeadwindSpeedTo": "Imposta velocità al {value}%",

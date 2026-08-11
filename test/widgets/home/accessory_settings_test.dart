@@ -1,8 +1,10 @@
+import 'package:bike_control/bluetooth/devices/gamepad/gamepad_device.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/controller_settings.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,7 +40,12 @@ void main() {
     core.settings.prefs = await SharedPreferences.getInstance();
     core.actionHandler = StubActions();
     await AppLocalizations.load(const Locale('en'));
+    // `core` is a process-wide singleton, so each case starts from an empty
+    // device list rather than inheriting the previous one's controller.
+    core.connection.devices.clear();
   });
+
+  tearDown(() => core.connection.devices.clear());
 
   Future<void> pumpSettings(WidgetTester tester, WahooKickrHeadwind device) async {
     await tester.pumpWidget(
@@ -76,5 +83,35 @@ void main() {
     await pumpSettings(tester, headwind());
 
     expect(find.text(AppLocalizations.current.buttonMapping), findsNothing);
+  });
+
+  // What replaces it: the fan's actions live on a *controller's* buttons, so
+  // the page names them and points at the controller that can carry them.
+  group('assignable actions', () {
+    testWidgets('lists what the accessory can be told to do', (tester) async {
+      await pumpSettings(tester, headwind());
+
+      expect(find.text(InGameAction.headwindSpeed.title), findsOneWidget);
+      expect(find.text(InGameAction.headwindSpeedInc.title), findsOneWidget);
+      expect(find.text(InGameAction.headwindHeartRateMode.title), findsOneWidget);
+    });
+
+    testWidgets('points at the connected controller that can carry them', (tester) async {
+      core.connection.devices.add(GamepadDevice('Pro Controller', id: 'pad-1')..isConnected = true);
+
+      await pumpSettings(tester, headwind());
+
+      expect(
+        find.text(AppLocalizations.current.accessorySetUpOnController('Pro Controller')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('names the actions even with no controller to send them to', (tester) async {
+      await pumpSettings(tester, headwind());
+
+      expect(find.text(InGameAction.headwindSpeed.title), findsOneWidget);
+      expect(find.textContaining(AppLocalizations.current.accessoryNoControllerYet), findsOneWidget);
+    });
   });
 }

@@ -7,6 +7,7 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/customize.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/help_article.dart';
+import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
@@ -16,6 +17,7 @@ import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/trainer_label.dart';
+import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -120,6 +122,15 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                         const Gap(24),
                       ],
 
+                      // What an accessory gets instead: the actions it obeys,
+                      // and the controller whose buttons can carry them.
+                      if (device is Accessory && device.assignableActions.isNotEmpty) ...[
+                        _buildSectionHeader(AppLocalizations.of(context).accessoryActions),
+                        const Gap(12),
+                        _buildAssignableActions(device),
+                        const Gap(24),
+                      ],
+
                       // Preferences
                       if (device.buildPreferences(context) != null) ...[
                         _buildSectionHeader(AppLocalizations.of(context).preferences),
@@ -198,6 +209,61 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
 
   Widget _buildTrainerLabel(String name) {
     return TrainerLabel(name: name);
+  }
+
+  /// The actions an accessory obeys, and the way to actually assign one.
+  ///
+  /// Nothing here is editable in place: an accessory has no buttons, so these
+  /// live on a *controller's* button. The page therefore names them and hands
+  /// over to the controller that can carry them — the connected one, since
+  /// that is the one the rider can test a mapping on right away.
+  Widget _buildAssignableActions(BaseDevice device) {
+    final theme = Theme.of(context);
+    final controller =
+        core.connection.controllerDevices.firstOrNullWhere((d) => d.isConnected) ??
+        core.connection.controllerDevices.firstOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.card,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.colorScheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final action in device.assignableActions)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(action.icon ?? LucideIcons.circleDot, size: 16, color: theme.colorScheme.mutedForeground),
+                      const Gap(10),
+                      Expanded(child: Text(action.title).small),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const Gap(12),
+        if (controller != null)
+          _buildActionButton(
+            icon: LucideIcons.gamepad2,
+            label: AppLocalizations.of(context).accessorySetUpOnController(controller.displayName(context)),
+            onTap: () async {
+              await context.push(ControllerSettingsPage(device: controller));
+              if (mounted) setState(() {});
+            },
+          )
+        else
+          Text(AppLocalizations.of(context).accessoryNoControllerYet).xSmall.muted,
+      ],
+    );
   }
 
   Widget _buildActions(BaseDevice device, Keymap? keymap) {
