@@ -1830,7 +1830,7 @@
   "chainTrialBridgeMeter": "Virtual shifting today",
   "chainTrialBridgeMeterSuffix": "min",
   "chainTrialRestoreRow": "Already bought it? Restore purchases",
-  "chainOfflineEditNotice": "Not connected right now — your changes apply the next time it connects.",
+  "chainOfflineEditNotice": "Not connected — you can still change what its buttons do.",
   "chainForgetSwipeHint": "Swipe a disconnected device away to forget it.",
   "chainForgotten": "{name} forgotten",
   "@chainForgotten": {

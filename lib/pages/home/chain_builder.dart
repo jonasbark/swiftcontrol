@@ -27,6 +27,8 @@ LinkStatus _presenceStatus(DevicePresence presence) => switch (presence) {
   DevicePresence.resetting => LinkStatus.attention,
   DevicePresence.lost => LinkStatus.problem,
   DevicePresence.remembered => LinkStatus.attention,
+  // Never connected is "not set up", not "something broke".
+  DevicePresence.discovered => LinkStatus.off,
 };
 
 List<ChainLink> _controllerLinks(ChainInputs inputs) {
@@ -54,9 +56,12 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
     final steps = <SetupStep>[
       if (controller.requiresBluetooth)
         SetupStep(id: SetupStepId.controllerBluetoothReady, done: inputs.bluetoothReady),
-      // The device is in the list at all, so it has been paired — that step is
-      // history, and history stays ticked even while the device is away.
-      const SetupStep(id: SetupStepId.controllerPaired, done: true),
+      // Pairing is history: once done it stays ticked even while the device is
+      // away. A device we have merely discovered has no such history yet.
+      SetupStep(
+        id: SetupStepId.controllerPaired,
+        done: controller.presence != DevicePresence.discovered,
+      ),
       SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
       SetupStep(id: SetupStepId.controllerInRange, done: inRange),
     ];

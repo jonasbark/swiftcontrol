@@ -187,6 +187,17 @@ class Connection {
     hasDevices.value = devices.isNotEmpty || _offlineControllers.isNotEmpty;
   }
 
+  /// Marks a device as genuinely connected in this session, and remembers it.
+  ///
+  /// Called from both the BLE connection-state listener and the post-connect
+  /// path, since neither covers every device type on its own. Remembering is
+  /// idempotent (the repository dedupes by id and refreshes the timestamp), so
+  /// arriving twice for one connect is harmless.
+  void _noteConnected(BaseDevice device) {
+    _connectedThisSession.add(device.uniqueId);
+    unawaited(_rememberConnectedDevice(device));
+  }
+
   /// Records a device we just connected to. Accessories are skipped — they are
   /// not links in the setup chain and would only clutter the remembered list.
   Future<void> _rememberConnectedDevice(BaseDevice device) async {
@@ -902,6 +913,7 @@ class Connection {
     if (device is BluetoothDevice) {
       final connectionStateSubscription = device.device.connectionStream.listen((state) {
         device.isConnected = state;
+        if (state) _noteConnected(device);
         _connectionStreams.add(device);
 
         // Quick-drop tracking (Wheeltop TX pods connect then drop within
@@ -966,8 +978,12 @@ class Connection {
       if (device is BluetoothDevice) {
         _consecutiveConnectFailures.remove(device.device.deviceId);
       }
-      _connectedThisSession.add(device.uniqueId);
-      unawaited(_rememberConnectedDevice(device));
+      // Deliberately gated on isConnected, not on connect() returning:
+      // ProxyDevice.connect() is a no-op unless the rider has actually asked
+      // for that trainer, so an ungated add here marks a trainer that never
+      // connected as "connected this session" — and the home screen then
+      // reports a brand-new trainer as having lost its connection.
+      if (device.isConnected) _noteConnected(device);
       signalChange(device);
 
       IAPManager.instance.setAttributes();

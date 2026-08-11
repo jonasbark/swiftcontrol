@@ -5,7 +5,6 @@ import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/widgets/ignored_devices_dialog.dart';
-import 'package:bike_control/widgets/scan.dart';
 import 'package:bike_control/widgets/trainer_features.dart';
 import 'package:bike_control/services/screen_recording/screen_recording_service.dart';
 import 'package:flutter/foundation.dart';
@@ -35,6 +34,10 @@ class _HomeExtrasState extends State<HomeExtras> {
   bool get _showsMediaKeys => !kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isIOS);
 
   bool get _showsPhoneSteering => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  /// Quitting from a menu row is a mobile idiom; desktop windows close
+  /// themselves, and SystemNavigator.pop() does nothing useful there anyway.
+  bool get _showsQuit => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   @override
   Widget build(BuildContext context) {
@@ -97,10 +100,6 @@ class _HomeExtrasState extends State<HomeExtras> {
           ),
           if (_expanded) ...[
             const Divider(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-              child: const ScanWidget(),
-            ),
             if (ignored.isNotEmpty)
               _row(
                 context,
@@ -140,15 +139,16 @@ class _HomeExtrasState extends State<HomeExtras> {
                   if (mounted) setState(() {});
                 },
               ),
-            _row(
-              context,
-              title: context.i18n.close,
-              onPressed: () async {
-                await core.connection.disconnectAll();
-                await core.connection.stop();
-                SystemNavigator.pop();
-              },
-            ),
+            if (_showsQuit)
+              _row(
+                context,
+                title: context.i18n.close,
+                onPressed: () async {
+                  await core.connection.disconnectAll();
+                  await core.connection.stop();
+                  SystemNavigator.pop();
+                },
+              ),
           ],
         ],
       ),

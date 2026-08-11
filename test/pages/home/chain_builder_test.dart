@@ -103,6 +103,15 @@ void main() {
       expect(chain.byKey(ChainLinkKey.controller).status, LinkStatus.problem);
     });
 
+    test('a controller we have only discovered has not been paired yet', () {
+      final chain = buildChain(
+        ChainInputs(controllers: [controller(presence: DevicePresence.discovered)], app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_stepDone(link, SetupStepId.controllerPaired), isFalse);
+      expect(link.status, LinkStatus.off);
+    });
+
     test('a resetting controller is amber and never red', () {
       final chain = buildChain(
         ChainInputs(controllers: [controller(presence: DevicePresence.resetting)], app: _readyApp),
@@ -202,6 +211,34 @@ void main() {
         ChainInputs(trainer: trainer(presence: DevicePresence.remembered), app: _readyApp),
       );
       expect(chain.byKey(ChainLinkKey.trainer).subtitleArg, isNull);
+    });
+
+    // The bug this pins down: a trainer the scanner had only just found was
+    // reported as having lost a connection it never had.
+    test('a trainer we have only discovered is not reported as broken', () {
+      final chain = buildChain(
+        ChainInputs(trainer: trainer(presence: DevicePresence.discovered), app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.trainer);
+      expect(link.status, isNot(LinkStatus.problem));
+      expect(link.status, LinkStatus.off);
+    });
+
+    test('a newly discovered trainer does not stop the rider being ready', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller()],
+          trainer: trainer(presence: DevicePresence.discovered),
+          app: _readyApp,
+        ),
+      );
+      expect(chain.byKey(ChainLinkKey.trainer).isBlocking, isFalse);
+      expect(deriveBanner(chain).kind, ChainBannerKind.ready);
+    });
+
+    test('a trainer that actually dropped is still reported as broken', () {
+      final chain = buildChain(ChainInputs(trainer: trainer(presence: DevicePresence.lost), app: _readyApp));
+      expect(chain.byKey(ChainLinkKey.trainer).status, LinkStatus.problem);
     });
 
     test('a connected trainer without gears is amber, with gears as the active step', () {

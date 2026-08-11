@@ -590,7 +590,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
         return;
       }
       if (device.isSmartTrainer) {
-        await core.settings.setSmartTrainerConsent(device.trainerKey, true);
       }
       // WiFi transport: the app finds "<trainer> - BikeControl" over the
       // network (step 5's bridge card), and no BLE-advertise permission

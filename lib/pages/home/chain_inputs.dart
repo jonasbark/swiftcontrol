@@ -26,6 +26,12 @@ enum DevicePresence {
 
   /// Known from a previous session, not seen yet this time.
   remembered,
+
+  /// In range and known to the app, but never actually connected — a trainer
+  /// the scanner just found, say. It has nothing to lose, so it can never be
+  /// [lost]; treating it as such is how a brand-new trainer ended up shouting
+  /// "lost connection" on a screen it had only just appeared on.
+  discovered,
 }
 
 class ControllerInput {

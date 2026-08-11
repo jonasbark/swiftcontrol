@@ -75,11 +75,13 @@ Future<void> main() async {
     });
   });
 
-  group('auto-connect consent gating', () {
-    test('auto-connect intent alone is not enough for a smart trainer — consent required', () async {
+  group('auto-connect intent', () {
+    // The takeover-consent dialog is gone: tapping Connect once is the whole
+    // consent story, so intent alone must be enough. Without intent the
+    // trainer is still only discovered, never started on its own.
+    test('a discovered trainer with no intent stays disconnected', () async {
       final trainer = buildFtmsTrainer();
       env.ble.addPeripheral(trainer);
-      await core.settings.setAutoConnect('KICKR CORE 1234', true);
 
       await core.connection.performScanning();
       await IntegrationEnv.waitFor(
@@ -92,11 +94,10 @@ Future<void> main() async {
       expect(env.mdns.registrations, isEmpty);
     });
 
-    test('with intent + consent the trainer connects and the WiFi bridge advertises', () async {
+    test('with intent the trainer connects and the WiFi bridge advertises', () async {
       final trainer = buildFtmsTrainer();
       env.ble.addPeripheral(trainer);
       await core.settings.setAutoConnect('KICKR CORE 1234', true);
-      await core.settings.setSmartTrainerConsent('KICKR CORE 1234', true);
 
       await core.connection.performScanning();
       await IntegrationEnv.waitFor(
@@ -123,7 +124,6 @@ Future<void> main() async {
       final trainer = buildFtmsTrainer();
       env.ble.addPeripheral(trainer);
       await core.settings.setAutoConnect('KICKR CORE 1234', true);
-      await core.settings.setSmartTrainerConsent('KICKR CORE 1234', true);
       await core.connection.performScanning();
       await IntegrationEnv.waitFor(
         () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.isConnected,
@@ -174,7 +174,6 @@ Future<void> main() async {
       final trainer = buildFtmsTrainer();
       env.ble.addPeripheral(trainer);
       await core.settings.setAutoConnect('KICKR CORE 1234', true);
-      await core.settings.setSmartTrainerConsent('KICKR CORE 1234', true);
 
       // …and a connected Zwift Click controller.
       final click = buildZwiftClick();

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
-import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
@@ -12,39 +11,26 @@ import 'package:bike_control/pages/home/home_sheets.dart';
 import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/services/blog_service.dart';
-import 'package:bike_control/services/screen_recording/screen_recording_service.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
-import 'package:bike_control/utils/keymap/apps/bike_control.dart';
-import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/blog_posts_widget.dart';
-import 'package:bike_control/bluetooth/devices/steering_device.dart';
-import 'package:bike_control/widgets/controller/controller_canvas.dart';
-import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
-import 'package:bike_control/widgets/iap_status_widget.dart';
-import 'package:bike_control/widgets/ignored_devices_dialog.dart';
 import 'package:bike_control/widgets/review_banner.dart';
-import 'package:bike_control/widgets/status_icon.dart';
-import 'package:bike_control/widgets/trainer_features.dart';
-import 'package:bike_control/widgets/ui/animated_button_widget.dart';
 import 'package:bike_control/widgets/ui/button_widget.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show ConnectionMethodTypeActivityIcon;
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:flutter/foundation.dart';
 import 'package:gal/gal.dart';
-import 'package:prop/prop.dart' show LogLevel, Logger, RetrofitMode;
+import 'package:prop/prop.dart' show LogLevel, Logger;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../main.dart';
-import '../utils/iap/iap_manager.dart';
-import 'device.dart';
 
 // ── Activity log entry ───────────────────────────────────────────────
 

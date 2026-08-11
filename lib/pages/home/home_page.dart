@@ -140,14 +140,16 @@ class _HomePageState extends State<HomePage> {
     ...core.connection.offlineControllers,
   ];
 
-  DevicePresence _presenceOf(BaseDevice device) {
+  DevicePresence _presenceOf(BaseDevice device, {required bool isStandIn}) {
     if (device.isConnected) return DevicePresence.connected;
     if (device.isResetting) return DevicePresence.resetting;
     // The distinction that keeps a fresh launch calm: only a device that was
     // working in *this* session counts as broken.
-    return core.connection.wasConnectedThisSession(device.uniqueId)
-        ? DevicePresence.lost
-        : DevicePresence.remembered;
+    if (core.connection.wasConnectedThisSession(device.uniqueId)) return DevicePresence.lost;
+    // A stand-in comes from the remembered list, so we know the rider owns it
+    // and it is merely out of range. Anything else is something the scanner
+    // just found and we have never connected to — "not set up", not "broken".
+    return isStandIn ? DevicePresence.remembered : DevicePresence.discovered;
   }
 
   bool _hasMappedButtons(BaseDevice device) {
@@ -158,6 +160,7 @@ class _HomePageState extends State<HomePage> {
 
   ChainInputs _readInputs() {
     final controllers = _knownControllers;
+    final standInIds = core.connection.offlineControllers.map((d) => d.uniqueId).toSet();
     final trainerApp = core.settings.getTrainerApp();
     final proxy = core.connection.proxyDevices.sortedBy((p) => p.isConnected ? 0 : 1).firstOrNull;
     final remembered = core.connection.rememberedTrainer;
@@ -168,7 +171,7 @@ class _HomePageState extends State<HomePage> {
       trainer = TrainerInput(
         deviceId: proxy.uniqueId,
         name: proxy.toString(),
-        presence: _presenceOf(proxy),
+        presence: _presenceOf(proxy, isStandIn: false),
         gearsConfigured: config.isNotEmpty,
         gearsSummary: _gearsSummary(proxy),
         metrics: _trainerMetrics(proxy),
@@ -189,7 +192,7 @@ class _HomePageState extends State<HomePage> {
           ControllerInput(
             deviceId: device.uniqueId,
             name: device.toString(),
-            presence: _presenceOf(device),
+            presence: _presenceOf(device, isStandIn: standInIds.contains(device.uniqueId)),
             hasMappedButtons: _hasMappedButtons(device),
             requiresBluetooth: device is BluetoothDevice,
           ),

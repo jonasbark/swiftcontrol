@@ -10,7 +10,6 @@ import 'package:bike_control/utils/keymap/apps/supported_app.dart' show TrainerC
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
-import 'package:bike_control/widgets/smart_trainer_consent_dialog.dart';
 import 'package:bike_control/widgets/status_icon.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
 import 'package:dartx/dartx.dart';
@@ -139,17 +138,6 @@ class _ConnectionCardState extends State<ConnectionCard> {
     if (IAPManager.instance.isTrialExpired) {
       await showGoProDialog(context);
       return;
-    }
-
-    if (device.isSmartTrainer && !core.settings.getSmartTrainerConsent(device.trainerKey)) {
-      final confirmed = await showSmartTrainerConsentDialog(
-        context,
-        trainerName: device.trainerKey,
-        appName: _trainerAppName,
-      );
-      if (!confirmed) return;
-      await core.settings.setSmartTrainerConsent(device.trainerKey, true);
-      if (!mounted) return;
     }
 
     final RetrofitMode next = selection == _ConnectSelection.proxy ? RetrofitMode.proxy : _initialVsTransport;
