@@ -194,8 +194,10 @@ class _ChainCardState extends State<ChainCard> {
         border: Border(top: BorderSide(color: theme.colorScheme.border, width: 0.5)),
       ),
       // Steps carry their own inset (see StepRow) so the active step's
-      // highlight can bleed slightly wider than the text column.
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+      // highlight can bleed slightly wider than the text column — but only
+      // slightly: at 4 the highlight almost touched the card edge, which read
+      // as a panel the card had failed to contain rather than a row inside it.
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

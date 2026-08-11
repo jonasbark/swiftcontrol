@@ -1,5 +1,6 @@
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
+import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
@@ -30,6 +31,17 @@ class _NewUnlockMethodToggleState extends State<NewUnlockMethodToggle> {
 
     setState(() => _enabled = value);
     await core.settings.setUseNewUnlockMethod(value);
+
+    if (!value) {
+      // Right-side-only cannot survive this switch. In the legacy
+      // representation the LEFT puck is what becomes the unified
+      // [ZwiftClickV2] and the right puck builds nothing at all (see
+      // BluetoothDevice.fromScanResult) — so leaving the left side on the
+      // ignored list here leaves the rider with no Click whatsoever, and the
+      // chain falls back to its empty "Controller" placeholder.
+      await core.settings.setClickV2RightSideOnly(false);
+      await ClickV2Onboarding.restoreLeftSides();
+    }
 
     final clicks = core.connection.bluetoothDevices
         .where((d) => d is ZwiftClickV2 || d is ZwiftClickV2RightSide)

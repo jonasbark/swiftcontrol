@@ -139,7 +139,12 @@ abstract final class ClickV2Onboarding {
   /// gets both controllers back. Matched by the name stored alongside the id —
   /// which is exactly [ZwiftClickV2LeftSide.label], since that is what
   /// `Connection.disconnect` wrote there.
-  static Future<void> _unignoreLeftSides() async {
+  ///
+  /// Public because right-side-only is not the only way out of it: switching
+  /// off the split representation entirely (NewUnlockMethodToggle) rebuilds the
+  /// LEFT puck as the legacy unified controller, so leaving it ignored would
+  /// leave the rider with no Click at all.
+  static Future<void> restoreLeftSides() async {
     final ignored = core.settings
         .getIgnoredDevices()
         .where((d) => d.name == ZwiftClickV2LeftSide.label)
@@ -170,7 +175,7 @@ abstract final class ClickV2Onboarding {
     // This mode is "both controllers", so a left side that right-side-only put
     // on the ignored list has to come back off it — otherwise the rider picks
     // the both-sides option and only ever gets one.
-    await _unignoreLeftSides();
+    await restoreLeftSides();
     // Mirrors UnlockToggle's own Select.onChanged: switching to Zwift mode
     // must cancel any live ClickLogic reset timer immediately, or the rider
     // gets one spurious restart right after choosing the mode whose whole

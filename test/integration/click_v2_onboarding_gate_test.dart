@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
 import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
@@ -159,6 +160,46 @@ Future<void> main() async {
     await core.connection.performScanning();
     expect(core.connection.devices.whereType<ZwiftClickV2LeftSide>(), isEmpty);
     expect(core.connection.controllerDevices.whereType<ZwiftClickV2LeftSide>(), isEmpty);
+  });
+
+  // Reported from a device: right-side-only, then "use new unlock method" off,
+  // left the rider with no Click at all and the chain showing its empty
+  // "Controller" placeholder. In the legacy representation the LEFT puck is
+  // what becomes the unified ZwiftClickV2 and the right puck builds nothing --
+  // so an ignored left side means nothing can be built.
+  test('turning the split representation off un-ignores the left side', () async {
+    await core.settings.setClickV2OnboardingDone(false);
+    await core.settings.setUnlockWithZwift(false);
+    await core.settings.setUseNewUnlockMethod(true);
+
+    final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
+    env.ble.addPeripheral(left);
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
+      description: 'the Click V2 left side to appear',
+    );
+
+    await ClickV2Onboarding.chooseRightSideOnly();
+    expect(
+      core.settings.getIgnoredDevices().map((d) => d.name),
+      contains(ZwiftClickV2LeftSide.label),
+    );
+
+    // What NewUnlockMethodToggle does when switched off.
+    await core.settings.setUseNewUnlockMethod(false);
+    await core.settings.setClickV2RightSideOnly(false);
+    await ClickV2Onboarding.restoreLeftSides();
+
+    expect(core.settings.getIgnoredDevices(), isEmpty);
+    // And the puck is actually back -- as the legacy unified controller, since
+    // the split representation is off now.
+    await IntegrationEnv.waitFor(
+      // Not just "a ZwiftClickV2": ZwiftClickV2LeftSide extends it, so that
+      // alone would also pass on a stale split-side object left behind.
+      () => core.connection.devices.whereType<ZwiftClickV2>().any((d) => d is! ZwiftClickV2LeftSide),
+      description: 'the legacy unified Click V2 to be rebuilt from the left puck',
+    );
   });
 
   // Otherwise the rider who picked right-side-only first, then changed their

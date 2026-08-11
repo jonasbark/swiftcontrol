@@ -81,8 +81,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
   late double _screenWidth;
 
   // Layout keys
-  final GlobalKey _errorBannerKey = GlobalKey();
-
   final GlobalKey _activityLogKey = GlobalKey();
   bool _isInForeground = true;
 
@@ -93,17 +91,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
 
   // Blog
   bool _hasNewBlogPosts = false;
-
-  // Error banner
-  _ActivityEntry? _latestError;
-  late final AnimationController _errorBannerController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 350),
-  );
-  late final AnimationController _errorShakeController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 300),
-  );
 
   void _onProxyStateChanged() {
     if (mounted) setState(() {});
@@ -221,9 +208,12 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     _insertActivityEntry(entry);
 
     if (entry.isError) {
-      final alreadyShown = _latestError != null && _errorBannerController.value > 0;
-
-      if (_screenWidth < 800 && _horizontalScrollController.page != 1) {
+      // Not during onboarding: the wizard asks the rider to press a button
+      // precisely while the trainer app or the keymap is not set up yet, so
+      // every one of those presses fails by design. Toasting "X could not be
+      // performed" over the step that told them to press it reads as the
+      // wizard being broken. The entry is still logged to the activity list.
+      if (!onboardingActive && _screenWidth < 800 && _horizontalScrollController.page != 1) {
         final fix = _errorFixAction(entry);
         buildToast(
           level: LogLevel.LOGLEVEL_WARNING,
@@ -236,17 +226,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
               : null,
         );
       }
-      _latestError = entry;
-      if (alreadyShown) {
-        _errorShakeController.forward(from: 0);
-      } else {
-        _errorBannerController.forward(from: 0);
-      }
       setState(() {});
-    } else if (_latestError != null) {
-      _errorBannerController.reverse().then((_) {
-        if (mounted) setState(() => _latestError = null);
-      });
     } else {
       setState(() {});
     }
@@ -290,16 +270,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     );
     _insertActivityEntry(entry);
 
-    if (notification.onTap != null) {
-      final alreadyShown = _latestError != null && _errorBannerController.value > 0;
-      _latestError = entry;
-      if (alreadyShown) {
-        _errorShakeController.forward(from: 0);
-      } else {
-        _errorBannerController.forward(from: 0);
-      }
-    }
-
     setState(() {});
   }
 
@@ -311,8 +281,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     WidgetsBinding.instance.removeObserver(this);
     _horizontalScrollController.dispose();
 
-    _errorBannerController.dispose();
-    _errorShakeController.dispose();
     _timeRefreshTimer.cancel();
     _actionListener.cancel();
     for (final proxy in core.connection.proxyDevices) {
@@ -337,12 +305,10 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
       children: [
         const Gap(8),
         ReviewBanner(service: core.reviewPromptService),
-        _buildErrorBanner(),
         HomePage(
           isMobile: widget.isMobile,
           showHelpRow: !showsActivityRail,
           onUpdate: () {
-            _clearErrorBanner();
             setState(() {});
           },
         ),
@@ -495,16 +461,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
 
   Future<void> _openTrainerConnectionSettings() async {
     await context.push(const TrainerConnectionSettingsPage());
-    _clearErrorBanner();
     setState(() {});
-  }
-
-  void _clearErrorBanner() {
-    if (_latestError != null) {
-      _errorBannerController.reverse().then((_) {
-        if (mounted) setState(() => _latestError = null);
-      });
-    }
   }
 
   // ── Activity log ────────────────────────────────────────────────────
@@ -702,7 +659,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
               button: button,
               keymap: core.actionHandler.supportedApp!.keymap,
               onUpdate: () {
-                _clearErrorBanner();
                 setState(() {});
               },
             );
@@ -734,48 +690,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     };
   }
 
-  Widget _buildErrorBanner() {
-    final entry = _latestError;
-    if ((entry == null && _errorBannerController.value == 0) || _screenWidth > 800) {
-      return const SizedBox.shrink();
-    }
-
-    Widget buildCard() => Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Card(
-          padding: const EdgeInsets.all(2),
-          borderRadius: BorderRadius.circular(22),
-          child: _buildActivityRow(entry!, isLatest: true),
-        ),
-      ),
-    );
-
-    return KeyedSubtree(
-      key: _errorBannerKey,
-      child: SizeTransition(
-        sizeFactor: CurvedAnimation(
-          parent: _errorBannerController,
-          curve: Curves.easeOutCubic,
-        ),
-        axisAlignment: -1.0,
-        child: entry != null
-            ? Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: AnimatedBuilder(
-                  animation: _errorShakeController,
-                  builder: (context, child) {
-                    final t = _errorShakeController.value;
-                    final scale = 1.0 + 0.03 * sin(t * pi);
-                    return Transform.scale(scale: scale, child: child);
-                  },
-                  child: buildCard(),
-                ),
-              )
-            : const SizedBox.shrink(),
-      ),
-    );
-  }
 
 }
 
