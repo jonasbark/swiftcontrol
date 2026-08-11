@@ -62,15 +62,15 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
         id: SetupStepId.controllerPaired,
         done: controller.presence != DevicePresence.discovered,
       ),
+      // Ahead of mapping, because it is what produces the buttons to map: a
+      // derailleur whose own shifting is still enabled sends nothing at all, so
+      // "assign an action to a button" is advice the rider cannot act on yet.
+      if (controller.sramSetupDone != null)
+        SetupStep(id: SetupStepId.controllerSramSetup, done: controller.sramSetupDone!),
       SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
       SetupStep(id: SetupStepId.controllerInRange, done: inRange),
       // Last, because unlocking needs the controller present. Omitted entirely
       // for anything that has no such concept — see [ControllerInput.unlocked].
-      // Before the unlock step and after "in range": a derailleur whose own
-      // shifting is still enabled sends nothing at all, so it outranks
-      // anything about mapping what it sends.
-      if (controller.sramSetupDone != null)
-        SetupStep(id: SetupStepId.controllerSramSetup, done: controller.sramSetupDone!),
       if (controller.unlocked != null)
         SetupStep(
           id: SetupStepId.controllerUnlocked,

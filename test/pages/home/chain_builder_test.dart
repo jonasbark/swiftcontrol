@@ -153,6 +153,19 @@ void main() {
       expect(link.status, LinkStatus.attention);
     });
 
+    // The real fresh case, and the one the default hasMappedButtons: true hid:
+    // the guided setup is what PRODUCES the buttons, so "map your buttons"
+    // must not jump ahead of it.
+    test('guided setup outranks mapping on a derailleur with no buttons yet', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(sramSetupDone: false, hasMappedButtons: false)],
+          app: _readyApp,
+        ),
+      );
+      expect(chain.byKey(ChainLinkKey.controller).activeStep?.id, SetupStepId.controllerSramSetup);
+    });
+
     test('a finished SRAM setup ticks and leaves the card ready', () {
       final chain = buildChain(ChainInputs(controllers: [controller(sramSetupDone: true)], app: _readyApp));
       final link = chain.byKey(ChainLinkKey.controller);
