@@ -56,7 +56,7 @@ class _PaywallPricing {
     yearlyPrice: 'About 2.25 \$/mo',
     yearlyBilled: 'Billed yearly',
     monthlyPrice: 'About 2.50 \$/mo',
-    monthlyBilled: 'Billed monthly',
+    monthlyBilled: '',
     fullVersionSubtitle: 'About 4.99 \$ \u2014 one-time',
     discountBadge: '10% OFF',
   );
@@ -311,9 +311,9 @@ class _PaywallState extends State<Paywall> {
         ? '${_formatCurrency(monthlyStoreProduct.price, monthlyStoreProduct.currencyCode, sampleFormattedPrice: monthlyStoreProduct.priceString)}/mo'
         : _pricing.monthlyPrice;
 
-    final monthlyBilled = monthlyStoreProduct != null
-        ? AppLocalizations.of(context).paywall_billedAtPricemo(monthlyStoreProduct.priceString)
-        : _pricing.monthlyBilled;
+    // The monthly card's price line already reads "2,99 €/mo" — repeating it
+    // as "Billed at 2,99 €/mo." adds nothing.
+    const monthlyBilled = '';
 
     final fullVersionSubtitle = lifetimeStoreProduct != null
         ? '${AppLocalizations.of(context).only} ${lifetimeStoreProduct.priceString}'
@@ -582,9 +582,12 @@ class _PaywallState extends State<Paywall> {
         return Column(
           spacing: 12,
           children: [
-            // Yearly and monthly always sit side by side — they're a comparison.
+            // Yearly and monthly always sit side by side — they're a
+            // comparison. Stretch keeps them the same height even though
+            // only the yearly card carries a billing line.
             Row(
               spacing: 12,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
                   child: _buildPlanCard(
@@ -623,6 +626,9 @@ class _PaywallState extends State<Paywall> {
 
     return Stack(
       clipBehavior: Clip.none,
+      // Hand the row's stretched height to the card itself, so both plans
+      // stay the same height even though only yearly has a billing line.
+      fit: StackFit.passthrough,
       children: [
         GestureDetector(
           onTap: () => _selectPlan(plan),
@@ -655,7 +661,7 @@ class _PaywallState extends State<Paywall> {
                           maxLines: 1,
                           style: const TextStyle(
                             fontSize: 17,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             color: Color(0xFF07070A),
                           ),
                         ),
@@ -673,23 +679,24 @@ class _PaywallState extends State<Paywall> {
                     price,
                     maxLines: 1,
                     style: const TextStyle(
-                      fontSize: 19,
+                      fontSize: 17,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF111216),
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  billed,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF7A7B85),
+                if (billed.isNotEmpty)
+                  Text(
+                    billed,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF7A7B85),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -738,7 +745,7 @@ class _PaywallState extends State<Paywall> {
       onTap: () => _selectPlan(_PaywallPlan.fullVersion),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
           // The one-time Base plan sits quieter than the Pro cards above it.
           color: Colors.white,
