@@ -41,6 +41,8 @@ class _NewUnlockMethodToggleState extends State<NewUnlockMethodToggle> {
       // chain falls back to its empty "Controller" placeholder.
       await core.settings.setClickV2RightSideOnly(false);
       await ClickV2Onboarding.restoreLeftSides();
+    } else {
+      await core.settings.setClickV2RightSideOnly(true);
     }
 
     final clicks = core.connection.bluetoothDevices
