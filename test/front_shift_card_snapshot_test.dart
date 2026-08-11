@@ -1,3 +1,6 @@
+@Tags(['screenshots'])
+library;
+
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/models/shifting_config.dart';
 import 'package:bike_control/pages/proxy_device_details/front_shift_card.dart';
@@ -12,7 +15,8 @@ import 'widget_snapshot.dart';
 /// Example: snapshotting [FrontShiftCard] in every locale with the generic
 /// [captureWidget] harness. The only widget-specific code is the trainer/config
 /// state the card reads — everything else (theme, l10n, fonts, capture) is the
-/// harness. Run: `flutter test test/front_shift_card_snapshot_test.dart`
+/// harness. Run:
+/// `flutter test --run-skipped test/front_shift_card_snapshot_test.dart`
 Future<void> main() async {
   await ensureSnapshotHarness();
 

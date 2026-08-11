@@ -1,3 +1,6 @@
+@Tags(['screenshots'])
+library;
+
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,7 +10,7 @@ import 'widget_snapshot.dart';
 
 /// Renders the horizontal steering gauge at a fixed 8° tilt (past the default
 /// 5° threshold, so the LEFT zone glows). Run:
-/// `flutter test test/steering_gauge_snapshot_test.dart`
+/// `flutter test --run-skipped test/steering_gauge_snapshot_test.dart`
 Future<void> main() async {
   await ensureSnapshotHarness();
 

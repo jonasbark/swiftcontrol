@@ -1,3 +1,6 @@
+@Tags(['screenshots'])
+library;
+
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
