@@ -121,7 +121,10 @@ ChainLink _trainerLink(ChainInputs inputs) {
       : const <SetupStep>[];
 
   final incomplete = steps.any((s) => !s.done);
-  final presenceStatus = _presenceStatus(trainer.presence);
+  // An uncommitted trainer — in range but never bridged, or deliberately left
+  // to the app — rests at "off". Amber would be wrong twice: it isn't waiting
+  // on anything, and on an optional card amber blocks "Ready to ride".
+  final presenceStatus = committed ? _presenceStatus(trainer.presence) : LinkStatus.off;
   final status = incomplete && presenceStatus == LinkStatus.ready ? LinkStatus.attention : presenceStatus;
 
   return ChainLink(

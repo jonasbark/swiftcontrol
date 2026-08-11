@@ -73,6 +73,17 @@ class ProxyDevice extends BluetoothDevice {
   /// mode swaps.
   ValueListenable<bool> get isConnectedListenable => _isConnectedN;
 
+  /// Whether BikeControl is bridging this trainer: the emulator is running, or
+  /// a trainer app is already holding the virtual trainer.
+  ///
+  /// This — not [isConnected], which only says the Bluetooth link to the
+  /// trainer is up — is what "connected" means for a trainer everywhere in the
+  /// app. A trainer BikeControl can talk to but isn't bridging does nothing for
+  /// the rider, and calling that "connected" is technically true and useless.
+  /// Onboarding has always drawn the line here; this getter is that line, in
+  /// one place, so onboarding and the home screen cannot drift apart.
+  bool get isBridged => _isStartedN.value || _isConnectedN.value;
+
   final ValueNotifier<String?> _localAddressN = ValueNotifier(null);
 
   /// Local IPv4 address currently advertised, if any. Stable across mode swaps.

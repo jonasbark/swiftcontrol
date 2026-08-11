@@ -647,20 +647,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
             // pinned `Target.thisDevice` into settings for that case.
             target: core.settings.getLastTarget() ?? _selectedTarget ?? Target.otherDevice,
             hasTrainer: onboardingTrainerBridged(core.connection.proxyDevices),
-            trainerName: core.connection.proxyDevices
-                .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
-                .firstOrNull
-                ?.name,
+            trainerName: core.connection.proxyDevices.where((t) => t.isBridged).firstOrNull?.name,
             onUpdate: () => setState(() {}),
           ),
         OnboardingStep.done => onboardingDoneBody(
             context,
             app: _selectedApp!,
             controllerName: core.connection.controllerDevices.where((d) => d.isConnected).firstOrNull?.name,
-            trainerName: core.connection.proxyDevices
-                .where((t) => t.isStartedListenable.value || t.isConnectedListenable.value)
-                .firstOrNull
-                ?.name,
+            trainerName: core.connection.proxyDevices.where((t) => t.isBridged).firstOrNull?.name,
             // isConnectedListenable mirrors emulator.isConnected — i.e. the
             // trainer app actually holds the virtual trainer, not just "the
             // bridge is running".

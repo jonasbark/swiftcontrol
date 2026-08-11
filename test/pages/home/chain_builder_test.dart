@@ -236,6 +236,23 @@ void main() {
 
     // The bug this pins down: a trainer the scanner had only just found was
     // reported as having lost a connection it never had.
+    // Regression: a remembered trainer mapped to amber, which on an optional
+    // card blocks "Ready to ride" — and made the card present itself as
+    // bridged when it was not even in the room.
+    test('a remembered trainer rests at off and does not block the rider', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller()],
+          trainer: trainer(presence: DevicePresence.remembered, appHoldsBridge: false),
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.trainer);
+      expect(link.status, LinkStatus.off);
+      expect(link.isBlocking, isFalse);
+      expect(deriveBanner(chain).kind, ChainBannerKind.ready);
+    });
+
     test('a trainer we have only discovered is not reported as broken', () {
       final chain = buildChain(
         ChainInputs(trainer: trainer(presence: DevicePresence.discovered), app: _readyApp),

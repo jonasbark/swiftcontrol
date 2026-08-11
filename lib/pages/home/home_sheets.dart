@@ -133,6 +133,47 @@ class _AppGuide extends StatelessWidget {
   }
 }
 
+/// "Pair BikeControl as your trainer" — shown when the bridge is running but the
+/// trainer app hasn't picked the virtual trainer up yet. That is a different
+/// problem from "no trainer connected", and it wants the onboarding connection
+/// step's pairing instructions, not the trainer picker.
+Future<void> openPairAsTrainerSheet(BuildContext context, {required String? trainerName}) {
+  final app = core.settings.getTrainerApp();
+  if (app == null) return openOnboardingHelpSheet(context, OnboardingStep.connection);
+
+  return openSheet<void>(
+    context: context,
+    position: OverlayPosition.bottom,
+    builder: (sheetContext) => _frame(
+      sheetContext,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StageBadge(
+            icon: LucideIcons.radio,
+            tone: Theme.of(sheetContext).colorScheme.primary,
+            wash: Theme.of(sheetContext).colorScheme.primary.withValues(alpha: 0.1),
+            reduceMotion: MediaQuery.of(sheetContext).disableAnimations,
+          ),
+          const Gap(14),
+          Text(sheetContext.i18n.onboardingPairAsTrainer).h4,
+          const Gap(12),
+          OnboardingPairAsTrainerCard(app: app, trainerName: trainerName),
+          const Gap(16),
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryButton(
+              onPressed: () => closeSheet(sheetContext),
+              child: Text(sheetContext.i18n.close),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Picking a smart trainer to bridge — the onboarding trainer step, reached
 /// from the home screen's trainer card. Riders who skipped the trainer during
 /// setup, or bought one later, get the same list and the same explanation of

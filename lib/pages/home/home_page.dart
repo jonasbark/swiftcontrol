@@ -103,7 +103,7 @@ class _HomePageState extends State<HomePage> {
     // there anyway.
     if (!screenshotMode) {
       _metricsTicker = Timer.periodic(const Duration(seconds: 2), (_) {
-        if (mounted && core.connection.proxyDevices.any((p) => p.isStartedListenable.value)) setState(() {});
+        if (mounted && core.connection.proxyDevices.any((p) => p.isBridged)) setState(() {});
       });
     }
 
@@ -188,7 +188,7 @@ class _HomePageState extends State<HomePage> {
     final controllers = _knownControllers;
     final standInIds = core.connection.offlineControllers.map((d) => d.uniqueId).toSet();
     final trainerApp = core.settings.getTrainerApp();
-    final proxy = core.connection.proxyDevices.sortedBy((p) => p.isConnected ? 0 : 1).firstOrNull;
+    final proxy = core.connection.proxyDevices.sortedBy((p) => p.isBridged ? 0 : 1).firstOrNull;
     final remembered = core.connection.rememberedTrainer;
 
     TrainerInput? trainer;
@@ -198,7 +198,7 @@ class _HomePageState extends State<HomePage> {
       // trainer. A trainer whose Bluetooth link is up but which isn't bridging
       // anything does nothing for the rider, and saying "connected" about it
       // is the kind of technically-true status this redesign exists to remove.
-      final bridged = proxy.isStartedListenable.value || proxy.isConnectedListenable.value;
+      final bridged = proxy.isBridged;
       // Picking "No connection" — letting the trainer app handle shifting — is
       // a deliberate resting state. Whatever happened earlier in the session,
       // a trainer the rider has switched off is not a trainer that broke.
@@ -259,10 +259,14 @@ class _HomePageState extends State<HomePage> {
 
   bool _appConnectedThisSession = false;
 
+  /// The bridged trainer's own name, which the pairing instructions use to
+  /// spell out the entry to look for ("KICKR CORE - BikeControl").
+  String? get _bridgedTrainerName => core.connection.proxyDevices.firstOrNullWhere((p) => p.isBridged)?.name;
+
   /// A compact, plain-text version of the trainer's live telemetry for the
   /// status line. The full metric row still lives on the trainer's own page.
   String? _trainerMetrics(ProxyDevice proxy) {
-    if (!proxy.isStartedListenable.value) return null;
+    if (!proxy.isBridged) return null;
     final bike = proxy.fitnessBike;
     if (bike == null) return null;
     final parts = <String>[
@@ -352,7 +356,7 @@ class _HomePageState extends State<HomePage> {
     // The reward for paying is one less thing on screen.
     if (iap.isPurchased.value || iap.isProEnabledForCurrentDevice) return null;
 
-    final trainerConnected = core.connection.proxyDevices.any((p) => p.isConnected);
+    final trainerConnected = core.connection.proxyDevices.any((p) => p.isBridged);
     final bridge = core.bridgeUsageTracker;
     return TrialCardState(
       daysRemaining: iap.trialDaysRemaining,
@@ -510,9 +514,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _trainerCard(ChainLink link, ChainInputs inputs) {
-    final proxy = core.connection.proxyDevices.sortedBy((p) => p.isConnected ? 0 : 1).firstOrNull;
-    // Bridged, in onboarding's sense — not merely "the Bluetooth link is up".
-    final bridged = link.status != LinkStatus.off && link.status != LinkStatus.problem;
+    final proxy = core.connection.proxyDevices.sortedBy((p) => p.isBridged ? 0 : 1).firstOrNull;
+    // Straight from the device, in onboarding's sense — not inferred back out
+    // of the card's own status, which is how a remembered trainer that isn't
+    // even here ended up presenting itself as bridged.
+    final bridged = proxy?.isBridged ?? false;
     final appReady = inputs.app.isConnected;
     final appName = inputs.app.name ?? context.i18n.chainAppTitle;
     final appHoldsBridge = inputs.trainer?.appHoldsBridge ?? false;
@@ -606,9 +612,14 @@ class _HomePageState extends State<HomePage> {
           await openControllerHelpSheet(context);
         }
       case ChainLinkKey.trainer:
-        // Not connected yet? The useful next step is the picker, not a
-        // troubleshooting list for a connection that was never made.
-        if (link.status == LinkStatus.ready) {
+        // Three different problems, three different answers — routed on the
+        // card's state, never on the wording of the active step.
+        final activeStep = link.activeStep?.id;
+        if (activeStep == SetupStepId.trainerAppBridged) {
+          // The bridge is up and the app hasn't picked it up: show how to pair
+          // BikeControl as the trainer, not how to connect a trainer.
+          await openPairAsTrainerSheet(context, trainerName: _bridgedTrainerName);
+        } else if (link.status == LinkStatus.ready) {
           await openTrainerHelpSheet(context);
         } else {
           await openTrainerConnectSheet(context);

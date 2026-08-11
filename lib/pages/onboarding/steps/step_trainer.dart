@@ -5,8 +5,7 @@ import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
-bool onboardingTrainerBridged(List<ProxyDevice> trainers) =>
-    trainers.any((t) => t.isStartedListenable.value || t.isConnectedListenable.value);
+bool onboardingTrainerBridged(List<ProxyDevice> trainers) => trainers.any((t) => t.isBridged);
 
 Widget _alternative(BuildContext context, IconData icon, String title, String body) {
   final scheme = Theme.of(context).colorScheme;
@@ -32,7 +31,7 @@ Widget onboardingTrainerBody(BuildContext context,
     required List<ProxyDevice> trainers,
     required void Function(ProxyDevice) onPick,
     bool virtualShiftingBlocked = false}) {
-  final bridged = trainers.where((t) => t.isStartedListenable.value || t.isConnectedListenable.value).toList();
+  final bridged = trainers.where((t) => t.isBridged).toList();
   final scheme = Theme.of(context).colorScheme;
 
   // MyWhoosh on Android can't see a network virtual bike, so a bridge on this
