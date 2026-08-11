@@ -1,6 +1,8 @@
-// The mobile wizard opens on the welcome screen; desktop keeps its rail-framed
-// step 1. "I'll set this up later" must record completion so a rider who
-// declines isn't asked again on the next launch.
+// The wizard opens on the welcome screen on every platform — desktop riders
+// used to be dropped straight into step 1's rail, so the one screen that says
+// what BikeControl does and how long setup takes was the one they never saw.
+// "I'll set this up later" must record completion so a rider who declines
+// isn't asked again on the next launch.
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show OtherLocalizationsDelegate;
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
@@ -54,11 +56,30 @@ Future<void> main() async {
     expect(find.byType(OnboardingAppTile), findsWidgets);
   });
 
-  testWidgets('desktop skips the welcome screen', (tester) async {
+  testWidgets('desktop opens on the welcome screen too, and can enter the wizard', (tester) async {
     await core.settings.setOnboardingState(Settings.onboardingStatePending);
     await pumpWizard(tester, const Size(1100, 800));
+
+    expect(find.byType(OnboardingWelcome), findsOneWidget);
+    expect(find.byType(OnboardingAppTile), findsNothing, reason: 'step 1 comes after the welcome screen');
+
+    await tester.tap(find.byType(PrimaryButton).last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(OnboardingWelcome), findsNothing);
     expect(find.byType(OnboardingAppTile), findsWidgets);
+  });
+
+  testWidgets('the welcome screen keeps a readable measure on a wide window', (tester) async {
+    await core.settings.setOnboardingState(Settings.onboardingStatePending);
+    await pumpWizard(tester, const Size(1400, 900));
+
+    // Capped to the same width the wizard's own body uses, so stepping from
+    // here into the rail doesn't snap the text narrower.
+    final width = tester.getSize(find.byType(OnboardingWelcome)).width;
+    expect(width, 1400);
+    final column = tester.getSize(find.byType(Wrap).first).width;
+    expect(column, lessThanOrEqualTo(kOnboardingBodyMaxWidth));
   });
 
   testWidgets('"set up later" records completion so the wizard stops nagging', (tester) async {

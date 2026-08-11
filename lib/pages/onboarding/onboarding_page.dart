@@ -804,17 +804,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
       child: Builder(builder: (overlayContext) {
         _overlayContext = overlayContext;
         if (_showWelcome) {
-          return LayoutBuilder(builder: (context, constraints) {
-            if (constraints.maxWidth >= kOnboardingDesktopBreakpoint) {
-              // Desktop keeps its rail-framed step 1 — no welcome screen.
-              return _shell(overlayContext);
-            }
-            _showedWelcome = true;
-            return OnboardingWelcome(
-              onStart: () => setState(() => _showWelcome = false),
-              onLater: _onWelcomeLater,
-            );
-          });
+          // Every platform opens on the welcome screen. Desktop used to drop
+          // riders straight into step 1's rail, which asked them to pick a
+          // trainer app before anything had said what BikeControl does or how
+          // long setup takes — the one screen that answers "what am I about to
+          // agree to" was the one desktop never saw.
+          _showedWelcome = true;
+          return OnboardingWelcome(
+            onStart: () => setState(() => _showWelcome = false),
+            onLater: _onWelcomeLater,
+          );
         }
         return _shell(overlayContext);
       }),
