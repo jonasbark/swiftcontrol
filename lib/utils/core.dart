@@ -11,6 +11,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_emulator.dart';
 import 'package:bike_control/bluetooth/emulation/emulation_manager.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/bluetooth/remote_keyboard_pairing.dart';
+import 'package:bike_control/repositories/remembered_devices_repository.dart';
 import 'package:bike_control/bluetooth/remote_pairing.dart';
 import 'package:bike_control/utils/demo_mode.dart';
 import 'package:bike_control/main.dart';
@@ -54,6 +55,7 @@ class Core {
   final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   final settings = Settings();
   late final shiftingConfigs = ShiftingConfigsController(settings.prefs);
+  late final rememberedDevices = RememberedDevicesRepository(settings.prefs);
   final connection = Connection();
   late final workoutRecorder = WorkoutRecorder();
   ScreenRecordingService screenRecording = ScreenRecordingService(backend: createScreenRecorderBackend());
