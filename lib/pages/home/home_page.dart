@@ -452,7 +452,7 @@ class _HomePageState extends State<HomePage> {
             : Theme.of(context).colorScheme.foreground,
       ),
       title: placeholder ? context.i18n.chainControllerTitle : link.title,
-      statusLabel: _controllerStatusLabel(status),
+      statusLabel: _controllerStatusLabel(link, device),
       editLabel: placeholder ? context.i18n.chainSetUp : context.i18n.chainEdit,
       onEdit: placeholder
           ? () => openControllerSetupSheet(context).then((_) => _update())
@@ -466,12 +466,35 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _controllerStatusLabel(LinkStatus status) => switch (status) {
-    LinkStatus.ready => context.i18n.connected,
-    LinkStatus.problem => context.i18n.chainStatusLostConnection,
-    LinkStatus.attention => context.i18n.chainStatusOutOfRange,
-    LinkStatus.off => context.i18n.chainStatusNotSetUp,
-  };
+  String _controllerStatusLabel(ChainLink link, BaseDevice? device) {
+    // A device that is actually here is never described by a presence status.
+    // "Out of range" is what LinkStatus.attention means for a controller that
+    // is away — but attention is also what an unfinished checklist produces for
+    // one sitting right there connected, and calling that "out of range" is
+    // simply false.
+    if (device != null && device.isConnected) {
+      return _unlockStatusLabel(device) ?? context.i18n.connected;
+    }
+    return switch (link.status) {
+      LinkStatus.ready => context.i18n.connected,
+      LinkStatus.problem => context.i18n.chainStatusLostConnection,
+      LinkStatus.attention => context.i18n.chainStatusOutOfRange,
+      LinkStatus.off => context.i18n.chainStatusNotSetUp,
+    };
+  }
+
+  /// For an unlocked Click V2, when its unlock runs out — which is worth more
+  /// than "Connected", because that is the fact about to stop being true.
+  /// Null for anything else, including a Click that is currently locked: the
+  /// checklist step carries that, and a stale deadline would contradict it.
+  String? _unlockStatusLabel(BaseDevice device) {
+    if (_unlockState(device) != true) return null;
+    final until = _unlockedUntil(device);
+    if (until == null) return null;
+    return device is ZwiftClickV2 && device.isLikelyUnlocked
+        ? context.i18n.chainStepUnlockedLikelyUntil(until)
+        : context.i18n.chainStepUnlockedUntil(until);
+  }
 
   /// The controller's real contour with its real buttons — so the card doubles
   /// as the button map. Rendered for disconnected devices too, faded: mapping a
