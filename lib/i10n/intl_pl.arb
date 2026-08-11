@@ -679,7 +679,7 @@
   "trialDaysRemaining": "Pozostało {trialDaysRemaining} dni",
   "trialExpired": "Wersja próbna wygasła. Liczba poleceń ograniczona do {dailyCommandLimit} na dzień.",
   "trialPeriodActive": "Okres próbny jest aktywny - pozostało {trialDaysRemaining} dni",
-  "trialPeriodDescription": "Korzystaj z nieograniczonej liczby poleceń w okresie próbnym. Po zakończeniu okresu próbnego polecenia będą ograniczone do {dailyCommandLimit} na dzień.",
+  "trialPeriodDescription": "W okresie próbnym masz {dailyCommandLimit} poleceń dziennie. Po jego zakończeniu dzienny limit maleje – uaktualnij, aby korzystać z nieograniczonej liczby poleceń.",
   "troubleshootingGuide": "Pomoc i wsparcie",
   "tryingToConnectAgain": "Próba ponownego połączenia...",
   "unassignAction": "Anuluj przypisanie akcji",

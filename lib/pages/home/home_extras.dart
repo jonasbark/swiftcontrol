@@ -29,7 +29,9 @@ class HomeExtras extends StatefulWidget {
 }
 
 class _HomeExtrasState extends State<HomeExtras> {
-  bool _expanded = false;
+  // Open by default: what's in here is short, and a collapsed section on a
+  // screen the rider is already scrolling only hides it.
+  bool _expanded = true;
 
   bool get _showsMediaKeys => !kIsWeb && (Platform.isMacOS || Platform.isWindows || Platform.isIOS);
 
@@ -142,7 +144,7 @@ class _HomeExtrasState extends State<HomeExtras> {
             if (_showsQuit)
               _row(
                 context,
-                title: context.i18n.close,
+                title: context.i18n.chainCloseAndQuit,
                 onPressed: () async {
                   await core.connection.disconnectAll();
                   await core.connection.stop();

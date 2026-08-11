@@ -679,7 +679,7 @@
   "trialDaysRemaining": "{trialDaysRemaining} verbleibende Tage",
   "trialExpired": "Testphase abgelaufen. Befehle beschränkt auf {dailyCommandLimit} pro Tag.",
   "trialPeriodActive": "Testphase aktiv - {trialDaysRemaining} verbleibende Tage",
-  "trialPeriodDescription": "Während der Testphase stehen unbegrenzt viele Befehle zur Verfügung. Nach Ablauf der Testphase sind die Befehle auf {dailyCommandLimit} pro Tag eingeschränkt.",
+  "trialPeriodDescription": "Während der Testphase hast du {dailyCommandLimit} Befehle pro Tag. Nach Ablauf sinkt das Tageslimit – mit einem Upgrade sind die Befehle unbegrenzt.",
   "troubleshootingGuide": "Hilfe & Support",
   "tryingToConnectAgain": "Verbinde erneut...",
   "unassignAction": "Zuweisung aufheben",

@@ -116,30 +116,19 @@ class TrialCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (state.expired)
-                  _Meter(
-                    label: l.chainTrialCommandsMeter,
-                    value: state.commandsRemaining,
-                    total: state.commandsTotal,
-                  )
-                else ...[
+                // Commands are capped during the trial too — RevenueCatService
+                // enforces the daily limit whatever the trial state, it just
+                // raises the ceiling to 80 while the trial runs and drops it
+                // afterwards. So the meter is always honest, and always shown.
+                if (!state.expired) ...[
                   _Meter(label: l.chainTrialDaysMeter, value: state.daysRemaining, total: state.daysTotal),
                   const Gap(11),
-                  // Commands are unlimited during the trial, so a meter would
-                  // be a lie. Say so in one calm line instead.
-                  Row(
-                    children: [
-                      Icon(LucideIcons.check, size: 14, color: AmpelStyle.of(context, LinkStatus.ready).color),
-                      const Gap(7),
-                      Expanded(
-                        child: Text(
-                          l.chainTrialUnlimitedCommands,
-                          style: TextStyle(fontSize: 12.5, color: theme.colorScheme.mutedForeground),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
+                _Meter(
+                  label: l.chainTrialCommandsMeter,
+                  value: state.commandsRemaining,
+                  total: state.commandsTotal,
+                ),
                 if (state.showsBridgeMeter) ...[
                   const Gap(11),
                   _Meter(

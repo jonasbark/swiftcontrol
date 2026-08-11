@@ -679,7 +679,7 @@
   "trialDaysRemaining": "{trialDaysRemaining} jours restants",
   "trialExpired": "Période d'essai expirée. Commandes limitées à {dailyCommandLimit} par jour.",
   "trialPeriodActive": "Période d'essai active -{trialDaysRemaining} jours restants",
-  "trialPeriodDescription": "Profite de commandes illimitées pendant ta période d'essai. Après la période d'essai, le nombre de commandes sera limité à {dailyCommandLimit} par jour.",
+  "trialPeriodDescription": "Pendant ta période d'essai, tu disposes de {dailyCommandLimit} commandes par jour. La limite quotidienne baisse à la fin de l'essai — passe à la version supérieure pour des commandes illimitées.",
   "troubleshootingGuide": "Questions et réponses",
   "tryingToConnectAgain": "Tentative de reconnexion...",
   "unassignAction": "Action de désaffectation",

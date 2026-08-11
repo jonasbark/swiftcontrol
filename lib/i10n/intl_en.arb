@@ -1093,7 +1093,7 @@
   "trialDaysRemaining": "{trialDaysRemaining} days remaining",
   "trialExpired": "Trial expired. Commands limited to {dailyCommandLimit} per day.",
   "trialPeriodActive": "Trial Period Active - {trialDaysRemaining} days remaining",
-  "trialPeriodDescription": "Enjoy unlimited commands during your trial period. After the trial, commands will be limited to {dailyCommandLimit} per day.",
+  "trialPeriodDescription": "You get {dailyCommandLimit} commands per day during your trial. The daily limit drops once it ends — upgrade for unlimited commands.",
   "troubleshootingGuide": "Help & Support",
   "tryingToConnectAgain": "Trying to connect again...",
   "unassignAction": "Unassign action",
@@ -1824,7 +1824,6 @@
       }
     }
   },
-  "chainTrialUnlimitedCommands": "Unlimited commands until the trial ends",
   "chainTrialBridgeMeter": "Virtual shifting today",
   "chainTrialBridgeMeterSuffix": "min",
   "chainTrialRestoreRow": "Already bought it? Restore purchases",
@@ -1868,5 +1867,6 @@
       }
     }
   },
-  "chainStatusBridged": "Bridged"
+  "chainStatusBridged": "Bridged",
+  "chainCloseAndQuit": "Close connections & quit app"
 }
