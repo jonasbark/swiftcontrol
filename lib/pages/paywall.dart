@@ -62,6 +62,20 @@ class _PaywallPricing {
   );
 }
 
+/// Formats [value] the way the store would. `NumberFormat.currency(name:)`
+/// renders the ISO code ("EUR 2,08"), so prefer the symbol: take it from the
+/// store's own formatted [sampleFormattedPrice] when there is one (it already
+/// carries the locale's symbol), else fall back to intl's simpleCurrency.
+String paywallFormatPrice(double value, String currencyCode, {String? sampleFormattedPrice}) {
+  final symbol = sampleFormattedPrice == null
+      ? null
+      : RegExp(r'[^\d\s.,\u00a0]+').firstMatch(sampleFormattedPrice)?.group(0);
+  final formatter = symbol != null
+      ? NumberFormat.currency(symbol: symbol, decimalDigits: 2)
+      : NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 2);
+  return formatter.format(value).trim();
+}
+
 class Paywall extends StatefulWidget {
   /// True when the rider arrived via a "full version / Base" entry point.
   /// Yearly is always the preselected plan (it's the recommended one), so
@@ -286,7 +300,7 @@ class _PaywallState extends State<Paywall> {
     final lifetimeStoreProduct = lifetimePackage?.storeProduct;
 
     final yearlyPrice = yearlyStoreProduct != null
-        ? '${_formatCurrency(yearlyStoreProduct.price / 12, yearlyStoreProduct.currencyCode)}/mo'
+        ? '${_formatCurrency(yearlyStoreProduct.price / 12, yearlyStoreProduct.currencyCode, sampleFormattedPrice: yearlyStoreProduct.priceString)}/mo'
         : _pricing.yearlyPrice;
 
     final yearlyBilled = yearlyStoreProduct != null
@@ -294,7 +308,7 @@ class _PaywallState extends State<Paywall> {
         : _pricing.yearlyBilled;
 
     final monthlyPrice = monthlyStoreProduct != null
-        ? '${_formatCurrency(monthlyStoreProduct.price, monthlyStoreProduct.currencyCode)}/mo'
+        ? '${_formatCurrency(monthlyStoreProduct.price, monthlyStoreProduct.currencyCode, sampleFormattedPrice: monthlyStoreProduct.priceString)}/mo'
         : _pricing.monthlyPrice;
 
     final monthlyBilled = monthlyStoreProduct != null
@@ -338,13 +352,8 @@ class _PaywallState extends State<Paywall> {
     return null;
   }
 
-  String _formatCurrency(double value, String currencyCode) {
-    final formatter = NumberFormat.currency(
-      name: currencyCode,
-      decimalDigits: 2,
-    );
-    return formatter.format(value);
-  }
+  String _formatCurrency(double value, String currencyCode, {String? sampleFormattedPrice}) =>
+      paywallFormatPrice(value, currencyCode, sampleFormattedPrice: sampleFormattedPrice);
 
   @override
   Widget build(BuildContext context) {
@@ -751,8 +760,8 @@ class _PaywallState extends State<Paywall> {
                     AppLocalizations.of(context).fullVersion,
                     style: const TextStyle(
                       color: Color(0xFF07070A),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -775,15 +784,15 @@ class _PaywallState extends State<Paywall> {
   Widget _buildRadioIndicator(bool selected, {bool compact = false}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      width: compact ? 28 : 38,
-      height: compact ? 28 : 38,
-      margin: EdgeInsets.only(top: 8),
+      width: compact ? 20 : 34,
+      height: compact ? 20 : 34,
+      margin: EdgeInsets.only(top: compact ? 2 : 8),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: selected ? const Color(0xFF5A6ED6) : Colors.transparent,
         border: Border.all(
           color: selected ? const Color(0xFF5A6ED6) : const Color(0xFFB8B9C0),
-          width: selected ? 3 : 2,
+          width: selected ? 2 : 1.6,
         ),
         boxShadow: selected
             ? [
@@ -798,7 +807,7 @@ class _PaywallState extends State<Paywall> {
       child: selected
           ? Icon(
               Icons.check,
-              size: compact ? 17 : 20,
+              size: compact ? 13 : 18,
               color: Colors.white,
             )
           : null,
