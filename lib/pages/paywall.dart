@@ -50,12 +50,14 @@ class _PaywallPricing {
     required this.discountBadge,
   });
 
+  // Only the Windows/Stripe build falls back to these — keep them short
+  // enough to fit the cards on one line each.
   static const fallback = _PaywallPricing(
     yearlyPrice: 'About 2.25 \$/mo',
-    yearlyBilled: 'Price calculated at checkout',
+    yearlyBilled: 'Billed yearly',
     monthlyPrice: 'About 2.50 \$/mo',
-    monthlyBilled: 'Price calculated at checkout',
-    fullVersionSubtitle: 'About 4.99 \$ - price calculated at checkout',
+    monthlyBilled: 'Billed monthly',
+    fullVersionSubtitle: 'About 4.99 \$ \u2014 one-time',
     discountBadge: '10% OFF',
   );
 }
@@ -291,7 +293,9 @@ class _PaywallState extends State<Paywall> {
         ? AppLocalizations.of(context).paywall_billedAtYearly(yearlyStoreProduct.priceString)
         : _pricing.yearlyBilled;
 
-    final monthlyPrice = monthlyStoreProduct != null ? '' : _pricing.monthlyPrice;
+    final monthlyPrice = monthlyStoreProduct != null
+        ? '${_formatCurrency(monthlyStoreProduct.price, monthlyStoreProduct.currencyCode)}/mo'
+        : _pricing.monthlyPrice;
 
     final monthlyBilled = monthlyStoreProduct != null
         ? AppLocalizations.of(context).paywall_billedAtPricemo(monthlyStoreProduct.priceString)
@@ -378,20 +382,22 @@ class _PaywallState extends State<Paywall> {
                   ),
                 ),
               ),
-              Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Button.text(
-                    onPressed: () => launchUrlString('https://bikecontrol.app/terms-of-use'),
-                    child: Text(AppLocalizations.of(context).termsOfUse).xSmall.muted.underline,
-                  ),
-                  Text('|').xSmall.muted,
-                  Button.text(
-                    onPressed: () => launchUrlString('https://bikecontrol.app/privacy-policy'),
-                    child: Text(AppLocalizations.of(context).privacyPolicy).xSmall.muted.underline,
-                  ),
-                ],
+              // One line, whatever the language: shrink before wrapping.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Button.text(
+                      onPressed: () => launchUrlString('https://bikecontrol.app/terms-of-use'),
+                      child: Text(AppLocalizations.of(context).termsOfUse, maxLines: 1).xSmall.muted.underline,
+                    ),
+                    Button.text(
+                      onPressed: () => launchUrlString('https://bikecontrol.app/privacy-policy'),
+                      child: Text(AppLocalizations.of(context).privacyPolicy, maxLines: 1).xSmall.muted.underline,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -630,31 +636,47 @@ class _PaywallState extends State<Paywall> {
                   spacing: 8,
                   children: [
                     Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF07070A),
+                      // "Monatlich" must not wrap on a narrow card — shrink
+                      // rather than break the word.
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF07070A),
+                          ),
                         ),
                       ),
                     ),
                     _buildRadioIndicator(selected, compact: true),
                   ],
                 ),
-                Text(
-                  billed,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF111216),
+                const SizedBox(height: 4),
+                // Per-month equivalent leads; the actual billing follows.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    price,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111216),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 4),
                 Text(
-                  price,
+                  billed,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF7A7B85),
                   ),
@@ -709,11 +731,12 @@ class _PaywallState extends State<Paywall> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F2F7),
+          // The one-time Base plan sits quieter than the Pro cards above it.
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? const Color(0xFF5A6ED6) : const Color(0xFFC1C2C8),
-            width: selected ? 2.4 : 2,
+            color: selected ? const Color(0xFF5A6ED6) : const Color(0xFFDDDEE5),
+            width: selected ? 2.4 : 1.5,
           ),
         ),
         child: Row(
