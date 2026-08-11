@@ -12,7 +12,6 @@ import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
-import 'package:bike_control/pages/onboarding/widgets/onboarding_fade_up.dart';
 import 'package:bike_control/pages/onboarding/onboarding_sheets.dart';
 import 'package:bike_control/pages/onboarding/steps/step_app.dart';
 import 'package:bike_control/pages/onboarding/steps/step_connection.dart';
@@ -828,9 +827,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
         child: onboardingShell(
           overlayContext,
           step: _step,
-          // Re-keyed per step + controller phase so every screen slides in
-          // like the design's bk-fade-up entrance.
-          body: OnboardingFadeUp(
+          // Re-keyed per step + controller phase so every screen re-mounts and
+          // its contents reveal themselves again. The reveal lives on the
+          // children (see onboardingReveal) rather than on one wrapper, so a
+          // screen arrives in reading order instead of all at once.
+          body: KeyedSubtree(
             key: ValueKey('onboarding-body-$_step-$_controllerPhase'),
             child: _body(overlayContext),
           ),

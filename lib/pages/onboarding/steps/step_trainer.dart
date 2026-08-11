@@ -1,4 +1,5 @@
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -38,7 +39,7 @@ Widget onboardingTrainerBody(BuildContext context,
   // same device would never be found — explain it and name the two setups
   // that do work instead of silently hiding the step.
   if (bridged.isEmpty && virtualShiftingBlocked) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
       Text(context.i18n.onboardingVsBlockedTitle).h4,
       Gap(6),
       Text(context.i18n.onboardingVsBlockedSubtitle(app.name)).small.muted,
@@ -78,12 +79,12 @@ Widget onboardingTrainerBody(BuildContext context,
           Icon(LucideIcons.externalLink, size: 13),
         ]),
       ),
-    ]);
+    ]));
   }
 
   if (bridged.isNotEmpty) {
     final t = bridged.first;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
       Text(context.i18n.onboardingTrainerConnectedTitle).h4,
       Gap(6),
       Text(context.i18n.onboardingTrainerConnectedSubtitle).small.muted,
@@ -103,7 +104,7 @@ Widget onboardingTrainerBody(BuildContext context,
       ),
       Gap(12),
       Text(context.i18n.onboardingTrainerNextStepNote(app.name)).xSmall.muted,
-    ]);
+    ]));
   }
 
   Widget benefit(IconData icon, String title, String sub) => Container(
@@ -122,7 +123,7 @@ Widget onboardingTrainerBody(BuildContext context,
         ]),
       );
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
     Text(context.i18n.onboardingTrainerTitle).h4,
     Gap(6),
     Text(context.i18n.onboardingTrainerSubtitle).small.muted,
@@ -177,5 +178,5 @@ Widget onboardingTrainerBody(BuildContext context,
         Icon(LucideIcons.externalLink, size: 13),
       ]),
     ),
-  ]);
+  ]));
 }

@@ -1,4 +1,5 @@
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
 import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
@@ -206,7 +207,7 @@ Widget onboardingConnectionBody(
     };
   }
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
     Text(context.i18n.onboardingConnectionTitle(app.name)).h4,
     Gap(6),
     Text(target == Target.thisDevice
@@ -227,5 +228,5 @@ Widget onboardingConnectionBody(
       OnboardingGroupLabel(context.i18n.onboardingPairAsTrainer),
       OnboardingPairAsTrainerCard(app: app, trainerName: trainerName),
     ],
-  ]);
+  ]));
 }

@@ -1,4 +1,5 @@
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_note.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -83,7 +84,7 @@ Widget onboardingWhereBody(BuildContext context,
       t == Target.thisDevice ? context.i18n.onboardingWhereEnablesLocal : context.i18n.onboardingWhereEnablesNetwork;
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+    children: onboardingReveal([
       Text(context.i18n.onboardingWhereTitle(app.name)).h4,
       Gap(6),
       Text(context.i18n.onboardingWhereSubtitle).small.muted,
@@ -105,6 +106,6 @@ Widget onboardingWhereBody(BuildContext context,
       ],
       Gap(4),
       OnboardingNote(context.i18n.onboardingWhereChangeLater, icon: LucideIcons.pencil),
-    ],
+    ]),
   );
 }

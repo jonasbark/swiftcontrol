@@ -1,4 +1,5 @@
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -146,7 +147,7 @@ Widget onboardingControllerBody(BuildContext context,
 
   switch (phase) {
     case ControllerPhase.permission:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(context.i18n.onboardingBluetoothTitle).h4,
         Gap(6),
         Text(context.i18n.onboardingBluetoothSubtitle).small.muted,
@@ -165,9 +166,9 @@ Widget onboardingControllerBody(BuildContext context,
             context, LucideIcons.bell, context.i18n.onboardingBluetoothNotifyTitle, context.i18n.onboardingBluetoothNotifySub),
         Gap(6),
         _infoRow(context, LucideIcons.shieldCheck, context.i18n.onboardingBluetoothPrivacy, ''),
-      ]);
+      ]));
     case ControllerPhase.scanning:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(context.i18n.onboardingScanTitle).h4,
         Gap(6),
         Text(context.i18n.onboardingScanSubtitle).small.muted,
@@ -175,9 +176,9 @@ Widget onboardingControllerBody(BuildContext context,
         Center(child: SmoothWifiAnimation()),
         Gap(20),
         Center(child: Text(context.i18n.scanningForDevices).small.muted),
-      ]);
+      ]));
     case ControllerPhase.empty:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(context.i18n.onboardingScanEmptyTitle).h4,
         Gap(6),
         Text(context.i18n.onboardingScanEmptySubtitle).small.muted,
@@ -188,9 +189,9 @@ Widget onboardingControllerBody(BuildContext context,
             context.i18n.onboardingScanEmptyDisconnectSub),
         _infoRow(context, LucideIcons.ruler, context.i18n.onboardingScanEmptyCloserTitle,
             context.i18n.onboardingScanEmptyCloserSub),
-      ]);
+      ]));
     case ControllerPhase.list:
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
         Text(anyConnected ? context.i18n.onboardingControllerReadyTitle : context.i18n.onboardingControllerListTitle).h4,
         Gap(6),
         Text(anyConnected ? context.i18n.onboardingControllerReadySubtitle : context.i18n.onboardingControllerListSubtitle)
@@ -223,6 +224,6 @@ Widget onboardingControllerBody(BuildContext context,
           Gap(12),
           _infoRow(context, LucideIcons.lightbulb, context.i18n.onboardingControllerMapped(appName), ''),
         ],
-      ]);
+      ]));
   }
 }

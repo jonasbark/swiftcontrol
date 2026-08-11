@@ -1,4 +1,5 @@
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
+import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_update_banner.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_group_label.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_note.dart';
@@ -111,7 +112,7 @@ Widget onboardingAppBody(BuildContext context,
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
+    children: onboardingReveal([
       // Desktop has no welcome screen, so the update offer lives here.
       if (showUpdateBanner) const OnboardingUpdateBanner(),
       Text(context.i18n.onboardingAppTitle).h4,
@@ -125,6 +126,6 @@ Widget onboardingAppBody(BuildContext context,
       grid(other),
       Gap(14),
       OnboardingNote(context.i18n.onboardingAppNote),
-    ],
+    ]),
   );
 }
