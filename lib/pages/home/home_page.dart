@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
@@ -279,6 +280,7 @@ class _HomePageState extends State<HomePage> {
             unlocked: _unlockState(device),
             unlockedUntil: _unlockedUntil(device),
             unlockUncertain: device is ZwiftClickV2 && device.isLikelyUnlocked,
+            sramSetupDone: device is SramAxs ? !device.needsGuidedSetup : null,
           ),
       ],
       trainer: trainer,
@@ -500,7 +502,15 @@ class _HomePageState extends State<HomePage> {
   /// as the button map. Rendered for disconnected devices too, faded: mapping a
   /// button is a keymap edit, not a radio operation, so there is no reason to
   /// make a rider wait until they are back on the bike to do it.
-  Widget _controllerBody(BaseDevice device, {required bool connected}) {
+  Widget? _controllerBody(BaseDevice device, {required bool connected}) {
+    // Nothing to draw is not the same as an empty box to draw it in. A device
+    // with no contour and no buttons discovered yet — a SRAM derailleur before
+    // its guided setup runs — otherwise rendered as a blank grey panel that
+    // looked like a failed render.
+    if (device is! SteeringDevice && device.controllerLayout == null && device.availableButtons.isEmpty) {
+      return null;
+    }
+
     final keymap = core.actionHandler.supportedApp?.keymap;
     final size = 56 / Theme.of(context).scaling;
 
@@ -701,14 +711,18 @@ class _HomePageState extends State<HomePage> {
         // A locked Click V2 has one specific answer, and it is not the generic
         // "can't find your controller" help: send the rider straight into the
         // unlock flow for this exact device.
-        final locked = link.activeStep?.id == SetupStepId.controllerUnlocked;
-        final device = locked ? _controllerById(link.deviceId) : null;
-        if (device is ZwiftClickV2) {
+        final active = link.activeStep?.id;
+        final device = _controllerById(link.deviceId);
+        if (active == SetupStepId.controllerUnlocked && device is ZwiftClickV2) {
           await openDrawer(
             context: context,
             position: OverlayPosition.bottom,
             builder: (_) => UnlockPage(device: device),
           );
+        } else if (active == SetupStepId.controllerSramSetup && device is SramAxs) {
+          // The same guided sheet the device card and the onboarding wizard
+          // run — the derailleur cannot send anything until it has.
+          await device.showGuidedSetup(context);
         } else if (link.status == LinkStatus.off) {
           await openControllerSetupSheet(context);
         } else {

@@ -1768,6 +1768,8 @@
   "chainStepUnlockedHint": "Zwift locks the Click V2 to their own app — open Zwift once and it keeps working for 24 hours.",
   "chainStepUnlockedUntil": "Unlocked until {date}",
   "chainStepUnlockedLikelyUntil": "Likely unlocked until {date}",
+  "chainStepSramSetup": "Controls set up",
+  "chainStepSramSetupHint": "Its own shifting still runs the gears — hand them to BikeControl so the paddles send button presses.",
   "chainStepTrainerPaired": "Trainer connected",
   "chainStepTrainerPairedPending": "Connect your trainer",
   "chainStepAppSelected": "Trainer app chosen",

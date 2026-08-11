@@ -1574,6 +1574,8 @@
   "chainStepUnlockedHint": "Zwift przypisuje Click V2 do własnej aplikacji — otwórz Zwift raz, a kontroler będzie działać przez 24 godziny.",
   "chainStepUnlockedUntil": "Odblokowany do {date}",
   "chainStepUnlockedLikelyUntil": "Prawdopodobnie odblokowany do {date}",
+  "chainStepSramSetup": "Sterowanie skonfigurowane",
+  "chainStepSramSetupHint": "Przerzutka wciąż zmienia biegi sama — przekaż je BikeControl, aby manetki wysyłały naciśnięcia.",
   "chainStepTrainerPaired": "Trenażer połączony",
   "chainStepTrainerPairedPending": "Połącz swój trenażer",
   "chainStepAppSelected": "Wybrano aplikację treningową",

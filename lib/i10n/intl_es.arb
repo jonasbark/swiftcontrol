@@ -1574,6 +1574,8 @@
   "chainStepUnlockedHint": "Zwift limita el Click V2 a su propia aplicación: abre Zwift una vez y seguirá funcionando durante 24 horas.",
   "chainStepUnlockedUntil": "Desbloqueado hasta {date}",
   "chainStepUnlockedLikelyUntil": "Probablemente desbloqueado hasta {date}",
+  "chainStepSramSetup": "Control configurado",
+  "chainStepSramSetupHint": "El desviador aún cambia por su cuenta: cédele las marchas a BikeControl para que las palancas envíen pulsaciones.",
   "chainStepTrainerPaired": "Rodillo conectado",
   "chainStepTrainerPairedPending": "Conecta tu rodillo",
   "chainStepAppSelected": "App de entrenamiento elegida",

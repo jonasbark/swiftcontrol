@@ -66,6 +66,11 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
       SetupStep(id: SetupStepId.controllerInRange, done: inRange),
       // Last, because unlocking needs the controller present. Omitted entirely
       // for anything that has no such concept — see [ControllerInput.unlocked].
+      // Before the unlock step and after "in range": a derailleur whose own
+      // shifting is still enabled sends nothing at all, so it outranks
+      // anything about mapping what it sends.
+      if (controller.sramSetupDone != null)
+        SetupStep(id: SetupStepId.controllerSramSetup, done: controller.sramSetupDone!),
       if (controller.unlocked != null)
         SetupStep(
           id: SetupStepId.controllerUnlocked,

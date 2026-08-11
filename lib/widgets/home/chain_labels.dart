@@ -45,6 +45,9 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
                 : l.chainStepUnlockedUntil(step.hintArg!),
           )
         : ChainStepText(l.chainStepUnlockedPending, l.chainStepUnlockedHint),
+    SetupStepId.controllerSramSetup => step.done
+        ? ChainStepText(l.chainStepSramSetup)
+        : ChainStepText(l.sramSetup, l.chainStepSramSetupHint),
     SetupStepId.trainerPaired => step.done
         ? ChainStepText(l.chainStepTrainerPaired)
         : ChainStepText(l.chainStepTrainerPairedPending),

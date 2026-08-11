@@ -20,6 +20,7 @@ ControllerInput controller({
   bool? unlocked,
   String? unlockedUntil,
   bool unlockUncertain = false,
+  bool? sramSetupDone,
 }) {
   return ControllerInput(
     deviceId: deviceId,
@@ -30,6 +31,7 @@ ControllerInput controller({
     unlocked: unlocked,
     unlockedUntil: unlockedUntil,
     unlockUncertain: unlockUncertain,
+    sramSetupDone: sramSetupDone,
   );
 }
 
@@ -139,6 +141,40 @@ void main() {
         (s) => s.id == SetupStepId.controllerUnlocked,
       );
       expect(step.uncertain, isFalse);
+    });
+
+    // A SRAM derailleur whose own shifting is still enabled is connected and
+    // sends nothing at all — the card used to show that as a bare empty panel.
+    test('a SRAM derailleur awaiting its guided setup carries that step', () {
+      final chain = buildChain(ChainInputs(controllers: [controller(sramSetupDone: false)], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_stepDone(link, SetupStepId.controllerSramSetup), isFalse);
+      expect(link.activeStep?.id, SetupStepId.controllerSramSetup);
+      expect(link.status, LinkStatus.attention);
+    });
+
+    test('a finished SRAM setup ticks and leaves the card ready', () {
+      final chain = buildChain(ChainInputs(controllers: [controller(sramSetupDone: true)], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_stepDone(link, SetupStepId.controllerSramSetup), isTrue);
+      expect(link.remainingSteps, 0);
+      expect(link.status, LinkStatus.ready);
+    });
+
+    // It outranks the unlock step: a derailleur that sends nothing cannot be
+    // helped by anything further down the list.
+    test('guided setup comes before the unlock step', () {
+      final chain = buildChain(
+        ChainInputs(controllers: [controller(sramSetupDone: false, unlocked: false)], app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.activeStep?.id, SetupStepId.controllerSramSetup);
+    });
+
+    test('a controller with no guided setup has no such step', () {
+      final chain = buildChain(ChainInputs(controllers: [controller()], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.steps.any((s) => s.id == SetupStepId.controllerSramSetup), isFalse);
     });
 
     test('a controller with no unlock concept has no unlock step at all', () {

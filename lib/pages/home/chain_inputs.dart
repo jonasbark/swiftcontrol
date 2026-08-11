@@ -44,6 +44,7 @@ class ControllerInput {
     this.unlocked,
     this.unlockedUntil,
     this.unlockUncertain = false,
+    this.sramSetupDone,
   });
 
   final String deviceId;
@@ -75,6 +76,16 @@ class ControllerInput {
 
   /// Whether [unlocked] is a best guess — see [SetupStep.uncertain].
   final bool unlockUncertain;
+
+  /// Whether this controller's guided setup has run, or null when it has none.
+  ///
+  /// Today that means a SRAM AXS derailleur, whose own shifting has to be
+  /// disabled before its paddles send button presses to BikeControl at all —
+  /// so until it runs, the controller is connected and does nothing. Named for
+  /// SRAM rather than generically because the step's wording is SRAM's; a
+  /// second device with its own guided setup wants its own id, not this one
+  /// silently mislabelled.
+  final bool? sramSetupDone;
 }
 
 class TrainerInput {

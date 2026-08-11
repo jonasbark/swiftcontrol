@@ -1574,6 +1574,8 @@
   "chainStepUnlockedHint": "Zwift bindet den Click V2 an die eigene App — öffne Zwift einmal, danach läuft er 24 Stunden lang.",
   "chainStepUnlockedUntil": "Entsperrt bis {date}",
   "chainStepUnlockedLikelyUntil": "Wahrscheinlich entsperrt bis {date}",
+  "chainStepSramSetup": "Steuerung eingerichtet",
+  "chainStepSramSetupHint": "Noch schaltet das Schaltwerk selbst — übergib die Gänge an BikeControl, damit die Hebel Tastendrücke senden.",
   "chainStepTrainerPaired": "Trainer verbunden",
   "chainStepTrainerPairedPending": "Verbinde deinen Trainer",
   "chainStepAppSelected": "Trainer-App gewählt",
