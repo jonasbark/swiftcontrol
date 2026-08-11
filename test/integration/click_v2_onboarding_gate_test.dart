@@ -130,10 +130,11 @@ Future<void> main() async {
     );
   });
 
-  // The whole point of the mode: the locked puck stays out. Its restart loop
-  // would otherwise fight the right side's handshake over ClickLogic's single
-  // shared reset timer.
-  test('right-side-only holds the left side out of the connect queue', () async {
+  // The whole point of the mode: the locked puck stays out. A plain disconnect
+  // is not enough -- the active scan hands it straight back, and it reappears
+  // in every controller list (the home chain included) as an entry stuck on
+  // "connecting". Ignoring is the mechanism the scan filter already honours.
+  test('right-side-only puts the left side on the ignored list', () async {
     await core.settings.setClickV2OnboardingDone(false);
     await core.settings.setUnlockWithZwift(false);
     await core.settings.setUseNewUnlockMethod(true);
@@ -141,20 +142,53 @@ Future<void> main() async {
     final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
     env.ble.addPeripheral(left);
     await core.connection.performScanning();
-    final device = await IntegrationEnv.waitFor(
+    await IntegrationEnv.waitFor(
       () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
       description: 'the Click V2 left side to appear',
-    ).then((_) => core.connection.devices.whereType<ZwiftClickV2LeftSide>().first);
+    );
 
     await ClickV2Onboarding.chooseRightSideOnly();
 
-    expect(device.shouldAutoConnect, isFalse);
-    // It is still listed -- held back, not forgotten -- so "Set up again" can
-    // bring it straight back without a trip through ignored devices.
-    expect(core.connection.devices.contains(device), isTrue);
-
+    expect(
+      core.settings.getIgnoredDevices().map((d) => d.name),
+      contains(ZwiftClickV2LeftSide.label),
+    );
+    // Gone from the lists, and it stays gone: a further scan must not quietly
+    // hand it back.
+    expect(core.connection.devices.whereType<ZwiftClickV2LeftSide>(), isEmpty);
     await core.connection.performScanning();
-    expect(left.isConnected, isFalse);
+    expect(core.connection.devices.whereType<ZwiftClickV2LeftSide>(), isEmpty);
+    expect(core.connection.controllerDevices.whereType<ZwiftClickV2LeftSide>(), isEmpty);
+  });
+
+  // Otherwise the rider who picked right-side-only first, then changed their
+  // mind, picks the both-controllers option and still only ever gets one.
+  test('unlock-with-Zwift takes the left side back off the ignored list', () async {
+    await core.settings.setClickV2OnboardingDone(false);
+    await core.settings.setUnlockWithZwift(false);
+    await core.settings.setUseNewUnlockMethod(true);
+
+    final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
+    env.ble.addPeripheral(left);
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
+      description: 'the Click V2 left side to appear',
+    );
+
+    await ClickV2Onboarding.chooseRightSideOnly();
+    expect(core.settings.getIgnoredDevices(), isNotEmpty);
+
+    await ClickV2Onboarding.chooseUnlockWithZwift();
+
+    expect(
+      core.settings.getIgnoredDevices().map((d) => d.name),
+      isNot(contains(ZwiftClickV2LeftSide.label)),
+    );
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
+      description: 'the Click V2 left side to come back after un-ignoring',
+    );
   });
 
   test('choosing unlock-with-Zwift writes settings and connects the pending sides', () async {
@@ -232,9 +266,13 @@ Future<void> main() async {
       description: 'the already-connected left side to be dropped by the mode switch',
     );
 
-    // And it stays down: the next scan must not quietly bring it back.
+    // And it stays down: ignored, so the next scan does not bring it back.
     await core.connection.performScanning();
     expect(left.isConnected, isFalse);
+    expect(
+      core.settings.getIgnoredDevices().map((d) => d.name),
+      contains(ZwiftClickV2LeftSide.label),
+    );
   });
 
   // FINDING 1 (reset-timer half). ClickLogic._resetTimer is private static

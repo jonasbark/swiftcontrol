@@ -121,10 +121,11 @@ void main() {
     });
   });
 
-  // The three modes differ only in which pucks are allowed to connect, so the
-  // gates are the mode. ClickLogic drives the left side's restart loop from a
-  // single shared timer that the right side's handshake cancels — hence the
-  // rule that those two are never live together.
+  // The right side's gate is what the mode setting actually drives: it must
+  // stay out of the legacy left-side restart mode, because ClickLogic runs that
+  // loop off a single shared timer which this side's handshake cancels. Which
+  // pucks are *present* in right-side-only mode is a separate mechanism — the
+  // ignored list — covered in the gate integration test.
   group('connect gates per unlock mode', () {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
@@ -133,12 +134,13 @@ void main() {
       screenshotMode = false;
     });
 
-    test('right-side-only: right connects, left is held back', () async {
+    test('right-side-only: the right side connects', () async {
       await core.settings.setClickV2RightSideOnly(true);
       await core.settings.setUnlockWithZwift(false);
 
+      // The left side is kept away by the ignored list, not by a gate here —
+      // see the ignore/un-ignore group below.
       expect(_rightSide().shouldAutoConnect, isTrue);
-      expect(_leftSide().shouldAutoConnect, isFalse);
     });
 
     test('unlock-with-Zwift: both sides connect', () async {
@@ -164,6 +166,7 @@ void main() {
       expect(_rightSide().shouldAutoConnect, isFalse);
       expect(_leftSide().shouldAutoConnect, isFalse);
     });
+
   });
 
   group('chooseRightSideOnly keymap', () {
