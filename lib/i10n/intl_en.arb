@@ -1114,7 +1114,8 @@
   "unlock_modeZwiftDescription": "Every 24 hours the device needs to be unlocked using Zwift.",
   "unlock_notWorking": "Not working?",
   "unlock_openZwift": "Open Zwift (not the Companion) on this or another device",
-  "unlock_rightSideNeedsNoUnlock": "You could use this controller without the left controller, as this one needs no unlocking or restarts.",
+  "deviceSideLeft": "{device} (left)",
+  "deviceSideRight": "{device} (right)",
   "unlock_newMethod": "Use new unlock method",
   "unlock_newMethodDescription": "Connect the left and right sides as separate controllers. The right side needs no unlocking. Turn off to use a single combined controller.",
   "unlock_newMethodReconnecting": "Applying… reconnecting your Zwift Click.",
@@ -1746,7 +1747,6 @@
   "chainStatusOutOfRange": "Out of range",
   "chainStatusLostConnection": "Lost connection",
   "chainStatusNotSetUp": "Not set up",
-  "chainStatusReconnecting": "Reconnecting…",
   "chainStatusReceivingCommands": "Receiving commands",
   "chainStatusWaitingForApp": "Waiting for {app}",
   "@chainStatusWaitingForApp": {
@@ -1828,7 +1828,6 @@
   "chainTrialBridgeMeterSuffix": "min",
   "chainTrialRestoreRow": "Already bought it? Restore purchases",
   "chainOfflineEditNotice": "Not connected — you can still change what its buttons do.",
-  "chainForgetSwipeHint": "Swipe a disconnected device away to forget it.",
   "chainForgotten": "{name} forgotten",
   "@chainForgotten": {
     "placeholders": {

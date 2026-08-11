@@ -59,6 +59,7 @@ class _HomeExtrasState extends State<HomeExtras> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Button.ghost(
+            style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
             onPressed: () => setState(() => _expanded = !_expanded),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -159,6 +160,7 @@ class _HomeExtrasState extends State<HomeExtras> {
 
   Widget _row(BuildContext context, {required String title, Widget? trailing, required VoidCallback onPressed}) {
     return Button.ghost(
+      style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
       onPressed: onPressed,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

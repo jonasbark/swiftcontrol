@@ -700,7 +700,8 @@
   "unlock_modeZwiftDescription": "Cada 24 horas el dispositivo debe desbloquearse con Zwift.",
   "unlock_notWorking": "¿No funciona?",
   "unlock_openZwift": "Abre Zwift (no Companion) en este u otro dispositivo",
-  "unlock_rightSideNeedsNoUnlock": "Puedes usar este controlador sin el controlador izquierdo, ya que este no necesita desbloqueos ni reinicios.",
+  "deviceSideLeft": "{device} (izquierdo)",
+  "deviceSideRight": "{device} (derecho)",
   "unlock_newMethod": "Usar el nuevo método de desbloqueo",
   "unlock_newMethodDescription": "Conecta los lados izquierdo y derecho como mandos independientes. El lado derecho no necesita desbloqueo. Desactívalo para usar un único mando combinado.",
   "unlock_newMethodReconnecting": "Aplicando… reconectando tu Zwift Click.",
@@ -1479,5 +1480,198 @@
   "onboardingTestModeBodyVs": "Rueda ahora y comprueba que todo funciona. El modo de prueba te limita a un cupo diario de comandos y a un cambio virtual limitado al día: suficiente para verificar la conexión, no para una sesión entera.",
   "onboardingSeeProOptions": "Ver opciones Pro y Base",
   "onboardingDoneFinishLater": "Finalizar: me conecto luego",
-  "onboardingDoneStartRiding": "Listo: a rodar"
+  "onboardingDoneStartRiding": "Listo: a rodar",
+  "chainReadyTitle": "Listo para rodar",
+  "chainReadySubtitle": "Tus botones llegan a {app}.",
+  "@chainReadySubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainReadySubtitleNoApp": "Todo lo que BikeControl necesita está configurado.",
+  "chainStepsLeftTitle": "{count, plural, =1{Queda 1 paso} other{Quedan {count} pasos}}",
+  "@chainStepsLeftTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chainBrokenTitle": "{name} ha perdido la conexión",
+  "@chainBrokenTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chainBrokenSubtitle": "Tus botones no harán nada hasta que se vuelva a conectar.",
+  "chainPendingSubtitleSingle": "Completa la tarjeta «{name}» de abajo y estarás listo.",
+  "@chainPendingSubtitleSingle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chainPendingSubtitleMultiple": "{names} aún necesitan configurarse.",
+  "@chainPendingSubtitleMultiple": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "chainBannerFix": "Solucionar",
+  "chainBannerShow": "Mostrar",
+  "chainStepsDone": "{done} de {total} pasos completados",
+  "@chainStepsDone": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "chainAllStepsDone": "Los {total} pasos completados",
+  "@chainAllStepsDone": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "chainOptional": "Opcional",
+  "chainEdit": "Editar",
+  "chainSetUp": "Configurar",
+  "chainShowMeHow": "Muéstrame cómo",
+  "chainSomethingNotWorking": "¿Algo no funciona?",
+  "chainStatusOutOfRange": "Fuera de alcance",
+  "chainStatusLostConnection": "Conexión perdida",
+  "chainStatusNotSetUp": "Sin configurar",
+  "chainStatusReceivingCommands": "Recibiendo comandos",
+  "chainStatusWaitingForApp": "Esperando a {app}",
+  "@chainStatusWaitingForApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStatusHandledByApp": "{app} se encarga del cambio de marchas",
+  "@chainStatusHandledByApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainControllerTitle": "Mando",
+  "chainTrainerTitle": "Rodillo inteligente",
+  "chainAppTitle": "App de entrenamiento",
+  "chainStepBluetoothReady": "El Bluetooth está activado",
+  "chainStepBluetoothReadyPending": "Activa el Bluetooth",
+  "chainStepBluetoothReadyHint": "BikeControl necesita Bluetooth para encontrar tu mando y mantener la conexión.",
+  "chainStepControllerPaired": "Emparejado por Bluetooth",
+  "chainStepControllerPairedPending": "Encuentra tu mando",
+  "chainStepControllerPairedHint": "Despiértalo primero pulsando un botón.",
+  "chainStepButtonsMapped": "Botones asignados",
+  "chainStepButtonsMappedPending": "Asigna tus botones",
+  "chainStepButtonsMappedHint": "Asigna una acción al menos a un botón.",
+  "chainStepInRange": "Dentro del alcance",
+  "chainStepInRangePending": "Ponlo de nuevo dentro del alcance",
+  "chainStepInRangeHint": "Pulsa cualquier botón para despertarlo y cierra cualquier otra app que pueda estar usándolo.",
+  "chainStepTrainerPaired": "Rodillo conectado",
+  "chainStepTrainerPairedPending": "Conecta tu rodillo",
+  "chainStepAppSelected": "App de entrenamiento elegida",
+  "chainStepAppSelectedPending": "Elige tu app de entrenamiento",
+  "chainStepAppSelectedHint": "Elige la app con la que ruedas.",
+  "chainStepAppConnectionMethod": "Método de conexión activado",
+  "chainStepAppConnectionMethodPending": "Activa un método de conexión",
+  "chainStepAppConnectionMethodHint": "Elige cómo BikeControl llega a tu app.",
+  "chainStepAppConnected": "Conectado a {app}",
+  "@chainStepAppConnected": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepAppConnectedPending": "Esperando a que {app} se conecte",
+  "@chainStepAppConnectedPending": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepAppConnectedHint": "Abre la app y elige BikeControl en su pantalla de emparejamiento.",
+  "chainStepTrainerBridged": "Detectado por {app}",
+  "@chainStepTrainerBridged": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepTrainerBridgedPending": "Esperando a que {app} lo detecte",
+  "@chainStepTrainerBridgedPending": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepTrainerBridgedHint": "Elige «{bridge}» como rodillo en {app}.",
+  "@chainStepTrainerBridgedHint": {
+    "placeholders": {
+      "bridge": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStatusBridged": "Conectado mediante puente",
+  "chainTrialTitle": "Modo de prueba",
+  "chainTrialExpiredTitle": "Prueba caducada",
+  "chainTrialDaysMeter": "Días de prueba",
+  "chainTrialDaysLeft": "{count, plural, =0{Termina hoy} =1{Queda 1 día} other{Quedan {count} días}}",
+  "@chainTrialDaysLeft": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chainTrialCommandsMeter": "Comandos hoy",
+  "chainTrialCommandsLimited": "Comandos limitados a {limit} al día",
+  "@chainTrialCommandsLimited": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "chainTrialBridgeMeter": "Cambio virtual hoy",
+  "chainTrialBridgeMeterSuffix": "min",
+  "chainTrialRestoreRow": "¿Ya lo compraste? Restaura tus compras",
+  "chainOfflineEditNotice": "Sin conexión: aun así puedes cambiar lo que hacen sus botones.",
+  "chainForgotten": "{name} eliminado",
+  "@chainForgotten": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chainUndo": "Deshacer",
+  "chainUpgrade": "Mejorar",
+  "chainMoreOptions": "Más opciones",
+  "chainCloseAndQuit": "Cerrar conexiones y salir de la app"
 }

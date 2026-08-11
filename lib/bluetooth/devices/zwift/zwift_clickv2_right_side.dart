@@ -1,6 +1,7 @@
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
+import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -79,6 +80,13 @@ class ZwiftClickV2RightSide extends ZwiftRide {
   String toString() {
     return "Zwift Click V2 (right)";
   }
+
+  /// See [ZwiftClickV2LeftSide.displayName]. This side doesn't extend
+  /// [ZwiftClickV2], so the unsuffixed name is spelled out rather than taken
+  /// from `super.toString()` (which would yield the advertised BLE name).
+  @override
+  String displayName(BuildContext context) =>
+      context.i18n.deviceSideRight(screenshotMode ? 'Controller' : 'Zwift Click V2');
 
   @override
   Future<void> setupHandshake() async {

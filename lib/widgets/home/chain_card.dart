@@ -56,6 +56,20 @@ class ChainCard extends StatefulWidget {
 /// Long enough to read as a movement, short enough not to hold the rider up.
 const Duration _statusChangeDuration = Duration(milliseconds: 260);
 
+/// One left edge for everything in a card's checklist region — the summary
+/// row's icon and every step's tick share it, so the column reads as a column.
+/// The leading glyphs differ in size (a 15px icon, a 17px circle), so they are
+/// centred in a box of one width rather than laid out back to back, which is
+/// what let them drift apart.
+const double _rowInset = 14;
+
+/// The tick circle, so a test can assert it lines up with the summary icon
+/// above it — the alignment is the point of the shared inset.
+const Key stepTickKey = ValueKey('chain-step-tick');
+
+const double _leadingSize = 17;
+const double _leadingGap = 10;
+
 class _ChainCardState extends State<ChainCard> {
   /// Null means "follow the link's own default" — ready cards collapse,
   /// unresolved cards open. Once the rider taps the summary row, their choice
@@ -213,20 +227,25 @@ class _ChainCardState extends State<ChainCard> {
     final ready = link.status == LinkStatus.ready;
 
     return Button.ghost(
+      // The button's own padding would inset this row past the steps below it.
+      style: ButtonStyle.ghost().withPadding(padding: EdgeInsets.zero),
       onPressed: () => setState(() => _expandedOverride = !_expanded),
       child: Container(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: theme.colorScheme.border, width: 0.5)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: _rowInset, vertical: 12),
         child: Row(
           children: [
-            Icon(
-              ready ? LucideIcons.circleCheck : LucideIcons.listChecks,
-              size: 15,
-              color: theme.colorScheme.mutedForeground,
+            SizedBox(
+              width: _leadingSize,
+              child: Icon(
+                ready ? LucideIcons.circleCheck : LucideIcons.listChecks,
+                size: 15,
+                color: theme.colorScheme.mutedForeground,
+              ),
             ),
-            const Gap(8),
+            const Gap(_leadingGap),
             Expanded(
               child: Text(
                 ready
@@ -255,7 +274,9 @@ class _ChainCardState extends State<ChainCard> {
     final activeIndex = link.activeStepIndex;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 2, 10, 12),
+      // Steps carry their own inset (see StepRow) so the active step's
+      // highlight can bleed slightly wider than the text column.
+      padding: const EdgeInsets.fromLTRB(4, 2, 4, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -307,7 +328,7 @@ class StepRow extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.only(bottom: 2),
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: active ? 9 : 7),
+      padding: EdgeInsets.symmetric(horizontal: _rowInset - 4, vertical: active ? 9 : 7),
       decoration: BoxDecoration(
         color: active ? theme.colorScheme.primary.withAlpha(15) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
@@ -318,8 +339,9 @@ class StepRow extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 1),
             child: Container(
-              width: 17,
-              height: 17,
+              key: stepTickKey,
+              width: _leadingSize,
+              height: _leadingSize,
               decoration: BoxDecoration(
                 color: step.done ? success : Colors.transparent,
                 shape: BoxShape.circle,
@@ -328,7 +350,7 @@ class StepRow extends StatelessWidget {
               child: step.done ? const Icon(LucideIcons.check, size: 11, color: Colors.white) : null,
             ),
           ),
-          const Gap(10),
+          const Gap(_leadingGap),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

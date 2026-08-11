@@ -146,6 +146,33 @@ void main() async {
     expect(find.text(l.chainOptional.toUpperCase()), findsNothing);
   });
 
+  group('alignment', () {
+    // The summary row sits inside a Button, whose own padding used to inset it
+    // past the steps below — so the checklist icon and the step ticks started
+    // at different x. They are one column and must read as one.
+    testWidgets('the summary icon and the step ticks share a left edge', (tester) async {
+      await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, false]));
+
+      final summaryIcon = find.byIcon(LucideIcons.listChecks);
+      expect(summaryIcon, findsOneWidget);
+
+      final summaryLeft = tester.getTopLeft(summaryIcon).dx;
+      final ticks = find.byKey(stepTickKey);
+      expect(ticks, findsNWidgets(2));
+      for (var i = 0; i < 2; i++) {
+        expect(tester.getTopLeft(ticks.at(i)).dx, moreOrLessEquals(summaryLeft, epsilon: 0.5));
+      }
+    });
+
+    testWidgets('the summary label and the step labels share a left edge', (tester) async {
+      await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, false]));
+
+      final summaryLabel = tester.getTopLeft(find.text(l.chainStepsDone(1, 2))).dx;
+      final stepLabel = tester.getTopLeft(find.text(l.chainStepBluetoothReady)).dx;
+      expect(stepLabel, moreOrLessEquals(summaryLabel, epsilon: 0.5));
+    });
+  });
+
   group('animating a status change', () {
     testWidgets('a card that becomes ready collapses its checklist over time, not instantly', (tester) async {
       await pumpCard(tester, link(status: LinkStatus.attention, steps: [true, true, false]));
