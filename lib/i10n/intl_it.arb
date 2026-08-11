@@ -2,7 +2,13 @@
   "reconnect": "Riconnetti",
   "batterySaverTitle": "Risparmio batteria",
   "controllersDisconnectedInactivity": "Controller disconnessi dopo {minutes} minuti di inattività per risparmiare batteria. Riaccendi un controller per riconnetterlo.",
-  "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
+  "@controllersDisconnectedInactivity": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "overlayDisabledIos": "Durante la sessione, l'Overlay del rullo galleggia sopra la tua app di allenamento (o sulla Dynamic Island sugli iPhone supportati) e sulla schermata di blocco.",
   "overlayUsePip": "Finestra mobile (Picture-in-Picture)",
   "overlayUsePipSubtitle": "Mostra la marcia in una finestra mobile sopra la tua app di allenamento, oltre alla schermata di blocco (e alla Dynamic Island se disponibile).",
@@ -23,7 +29,13 @@
   "virtualShiftingHint": "Aggiunge o regola il Virtual Shifting e annuncia BikeControl come rullo.",
   "noConnection": "Nessuna connessione",
   "noConnectionHint": "Lascia che {trainerApp} gestisca il Virtual Shifting, se supportato",
-  "@noConnectionHint": {"placeholders": {"trainerApp": {"type": "String"}}},
+  "@noConnectionHint": {
+    "placeholders": {
+      "trainerApp": {
+        "type": "String"
+      }
+    }
+  },
   "actionShiftUp": "Cambio su",
   "actionShiftDown": "Cambio giù",
   "actionFrontShift": "Cambio corona",
@@ -508,8 +520,8 @@
   "pasteExportedJsonData": "Incolla i dati JSON esportati qui sotto:",
   "pathCopiedToClipboard": "Il percorso è stato copiato negli appunti",
   "paywall_amountOfActions": "Quantità di azioni",
-  "paywall_billedAtPricemo": "{price}/mese",
-  "paywall_billedAtYearly": "{cost}/anno",
+  "paywall_billedAtPricemo": "Addebito {price}/mese",
+  "paywall_billedAtYearly": "Addebito {cost}/anno",
   "paywall_configure3ActionsPerButton": "Configura 3 azioni per pulsante",
   "paywall_connectToYourTrainer": "Connettiti al tuo trainer",
   "paywall_controlYourDeviceMusic": "Controlla il tuo dispositivo/musica",
@@ -879,7 +891,6 @@
   "connectionSettings": "Impostazioni connessione",
   "needsTargetLeavePrompt": "{appName} ha bisogno di una destinazione prima di connettersi. Vuoi uscire senza sceglierne una?",
   "feedbackQuestion": "Funziona?",
-  "feedbackNoDifference": "Nessuna differenza",
   "supportChat": "Chat di supporto",
   "knownIssues": "Problemi noti",
   "chatWithSupport": "Chatta con il supporto",
@@ -992,37 +1003,63 @@
   },
   "smartTrainerConsentTitle": "Connessione a {trainerName}",
   "@smartTrainerConsentTitle": {
-    "placeholders": {"trainerName": {"type": "String"}}
+    "placeholders": {
+      "trainerName": {
+        "type": "String"
+      }
+    }
   },
   "smartTrainerConsentMessage": "BikeControl si collegherà ora al tuo Smart Trainer e prenderà il controllo del cambio virtuale. Qualsiasi cambio avverrà direttamente in BikeControl, e non più tramite la tua {appName}. In {appName} ti collegherai quindi al trainer virtuale di BikeControl, anziché direttamente a {trainerName}.\n\nPer tornare al comportamento predefinito, clicca sul pulsante «{disconnectLabel}» e ricollega {appName} direttamente al tuo {trainerName}.",
   "@smartTrainerConsentMessage": {
     "placeholders": {
-      "trainerName": {"type": "String"},
-      "appName": {"type": "String"},
-      "disconnectLabel": {"type": "String"}
+      "trainerName": {
+        "type": "String"
+      },
+      "appName": {
+        "type": "String"
+      },
+      "disconnectLabel": {
+        "type": "String"
+      }
     }
   },
   "overlayFieldControls": "Pulsanti cambio / watt",
   "connectingToDevice": "Connessione a: {device}",
   "@connectingToDevice": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionSucceeded": "Connessione riuscita: {device}",
   "@connectionSucceeded": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionFailed": "Connessione fallita: {device} - {error}",
   "@connectionFailed": {
     "placeholders": {
-      "device": {"type": "String"},
-      "error": {"type": "String"}
+      "device": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
     }
   },
   "connectionGaveUpAfterAttempts": "Impossibile connettersi a {device} dopo diversi tentativi.",
   "wheeltopClaimedByDerailleurHint": "Il comando è probabilmente occupato dal suo deragliatore posteriore. Spegni il deragliatore o lascialo andare in standby, poi premi un pulsante del comando durante la ricerca.",
   "unableToConnectToDeviceTimeout": "Impossibile connettersi a {device}: timeout",
   "@unableToConnectToDeviceTimeout": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "scanningForDevicesShort": "Ricerca dispositivi…",
   "disconnectingAllDevices": "Disconnessione di tutti i dispositivi",
@@ -1047,13 +1084,13 @@
   "sramSetup": "Configura il controllo SRAM",
   "sramRestore": "Ripristina il cambio originale",
   "sramPanelIntro": "Lascia che BikeControl controlli il cambio: esegue il backup della configurazione attuale dei comandi, poi disattiva il cambio del deragliatore in modo che invii solo la pressione dei pulsanti. Puoi ripristinarla in qualsiasi momento.",
-  "sramSetupIntro": "BikeControl eseguirà il backup della configurazione attuale dei comandi e disattiverà il cambio del deragliatore in modo che invii solo la pressione dei pulsanti. Puoi ripristinarla in qualsiasi momento.",
+  "sramSetupIntro": "BikeControl salva la configurazione attuale delle leve e disattiva il cambio proprio del deragliatore, così le leve inviano pressioni di pulsanti. Puoi ripristinarla quando vuoi.",
   "sramSetupSuccess": "Ora BikeControl controlla i tuoi rapporti. Ogni pulsante del comando è un ingresso del controller che puoi assegnare nell'app.",
   "sramRestoreIntro": "Questa operazione ripristina il cambio originale del deragliatore.",
   "sramRestoreSuccess": "La configurazione originale dei comandi è stata ripristinata.",
   "sramDialogRunning": "Comunicazione con il deragliatore… tienilo vicino e attivo.",
   "sramAuthorizeTitle": "Autorizza BikeControl",
-  "sramAuthorizeBody": "Il deragliatore deve autorizzare BikeControl. Tieni premuto il pulsante AXS sul deragliatore finché la spia lampeggia, poi tocca Riprova.",
+  "sramAuthorizeBody": "Tieni premuto il pulsante AXS sul deragliatore finché la spia lampeggia, poi tocca Riprova.",
   "sramErrorTitle": "Non ha funzionato",
   "sramGenericError": "Qualcosa è andato storto. Riprova.",
   "sramShiftingOff": "Il cambio integrato è disattivato: BikeControl controlla i tuoi rapporti.",
@@ -1065,5 +1102,382 @@
   "sramChecklistBackingUp": "Backup della configurazione",
   "sramChecklistDisabling": "Disattivazione del cambio integrato",
   "sramChecklistRestoring": "Ripristino del cambio originale",
-  "sramPressHold": "Tieni premuto sul deragliatore"
+  "sramPressHold": "Tieni premuto sul deragliatore",
+  "actionInclineIncrease": "Aumenta pendenza",
+  "actionInclineDecrease": "Riduci pendenza",
+  "actionInclineZero": "Pendenza in piano (0%)",
+  "actionInclineAutoMode": "Pendenza automatica (segui il percorso)",
+  "inclineActions": "Pendenza",
+  "kickrClimb": "KICKR Climb",
+  "enable": "Attiva",
+  "enableLocalConnectionMethodDescription": "Questa azione usa il metodo di connessione Locale, non ancora attivo. Attivalo per usare l'azione.",
+  "enableLocalConnectionMethodTitle": "Attivare il metodo di connessione Locale?",
+  "onboardingMenuEntry": "Guida alla configurazione",
+  "onboardingUpdatePatchBody": "Già scaricato: riavvia per completare la configurazione con l'ultima versione.",
+  "onboardingUpdateStoreBody": "Aggiorna prima, così la configurazione parte dall'ultima versione.",
+  "onboardingUpdateRestart": "Riavvia",
+  "onboardingUpdateOpenStore": "Aggiorna",
+  "onboardingWelcomeTitle": "Configuriamo tutto insieme",
+  "onboardingWelcomeSubtitle": "Un paio di minuti adesso e il tuo controller cambierà le marce nella tua app di allenamento a ogni uscita.",
+  "onboardingWelcomePointController": "Associa il controller e guarda i suoi pulsanti accendersi",
+  "onboardingWelcomePointTrainer": "Se vuoi, collega il tuo smart trainer per il cambio virtuale",
+  "onboardingWelcomePointApp": "Collegati alla tua app di allenamento, passo dopo passo",
+  "onboardingWelcomeStart": "Iniziamo",
+  "onboardingWelcomeLater": "Lo farò più tardi",
+  "onboardingWelcomeFootnote": "Puoi riaprire tutto quando vuoi da Menu → Guida alla configurazione.",
+  "onboardingStepOf": "Passo {current} di {total}",
+  "@onboardingStepOf": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingStepApp": "App di allenamento",
+  "onboardingStepAppSub": "Con cosa pedali",
+  "onboardingStepWhere": "Dove gira",
+  "onboardingStepWhereSub": "Questo o un altro dispositivo",
+  "onboardingStepController": "Controller",
+  "onboardingStepControllerSub": "Trova e collega",
+  "onboardingStepVs": "Cambio virtuale",
+  "onboardingStepVsSub": "Facoltativo",
+  "onboardingStepConnection": "Connessione",
+  "onboardingStepConnectionSub": "Collega l'app",
+  "onboardingStepDone": "Pronto",
+  "onboardingStepDoneSub": "Prova e pedala",
+  "onboardingVerified": "Verificata",
+  "onboardingAppTitle": "Con quale app pedali?",
+  "onboardingAppSubtitle": "Preselezioneremo il metodo di connessione e la mappatura dei pulsanti giusti.",
+  "onboardingAppNote": "Le app ufficiali sono testate con BikeControl e hanno mappature verificate. Le altre funzionano con metodi di connessione generici.",
+  "onboardingAppPickToContinue": "Scegli un'app per continuare",
+  "onboardingAppContinueWith": "Continua con {app}",
+  "@onboardingAppContinueWith": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereTitle": "Dove gira {app}?",
+  "@onboardingWhereTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereSubtitle": "Questo decide come BikeControl le parla.",
+  "onboardingWhereEnablesLocal": "Attiva il metodo Locale: pressioni e tocchi vanno direttamente all'app.",
+  "onboardingWhereEnablesNetwork": "Attiva il metodo Rete: BikeControl trova l'app tramite il tuo Wi-Fi.",
+  "onboardingWhereChangeLater": "Potrai cambiarlo più tardi nelle impostazioni di connessione.",
+  "onboardingHelp": "Aiuto",
+  "onboardingHelpAndSupport": "Aiuto e assistenza",
+  "onboardingBack": "Indietro",
+  "onboardingContinue": "Continua",
+  "onboardingHelpSheetTitle": "Ti serve una mano?",
+  "onboardingHelpSheetIntro": "La configurazione richiede un paio di minuti. Se qualcosa si blocca, parti da qui.",
+  "onboardingHelpAppTitle": "Quale app devo scegliere?",
+  "onboardingHelpAppBody": "Scegli l'app in cui pedali davvero. Le integrazioni ufficiali sono testate con BikeControl; le altre si collegano con metodi generici.",
+  "onboardingHelpWhereTitle": "Stesso dispositivo o un altro?",
+  "onboardingHelpWhereBody": "Se la tua app di allenamento è su Apple TV, PC o tablet e BikeControl è altrove, scegli «Su un altro dispositivo».",
+  "onboardingHelpControllerTitle": "Il mio controller non compare",
+  "onboardingHelpControllerBody": "Sveglialo premendo un pulsante, chiudi ogni app che lo tiene già occupato (soprattutto Zwift) e tienilo a un paio di metri.",
+  "onboardingHelpVsTitle": "Mi serve uno smart trainer?",
+  "onboardingHelpVsBody": "No: questo passo è facoltativo. Collegane uno solo se vuoi che BikeControl calcoli marce e resistenza.",
+  "onboardingHelpConnectionTitle": "Non si collega",
+  "onboardingHelpConnectionBody": "Per Rete, controlla che entrambi i dispositivi siano sullo stesso Wi-Fi, oppure attiva Locale come alternativa su macOS, Windows e Android.",
+  "onboardingHelpDoneTitle": "Quali sono i limiti della modalità di prova?",
+  "onboardingHelpDoneBody": "Un budget giornaliero di comandi e cambio virtuale limitato al giorno. Abbastanza per verificare che la configurazione funzioni.",
+  "onboardingHelpDoneProTitle": "Dove cambio le cose più avanti?",
+  "onboardingHelpDoneProBody": "Tutto quello di questa configurazione si trova nell'app normale: controller e mappature nella schermata iniziale, metodi di connessione in Connessioni trainer e il ponte dello smart trainer sulla sua scheda.",
+  "onboardingHelpGuides": "Guide alla configurazione",
+  "onboardingHelpTroubleshooting": "Risoluzione dei problemi",
+  "onboardingHelpSupport": "Contatta l'assistenza",
+  "onboardingHelpBackToSetup": "Torna alla configurazione",
+  "onboardingPermissionDeniedTitle": "BikeControl non trova dispositivi",
+  "onboardingPermissionDeniedBody": "Senza il permesso Bluetooth non c'è modo di raggiungere il controller. Puoi comunque finire la configurazione e concederlo più tardi nelle impostazioni.",
+  "onboardingContinueAnyway": "Continua comunque",
+  "onboardingAllowBluetooth": "Consenti Bluetooth",
+  "onboardingBluetoothTitle": "Consenti il Bluetooth a BikeControl",
+  "onboardingBluetoothSubtitle": "BikeControl deve cercare i dispositivi vicini e avvisarti quando la connessione cambia.",
+  "onboardingBluetoothFindTitle": "Trova i controller vicini",
+  "onboardingBluetoothFindSub": "Cerca la tua leva o il tuo click.",
+  "onboardingBluetoothNotifyTitle": "Tenerti aggiornato",
+  "onboardingBluetoothNotifySub": "Ti avvisa quando un dispositivo si collega o cade.",
+  "onboardingBluetoothPrivacy": "BikeControl non lo usa mai per posizione o tracciamento.",
+  "onboardingNotNow": "Non ora",
+  "onboardingScanTitle": "Sto cercando il tuo controller",
+  "onboardingScanSubtitle": "Assicurati che sia acceso, a portata e non collegato a un'altra app.",
+  "onboardingScanEmptyTitle": "Nessun controller trovato",
+  "onboardingScanEmptySubtitle": "Nulla ha risposto alla ricerca. Di solito basta questo:",
+  "onboardingScanEmptyWakeTitle": "Sveglia il dispositivo",
+  "onboardingScanEmptyWakeSub": "Premi un pulsante o una leva per svegliarlo.",
+  "onboardingScanEmptyDisconnectTitle": "Scollegalo altrove",
+  "onboardingScanEmptyDisconnectSub": "Chiudi Zwift o qualsiasi app che tiene già la connessione.",
+  "onboardingScanEmptyCloserTitle": "Avvicinati",
+  "onboardingScanEmptyCloserSub": "Tienilo a un paio di metri durante l'associazione.",
+  "onboardingScanAgain": "Cerca di nuovo",
+  "onboardingSetUpLater": "Configura più tardi",
+  "onboardingCantFindController": "Non trovi il tuo controller?",
+  "onboardingControllerListTitle": "Controller",
+  "onboardingControllerListSubtitle": "I dispositivi si collegano automaticamente appena vengono trovati.",
+  "onboardingControllerReadyTitle": "Il tuo controller è pronto",
+  "onboardingControllerReadySubtitle": "Provalo: premi un pulsante e guarda BikeControl reagire.",
+  "onboardingStillScanning": "Ricerca in corso…",
+  "onboardingDeviceConnected": "Collegato",
+  "onboardingDeviceConnecting": "Connessione…",
+  "onboardingSetupNeeded": "Configurazione necessaria",
+  "onboardingControllerMapped": "I tuoi pulsanti sono già mappati per {app}. Potrai regolarli uno a uno più tardi.",
+  "@onboardingControllerMapped": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedTitle": "Facoltativo: collega il tuo smart trainer",
+  "onboardingVsBlockedSubtitle": "BikeControl può calcolare le marce per qualsiasi app: con {app} su Android serve solo una disposizione diversa.",
+  "@onboardingVsBlockedSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedExplainer": "Il cambio virtuale funziona con {app}, ma non con entrambe le app su questo stesso telefono: BikeControl pubblica il trainer via Wi-Fi, la versione Android di {app} associa i trainer solo via Bluetooth e BikeControl non può annunciarsi in Bluetooth a un'app sullo stesso dispositivo.",
+  "@onboardingVsBlockedExplainer": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAlternatives": "Due configurazioni che funzionano",
+  "onboardingVsBlockedAltAppTitle": "Usa {app} su un altro dispositivo",
+  "@onboardingVsBlockedAltAppTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltAppBody": "Lascia BikeControl su questo telefono e pedala con {app} su PC, Apple TV o tablet: troverà il ponte tramite il tuo Wi-Fi. Torna indietro di un passo e scegli «Su un altro dispositivo».",
+  "@onboardingVsBlockedAltAppBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltBtTitle": "Usa BikeControl su un altro dispositivo",
+  "@onboardingVsBlockedAltBtTitle": {},
+  "onboardingVsBlockedAltBtBody": "Installa BikeControl su un secondo telefono o tablet vicino alla bici e lascia che pubblichi il trainer via Bluetooth: è ciò che {app} accetta su Android.",
+  "@onboardingVsBlockedAltBtBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingTrainerTitle": "Facoltativo: lascia il cambio virtuale a BikeControl",
+  "onboardingTrainerSubtitle": "Collega il tuo smart trainer e BikeControl calcolerà ogni marcia per te, in qualsiasi app.",
+  "onboardingTrainerBenefitRatiosTitle": "I tuoi rapporti",
+  "onboardingTrainerBenefitRatiosSub": "Imposta corone, pacco pignoni e numero di marce.",
+  "onboardingTrainerBenefitResistanceTitle": "Resistenza costante",
+  "onboardingTrainerBenefitResistanceSub": "I cambi hanno la stessa sensazione in ogni app e a ogni uscita.",
+  "onboardingTrainerBenefitAppsTitle": "Funziona dove l'app non arriva",
+  "onboardingTrainerBenefitAppsSub": "Aggiunge il cambio alle app che non ce l'hanno.",
+  "onboardingNearbyTrainers": "Smart trainer nelle vicinanze",
+  "onboardingTrainerMeta": "Supporta il cambio virtuale",
+  "onboardingTrainerHowItWorks": "Cambio virtuale con e senza BikeControl: qual è la differenza?",
+  "onboardingTrainerConnectedTitle": "Trainer collegato",
+  "onboardingTrainerConnectedSubtitle": "BikeControl può ora calcolare le marce e impostare la resistenza.",
+  "onboardingTrainerNextStepNote": "Nel passo successivo punterai {app} sul trainer virtuale di BikeControl, così le tue marce arrivano.",
+  "@onboardingTrainerNextStepNote": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingLetAppHandleVs": "Lascia il cambio virtuale a {app}",
+  "@onboardingLetAppHandleVs": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionMethods": "Metodi di connessione",
+  "onboardingMethodNetwork": "Rete",
+  "onboardingMethodNetworkDesc": "Attivo per {app} in modo predefinito. Entrambi i dispositivi devono essere sullo stesso Wi-Fi.",
+  "@onboardingMethodNetworkDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodBluetooth": "Bluetooth",
+  "onboardingMethodBluetoothBadge": "Ideale su iOS",
+  "onboardingMethodBluetoothDesc": "{app} accetta BikeControl anche via Bluetooth: continua a funzionare con BikeControl in secondo piano.",
+  "@onboardingMethodBluetoothDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodLocal": "Locale",
+  "onboardingMethodLocalBadge": "macOS · Windows · Android",
+  "onboardingMethodLocalDesc": "Invia azioni di tastiera, tocco e multimedia su questo dispositivo. Una buona alternativa se gli altri non si collegano.",
+  "onboardingMethodLocalFeature1": "Controllo musica e contenuti",
+  "onboardingMethodLocalFeature2": "Azioni trainer aggiuntive",
+  "onboardingMethodLocalFeature3": "Personalizzazione completa dei pulsanti",
+  "onboardingMethodLocalIosNote": "Non disponibile su iOS: usa Rete o Bluetooth.",
+  "onboardingSelectItFor": "Selezionalo per",
+  "onboardingSlotPower": "Sorgente di potenza",
+  "onboardingSlotControllable": "Controllabile / Resistenza",
+  "onboardingSlotCadence": "Cadenza",
+  "onboardingLive": "Attivo",
+  "onboardingConnectionTitle": "Collegati a {app}",
+  "@onboardingConnectionTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleLocal": "{app} gira su questo dispositivo, quindi BikeControl può comandarla direttamente.",
+  "@onboardingConnectionSubtitleLocal": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleNetwork": "BikeControl si annuncerà sulla tua rete così {app} potrà trovarlo.",
+  "@onboardingConnectionSubtitleNetwork": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingThenInApp": "Poi in {app}",
+  "@onboardingThenInApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFullSetupGuide": "Guida completa di {app}",
+  "@onboardingFullSetupGuide": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideMyWhoosh1": "Apri la schermata di connessione in MyWhoosh",
+  "onboardingGuideMyWhoosh2": "Tocca l'icona OpenBikeControl in alto a destra",
+  "onboardingGuideMyWhoosh3": "Tocca Sì nel messaggio per far collegare BikeControl",
+  "onboardingGuideRouvy1": "Apri Rouvy e vai alla schermata di connessione",
+  "onboardingGuideRouvy2": "BikeControl compare come controller disponibile: collega e pedala",
+  "onboardingGuideTp1": "Apri la schermata di connessione in TrainingPeaks Virtual",
+  "onboardingGuideTp2": "Associa con BikeControl",
+  "onboardingGuideTp3": "Assegna ai tuoi pulsanti le azioni che vuoi",
+  "onboardingGuideStrappo1": "Apri la schermata di connessione di Strappo",
+  "onboardingGuideStrappo2": "Associa con BikeControl tramite il protocollo OpenBikeControl",
+  "onboardingGuideGeneric1": "Apri la schermata di connessione di {app}",
+  "@onboardingGuideGeneric1": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideGeneric2": "Associa con BikeControl",
+  "onboardingPairAsTrainer": "Associa BikeControl come trainer",
+  "onboardingPairAsTrainerBody": "Nella schermata di associazione di {app} non scegliere il trainer direttamente: scegli la voce BikeControl. È quella che porta le tue marce.",
+  "@onboardingPairAsTrainerBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVirtualTrainerGears": "Trainer virtuale · {gears} marce",
+  "@onboardingVirtualTrainerGears": {
+    "placeholders": {
+      "gears": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingPairAsTrainerWarning": "Se associ {trainer} direttamente, {app} prenderà la potenza grezza e le tue marce BikeControl non verranno applicate.",
+  "@onboardingPairAsTrainerWarning": {
+    "placeholders": {
+      "trainer": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFinishSetup": "Completa la configurazione",
+  "onboardingDoneTitle": "Sei pronto a pedalare",
+  "onboardingYourController": "Il tuo controller",
+  "onboardingDoneSubtitle": "{controller} è collegato a {app}.",
+  "@onboardingDoneSubtitle": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingDoneSubtitleBridged": "{controller} è collegato a {app} e il tuo trainer passa da BikeControl.",
+  "@onboardingDoneSubtitleBridged": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryReady": "Pronto",
+  "onboardingAlmostThereTitle": "Ci siamo quasi",
+  "onboardingAlmostThereSubtitle": "Dal lato BikeControl è tutto pronto: manca solo che {app} si colleghi. Segui i passaggi della pagina precedente dentro {app}.",
+  "@onboardingAlmostThereSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryWaitingFor": "In attesa di {app}…",
+  "@onboardingSummaryWaitingFor": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryBridged": "Collegato tramite BikeControl",
+  "onboardingTestModeTitle": "Sei in modalità di prova",
+  "onboardingTestModeBody": "Pedala ora e verifica che funzioni tutto. La modalità di prova ha un budget giornaliero di comandi: abbastanza per confermare la connessione, non per un'intera sessione.",
+  "onboardingTestModeBodyVs": "Pedala ora e verifica che funzioni tutto. La modalità di prova ha un budget giornaliero di comandi e un cambio virtuale limitato al giorno: abbastanza per confermare la connessione, non per un'intera sessione.",
+  "onboardingSeeProOptions": "Vedi le opzioni Pro e Base",
+  "onboardingDoneFinishLater": "Fine: mi collego più tardi",
+  "onboardingDoneStartRiding": "Fatto: si pedala"
 }

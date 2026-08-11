@@ -749,20 +749,20 @@ class _PaywallState extends State<Paywall> {
       onTap: () => _selectPlan(_PaywallPlan.fullVersion),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           // The one-time Base plan sits quieter than the Pro cards above it.
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? const Color(0xFF5A6ED6) : const Color(0xFFDDDEE5),
-            width: selected ? 2.4 : 1.5,
+            width: selected ? 2 : 1.5,
           ),
         ),
         child: Row(
           children: [
-            _buildRadioIndicator(selected, compact: true),
-            const SizedBox(width: 14),
+            _buildRadioIndicator(selected, compact: true, small: true),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -771,16 +771,17 @@ class _PaywallState extends State<Paywall> {
                     AppLocalizations.of(context).fullVersion,
                     style: const TextStyle(
                       color: Color(0xFF07070A),
-                      fontSize: 15,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 2),
                   Text(
                     _pricing.fullVersionSubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF4E4E53),
+                      fontSize: 11.5,
+                      color: Color(0xFF6C6D73),
                     ),
                   ),
                 ],
@@ -792,11 +793,16 @@ class _PaywallState extends State<Paywall> {
     );
   }
 
-  Widget _buildRadioIndicator(bool selected, {bool compact = false}) {
+  Widget _buildRadioIndicator(bool selected, {bool compact = false, bool small = false}) {
+    final size = small
+        ? 16.0
+        : compact
+            ? 20.0
+            : 34.0;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      width: compact ? 20 : 34,
-      height: compact ? 20 : 34,
+      width: size,
+      height: size,
       margin: EdgeInsets.only(top: compact ? 2 : 8),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -818,7 +824,7 @@ class _PaywallState extends State<Paywall> {
       child: selected
           ? Icon(
               Icons.check,
-              size: compact ? 13 : 18,
+              size: small ? 10 : (compact ? 13 : 18),
               color: Colors.white,
             )
           : null,

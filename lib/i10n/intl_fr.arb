@@ -2,7 +2,13 @@
   "reconnect": "Reconnecter",
   "batterySaverTitle": "Économiseur de batterie",
   "controllersDisconnectedInactivity": "Manettes déconnectées après {minutes} minutes d'inactivité pour économiser la batterie. Rallumez une manette pour la reconnecter.",
-  "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
+  "@controllersDisconnectedInactivity": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "overlayDisabledIos": "Pendant la séance, l'Overlay du home-trainer flotte au-dessus de ton app d'entraînement (ou sur la Dynamic Island sur les iPhone compatibles) et sur l'écran verrouillé.",
   "overlayUsePip": "Fenêtre flottante (Picture-in-Picture)",
   "overlayUsePipSubtitle": "Affiche ta vitesse dans une fenêtre flottante au-dessus de ton app d'entraînement, en plus de l'écran verrouillé (et de la Dynamic Island si disponible).",
@@ -23,7 +29,13 @@
   "virtualShiftingHint": "Ajoute ou ajuste le Virtual Shifting et présente BikeControl comme un home-trainer.",
   "noConnection": "Aucune connexion",
   "noConnectionHint": "Laisse {trainerApp} gérer le Virtual Shifting, si pris en charge",
-  "@noConnectionHint": {"placeholders": {"trainerApp": {"type": "String"}}},
+  "@noConnectionHint": {
+    "placeholders": {
+      "trainerApp": {
+        "type": "String"
+      }
+    }
+  },
   "actionShiftUp": "Monter les vitesses",
   "actionShiftDown": "Descendre les vitesses",
   "actionFrontShift": "Changement de plateau",
@@ -508,8 +520,8 @@
   "pasteExportedJsonData": "Collez ci-dessous les données JSON exportées :",
   "pathCopiedToClipboard": "Le chemin a été copié dans le presse-papiers.",
   "paywall_amountOfActions": "Nombre d'actions",
-  "paywall_billedAtPricemo": "{price}/mois.",
-  "paywall_billedAtYearly": "{cost}/an.",
+  "paywall_billedAtPricemo": "Facturé {price}/mois",
+  "paywall_billedAtYearly": "Facturé {cost}/an",
   "paywall_configure3ActionsPerButton": "Configurer 3 actions par bouton",
   "paywall_connectToYourTrainer": "Connecte-toi avec ton entraîneur",
   "paywall_controlYourDeviceMusic": "Contrôle ton appareil / musique",
@@ -669,7 +681,6 @@
   "trialPeriodActive": "Période d'essai active -{trialDaysRemaining} jours restants",
   "trialPeriodDescription": "Profite de commandes illimitées pendant ta période d'essai. Après la période d'essai, le nombre de commandes sera limité à {dailyCommandLimit} par jour.",
   "troubleshootingGuide": "Questions et réponses",
-
   "tryingToConnectAgain": "Tentative de reconnexion...",
   "unassignAction": "Action de désaffectation",
   "unlimited": "Illimité",
@@ -880,7 +891,6 @@
   "connectionSettings": "Réglages de connexion",
   "needsTargetLeavePrompt": "{appName} a besoin d'une cible avant de pouvoir se connecter. Partir sans en choisir ?",
   "feedbackQuestion": "Ça fonctionne ?",
-  "feedbackNoDifference": "Aucune différence",
   "supportChat": "Chat de support",
   "knownIssues": "Problèmes connus",
   "chatWithSupport": "Discuter avec le support",
@@ -993,37 +1003,63 @@
   },
   "smartTrainerConsentTitle": "Connexion à {trainerName}",
   "@smartTrainerConsentTitle": {
-    "placeholders": {"trainerName": {"type": "String"}}
+    "placeholders": {
+      "trainerName": {
+        "type": "String"
+      }
+    }
   },
   "smartTrainerConsentMessage": "BikeControl va maintenant se connecter à ton Smart Trainer et prendre le contrôle du changement de vitesses virtuel. Tous les changements se feront directement dans BikeControl, et non plus via ton {appName}. Dans {appName}, tu te connecteras ensuite au home trainer virtuel BikeControl plutôt que directement à {trainerName}.\n\nPour revenir au comportement par défaut, clique sur le bouton « {disconnectLabel} » et reconnecte {appName} directement à ton {trainerName}.",
   "@smartTrainerConsentMessage": {
     "placeholders": {
-      "trainerName": {"type": "String"},
-      "appName": {"type": "String"},
-      "disconnectLabel": {"type": "String"}
+      "trainerName": {
+        "type": "String"
+      },
+      "appName": {
+        "type": "String"
+      },
+      "disconnectLabel": {
+        "type": "String"
+      }
     }
   },
   "overlayFieldControls": "Boutons de vitesses / watts",
   "connectingToDevice": "Connexion à : {device}",
   "@connectingToDevice": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionSucceeded": "Connexion réussie : {device}",
   "@connectionSucceeded": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionFailed": "Échec de la connexion : {device} - {error}",
   "@connectionFailed": {
     "placeholders": {
-      "device": {"type": "String"},
-      "error": {"type": "String"}
+      "device": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
     }
   },
   "connectionGaveUpAfterAttempts": "Impossible de se connecter à {device} après plusieurs tentatives.",
   "wheeltopClaimedByDerailleurHint": "La manette est probablement accaparée par son dérailleur arrière. Éteignez le dérailleur ou laissez-le se mettre en veille, puis appuyez sur un bouton de la manette pendant la recherche.",
   "unableToConnectToDeviceTimeout": "Impossible de se connecter à {device} : délai dépassé",
   "@unableToConnectToDeviceTimeout": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "scanningForDevicesShort": "Recherche d'appareils…",
   "disconnectingAllDevices": "Déconnexion de tous les appareils",
@@ -1048,13 +1084,13 @@
   "sramSetup": "Configurer le contrôle SRAM",
   "sramRestore": "Restaurer le fonctionnement d'origine",
   "sramPanelIntro": "Laissez BikeControl gérer votre transmission : il sauvegarde la configuration actuelle de vos manettes, puis désactive le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pouvez la restaurer à tout moment.",
-  "sramSetupIntro": "BikeControl va sauvegarder la configuration actuelle de vos manettes et désactiver le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pourrez la restaurer à tout moment.",
+  "sramSetupIntro": "BikeControl sauvegarde ta configuration de manettes actuelle et désactive le passage de vitesses propre au dérailleur, afin que les palettes envoient des appuis de boutons. Tu peux la restaurer à tout moment.",
   "sramSetupSuccess": "BikeControl contrôle désormais vos vitesses. Chaque bouton de manette est une entrée de contrôleur que vous pouvez attribuer dans l'application.",
   "sramRestoreIntro": "Cela restaure le fonctionnement d'origine de votre dérailleur.",
   "sramRestoreSuccess": "La configuration d'origine de vos manettes a été restaurée.",
   "sramDialogRunning": "Communication avec votre dérailleur… gardez-le à proximité et actif.",
   "sramAuthorizeTitle": "Autoriser BikeControl",
-  "sramAuthorizeBody": "Votre dérailleur doit autoriser BikeControl. Appuyez longuement sur le bouton AXS du dérailleur jusqu'à ce que son voyant clignote, puis appuyez sur Réessayer.",
+  "sramAuthorizeBody": "Maintiens le bouton AXS de ton dérailleur jusqu'à ce que sa lumière clignote, puis touche Réessayer.",
   "sramErrorTitle": "Ça n'a pas fonctionné",
   "sramGenericError": "Une erreur s'est produite. Veuillez réessayer.",
   "sramShiftingOff": "Le passage des vitesses du dérailleur est désactivé – BikeControl contrôle vos vitesses.",
@@ -1066,5 +1102,382 @@
   "sramChecklistBackingUp": "Sauvegarde de votre configuration",
   "sramChecklistDisabling": "Désactivation du passage des vitesses",
   "sramChecklistRestoring": "Restauration du fonctionnement d'origine",
-  "sramPressHold": "Appui long sur le dérailleur"
+  "sramPressHold": "Appui long sur le dérailleur",
+  "actionInclineIncrease": "Augmenter la pente",
+  "actionInclineDecrease": "Diminuer la pente",
+  "actionInclineZero": "Pente à plat (0 %)",
+  "actionInclineAutoMode": "Pente automatique (suivre le terrain)",
+  "inclineActions": "Pente",
+  "kickrClimb": "KICKR Climb",
+  "enable": "Activer",
+  "enableLocalConnectionMethodDescription": "Cette action utilise la méthode de connexion Locale, qui n'est pas encore activée. Active-la pour utiliser cette action.",
+  "enableLocalConnectionMethodTitle": "Activer la méthode de connexion Locale ?",
+  "onboardingMenuEntry": "Guide de configuration",
+  "onboardingUpdatePatchBody": "Déjà téléchargé — redémarre pour terminer la configuration avec la dernière version.",
+  "onboardingUpdateStoreBody": "Mets à jour d'abord, pour que ta configuration tourne sur la dernière version.",
+  "onboardingUpdateRestart": "Redémarrer",
+  "onboardingUpdateOpenStore": "Mettre à jour",
+  "onboardingWelcomeTitle": "On installe tout ça",
+  "onboardingWelcomeSubtitle": "Quelques minutes maintenant, et ta commande changera les vitesses dans ton app d'entraînement à chaque sortie.",
+  "onboardingWelcomePointController": "Associe ta commande et vois ses boutons s'allumer",
+  "onboardingWelcomePointTrainer": "Relie éventuellement ton home-trainer pour le passage de vitesses virtuel",
+  "onboardingWelcomePointApp": "Connecte-toi à ton app d'entraînement, étape par étape",
+  "onboardingWelcomeStart": "C'est parti",
+  "onboardingWelcomeLater": "Je le ferai plus tard",
+  "onboardingWelcomeFootnote": "Tu peux rouvrir ceci à tout moment via Menu → Guide de configuration.",
+  "onboardingStepOf": "Étape {current} sur {total}",
+  "@onboardingStepOf": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingStepApp": "App d'entraînement",
+  "onboardingStepAppSub": "Avec quoi tu roules",
+  "onboardingStepWhere": "Où elle tourne",
+  "onboardingStepWhereSub": "Cet appareil ou un autre",
+  "onboardingStepController": "Commande",
+  "onboardingStepControllerSub": "Trouver et connecter",
+  "onboardingStepVs": "Vitesses virtuelles",
+  "onboardingStepVsSub": "Facultatif",
+  "onboardingStepConnection": "Connexion",
+  "onboardingStepConnectionSub": "Relier l'app",
+  "onboardingStepDone": "Prêt",
+  "onboardingStepDoneSub": "Tester et rouler",
+  "onboardingVerified": "Vérifié",
+  "onboardingAppTitle": "Avec quelle app roules-tu ?",
+  "onboardingAppSubtitle": "Nous présélectionnerons la bonne méthode de connexion et l'affectation des boutons.",
+  "onboardingAppNote": "Les apps officielles sont testées avec BikeControl et disposent d'affectations vérifiées. Les autres fonctionnent via des méthodes de connexion génériques.",
+  "onboardingAppPickToContinue": "Choisis une app pour continuer",
+  "onboardingAppContinueWith": "Continuer avec {app}",
+  "@onboardingAppContinueWith": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereTitle": "Où tourne {app} ?",
+  "@onboardingWhereTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereSubtitle": "Cela détermine comment BikeControl lui parle.",
+  "onboardingWhereEnablesLocal": "Active la méthode Locale — les appuis et les touchers vont directement à l'app.",
+  "onboardingWhereEnablesNetwork": "Active la méthode Réseau — BikeControl trouve l'app via ton Wi-Fi.",
+  "onboardingWhereChangeLater": "Tu pourras changer cela plus tard dans les réglages de connexion.",
+  "onboardingHelp": "Aide",
+  "onboardingHelpAndSupport": "Aide et assistance",
+  "onboardingBack": "Retour",
+  "onboardingContinue": "Continuer",
+  "onboardingHelpSheetTitle": "Besoin d'un coup de main ?",
+  "onboardingHelpSheetIntro": "La configuration prend quelques minutes. Si ça bloque, commence ici.",
+  "onboardingHelpAppTitle": "Quelle app choisir ?",
+  "onboardingHelpAppBody": "Choisis l'app dans laquelle tu roules vraiment. Les intégrations officielles sont testées avec BikeControl ; les autres se connectent via des méthodes génériques.",
+  "onboardingHelpWhereTitle": "Même appareil ou un autre ?",
+  "onboardingHelpWhereBody": "Si ton app d'entraînement est sur une Apple TV, un PC ou une tablette et BikeControl ailleurs, choisis « Sur un autre appareil ».",
+  "onboardingHelpControllerTitle": "Ma commande n'apparaît pas",
+  "onboardingHelpControllerBody": "Réveille-la avec un appui, ferme toute app qui la retient déjà (Zwift surtout) et garde-la à deux mètres.",
+  "onboardingHelpVsTitle": "Ai-je besoin d'un home-trainer connecté ?",
+  "onboardingHelpVsBody": "Non — cette étape est facultative. Connecte-en un seulement si tu veux que BikeControl calcule tes vitesses et la résistance.",
+  "onboardingHelpConnectionTitle": "Ça ne se connecte pas",
+  "onboardingHelpConnectionBody": "Pour Réseau, vérifie que les deux appareils sont sur le même Wi-Fi, ou active Local comme solution de repli sur macOS, Windows et Android.",
+  "onboardingHelpDoneTitle": "Quelles sont les limites du mode test ?",
+  "onboardingHelpDoneBody": "Un quota quotidien de commandes, plus un passage de vitesses virtuel limité par jour. De quoi vérifier que ta configuration fonctionne.",
+  "onboardingHelpDoneProTitle": "Où modifier tout ça plus tard ?",
+  "onboardingHelpDoneProBody": "Tout ce qui vient de cette configuration se trouve dans l'app : commandes et affectations sur l'écran d'accueil, méthodes de connexion sous Connexions home-trainer, et le pont du home-trainer sur sa fiche.",
+  "onboardingHelpGuides": "Guides de configuration",
+  "onboardingHelpTroubleshooting": "Dépannage",
+  "onboardingHelpSupport": "Contacter l'assistance",
+  "onboardingHelpBackToSetup": "Retour à la configuration",
+  "onboardingPermissionDeniedTitle": "BikeControl ne trouve aucun appareil",
+  "onboardingPermissionDeniedBody": "Sans autorisation Bluetooth, impossible d'atteindre ta commande. Tu peux quand même terminer la configuration et l'accorder plus tard dans les réglages.",
+  "onboardingContinueAnyway": "Continuer quand même",
+  "onboardingAllowBluetooth": "Autoriser le Bluetooth",
+  "onboardingBluetoothTitle": "Autoriser le Bluetooth pour BikeControl",
+  "onboardingBluetoothSubtitle": "BikeControl doit chercher les appareils à proximité et te prévenir quand la connexion change.",
+  "onboardingBluetoothFindTitle": "Trouver les commandes à proximité",
+  "onboardingBluetoothFindSub": "Recherche ta manette ou ton boîtier click.",
+  "onboardingBluetoothNotifyTitle": "Te tenir informé",
+  "onboardingBluetoothNotifySub": "T'indique quand un appareil se connecte ou décroche.",
+  "onboardingBluetoothPrivacy": "BikeControl ne s'en sert jamais pour la localisation ou le suivi.",
+  "onboardingNotNow": "Pas maintenant",
+  "onboardingScanTitle": "Recherche de ta commande",
+  "onboardingScanSubtitle": "Vérifie qu'elle est allumée, à portée et non connectée à une autre app.",
+  "onboardingScanEmptyTitle": "Aucune commande trouvée",
+  "onboardingScanEmptySubtitle": "Rien n'a répondu au scan. Voici ce qui règle généralement le problème :",
+  "onboardingScanEmptyWakeTitle": "Réveille l'appareil",
+  "onboardingScanEmptyWakeSub": "Appuie sur un bouton ou une palette pour le réveiller.",
+  "onboardingScanEmptyDisconnectTitle": "Déconnecte-le ailleurs",
+  "onboardingScanEmptyDisconnectSub": "Ferme Zwift ou toute app qui détient déjà la connexion.",
+  "onboardingScanEmptyCloserTitle": "Rapproche-toi",
+  "onboardingScanEmptyCloserSub": "Garde-le à deux mètres pendant l'association.",
+  "onboardingScanAgain": "Rechercher à nouveau",
+  "onboardingSetUpLater": "Configurer plus tard",
+  "onboardingCantFindController": "Tu ne trouves pas ta commande ?",
+  "onboardingControllerListTitle": "Commandes",
+  "onboardingControllerListSubtitle": "Les appareils se connectent automatiquement dès qu'ils sont trouvés.",
+  "onboardingControllerReadyTitle": "Ta commande est prête",
+  "onboardingControllerReadySubtitle": "Essaie : appuie sur un bouton et regarde BikeControl réagir.",
+  "onboardingStillScanning": "Recherche en cours…",
+  "onboardingDeviceConnected": "Connecté",
+  "onboardingDeviceConnecting": "Connexion…",
+  "onboardingSetupNeeded": "Configuration requise",
+  "onboardingControllerMapped": "Tes boutons sont déjà affectés pour {app}. Tu pourras les ajuster un à un plus tard.",
+  "@onboardingControllerMapped": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedTitle": "Facultatif : connecte ton home-trainer",
+  "onboardingVsBlockedSubtitle": "BikeControl peut calculer tes vitesses pour n'importe quelle app — avec {app} sur Android, il faut juste une autre configuration.",
+  "@onboardingVsBlockedSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedExplainer": "Les vitesses virtuelles fonctionnent avec {app} — mais pas avec les deux apps sur ce seul téléphone : BikeControl publie ton home-trainer en Wi-Fi, la version Android de {app} n'associe les home-trainers qu'en Bluetooth, et BikeControl ne peut pas s'annoncer en Bluetooth à une app du même appareil.",
+  "@onboardingVsBlockedExplainer": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAlternatives": "Deux configurations qui marchent",
+  "onboardingVsBlockedAltAppTitle": "Utilise {app} sur un autre appareil",
+  "@onboardingVsBlockedAltAppTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltAppBody": "Garde BikeControl sur ce téléphone et roule avec {app} sur un PC, une Apple TV ou une tablette — le pont sera trouvé via ton Wi-Fi. Reviens d'une étape et choisis « Sur un autre appareil ».",
+  "@onboardingVsBlockedAltAppBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltBtTitle": "Utilise BikeControl sur un autre appareil",
+  "@onboardingVsBlockedAltBtTitle": {},
+  "onboardingVsBlockedAltBtBody": "Installe BikeControl sur un deuxième téléphone ou une tablette près de ton vélo et laisse-le publier le home-trainer en Bluetooth — c'est ce que {app} accepte sur Android.",
+  "@onboardingVsBlockedAltBtBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingTrainerTitle": "Facultatif : laisse BikeControl gérer les vitesses virtuelles",
+  "onboardingTrainerSubtitle": "Connecte ton home-trainer et BikeControl calcule chaque vitesse pour toi — dans toutes les apps.",
+  "onboardingTrainerBenefitRatiosTitle": "Tes développements",
+  "onboardingTrainerBenefitRatiosSub": "Définis tes plateaux, ta cassette et le nombre de vitesses.",
+  "onboardingTrainerBenefitResistanceTitle": "Résistance constante",
+  "onboardingTrainerBenefitResistanceSub": "Les changements ont la même sensation dans chaque app, à chaque sortie.",
+  "onboardingTrainerBenefitAppsTitle": "Marche là où l'app ne le fait pas",
+  "onboardingTrainerBenefitAppsSub": "Ajoute le passage de vitesses aux apps qui n'en ont pas.",
+  "onboardingNearbyTrainers": "Home-trainers à proximité",
+  "onboardingTrainerMeta": "Compatible vitesses virtuelles",
+  "onboardingTrainerHowItWorks": "Vitesses virtuelles avec et sans BikeControl — quelle différence ?",
+  "onboardingTrainerConnectedTitle": "Home-trainer connecté",
+  "onboardingTrainerConnectedSubtitle": "BikeControl peut maintenant calculer tes vitesses et régler la résistance.",
+  "onboardingTrainerNextStepNote": "À l'étape suivante, tu pointeras {app} vers le home-trainer virtuel de BikeControl pour que tes vitesses passent.",
+  "@onboardingTrainerNextStepNote": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingLetAppHandleVs": "Laisser {app} gérer les vitesses virtuelles",
+  "@onboardingLetAppHandleVs": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionMethods": "Méthodes de connexion",
+  "onboardingMethodNetwork": "Réseau",
+  "onboardingMethodNetworkDesc": "Activé par défaut pour {app}. Les deux appareils doivent être sur le même Wi-Fi.",
+  "@onboardingMethodNetworkDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodBluetooth": "Bluetooth",
+  "onboardingMethodBluetoothBadge": "Idéal sur iOS",
+  "onboardingMethodBluetoothDesc": "{app} accepte aussi BikeControl en Bluetooth — ça continue de fonctionner quand BikeControl est en arrière-plan.",
+  "@onboardingMethodBluetoothDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodLocal": "Local",
+  "onboardingMethodLocalBadge": "macOS · Windows · Android",
+  "onboardingMethodLocalDesc": "Envoie des actions clavier, tactiles et multimédias sur cet appareil. Un bon repli si les autres ne se connectent pas.",
+  "onboardingMethodLocalFeature1": "Contrôle de la musique et des médias",
+  "onboardingMethodLocalFeature2": "Actions home-trainer supplémentaires",
+  "onboardingMethodLocalFeature3": "Personnalisation complète des boutons",
+  "onboardingMethodLocalIosNote": "Indisponible sur iOS — utilise Réseau ou Bluetooth.",
+  "onboardingSelectItFor": "Sélectionne-le pour",
+  "onboardingSlotPower": "Source de puissance",
+  "onboardingSlotControllable": "Contrôlable / Résistance",
+  "onboardingSlotCadence": "Cadence",
+  "onboardingLive": "En direct",
+  "onboardingConnectionTitle": "Se connecter à {app}",
+  "@onboardingConnectionTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleLocal": "{app} tourne sur cet appareil, BikeControl peut donc la piloter directement.",
+  "@onboardingConnectionSubtitleLocal": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleNetwork": "BikeControl s'annoncera sur ton réseau pour que {app} puisse le trouver.",
+  "@onboardingConnectionSubtitleNetwork": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingThenInApp": "Ensuite, dans {app}",
+  "@onboardingThenInApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFullSetupGuide": "Guide complet de {app}",
+  "@onboardingFullSetupGuide": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideMyWhoosh1": "Ouvre l'écran de connexion dans MyWhoosh",
+  "onboardingGuideMyWhoosh2": "Touche l'icône OpenBikeControl en haut à droite",
+  "onboardingGuideMyWhoosh3": "Touche Oui dans la fenêtre pour autoriser BikeControl à se connecter",
+  "onboardingGuideRouvy1": "Ouvre Rouvy et va à l'écran de connexion",
+  "onboardingGuideRouvy2": "BikeControl apparaît comme commande disponible — connecte-toi et roule",
+  "onboardingGuideTp1": "Ouvre l'écran de connexion dans TrainingPeaks Virtual",
+  "onboardingGuideTp2": "Associe avec BikeControl",
+  "onboardingGuideTp3": "Affecte les actions souhaitées à tes boutons",
+  "onboardingGuideStrappo1": "Ouvre l'écran de connexion de Strappo",
+  "onboardingGuideStrappo2": "Associe avec BikeControl via le protocole OpenBikeControl",
+  "onboardingGuideGeneric1": "Ouvre l'écran de connexion de {app}",
+  "@onboardingGuideGeneric1": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideGeneric2": "Associe avec BikeControl",
+  "onboardingPairAsTrainer": "Associe BikeControl comme home-trainer",
+  "onboardingPairAsTrainerBody": "Sur l'écran d'association de {app}, ne choisis pas ton home-trainer directement — choisis l'entrée BikeControl. C'est elle qui transmet tes vitesses.",
+  "@onboardingPairAsTrainerBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVirtualTrainerGears": "Home-trainer virtuel · {gears} vitesses",
+  "@onboardingVirtualTrainerGears": {
+    "placeholders": {
+      "gears": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingPairAsTrainerWarning": "Si tu associes {trainer} directement, {app} prendra la puissance brute et tes vitesses BikeControl ne s'appliqueront pas.",
+  "@onboardingPairAsTrainerWarning": {
+    "placeholders": {
+      "trainer": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFinishSetup": "Terminer la configuration",
+  "onboardingDoneTitle": "Tu es prêt à rouler",
+  "onboardingYourController": "Ta commande",
+  "onboardingDoneSubtitle": "{controller} est connecté à {app}.",
+  "@onboardingDoneSubtitle": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingDoneSubtitleBridged": "{controller} est connecté à {app}, et ton home-trainer passe par BikeControl.",
+  "@onboardingDoneSubtitleBridged": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryReady": "Prêt",
+  "onboardingAlmostThereTitle": "Presque terminé",
+  "onboardingAlmostThereSubtitle": "Tout est prêt côté BikeControl — il ne manque que la connexion de {app}. Suis les étapes de la page précédente dans {app}.",
+  "@onboardingAlmostThereSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryWaitingFor": "En attente de {app}…",
+  "@onboardingSummaryWaitingFor": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryBridged": "Relié via BikeControl",
+  "onboardingTestModeTitle": "Tu es en mode test",
+  "onboardingTestModeBody": "Roule maintenant et vérifie que tout fonctionne. Le mode test limite un quota quotidien de commandes — de quoi valider la connexion, pas une séance entière.",
+  "onboardingTestModeBodyVs": "Roule maintenant et vérifie que tout fonctionne. Le mode test limite un quota quotidien de commandes et le passage de vitesses virtuel par jour — de quoi valider la connexion, pas une séance entière.",
+  "onboardingSeeProOptions": "Voir les offres Pro et Base",
+  "onboardingDoneFinishLater": "Terminer — je connecterai plus tard",
+  "onboardingDoneStartRiding": "Terminé — en route"
 }

@@ -2,7 +2,13 @@
   "reconnect": "Reconectar",
   "batterySaverTitle": "Ahorro de batería",
   "controllersDisconnectedInactivity": "Mandos desconectados tras {minutes} minutos de inactividad para ahorrar batería. Vuelve a encender un mando para reconectarlo.",
-  "@controllersDisconnectedInactivity": {"placeholders": {"minutes": {"type": "int"}}},
+  "@controllersDisconnectedInactivity": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
   "overlayDisabledIos": "Durante la sesión, el Overlay del rodillo flota sobre tu app de entrenamiento (o en la Dynamic Island en iPhones compatibles) y en la pantalla de bloqueo.",
   "overlayUsePip": "Ventana flotante (Picture-in-Picture)",
   "overlayUsePipSubtitle": "Muestra tu marcha en una ventana flotante sobre tu app de entrenamiento, además de en la pantalla de bloqueo (y en la Dynamic Island cuando esté disponible).",
@@ -23,7 +29,13 @@
   "virtualShiftingHint": "Añade o ajusta el Virtual Shifting y anuncia BikeControl como rodillo.",
   "noConnection": "Sin conexión",
   "noConnectionHint": "Deja que {trainerApp} gestione el Virtual Shifting, si es compatible",
-  "@noConnectionHint": {"placeholders": {"trainerApp": {"type": "String"}}},
+  "@noConnectionHint": {
+    "placeholders": {
+      "trainerApp": {
+        "type": "String"
+      }
+    }
+  },
   "actionShiftUp": "Subir marcha",
   "actionShiftDown": "Bajar marcha",
   "actionFrontShift": "Cambio de plato",
@@ -508,8 +520,8 @@
   "pasteExportedJsonData": "Pega abajo los datos JSON exportados:",
   "pathCopiedToClipboard": "La ruta se ha copiado al portapapeles",
   "paywall_amountOfActions": "Cantidad de acciones",
-  "paywall_billedAtPricemo": "{price}/mes.",
-  "paywall_billedAtYearly": "{cost}/año.",
+  "paywall_billedAtPricemo": "Se cobra {price}/mes",
+  "paywall_billedAtYearly": "Se cobra {cost}/año",
   "paywall_configure3ActionsPerButton": "Configurar 3 acciones por botón",
   "paywall_connectToYourTrainer": "Conéctate con tu entrenador",
   "paywall_controlYourDeviceMusic": "Controla tu dispositivo/música",
@@ -879,7 +891,6 @@
   "connectionSettings": "Ajustes de conexión",
   "needsTargetLeavePrompt": "{appName} necesita un destino antes de poder conectar. ¿Salir sin elegir uno?",
   "feedbackQuestion": "¿Funciona?",
-  "feedbackNoDifference": "Sin diferencia",
   "supportChat": "Chat de soporte",
   "knownIssues": "Problemas conocidos",
   "chatWithSupport": "Chatear con soporte",
@@ -992,37 +1003,63 @@
   },
   "smartTrainerConsentTitle": "Conectando a {trainerName}",
   "@smartTrainerConsentTitle": {
-    "placeholders": {"trainerName": {"type": "String"}}
+    "placeholders": {
+      "trainerName": {
+        "type": "String"
+      }
+    }
   },
   "smartTrainerConsentMessage": "BikeControl se conectará ahora a tu Smart Trainer y tomará el control del cambio de marchas virtual. Los cambios se realizarán directamente en BikeControl y ya no a través de tu {appName}. En {appName} te conectarás entonces al entrenador virtual de BikeControl, en lugar de directamente a {trainerName}.\n\nPara volver al comportamiento por defecto, haz clic en el botón «{disconnectLabel}» y vuelve a conectar {appName} directamente a tu {trainerName}.",
   "@smartTrainerConsentMessage": {
     "placeholders": {
-      "trainerName": {"type": "String"},
-      "appName": {"type": "String"},
-      "disconnectLabel": {"type": "String"}
+      "trainerName": {
+        "type": "String"
+      },
+      "appName": {
+        "type": "String"
+      },
+      "disconnectLabel": {
+        "type": "String"
+      }
     }
   },
   "overlayFieldControls": "Botones de cambio / vatios",
   "connectingToDevice": "Conectando a: {device}",
   "@connectingToDevice": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionSucceeded": "Conexión exitosa: {device}",
   "@connectionSucceeded": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "connectionFailed": "Conexión fallida: {device} - {error}",
   "@connectionFailed": {
     "placeholders": {
-      "device": {"type": "String"},
-      "error": {"type": "String"}
+      "device": {
+        "type": "String"
+      },
+      "error": {
+        "type": "String"
+      }
     }
   },
   "connectionGaveUpAfterAttempts": "No se pudo conectar con {device} tras varios intentos.",
   "wheeltopClaimedByDerailleurHint": "Probablemente la maneta está ocupada por su desviador trasero. Apaga el desviador o deja que entre en reposo y, durante la búsqueda, pulsa un botón de la maneta.",
   "unableToConnectToDeviceTimeout": "No se pudo conectar a {device}: Tiempo de espera agotado",
   "@unableToConnectToDeviceTimeout": {
-    "placeholders": {"device": {"type": "String"}}
+    "placeholders": {
+      "device": {
+        "type": "String"
+      }
+    }
   },
   "scanningForDevicesShort": "Buscando dispositivos...",
   "disconnectingAllDevices": "Desconectando todos los dispositivos",
@@ -1047,13 +1084,13 @@
   "sramSetup": "Configurar el control SRAM",
   "sramRestore": "Restaurar el cambio original",
   "sramPanelIntro": "Deja que BikeControl controle tu cambio: hace una copia de seguridad de tu configuración actual del cambio y luego desactiva el cambio propio del desviador para que solo envíe pulsaciones de botón. Puedes restaurarla en cualquier momento.",
-  "sramSetupIntro": "BikeControl hará una copia de seguridad de tu configuración actual del cambio y desactivará el cambio propio del desviador para que solo envíe pulsaciones de botón. Puedes restaurarla en cualquier momento.",
+  "sramSetupIntro": "BikeControl hace una copia de tu configuración actual de manetas y desactiva el cambio propio del cambio trasero, para que las levas envíen pulsaciones de botón. Puedes restaurarla cuando quieras.",
   "sramSetupSuccess": "BikeControl ahora controla tus marchas. Cada botón del mando es una entrada de controlador que puedes asignar en la app.",
   "sramRestoreIntro": "Esto restaura el cambio original de tu desviador.",
   "sramRestoreSuccess": "Se ha restaurado tu configuración original del cambio.",
   "sramDialogRunning": "Comunicando con tu desviador: mantenlo cerca y activo.",
   "sramAuthorizeTitle": "Autorizar BikeControl",
-  "sramAuthorizeBody": "Tu desviador necesita autorizar BikeControl. Mantén pulsado el botón AXS del desviador hasta que su luz parpadee y luego toca Reintentar.",
+  "sramAuthorizeBody": "Mantén pulsado el botón AXS de tu cambio trasero hasta que su luz parpadee y luego toca Reintentar.",
   "sramErrorTitle": "No ha funcionado",
   "sramGenericError": "Algo ha salido mal. Inténtalo de nuevo.",
   "sramShiftingOff": "El cambio del dispositivo está desactivado: BikeControl controla tus marchas.",
@@ -1065,5 +1102,382 @@
   "sramChecklistBackingUp": "Copiando tu configuración",
   "sramChecklistDisabling": "Desactivando el cambio del dispositivo",
   "sramChecklistRestoring": "Restaurando el cambio original",
-  "sramPressHold": "Mantén pulsado en el desviador"
+  "sramPressHold": "Mantén pulsado en el desviador",
+  "actionInclineIncrease": "Subir inclinación",
+  "actionInclineDecrease": "Bajar inclinación",
+  "actionInclineZero": "Inclinación plana (0 %)",
+  "actionInclineAutoMode": "Inclinación automática (seguir pendiente)",
+  "inclineActions": "Inclinación",
+  "kickrClimb": "KICKR Climb",
+  "enable": "Activar",
+  "enableLocalConnectionMethodDescription": "Esta acción usa el método de conexión Local, que aún no está activado. Actívalo para usar esta acción.",
+  "enableLocalConnectionMethodTitle": "¿Activar el método de conexión Local?",
+  "onboardingMenuEntry": "Guía de configuración",
+  "onboardingUpdatePatchBody": "Ya descargado: reinicia para terminar la configuración con la última versión.",
+  "onboardingUpdateStoreBody": "Actualiza primero para que tu configuración use la última versión.",
+  "onboardingUpdateRestart": "Reiniciar",
+  "onboardingUpdateOpenStore": "Actualizar",
+  "onboardingWelcomeTitle": "Vamos a configurarlo",
+  "onboardingWelcomeSubtitle": "Un par de minutos ahora y tu mando cambiará de marchas en tu app de entrenamiento en cada salida.",
+  "onboardingWelcomePointController": "Empareja tu mando y ve cómo se iluminan sus botones",
+  "onboardingWelcomePointTrainer": "Opcionalmente, conecta tu rodillo inteligente para el cambio virtual",
+  "onboardingWelcomePointApp": "Conecta con tu app de entrenamiento, paso a paso",
+  "onboardingWelcomeStart": "Vamos allá",
+  "onboardingWelcomeLater": "Lo configuraré más tarde",
+  "onboardingWelcomeFootnote": "Puedes volver a abrirlo cuando quieras en Menú → Guía de configuración.",
+  "onboardingStepOf": "Paso {current} de {total}",
+  "@onboardingStepOf": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingStepApp": "App de entrenamiento",
+  "onboardingStepAppSub": "Con la que ruedas",
+  "onboardingStepWhere": "Dónde se ejecuta",
+  "onboardingStepWhereSub": "Este u otro dispositivo",
+  "onboardingStepController": "Mando",
+  "onboardingStepControllerSub": "Buscar y conectar",
+  "onboardingStepVs": "Cambio virtual",
+  "onboardingStepVsSub": "Opcional",
+  "onboardingStepConnection": "Conexión",
+  "onboardingStepConnectionSub": "Vincular la app",
+  "onboardingStepDone": "Listo",
+  "onboardingStepDoneSub": "Probar y rodar",
+  "onboardingVerified": "Verificado",
+  "onboardingAppTitle": "¿Con qué app ruedas?",
+  "onboardingAppSubtitle": "Preseleccionaremos el método de conexión y la asignación de botones adecuados.",
+  "onboardingAppNote": "Las apps oficiales se prueban con BikeControl y tienen asignaciones de botones verificadas. Las demás funcionan mediante métodos de conexión genéricos.",
+  "onboardingAppPickToContinue": "Elige una app para continuar",
+  "onboardingAppContinueWith": "Continuar con {app}",
+  "@onboardingAppContinueWith": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereTitle": "¿Dónde se ejecuta {app}?",
+  "@onboardingWhereTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWhereSubtitle": "Esto decide cómo se comunica BikeControl con ella.",
+  "onboardingWhereEnablesLocal": "Activa el método Local: las pulsaciones y toques van directos a la app.",
+  "onboardingWhereEnablesNetwork": "Activa el método de Red: BikeControl encuentra la app por tu wifi.",
+  "onboardingWhereChangeLater": "Puedes cambiarlo más tarde en los ajustes de conexión.",
+  "onboardingHelp": "Ayuda",
+  "onboardingHelpAndSupport": "Ayuda y soporte",
+  "onboardingBack": "Atrás",
+  "onboardingContinue": "Continuar",
+  "onboardingHelpSheetTitle": "¿Necesitas ayuda?",
+  "onboardingHelpSheetIntro": "La configuración lleva un par de minutos. Si algo se atasca, empieza por aquí.",
+  "onboardingHelpAppTitle": "¿Qué app debo elegir?",
+  "onboardingHelpAppBody": "Elige la app en la que ruedas de verdad. Las integraciones oficiales se prueban con BikeControl; las demás se conectan por métodos genéricos.",
+  "onboardingHelpWhereTitle": "¿Mismo dispositivo u otro?",
+  "onboardingHelpWhereBody": "Si tu app de entrenamiento está en un Apple TV, PC o tablet y BikeControl en otro sitio, elige «En otro dispositivo».",
+  "onboardingHelpControllerTitle": "Mi mando no aparece",
+  "onboardingHelpControllerBody": "Despiértalo pulsando un botón, cierra cualquier app que ya lo tenga ocupado (sobre todo Zwift) y mantenlo a un par de metros.",
+  "onboardingHelpVsTitle": "¿Necesito un rodillo inteligente?",
+  "onboardingHelpVsBody": "No: este paso es opcional. Conéctalo solo si quieres que BikeControl calcule tus marchas y la resistencia.",
+  "onboardingHelpConnectionTitle": "No se conecta",
+  "onboardingHelpConnectionBody": "Para Red, comprueba que ambos dispositivos están en el mismo wifi, o activa Local como alternativa en macOS, Windows y Android.",
+  "onboardingHelpDoneTitle": "¿Cuáles son los límites del modo de prueba?",
+  "onboardingHelpDoneBody": "Un cupo diario de comandos y cambio virtual limitado al día. Suficiente para comprobar que tu configuración funciona.",
+  "onboardingHelpDoneProTitle": "¿Dónde cambio las cosas más tarde?",
+  "onboardingHelpDoneProBody": "Todo lo de esta configuración está en la app normal: mandos y asignaciones de botones en la pantalla de inicio, métodos de conexión en Conexiones del rodillo y el puente del rodillo inteligente en su tarjeta de dispositivo.",
+  "onboardingHelpGuides": "Guías de configuración",
+  "onboardingHelpTroubleshooting": "Solución de problemas",
+  "onboardingHelpSupport": "Contactar con soporte",
+  "onboardingHelpBackToSetup": "Volver a la configuración",
+  "onboardingPermissionDeniedTitle": "BikeControl no encuentra dispositivos",
+  "onboardingPermissionDeniedBody": "Sin permiso de Bluetooth no hay forma de llegar a tu mando. Puedes terminar la configuración y concederlo más tarde en Ajustes.",
+  "onboardingContinueAnyway": "Continuar de todos modos",
+  "onboardingAllowBluetooth": "Permitir Bluetooth",
+  "onboardingBluetoothTitle": "Permitir Bluetooth para BikeControl",
+  "onboardingBluetoothSubtitle": "BikeControl necesita buscar dispositivos cercanos y avisarte cuando cambie la conexión.",
+  "onboardingBluetoothFindTitle": "Encontrar mandos cercanos",
+  "onboardingBluetoothFindSub": "Busca tu maneta o dispositivo click.",
+  "onboardingBluetoothNotifyTitle": "Mantenerte informado",
+  "onboardingBluetoothNotifySub": "Te avisa cuando un dispositivo se conecta o se cae.",
+  "onboardingBluetoothPrivacy": "BikeControl nunca lo usa para ubicación ni seguimiento.",
+  "onboardingNotNow": "Ahora no",
+  "onboardingScanTitle": "Buscando tu mando",
+  "onboardingScanSubtitle": "Asegúrate de que está encendido, dentro del alcance y no conectado a otra app.",
+  "onboardingScanEmptyTitle": "No se han encontrado mandos",
+  "onboardingScanEmptySubtitle": "Nada respondió al escaneo. Esto suele arreglarlo:",
+  "onboardingScanEmptyWakeTitle": "Despierta el dispositivo",
+  "onboardingScanEmptyWakeSub": "Pulsa un botón o una leva para despertarlo.",
+  "onboardingScanEmptyDisconnectTitle": "Desconéctalo en otro sitio",
+  "onboardingScanEmptyDisconnectSub": "Cierra Zwift o cualquier app que ya tenga la conexión.",
+  "onboardingScanEmptyCloserTitle": "Acércate",
+  "onboardingScanEmptyCloserSub": "Mantenlo a un par de metros mientras se empareja.",
+  "onboardingScanAgain": "Buscar de nuevo",
+  "onboardingSetUpLater": "Configurar más tarde",
+  "onboardingCantFindController": "¿No encuentras tu mando?",
+  "onboardingControllerListTitle": "Mandos",
+  "onboardingControllerListSubtitle": "Los dispositivos se conectan automáticamente al encontrarse.",
+  "onboardingControllerReadyTitle": "Tu mando está listo",
+  "onboardingControllerReadySubtitle": "Pruébalo: pulsa un botón y mira cómo reacciona BikeControl.",
+  "onboardingStillScanning": "Sigue buscando…",
+  "onboardingDeviceConnected": "Conectado",
+  "onboardingDeviceConnecting": "Conectando…",
+  "onboardingSetupNeeded": "Requiere configuración",
+  "onboardingControllerMapped": "Tus botones ya están asignados para {app}. Podrás ajustarlos uno a uno más tarde.",
+  "@onboardingControllerMapped": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedTitle": "Opcional: conecta tu rodillo inteligente",
+  "onboardingVsBlockedSubtitle": "BikeControl puede calcular tus marchas para cualquier app; con {app} en Android solo necesita otra disposición.",
+  "@onboardingVsBlockedSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedExplainer": "El cambio virtual funciona con {app}, pero no con las dos apps en este mismo móvil: BikeControl publica tu rodillo por wifi, la versión Android de {app} solo empareja rodillos por Bluetooth, y BikeControl no puede anunciarse por Bluetooth a una app del mismo dispositivo.",
+  "@onboardingVsBlockedExplainer": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAlternatives": "Dos configuraciones que funcionan",
+  "onboardingVsBlockedAltAppTitle": "Usa {app} en otro dispositivo",
+  "@onboardingVsBlockedAltAppTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltAppBody": "Deja BikeControl en este móvil y rueda con {app} en un PC, Apple TV o tablet: encontrará el puente por tu wifi. Vuelve un paso y elige «En otro dispositivo».",
+  "@onboardingVsBlockedAltAppBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVsBlockedAltBtTitle": "Usa BikeControl en otro dispositivo",
+  "@onboardingVsBlockedAltBtTitle": {},
+  "onboardingVsBlockedAltBtBody": "Instala BikeControl en un segundo móvil o tablet junto a tu bici y deja que publique el rodillo por Bluetooth: eso es lo que acepta {app} en Android.",
+  "@onboardingVsBlockedAltBtBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingTrainerTitle": "Opcional: deja el cambio virtual en manos de BikeControl",
+  "onboardingTrainerSubtitle": "Conecta tu rodillo inteligente y BikeControl calculará cada marcha por ti, en cualquier app.",
+  "onboardingTrainerBenefitRatiosTitle": "Tus desarrollos",
+  "onboardingTrainerBenefitRatiosSub": "Define tus platos, tu casete y el número de marchas.",
+  "onboardingTrainerBenefitResistanceTitle": "Resistencia constante",
+  "onboardingTrainerBenefitResistanceSub": "Los cambios se sienten igual en cada app y en cada salida.",
+  "onboardingTrainerBenefitAppsTitle": "Funciona donde la app no llega",
+  "onboardingTrainerBenefitAppsSub": "Añade cambio a las apps que no lo tienen.",
+  "onboardingNearbyTrainers": "Rodillos inteligentes cercanos",
+  "onboardingTrainerMeta": "Admite cambio virtual",
+  "onboardingTrainerHowItWorks": "Cambio virtual con y sin BikeControl: ¿cuál es la diferencia?",
+  "onboardingTrainerConnectedTitle": "Rodillo conectado",
+  "onboardingTrainerConnectedSubtitle": "BikeControl ya puede calcular tus marchas y ajustar la resistencia.",
+  "onboardingTrainerNextStepNote": "En el siguiente paso apuntarás {app} al rodillo virtual de BikeControl para que lleguen tus marchas.",
+  "@onboardingTrainerNextStepNote": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingLetAppHandleVs": "Dejar el cambio virtual a {app}",
+  "@onboardingLetAppHandleVs": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionMethods": "Métodos de conexión",
+  "onboardingMethodNetwork": "Red",
+  "onboardingMethodNetworkDesc": "Activado para {app} por defecto. Ambos dispositivos deben estar en el mismo wifi.",
+  "@onboardingMethodNetworkDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodBluetooth": "Bluetooth",
+  "onboardingMethodBluetoothBadge": "Mejor en iOS",
+  "onboardingMethodBluetoothDesc": "{app} también acepta BikeControl por Bluetooth: sigue funcionando con BikeControl en segundo plano.",
+  "@onboardingMethodBluetoothDesc": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingMethodLocal": "Local",
+  "onboardingMethodLocalBadge": "macOS · Windows · Android",
+  "onboardingMethodLocalDesc": "Envía acciones de teclado, toque y multimedia en este dispositivo. Buena alternativa si los demás no conectan.",
+  "onboardingMethodLocalFeature1": "Control de música y multimedia",
+  "onboardingMethodLocalFeature2": "Acciones adicionales del rodillo",
+  "onboardingMethodLocalFeature3": "Personalización total de botones",
+  "onboardingMethodLocalIosNote": "No disponible en iOS: usa Red o Bluetooth.",
+  "onboardingSelectItFor": "Selecciónalo para",
+  "onboardingSlotPower": "Fuente de potencia",
+  "onboardingSlotControllable": "Controlable / Resistencia",
+  "onboardingSlotCadence": "Cadencia",
+  "onboardingLive": "En directo",
+  "onboardingConnectionTitle": "Conectar con {app}",
+  "@onboardingConnectionTitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleLocal": "{app} se ejecuta en este dispositivo, así que BikeControl puede controlarla directamente.",
+  "@onboardingConnectionSubtitleLocal": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleNetwork": "BikeControl se anunciará en tu red para que {app} pueda encontrarlo.",
+  "@onboardingConnectionSubtitleNetwork": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingThenInApp": "Después, en {app}",
+  "@onboardingThenInApp": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFullSetupGuide": "Guía completa de {app}",
+  "@onboardingFullSetupGuide": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideMyWhoosh1": "Abre la pantalla de conexión en MyWhoosh",
+  "onboardingGuideMyWhoosh2": "Toca el icono de OpenBikeControl arriba a la derecha",
+  "onboardingGuideMyWhoosh3": "Toca Sí en el aviso para dejar que BikeControl se conecte",
+  "onboardingGuideRouvy1": "Abre Rouvy y ve a la pantalla de conexión",
+  "onboardingGuideRouvy2": "BikeControl aparece como mando disponible: conecta y rueda",
+  "onboardingGuideTp1": "Abre la pantalla de conexión en TrainingPeaks Virtual",
+  "onboardingGuideTp2": "Empareja con BikeControl",
+  "onboardingGuideTp3": "Asigna a tus botones las acciones que quieras",
+  "onboardingGuideStrappo1": "Abre la pantalla de conexión de Strappo",
+  "onboardingGuideStrappo2": "Empareja con BikeControl mediante el protocolo OpenBikeControl",
+  "onboardingGuideGeneric1": "Abre la pantalla de conexión de {app}",
+  "@onboardingGuideGeneric1": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingGuideGeneric2": "Empareja con BikeControl",
+  "onboardingPairAsTrainer": "Empareja BikeControl como tu rodillo",
+  "onboardingPairAsTrainerBody": "En la pantalla de emparejamiento de {app}, no elijas tu rodillo directamente: elige la entrada de BikeControl. Es la que lleva tus marchas.",
+  "@onboardingPairAsTrainerBody": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingVirtualTrainerGears": "Rodillo virtual · {gears} marchas",
+  "@onboardingVirtualTrainerGears": {
+    "placeholders": {
+      "gears": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingPairAsTrainerWarning": "Si emparejas {trainer} directamente, {app} tomará la potencia sin procesar y tus marchas de BikeControl no se aplicarán.",
+  "@onboardingPairAsTrainerWarning": {
+    "placeholders": {
+      "trainer": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingFinishSetup": "Finalizar configuración",
+  "onboardingDoneTitle": "Todo listo para rodar",
+  "onboardingYourController": "Tu mando",
+  "onboardingDoneSubtitle": "{controller} está conectado a {app}.",
+  "@onboardingDoneSubtitle": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingDoneSubtitleBridged": "{controller} está conectado a {app} y tu rodillo pasa por BikeControl.",
+  "@onboardingDoneSubtitleBridged": {
+    "placeholders": {
+      "controller": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryReady": "Listo",
+  "onboardingAlmostThereTitle": "Casi está",
+  "onboardingAlmostThereSubtitle": "Todo lo de BikeControl está listo; falta que {app} se conecte. Sigue los pasos de la página anterior en la propia {app}.",
+  "@onboardingAlmostThereSubtitle": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryWaitingFor": "Esperando a {app}…",
+  "@onboardingSummaryWaitingFor": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingSummaryBridged": "Conectado por BikeControl",
+  "onboardingTestModeTitle": "Estás en modo de prueba",
+  "onboardingTestModeBody": "Rueda ahora y comprueba que todo funciona. El modo de prueba te limita a un cupo diario de comandos: suficiente para verificar la conexión, no para una sesión entera.",
+  "onboardingTestModeBodyVs": "Rueda ahora y comprueba que todo funciona. El modo de prueba te limita a un cupo diario de comandos y a un cambio virtual limitado al día: suficiente para verificar la conexión, no para una sesión entera.",
+  "onboardingSeeProOptions": "Ver opciones Pro y Base",
+  "onboardingDoneFinishLater": "Finalizar: me conecto luego",
+  "onboardingDoneStartRiding": "Listo: a rodar"
 }
