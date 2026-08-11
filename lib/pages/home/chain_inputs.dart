@@ -42,6 +42,8 @@ class ControllerInput {
     required this.hasMappedButtons,
     this.requiresBluetooth = true,
     this.unlocked,
+    this.unlockedUntil,
+    this.unlockUncertain = false,
   });
 
   final String deviceId;
@@ -66,6 +68,13 @@ class ControllerInput {
   /// restart workaround instead — passes null, so its card omits the step
   /// rather than carrying a line that can never be actioned.
   final bool? unlocked;
+
+  /// When the current unlock runs out, preformatted for display. Null while the
+  /// controller is locked, or when unlocking does not apply.
+  final String? unlockedUntil;
+
+  /// Whether [unlocked] is a best guess — see [SetupStep.uncertain].
+  final bool unlockUncertain;
 }
 
 class TrainerInput {

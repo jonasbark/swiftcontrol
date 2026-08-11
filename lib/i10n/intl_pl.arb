@@ -1572,6 +1572,8 @@
   "chainStepUnlocked": "Odblokowany",
   "chainStepUnlockedPending": "Odblokuj go w Zwift",
   "chainStepUnlockedHint": "Zwift przypisuje Click V2 do własnej aplikacji — otwórz Zwift raz, a kontroler będzie działać przez 24 godziny.",
+  "chainStepUnlockedUntil": "Odblokowany do {date}",
+  "chainStepUnlockedLikelyUntil": "Prawdopodobnie odblokowany do {date}",
   "chainStepTrainerPaired": "Trenażer połączony",
   "chainStepTrainerPairedPending": "Połącz swój trenażer",
   "chainStepAppSelected": "Wybrano aplikację treningową",

@@ -11,6 +11,7 @@ import 'package:bike_control/main.dart';
 import 'package:bike_control/models/remembered_device.dart';
 import 'package:bike_control/pages/controller_settings.dart';
 import 'package:bike_control/pages/unlock.dart';
+import 'package:intl/intl.dart';
 import 'package:bike_control/pages/home/chain_builder.dart';
 import 'package:bike_control/pages/home/chain_inputs.dart';
 import 'package:bike_control/pages/home/chain_state.dart';
@@ -187,6 +188,15 @@ class _HomePageState extends State<HomePage> {
     return device.isPersistedUnlocked;
   }
 
+  /// When this controller's unlock runs out, or null if it isn't unlocked.
+  /// Formatted here, next to the other display concerns — the chain model
+  /// itself stays free of locales and date formats.
+  String? _unlockedUntil(BaseDevice device) {
+    if (device is! ZwiftClickV2) return null;
+    final until = device.unlockedUntil;
+    return until == null ? null : DateFormat('EEEE, HH:mm').format(until);
+  }
+
   DevicePresence _presenceOf(BaseDevice device, {required bool isStandIn}) {
     if (device.isConnected) return DevicePresence.connected;
     if (device.isResetting) return DevicePresence.resetting;
@@ -267,6 +277,8 @@ class _HomePageState extends State<HomePage> {
             hasMappedButtons: _hasMappedButtons(device),
             requiresBluetooth: device is BluetoothDevice,
             unlocked: _unlockState(device),
+            unlockedUntil: _unlockedUntil(device),
+            unlockUncertain: device is ZwiftClickV2 && device.isLikelyUnlocked,
           ),
       ],
       trainer: trainer,

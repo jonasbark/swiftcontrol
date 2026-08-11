@@ -1572,6 +1572,8 @@
   "chainStepUnlocked": "Desbloqueado",
   "chainStepUnlockedPending": "Desbloquéalo con Zwift",
   "chainStepUnlockedHint": "Zwift limita el Click V2 a su propia aplicación: abre Zwift una vez y seguirá funcionando durante 24 horas.",
+  "chainStepUnlockedUntil": "Desbloqueado hasta {date}",
+  "chainStepUnlockedLikelyUntil": "Probablemente desbloqueado hasta {date}",
   "chainStepTrainerPaired": "Rodillo conectado",
   "chainStepTrainerPairedPending": "Conecta tu rodillo",
   "chainStepAppSelected": "App de entrenamiento elegida",

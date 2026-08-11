@@ -50,6 +50,10 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
     super.dispose();
   }
 
+  /// Context under this page's [DrawerOverlay]; see the note in [build].
+  BuildContext? _overlayContext;
+  BuildContext get _sheetContext => _overlayContext ?? context;
+
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
@@ -60,6 +64,13 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
     return DrawerOverlay(
       child: Builder(
         builder: (context) {
+          // Everything below is built from THIS context, not the State's: the
+          // DrawerOverlay that hosts openDrawer is created right above this
+          // Builder, so `State.context` sits outside it and any drawer opened
+          // from a helper method that closes over it dies on "No DrawerOverlay
+          // found in the widget tree" (the "Unlock again" button did exactly
+          // that).
+          _overlayContext = context;
           return Scaffold(
             headers: [
               AppBar(
@@ -188,7 +199,7 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Theme.of(context).colorScheme.border),
       ),
-      child: device.showInformation(context, showFull: true, footer: footer),
+      child: device.showInformation(_sheetContext, showFull: true, footer: footer),
     );
   }
 
@@ -298,7 +309,7 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                   return;
                 }
                 openDrawer(
-                  context: context,
+                  context: _sheetContext,
                   position: OverlayPosition.end,
                   builder: (c) => DeviceScriptDrawer(deviceType: device.runtimeType.toString()),
                 );

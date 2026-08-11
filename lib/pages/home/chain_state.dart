@@ -64,18 +64,29 @@ enum ChainBannerKind {
 
 /// One line of a card's checklist.
 class SetupStep {
-  const SetupStep({required this.id, required this.done, this.hintArg});
+  const SetupStep({required this.id, required this.done, this.hintArg, this.uncertain = false});
 
   final SetupStepId id;
   final bool done;
+
+  /// Whether [done] is a best guess rather than a fact. Only
+  /// [SetupStepId.controllerUnlocked] uses it: BikeControl cannot read a Click
+  /// V2's lock state back, so after an unlock it knows when the 24 hours ought
+  /// to run out but not whether the unlock actually took — and the step has to
+  /// say "likely" instead of claiming more than it knows.
+  final bool uncertain;
 
   /// Optional runtime detail folded into the step's hint, e.g. the gear count
   /// and ratio on [SetupStepId.trainerGears]. Kept as raw data so the
   /// localized sentence is assembled in the widget layer.
   final String? hintArg;
 
-  SetupStep copyWith({bool? done, String? hintArg}) =>
-      SetupStep(id: id, done: done ?? this.done, hintArg: hintArg ?? this.hintArg);
+  SetupStep copyWith({bool? done, String? hintArg, bool? uncertain}) => SetupStep(
+    id: id,
+    done: done ?? this.done,
+    hintArg: hintArg ?? this.hintArg,
+    uncertain: uncertain ?? this.uncertain,
+  );
 
   @override
   String toString() => 'SetupStep(${id.name}, done: $done)';

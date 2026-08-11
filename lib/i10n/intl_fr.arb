@@ -1572,6 +1572,8 @@
   "chainStepUnlocked": "Déverrouillé",
   "chainStepUnlockedPending": "Déverrouille-le avec Zwift",
   "chainStepUnlockedHint": "Zwift réserve le Click V2 à sa propre application : ouvre Zwift une fois, et il fonctionne ensuite pendant 24 heures.",
+  "chainStepUnlockedUntil": "Déverrouillé jusqu'à {date}",
+  "chainStepUnlockedLikelyUntil": "Probablement déverrouillé jusqu'à {date}",
   "chainStepTrainerPaired": "Home trainer connecté",
   "chainStepTrainerPairedPending": "Connecte ton home trainer",
   "chainStepAppSelected": "Application d’entraînement choisie",

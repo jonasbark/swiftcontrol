@@ -33,8 +33,17 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
     SetupStepId.controllerInRange => step.done
         ? ChainStepText(l.chainStepInRange)
         : ChainStepText(l.chainStepInRangePending, l.chainStepInRangeHint),
+    // The one done step that says more than "done". An unlock expires, so the
+    // deadline is the useful part — a bare tick would hide the fact that this
+    // one comes back tomorrow.
     SetupStepId.controllerUnlocked => step.done
-        ? ChainStepText(l.chainStepUnlocked)
+        ? ChainStepText(
+            step.hintArg == null
+                ? l.chainStepUnlocked
+                : step.uncertain
+                ? l.chainStepUnlockedLikelyUntil(step.hintArg!)
+                : l.chainStepUnlockedUntil(step.hintArg!),
+          )
         : ChainStepText(l.chainStepUnlockedPending, l.chainStepUnlockedHint),
     SetupStepId.trainerPaired => step.done
         ? ChainStepText(l.chainStepTrainerPaired)

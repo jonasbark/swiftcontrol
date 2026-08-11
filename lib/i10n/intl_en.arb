@@ -1766,6 +1766,8 @@
   "chainStepUnlocked": "Unlocked",
   "chainStepUnlockedPending": "Unlock it with Zwift",
   "chainStepUnlockedHint": "Zwift locks the Click V2 to their own app — open Zwift once and it keeps working for 24 hours.",
+  "chainStepUnlockedUntil": "Unlocked until {date}",
+  "chainStepUnlockedLikelyUntil": "Likely unlocked until {date}",
   "chainStepTrainerPaired": "Trainer connected",
   "chainStepTrainerPairedPending": "Connect your trainer",
   "chainStepAppSelected": "Trainer app chosen",

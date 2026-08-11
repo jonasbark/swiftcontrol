@@ -1572,6 +1572,8 @@
   "chainStepUnlocked": "Sbloccato",
   "chainStepUnlockedPending": "Sbloccalo con Zwift",
   "chainStepUnlockedHint": "Zwift vincola il Click V2 alla propria app: apri Zwift una volta e continuerà a funzionare per 24 ore.",
+  "chainStepUnlockedUntil": "Sbloccato fino a {date}",
+  "chainStepUnlockedLikelyUntil": "Probabilmente sbloccato fino a {date}",
   "chainStepTrainerPaired": "Rullo collegato",
   "chainStepTrainerPairedPending": "Collega il tuo rullo",
   "chainStepAppSelected": "App di allenamento scelta",

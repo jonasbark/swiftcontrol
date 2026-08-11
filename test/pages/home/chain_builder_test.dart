@@ -18,6 +18,8 @@ ControllerInput controller({
   bool hasMappedButtons = true,
   bool requiresBluetooth = true,
   bool? unlocked,
+  String? unlockedUntil,
+  bool unlockUncertain = false,
 }) {
   return ControllerInput(
     deviceId: deviceId,
@@ -26,6 +28,8 @@ ControllerInput controller({
     hasMappedButtons: hasMappedButtons,
     requiresBluetooth: requiresBluetooth,
     unlocked: unlocked,
+    unlockedUntil: unlockedUntil,
+    unlockUncertain: unlockUncertain,
   );
 }
 
@@ -103,6 +107,38 @@ void main() {
       expect(_stepDone(link, SetupStepId.controllerUnlocked), isTrue);
       expect(link.remainingSteps, 0);
       expect(link.status, LinkStatus.ready);
+    });
+
+    // Deliberately the one done step that carries detail: an unlock expires, so
+    // a bare tick would hide that it comes back tomorrow.
+    test('a finished unlock step carries its deadline and its certainty', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(unlocked: true, unlockedUntil: 'Friday, 14:30', unlockUncertain: true)],
+          app: _readyApp,
+        ),
+      );
+      final step = chain.byKey(ChainLinkKey.controller).steps.firstWhere(
+        (s) => s.id == SetupStepId.controllerUnlocked,
+      );
+      expect(step.done, isTrue);
+      expect(step.hintArg, 'Friday, 14:30');
+      // BikeControl cannot read the lock state back, so "unlocked" is a guess
+      // and the label has to say so.
+      expect(step.uncertain, isTrue);
+    });
+
+    test('a confirmed unlock is not marked uncertain', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(unlocked: true, unlockedUntil: 'Friday, 14:30')],
+          app: _readyApp,
+        ),
+      );
+      final step = chain.byKey(ChainLinkKey.controller).steps.firstWhere(
+        (s) => s.id == SetupStepId.controllerUnlocked,
+      );
+      expect(step.uncertain, isFalse);
     });
 
     test('a controller with no unlock concept has no unlock step at all', () {

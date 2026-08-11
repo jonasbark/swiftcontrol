@@ -111,6 +111,14 @@ class ZwiftClickV2 extends ZwiftRide {
     return propPrefs.notSureIfUnlocked(scanResult.deviceId);
   }
 
+  /// When the current unlock runs out, or null if this Click was never
+  /// unlocked. Exposed so callers outside this file (the home chain's unlock
+  /// step) can show the deadline without reaching into `propPrefs` themselves.
+  DateTime? get unlockedUntil {
+    final lastUnlock = propPrefs.getZwiftClickV2LastUnlock(scanResult.deviceId);
+    return lastUnlock?.add(const Duration(days: 1));
+  }
+
   /// Held out of the connect queue until the rider has chosen an unlock mode.
   /// Zwift Click V2 behaviour depends entirely on that choice, so connecting
   /// first would hand them a controller that half-works for reasons they have
