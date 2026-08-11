@@ -19,7 +19,7 @@ void main() {
   // Harness matching test/widgets/emulation_card_test.dart — ShadcnApp with the
   // single English delegate is the pattern that works in this repo.
   Future<void> pumpPage(WidgetTester tester) async {
-    // The hero's idle-timeout and lock badges loop for as long as the page is
+    // The hero's lock badge loops for as long as the page is
     // visible (see ClickContours) — these tests exercise CTA/text/navigation
     // behaviour, not that loop, so animations are disabled here to keep
     // pumpAndSettle deterministic instead of waiting out a Ticker that never
@@ -46,11 +46,11 @@ void main() {
   // make a type-only assertion vacuous.
   Finder decisionButton(String text) => find.widgetWithText(Button, text);
 
-  testWidgets('page 0 shows the left-side option and the swipe hint, with no applying button', (tester) async {
+  testWidgets('page 0 shows the right-side option and the swipe hint, with no applying button', (tester) async {
     await pumpPage(tester);
 
-    expect(find.text('Use the left side only'), findsOneWidget);
-    expect(find.text('Drops out a minute after your last button press — reconnects on its own'), findsOneWidget);
+    expect(find.text('Use the right side only'), findsOneWidget);
+    expect(find.text('No restarts, no drop-outs mid-ride'), findsOneWidget);
     expect(find.text('Swipe to see the other option'), findsWidgets);
     // The hero now lives inside the pager's own scrollable page content
     // (moved off the fixed chrome above it) rather than as a shared sibling
@@ -58,7 +58,7 @@ void main() {
     // itself on every page, this one included.
     expect(find.descendant(of: find.byType(PageView), matching: find.byType(ClickContours)), findsWidgets);
 
-    expect(decisionButton('Use the left side'), findsNothing);
+    expect(decisionButton('Use the right side'), findsNothing);
     expect(decisionButton('Unlock with Zwift'), findsNothing);
   });
 
@@ -71,7 +71,7 @@ void main() {
     expect(find.text('Swipe to see the other option'), findsWidgets);
     expect(find.descendant(of: find.byType(PageView), matching: find.byType(ClickContours)), findsWidgets);
 
-    expect(decisionButton('Use the left side'), findsNothing);
+    expect(decisionButton('Use the right side'), findsNothing);
     expect(decisionButton('Unlock with Zwift'), findsNothing);
   });
 
@@ -81,9 +81,9 @@ void main() {
     await swipeNext(tester);
 
     expect(find.text('Which one do you want?'), findsOneWidget);
-    expect(decisionButton('Use the left side'), findsOneWidget);
+    expect(decisionButton('Use the right side'), findsOneWidget);
     expect(decisionButton('Unlock with Zwift'), findsOneWidget);
-    expect(find.text('No Zwift needed · left controller only'), findsOneWidget);
+    expect(find.text('No Zwift needed · right controller only'), findsOneWidget);
     expect(find.text('Both controllers · unlock every 24 hours'), findsOneWidget);
     // The decision page's own hero (both pucks live) is the third page to
     // carry one inside the pager.
@@ -104,15 +104,16 @@ void main() {
     expect(find.byKey(const ValueKey('click-contour-lock-badge')), findsNothing);
   });
 
-  testWidgets('tapping the left-side button on the decision page applies that mode', (tester) async {
+  testWidgets('tapping the right-side button on the decision page applies that mode', (tester) async {
     await pumpPage(tester);
     await swipeNext(tester);
     await swipeNext(tester);
 
-    await tester.tap(decisionButton('Use the left side'));
+    await tester.tap(decisionButton('Use the right side'));
     await tester.pumpAndSettle();
 
     expect(core.settings.getUnlockWithZwift(), isFalse);
+    expect(core.settings.getClickV2RightSideOnly(), isTrue);
     expect(core.settings.getClickV2OnboardingDone(), isTrue);
   });
 
@@ -125,6 +126,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(core.settings.getUnlockWithZwift(), isTrue);
+    expect(core.settings.getClickV2RightSideOnly(), isFalse);
     expect(core.settings.getClickV2OnboardingDone(), isTrue);
   });
 
@@ -155,7 +157,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Which one do you want?'), findsOneWidget);
-    expect(decisionButton('Use the left side'), findsOneWidget);
+    expect(decisionButton('Use the right side'), findsOneWidget);
     expect(decisionButton('Unlock with Zwift'), findsOneWidget);
   });
 
@@ -190,9 +192,9 @@ void main() {
     // at its resting offset, so the page is never left half-faded.
     for (final text in [
       'No Zwift unlock — ever',
-      'Works right away, no second app',
-      'Drops out a minute after your last button press — reconnects on its own',
-      'Only the left controller sends button presses',
+      'No restarts, no drop-outs mid-ride',
+      'Only the right controller sends button presses',
+      'No D-pad — no steering, no action bar',
     ]) {
       final opacity = tester.widget<FadeTransition>(
         find.ancestor(of: find.text(text), matching: find.byType(FadeTransition)).first,

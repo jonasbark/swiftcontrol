@@ -38,7 +38,7 @@ abstract final class ClickV2Onboarding {
   /// split sides and the legacy unified representation.
   ///
   /// NOT gated on [isPending]. That would seem right for a getter named
-  /// "pendingDevices", but [chooseLeftSideOnly]/[chooseUnlockWithZwift] write
+  /// "pendingDevices", but [chooseRightSideOnly]/[chooseUnlockWithZwift] write
   /// the setting that flips [isPending] to false *before* they call
   /// [_connectPending] — by the time [_connectPending] needs this list,
   /// `isPending` is already false. So this getter stays ungated and instead
@@ -52,13 +52,32 @@ abstract final class ClickV2Onboarding {
       .where((d) => !d.isConnected)
       .toList();
 
-  /// Left-side-only: no Zwift unlock at all. The left controller drops out a
-  /// minute after the last button press and reconnects on its own.
-  static Future<void> chooseLeftSideOnly() async {
+  /// Right-side-only: the puck Zwift never locked, on its own. It needs no
+  /// unlock, ever, and no restarts — the price is that the left puck's D-pad
+  /// (steering, action bar) is not available.
+  ///
+  /// The left side is held back rather than ignored, so this stays reversible
+  /// from the explainer's "Set up again" without a trip through the ignored
+  /// devices list.
+  static Future<void> chooseRightSideOnly() async {
     await core.settings.setUnlockWithZwift(false);
-    // This mode is driven by ClickLogic, which only runs from
-    // ZwiftClickV2LeftSide — the legacy unified controller never calls it. If
-    // the rider had the split representation switched off, turn it back on and
+    await core.settings.setClickV2RightSideOnly(true);
+    // With one puck doing the work, the default keymap would leave the rider
+    // able to shift in one direction only: Zwift's built-in map binds the
+    // right paddle to shiftUp and the *left* paddle to shiftDown. This is the
+    // same remap the right card's "Use the right side only" action applies.
+    //
+    // Isolated: the remap is a convenience on top of the mode, and needs a
+    // trainer app to have been picked. If it can't run — no app selected yet,
+    // a keymap that won't persist — the rider's actual choice must still be
+    // recorded and applied below, not abandoned half-written.
+    try {
+      ZwiftClickV2RightSide.configureRightSideShiftingKeymap();
+    } catch (e, stack) {
+      recordError(e, stack, context: 'ClickV2Onboarding.configureRightSideShiftingKeymap');
+    }
+    // The right side only exists as its own device in the split
+    // representation. If the rider had that switched off, turn it back on and
     // drop the stale device objects so the active scan rebuilds them as split
     // left/right instances. They are not connected yet, so this costs nothing.
     if (!core.settings.getUseNewUnlockMethod()) {
@@ -75,21 +94,19 @@ abstract final class ClickV2Onboarding {
       return;
     }
     // "Set up again" can reach this method while a left side is ALREADY
-    // connected (that's the only time the ghost button which routes here
-    // renders). A freshly-discovered pending device gets this handshake for
-    // free as part of its own connect flow (ZwiftClickV2LeftSide.setupHandshake),
-    // but an in-place mode switch on an already-connected device never
-    // re-triggers that — without this, the mode is inert until the firmware
-    // idle-timeout drops the link and the reconnect re-arms it. Mirrors
-    // UnlockToggle's own Select.onChanged exactly.
-    for (final device in core.connection.devices.whereType<ZwiftClickV2LeftSide>()) {
+    // connected. Its restart loop has to stop now, not whenever the firmware
+    // next drops the link: the left side is no longer part of this setup, and
+    // ClickLogic's timer is shared with the right side's handshake.
+    ClickLogic.resetTimer();
+    // Materialised: disconnect() mutates core.connection.devices, and a lazy
+    // whereType view over it throws a concurrent-modification error mid-loop.
+    final connectedLeftSides = core.connection.devices.whereType<ZwiftClickV2LeftSide>().toList();
+    for (final device in connectedLeftSides) {
       if (!device.isConnected) continue;
-      final services = device.services;
-      if (services == null) continue;
       try {
-        await ClickLogic.setupHandshake(services, device.device.deviceId, isRight: false);
+        await core.connection.disconnect(device, forget: false, persistForget: false);
       } catch (e, stack) {
-        recordError(e, stack, context: 'ClickV2Onboarding.chooseLeftSideOnly');
+        recordError(e, stack, context: 'ClickV2Onboarding.chooseRightSideOnly');
       }
     }
     await _complete();
@@ -100,6 +117,7 @@ abstract final class ClickV2Onboarding {
   /// through the Zwift app every 24 hours.
   static Future<void> chooseUnlockWithZwift() async {
     await core.settings.setUnlockWithZwift(true);
+    await core.settings.setClickV2RightSideOnly(false);
     // Mirrors UnlockToggle's own Select.onChanged: switching to Zwift mode
     // must cancel any live ClickLogic reset timer immediately, or the rider
     // gets one spurious restart right after choosing the mode whose whole

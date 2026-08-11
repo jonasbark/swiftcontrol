@@ -101,7 +101,39 @@ Future<void> main() async {
     expect(left.isConnected, isTrue);
   });
 
-  test('choosing left-side-only writes settings and connects the pending sides', () async {
+  test('choosing right-side-only writes settings and connects the right side', () async {
+    await core.settings.setClickV2OnboardingDone(false);
+    await core.settings.setUnlockWithZwift(false);
+    await core.settings.setUseNewUnlockMethod(true);
+
+    final right = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_RIGHT_SIDE);
+    env.ble.addPeripheral(right);
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2RightSide>().isNotEmpty,
+      description: 'the Click V2 right side to appear',
+    );
+
+    expect(ClickV2Onboarding.pendingDevices, isNotEmpty);
+
+    await ClickV2Onboarding.chooseRightSideOnly();
+
+    expect(core.settings.getUnlockWithZwift(), isFalse);
+    expect(core.settings.getClickV2RightSideOnly(), isTrue);
+    expect(core.settings.getUseNewUnlockMethod(), isTrue);
+    expect(core.settings.getClickV2OnboardingDone(), isTrue);
+    expect(ClickV2Onboarding.isPending, isFalse);
+
+    await IntegrationEnv.waitFor(
+      () => right.isConnected,
+      description: 'the Click V2 right side to connect after the choice',
+    );
+  });
+
+  // The whole point of the mode: the locked puck stays out. Its restart loop
+  // would otherwise fight the right side's handshake over ClickLogic's single
+  // shared reset timer.
+  test('right-side-only holds the left side out of the connect queue', () async {
     await core.settings.setClickV2OnboardingDone(false);
     await core.settings.setUnlockWithZwift(false);
     await core.settings.setUseNewUnlockMethod(true);
@@ -109,24 +141,20 @@ Future<void> main() async {
     final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
     env.ble.addPeripheral(left);
     await core.connection.performScanning();
-    await IntegrationEnv.waitFor(
+    final device = await IntegrationEnv.waitFor(
       () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
       description: 'the Click V2 left side to appear',
-    );
+    ).then((_) => core.connection.devices.whereType<ZwiftClickV2LeftSide>().first);
 
-    expect(ClickV2Onboarding.pendingDevices, isNotEmpty);
+    await ClickV2Onboarding.chooseRightSideOnly();
 
-    await ClickV2Onboarding.chooseLeftSideOnly();
+    expect(device.shouldAutoConnect, isFalse);
+    // It is still listed -- held back, not forgotten -- so "Set up again" can
+    // bring it straight back without a trip through ignored devices.
+    expect(core.connection.devices.contains(device), isTrue);
 
-    expect(core.settings.getUnlockWithZwift(), isFalse);
-    expect(core.settings.getUseNewUnlockMethod(), isTrue);
-    expect(core.settings.getClickV2OnboardingDone(), isTrue);
-    expect(ClickV2Onboarding.isPending, isFalse);
-
-    await IntegrationEnv.waitFor(
-      () => left.isConnected,
-      description: 'the Click V2 left side to connect after the choice',
-    );
+    await core.connection.performScanning();
+    expect(left.isConnected, isFalse);
   });
 
   test('choosing unlock-with-Zwift writes settings and connects the pending sides', () async {
@@ -153,31 +181,32 @@ Future<void> main() async {
     );
   });
 
-  test('left-side-only turns the split representation back on when it was off', () async {
+  test('right-side-only turns the split representation back on when it was off', () async {
     await core.settings.setClickV2OnboardingDone(false);
     await core.settings.setUnlockWithZwift(false);
     await core.settings.setUseNewUnlockMethod(false);
 
-    await ClickV2Onboarding.chooseLeftSideOnly();
+    // The right side does not exist as its own device in the legacy unified
+    // representation, so this mode cannot be honoured without flipping it on.
+    await ClickV2Onboarding.chooseRightSideOnly();
 
     expect(core.settings.getUseNewUnlockMethod(), isTrue);
   });
 
-  // FINDING 1: "Set up again" routes through the same chooseLeftSideOnly /
-  // chooseUnlockWithZwift entry points as first-time onboarding, but the
-  // ghost button that reaches them only ever renders for an ALREADY
-  // CONNECTED left side -- a case first-time onboarding never hits (a
-  // pending device is by definition disconnected). Both methods must perform
-  // the same ClickLogic side effects UnlockToggle's own Select.onChanged
-  // performs, for that already-connected device too.
-  test('"Set up again" -> left side only re-sends the ClickLogic handshake to an already-connected left side', () async {
+  // "Set up again" routes through the same chooseRightSideOnly /
+  // chooseUnlockWithZwift entry points as first-time onboarding, but reaches
+  // them with the left side ALREADY CONNECTED -- a case first-time onboarding
+  // never hits (a pending device is by definition disconnected). Switching to
+  // right-side-only there has to actually take the left side down, not just
+  // write the setting and leave a live link that the new mode says is not
+  // part of the setup.
+  test('"Set up again" -> right side only drops an already-connected left side', () async {
     // Onboarding already done and settled on Zwift mode -- i.e. the rider is
     // re-visiting the explainer via "Set up again", not doing first-time
-    // onboarding. The connect-time handshake in
-    // ZwiftClickV2LeftSide.setupHandshake is gated on !getUnlockWithZwift(),
-    // so connecting while already on Zwift mode sends no ClickLogic writes.
+    // onboarding.
     await core.settings.setClickV2OnboardingDone(true);
     await core.settings.setUnlockWithZwift(true);
+    await core.settings.setClickV2RightSideOnly(false);
 
     final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
     env.ble.addPeripheral(left);
@@ -193,25 +222,19 @@ Future<void> main() async {
       description: 'the Click V2 left side to connect',
     );
 
-    // Isolate what chooseLeftSideOnly does below from whatever the connect
-    // flow above already wrote (the Zwift RideOn handshake, on the same
-    // characteristic ClickLogic's GET request uses).
-    left.writes.clear();
-
-    await ClickV2Onboarding.chooseLeftSideOnly();
+    await ClickV2Onboarding.chooseRightSideOnly();
 
     expect(core.settings.getUnlockWithZwift(), isFalse);
+    expect(core.settings.getClickV2RightSideOnly(), isTrue);
 
     await IntegrationEnv.waitFor(
-      () => left.writes.any(
-        (w) =>
-            w.service.toLowerCase() == FtmsMdnsConstants.ZWIFT_RIDE_CUSTOM_SERVICE_UUID.toLowerCase() &&
-            w.value.isNotEmpty &&
-            w.value.first == Opcode.GET.value,
-      ),
-      description:
-          'ClickLogic.setupHandshake to send the PAGE_DEVICE_PAIRING GET request to the already-connected left side',
+      () => !left.isConnected,
+      description: 'the already-connected left side to be dropped by the mode switch',
     );
+
+    // And it stays down: the next scan must not quietly bring it back.
+    await core.connection.performScanning();
+    expect(left.isConnected, isFalse);
   });
 
   // FINDING 1 (reset-timer half). ClickLogic._resetTimer is private static

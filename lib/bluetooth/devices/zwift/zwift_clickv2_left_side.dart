@@ -24,6 +24,13 @@ class ZwiftClickV2LeftSide extends ZwiftClickV2 {
   @override
   List<int> get startCommand => ZwiftConstants.RIDE_ON + ZwiftConstants.RESPONSE_START_CLICK_V2;
 
+  /// This is the side Zwift locks, so right-side-only mode leaves it out: it
+  /// would either sit there locked or drag its 60-second restart cycle into a
+  /// setup whose whole point is not having one. [ZwiftClickV2]'s gate (wait for
+  /// the unlock-mode choice) still applies on top.
+  @override
+  bool get shouldAutoConnect => super.shouldAutoConnect && !core.settings.getClickV2RightSideOnly();
+
   @override
   bool get isResetting => ClickLogic.isResetting(device.deviceId);
 

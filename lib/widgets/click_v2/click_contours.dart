@@ -3,25 +3,29 @@ import 'dart:math' as math;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-/// The two Zwift Click V2 pucks side by side, with the right one fading in as
-/// the onboarding pager moves from "left side only" (page 0) to "unlock with
+/// The two Zwift Click V2 pucks side by side, with the left one fading in as
+/// the onboarding pager moves from "right side only" (page 0) to "unlock with
 /// Zwift" (page 1).
+///
+/// The right puck leads on page 0 because it is the one that option keeps:
+/// Zwift never locked it, so it needs no unlock and never restarts. The left
+/// puck — the locked one — is what page 1 adds back, at the price of the
+/// 24-hour unlock.
 ///
 /// Takes a fractional [page] rather than owning a PageController so a swipe
 /// scrubs the transition continuously instead of snapping at the page
 /// boundary — and so the widget can be driven by a plain animation when the
 /// flow is reopened for review.
 ///
-/// When [animate] is true (the default), a small badge under each puck
-/// cross-fades with [page] to explain that option's trade-off: an idle-pulse
-/// pill on page 0 (the left-only mode drops the connection when idle, then
-/// reconnects on its own) and a padlock on page 1 (Zwift's 24-hour unlock).
-/// Both badges include a looping flourish — a pulse ripple and a sweep ring,
-/// respectively — that is suppressed when the platform requests reduced
-/// motion. Pass `animate: false` to render just the two silhouettes, with no
-/// badge and no loop — the onboarding pager's decision page uses this: both
-/// options are already laid out in the buttons there, so the badge that
-/// explains page 1's trade-off would just be noise on a page about choosing.
+/// When [animate] is true (the default), a small badge cross-fades with [page]
+/// to explain that option's trade-off: an open padlock on page 0 (nothing to
+/// unlock, ever) and a closed one on page 1 (Zwift's 24-hour unlock), the
+/// latter with a sweep-ring flourish that is suppressed when the platform
+/// requests reduced motion. Pass `animate: false` to render just the two
+/// silhouettes, with no badge and no loop — the onboarding pager's decision
+/// page uses this: both options are already laid out in the buttons there, so
+/// the badge that explains page 1's trade-off would just be noise on a page
+/// about choosing.
 ///
 /// Callers must give this widget a bounded width and a finite height — the
 /// `Row`/`Flexible` layout below asserts if width is unbounded. It is
@@ -29,7 +33,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// onboarding pager's hero; below that it degrades gracefully (see
 /// [_designHeight]) but is not intended for arbitrarily tall boxes.
 class ClickContours extends StatefulWidget {
-  /// 0 = left side only, 1 = unlock with Zwift. Values outside are clamped.
+  /// 0 = right side only, 1 = unlock with Zwift. Values outside are clamped.
   final double page;
 
   /// Whether to run the looping badge flourishes and render the badges at
@@ -54,23 +58,9 @@ class ClickContours extends StatefulWidget {
   static const double _glowBlurRadius = 34;
   static const double _glowSpreadRadius = 2;
 
-  /// How far the left puck dims at the peak of the idle-timeout pulse.
-  static const double _idleDip = 0.45;
-
   @override
   State<ClickContours> createState() => _ClickContoursState();
 }
-
-/// Shapes one loop of the shared controller into a brief dip-and-recover
-/// sitting mostly at rest — used for both the left puck's own dimming and
-/// the idle badge's ripple, so the two stay in phase with each other.
-final Animatable<double> _idlePulseShape = TweenSequence<double>([
-  TweenSequenceItem(tween: ConstantTween(0.0), weight: 55),
-  TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeInOut)), weight: 12),
-  TweenSequenceItem(tween: ConstantTween(1.0), weight: 10),
-  TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeInOut)), weight: 13),
-  TweenSequenceItem(tween: ConstantTween(0.0), weight: 10),
-]);
 
 class _ClickContoursState extends State<ClickContours> with SingleTickerProviderStateMixin {
   late final AnimationController _loop = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
@@ -117,59 +107,53 @@ class _ClickContoursState extends State<ClickContours> with SingleTickerProvider
         // never scale them up beyond their authored size.
         final k = constraints.maxHeight.isFinite ? (constraints.maxHeight / ClickContours._designHeight).clamp(0.0, 1.0) : 1.0;
 
-        final leftPuck = SvgPicture.asset(
-          'assets/contours/zwift_click_v2_left_side.svg',
-          fit: BoxFit.contain,
-          colorFilter: colorFilter,
-        );
-
+        // The pucks stay in physical order — left puck on the left — while the
+        // *emphasis* swaps: page 0 is about the right puck alone, so it takes
+        // the glow and the left one recedes.
         final row = Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Flexible(
+              child: Transform.translate(
+                key: const ValueKey('click-contour-muted-translate'),
+                // Negative: the receding puck drifts away from its partner,
+                // which for the left one means leftwards.
+                offset: Offset(-ClickContours._mutedOffset * k * (1 - t), 0),
+                child: Transform.scale(
+                  key: const ValueKey('click-contour-muted-scale'),
+                  scale: ClickContours._mutedScale + (1 - ClickContours._mutedScale) * t,
+                  child: Opacity(
+                    key: const ValueKey('click-contour-muted-opacity'),
+                    opacity: ClickContours._mutedOpacity + (1 - ClickContours._mutedOpacity) * t,
+                    child: SvgPicture.asset(
+                      'assets/contours/zwift_click_v2_left_side.svg',
+                      fit: BoxFit.contain,
+                      colorFilter: colorFilter,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Flexible(
               child: DecoratedBox(
-                key: const ValueKey('click-contour-left-glow'),
+                key: const ValueKey('click-contour-lead-glow'),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      // The glow marks the left puck as the one carrying the load
-                      // on page 0, and fades out as the right puck joins it.
+                      // The glow marks the right puck as the one carrying the
+                      // load on page 0, and fades out as the left puck joins it.
                       color: cs.primary.withValues(alpha: 0.28 * (1 - t)),
                       blurRadius: ClickContours._glowBlurRadius * k,
                       spreadRadius: ClickContours._glowSpreadRadius * k,
                     ),
                   ],
                 ),
-                child: loopAnim == null
-                    ? leftPuck
-                    : AnimatedBuilder(
-                        animation: loopAnim,
-                        builder: (context, child) {
-                          final pulse = _idlePulseShape.transform(loopAnim.value);
-                          return Opacity(opacity: 1 - ClickContours._idleDip * pulse, child: child);
-                        },
-                        child: leftPuck,
-                      ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Flexible(
-              child: Transform.translate(
-                key: const ValueKey('click-contour-right-translate'),
-                offset: Offset(ClickContours._mutedOffset * k * (1 - t), 0),
-                child: Transform.scale(
-                  key: const ValueKey('click-contour-right-scale'),
-                  scale: ClickContours._mutedScale + (1 - ClickContours._mutedScale) * t,
-                  child: Opacity(
-                    key: const ValueKey('click-contour-right-opacity'),
-                    opacity: ClickContours._mutedOpacity + (1 - ClickContours._mutedOpacity) * t,
-                    child: SvgPicture.asset(
-                      'assets/contours/zwift_click_v2_right_side.svg',
-                      fit: BoxFit.contain,
-                      colorFilter: colorFilter,
-                    ),
-                  ),
+                child: SvgPicture.asset(
+                  'assets/contours/zwift_click_v2_right_side.svg',
+                  fit: BoxFit.contain,
+                  colorFilter: colorFilter,
                 ),
               ),
             ),
@@ -182,9 +166,9 @@ class _ClickContoursState extends State<ClickContours> with SingleTickerProvider
           children: [
             row,
             Opacity(
-              key: const ValueKey('click-contour-idle-badge'),
+              key: const ValueKey('click-contour-free-badge'),
               opacity: 1 - t,
-              child: _IdleBadge(pulse: loopAnim, scale: k),
+              child: _FreeBadge(scale: k),
             ),
             Opacity(
               key: const ValueKey('click-contour-lock-badge'),
@@ -198,57 +182,33 @@ class _ClickContoursState extends State<ClickContours> with SingleTickerProvider
   }
 }
 
-/// Page-0 badge: a small pill under the left puck that loops through a dip
-/// and recovery to sell "drops out, then reconnects on its own" at a glance.
-/// [pulse] is null when looping shouldn't run (reduced motion, or the whole
-/// widget is a static thumbnail), in which case the badge renders at rest.
-class _IdleBadge extends StatelessWidget {
-  final Animation<double>? pulse;
+/// Page-0 badge: a small open-padlock pill under the right puck. It is the
+/// resting counterpart to [_LockBadge] — same pill, same padlock, no sweep and
+/// no loop, because the whole point of this option is that nothing ever has to
+/// be unlocked. Deliberately static: an animated flourish here would imply
+/// something happens periodically, which is exactly what it does not.
+class _FreeBadge extends StatelessWidget {
   final double scale;
 
-  const _IdleBadge({required this.pulse, required this.scale});
+  const _FreeBadge({required this.scale});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final k = scale;
 
-    Widget pillAt(double pulseValue) {
-      return SizedBox(
-        width: 40 * k,
-        height: 26 * k,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // The ripple: expands and fades as the puck dims, so the two
-            // read as one "losing the connection" beat.
-            Container(
-              width: 18 * k * (1 + 0.8 * pulseValue),
-              height: 18 * k * (1 + 0.8 * pulseValue),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: cs.primary.withValues(alpha: 0.5 * (1 - pulseValue)), width: 1.2 * k),
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 6 * k, vertical: 2 * k),
-              decoration: BoxDecoration(
-                color: cs.card,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: cs.border),
-              ),
-              child: Icon(Icons.autorenew, size: 12 * k, color: cs.mutedForeground),
-            ),
-          ],
+    return Align(
+      alignment: const Alignment(0.55, 0.85),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 6 * k, vertical: 2 * k),
+        decoration: BoxDecoration(
+          color: cs.card,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: cs.border),
         ),
-      );
-    }
-
-    final content = pulse == null
-        ? pillAt(0.0)
-        : AnimatedBuilder(animation: pulse!, builder: (context, _) => pillAt(_idlePulseShape.transform(pulse!.value)));
-
-    return Align(alignment: const Alignment(-0.55, 0.85), child: content);
+        child: Icon(Icons.lock_open, size: 12 * k, color: cs.primary),
+      ),
+    );
   }
 }
 

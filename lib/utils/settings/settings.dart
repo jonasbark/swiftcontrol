@@ -826,6 +826,27 @@ class Settings {
     await prefs.setBool('unlock_mode', value);
   }
 
+  /// Whether the rider runs their Zwift Click V2 as the right puck alone.
+  ///
+  /// This is the third Click V2 state, alongside [getUnlockWithZwift]: the
+  /// right side needs no unlock and never restarts, so it connects on its own
+  /// and the left side — the only one Zwift locks — is held out of the connect
+  /// queue. Keeping the two sides apart is what makes this mode work at all:
+  /// `ClickLogic` drives the left side's restart loop from a single shared
+  /// timer that the right side's handshake cancels, so the restart mode and the
+  /// right side cannot be live at the same time.
+  ///
+  /// Guarded like [getUseNewUnlockMethod] because the connect gates that read
+  /// it run during device detection, which can precede [init].
+  bool getClickV2RightSideOnly() {
+    if (!_initialized) return false;
+    return prefs.getBool('click_v2_right_side_only') ?? false;
+  }
+
+  Future<void> setClickV2RightSideOnly(bool value) async {
+    await prefs.setBool('click_v2_right_side_only', value);
+  }
+
   /// Whether a Zwift Click V2 connects as separate left/right controllers with
   /// the new unlock handling (the right side needs no unlocking). When false,
   /// both sides fall back to the single legacy [ZwiftClickV2]. Defaults to true.
