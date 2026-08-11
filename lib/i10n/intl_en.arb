@@ -1114,6 +1114,7 @@
   "unlock_modeZwiftDescription": "Every 24 hours the device needs to be unlocked using Zwift.",
   "unlock_notWorking": "Not working?",
   "unlock_openZwift": "Open Zwift (not the Companion) on this or another device",
+  "deviceSettings": "Device Settings",
   "deviceSideLeft": "{device} (left)",
   "deviceSideRight": "{device} (right)",
   "unlock_newMethod": "Use new unlock method",

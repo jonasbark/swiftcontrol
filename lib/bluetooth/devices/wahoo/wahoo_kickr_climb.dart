@@ -3,6 +3,7 @@ import 'package:bike_control/main.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prop/utils/wahoo_climb.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' show LucideIcons;
 import 'package:universal_ble/universal_ble.dart';
 
 import '../bluetooth_device.dart';
@@ -10,7 +11,8 @@ import '../bluetooth_device.dart';
 /// Wahoo KICKR Climb — a beta accessory driven by the active bridge's sim grade
 /// (auto) or by manual incline actions (manual hold). Direct-to-Climb BLE sink.
 class WahooKickrClimb extends BluetoothDevice with Accessory, ManualInclineDevice {
-  WahooKickrClimb(super.scanResult) : super(availableButtons: const [], isBeta: true);
+  WahooKickrClimb(super.scanResult)
+    : super(availableButtons: const [], icon: LucideIcons.mountain, isBeta: true);
 
   /// Test seam: overridable to capture writes without real BLE.
   @visibleForTesting

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
+import 'package:shadcn_flutter/shadcn_flutter.dart' show LucideIcons;
 import 'package:universal_ble/universal_ble.dart';
 
 import '../bluetooth_device.dart';
@@ -15,6 +16,7 @@ class WahooKickrHeadwind extends BluetoothDevice with Accessory {
   WahooKickrHeadwind(super.scanResult)
     : super(
         availableButtons: const [],
+        icon: LucideIcons.fan,
         isBeta: true,
       );
 

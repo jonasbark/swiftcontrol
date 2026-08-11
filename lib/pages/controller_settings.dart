@@ -69,7 +69,9 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                   ),
                 ],
                 title: Text(
-                  AppLocalizations.of(context).controllerSettings,
+                  device is Accessory
+                      ? AppLocalizations.of(context).deviceSettings
+                      : AppLocalizations.of(context).controllerSettings,
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
                 ),
                 trailing: [
@@ -105,14 +107,18 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                       ],
                       const Gap(24),
 
-                      // Button mapping
-                      _buildSectionHeader(
-                        AppLocalizations.of(context).buttonMapping,
-                        trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
-                      ),
-                      const Gap(12),
-                      CustomizePage(isMobile: false, filterDevice: widget.device),
-                      const Gap(24),
+                      // Button mapping. An accessory — a Headwind fan, a Climb —
+                      // has no buttons of its own, so the section would render an
+                      // empty mapping table under a heading that promises one.
+                      if (device is! Accessory) ...[
+                        _buildSectionHeader(
+                          AppLocalizations.of(context).buttonMapping,
+                          trailing: _buildTrainerLabel(trainerApp?.name ?? '-'),
+                        ),
+                        const Gap(12),
+                        CustomizePage(isMobile: false, filterDevice: widget.device),
+                        const Gap(24),
+                      ],
 
                       // Preferences
                       if (device.buildPreferences(context) != null) ...[
@@ -199,7 +205,9 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 8,
       children: [
-        if (keymap != null) ...[
+        // Same reason the mapping section is hidden: there is nothing to reset
+        // for a device that never had a mapping.
+        if (keymap != null && device is! Accessory) ...[
           Button.outline(
             onPressed: () {
               core.settings.getTrainerApp()?.keymap.resetForDevice(device);

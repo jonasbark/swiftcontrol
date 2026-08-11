@@ -700,6 +700,7 @@
   "unlock_modeZwiftDescription": "Ogni 24 ore il dispositivo deve essere sbloccato con Zwift.",
   "unlock_notWorking": "Non funziona?",
   "unlock_openZwift": "Apri Zwift (non il Companion) su questo o un altro dispositivo",
+  "deviceSettings": "Impostazioni dispositivo",
   "deviceSideLeft": "{device} (sinistro)",
   "deviceSideRight": "{device} (destro)",
   "unlock_newMethod": "Usa il nuovo metodo di sblocco",

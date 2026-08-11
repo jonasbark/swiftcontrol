@@ -23,6 +23,7 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
+import 'package:bike_control/widgets/home/accessory_card.dart';
 import 'package:bike_control/widgets/home/ampel.dart';
 import 'package:bike_control/widgets/home/chain_card.dart';
 import 'package:bike_control/widgets/home/chain_labels.dart';
@@ -300,6 +301,7 @@ class _HomePageState extends State<HomePage> {
             _card(link, devicesById[link.deviceId], inputs),
             const Gap(10),
           ],
+          ..._accessorySection(),
           HomeExtras(isMobile: widget.isMobile, onUpdate: _update),
           if (widget.showHelpRow) ...[
             const Gap(12),
@@ -588,6 +590,41 @@ class _HomePageState extends State<HomePage> {
       },
       onInstructions: () => _openInstructions(link),
     );
+  }
+
+  /// Accessories BikeControl has picked up — a Headwind fan, a KICKR Climb.
+  ///
+  /// They are not links in the chain (nothing about a fan decides whether the
+  /// rider can shift), so they sit under it, quieter. They are on the screen at
+  /// all because every accessory the scanner finds is connected automatically,
+  /// including one that isn't the rider's — a Headwind through a neighbour's
+  /// wall — and the only way onto the ignore list runs through a device's own
+  /// settings page. Without this section such a device has no route to it.
+  List<Widget> _accessorySection() {
+    final accessories = <BluetoothDevice>[
+      ...core.connection.accessories,
+      ...core.connection.climbAccessories,
+    ];
+    if (accessories.isEmpty) return const [];
+
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+        child: Text(context.i18n.accessories).xSmall.muted,
+      ),
+      for (final device in accessories) ...[
+        AccessoryCard(
+          title: device.displayName(context),
+          icon: device.icon,
+          connected: device.isConnected,
+          onOpen: () async {
+            await context.push(ControllerSettingsPage(device: device));
+            _update();
+          },
+        ),
+        const Gap(10),
+      ],
+    ];
   }
 
   // ── Actions ───────────────────────────────────────────────────────────

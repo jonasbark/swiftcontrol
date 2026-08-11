@@ -700,6 +700,7 @@
   "unlock_modeZwiftDescription": "Alle 24 Stunden muss das Gerät mit Zwift entsperrt werden.",
   "unlock_notWorking": "Funktioniert nicht?",
   "unlock_openZwift": "Öffne Zwift (nicht die Companion-App) auf diesem oder einem anderen Gerät.",
+  "deviceSettings": "Geräteeinstellungen",
   "deviceSideLeft": "{device} (links)",
   "deviceSideRight": "{device} (rechts)",
   "unlock_newMethod": "Neue Entsperrmethode verwenden",
