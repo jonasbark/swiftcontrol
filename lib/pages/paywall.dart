@@ -61,6 +61,9 @@ class _PaywallPricing {
 }
 
 class Paywall extends StatefulWidget {
+  /// True when the rider arrived via a "full version / Base" entry point.
+  /// Yearly is always the preselected plan (it's the recommended one), so
+  /// this only highlights the one-time Full version card.
   final bool defaultToFullVersion;
 
   const Paywall({
@@ -141,7 +144,7 @@ class _PaywallState extends State<Paywall> {
   @override
   void initState() {
     super.initState();
-    _selectedPlan = widget.defaultToFullVersion ? _PaywallPlan.fullVersion : _PaywallPlan.yearly;
+    _selectedPlan = _PaywallPlan.yearly;
     _iapManager.entitlements.addListener(_onEntitlementsChanged);
     _iapManager.isPurchased.addListener(_onEntitlementsChanged);
     _loadRevenueCatPricing();
@@ -351,6 +354,7 @@ class _PaywallState extends State<Paywall> {
             spacing: 18,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Center(child: Image.asset('icon.png', width: 54, height: 54)),
               _buildComparisonTable(context),
               _buildPlansSection(context),
               _buildPurchaseButton(context),
@@ -368,25 +372,24 @@ class _PaywallState extends State<Paywall> {
                       ],
                       Text(
                         _isRestoring ? 'Restoring purchases...' : AppLocalizations.of(context).restorePurchases,
-                        style: const TextStyle(
-                          fontSize: 16,
-                        ),
+                        style: const TextStyle(fontSize: 14),
                       ),
                     ],
                   ),
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Button.text(
                     onPressed: () => launchUrlString('https://bikecontrol.app/terms-of-use'),
-                    child: Text(AppLocalizations.of(context).termsOfUse).small.muted,
+                    child: Text(AppLocalizations.of(context).termsOfUse).xSmall.muted.underline,
                   ),
-                  Text('|').small.muted,
+                  Text('|').xSmall.muted,
                   Button.text(
                     onPressed: () => launchUrlString('https://bikecontrol.app/privacy-policy'),
-                    child: Text(AppLocalizations.of(context).privacyPolicy).small.muted,
+                    child: Text(AppLocalizations.of(context).privacyPolicy).xSmall.muted.underline,
                   ),
                 ],
               ),
@@ -400,8 +403,8 @@ class _PaywallState extends State<Paywall> {
   Widget _buildComparisonTable(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final fullColumnWidth = 80.0;
-        final proColumnWidth = 102.0;
+        final fullColumnWidth = 72.0;
+        final proColumnWidth = 92.0;
 
         return ClipRRect(
           borderRadius: BorderRadius.circular(24),
@@ -460,7 +463,7 @@ class _PaywallState extends State<Paywall> {
               AppLocalizations.of(context).full,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: 14,
                 letterSpacing: 0.8,
                 color: Color(0xFF55565C),
               ),
@@ -495,7 +498,7 @@ class _PaywallState extends State<Paywall> {
                 Icon(
                   feature.icon,
                   color: const Color(0xFF94959A),
-                  size: compact ? 18 : 22,
+                  size: compact ? 16 : 22,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -504,7 +507,7 @@ class _PaywallState extends State<Paywall> {
                     style: TextStyle(
                       color: const Color(0xFF4D4E54),
                       fontWeight: FontWeight.normal,
-                      fontSize: compact ? 16 : 19,
+                      fontSize: compact ? 13.5 : 19,
                       height: 1.2,
                     ),
                   ),
@@ -514,14 +517,16 @@ class _PaywallState extends State<Paywall> {
           ),
           SizedBox(
             width: fullColumnWidth,
-            child: Center(
-              child: _buildCell(feature.full, compact: compact),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Center(child: _buildCell(feature.full, compact: compact)),
             ),
           ),
           SizedBox(
             width: proColumnWidth,
-            child: Center(
-              child: _buildCell(feature.pro, compact: compact),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Center(child: _buildCell(feature.pro, compact: compact)),
             ),
           ),
         ],
@@ -533,15 +538,16 @@ class _PaywallState extends State<Paywall> {
     return switch (value) {
       _PaywallCell.unlimited => Text(
         AppLocalizations.of(context).unlimited,
+        textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: compact ? 14 : 24,
+          fontSize: compact ? 12 : 24,
           fontWeight: FontWeight.w500,
           color: Colors.black,
         ),
       ),
       _PaywallCell.check => Icon(
         Icons.check_rounded,
-        size: compact ? 28 : 48,
+        size: compact ? 22 : 48,
         color: Colors.black,
       ),
       _PaywallCell.dash => Container(
@@ -558,49 +564,32 @@ class _PaywallState extends State<Paywall> {
   Widget _buildPlansSection(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final stackPlans = constraints.maxWidth < 420;
-
         return Column(
           spacing: 12,
           children: [
-            if (!stackPlans)
-              Row(
-                spacing: 12,
-                children: [
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: _PaywallPlan.yearly,
-                      title: AppLocalizations.of(context).paywall_yearly,
-                      price: _pricing.yearlyPrice,
-                      billed: _pricing.yearlyBilled,
-                      badge: _pricing.discountBadge,
-                    ),
+            // Yearly and monthly always sit side by side — they're a comparison.
+            Row(
+              spacing: 12,
+              children: [
+                Expanded(
+                  child: _buildPlanCard(
+                    plan: _PaywallPlan.yearly,
+                    title: AppLocalizations.of(context).paywall_yearly,
+                    price: _pricing.yearlyPrice,
+                    billed: _pricing.yearlyBilled,
+                    badge: _pricing.discountBadge,
                   ),
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: _PaywallPlan.monthly,
-                      title: AppLocalizations.of(context).paywall_monthly,
-                      price: _pricing.monthlyPrice,
-                      billed: _pricing.monthlyBilled,
-                    ),
+                ),
+                Expanded(
+                  child: _buildPlanCard(
+                    plan: _PaywallPlan.monthly,
+                    title: AppLocalizations.of(context).paywall_monthly,
+                    price: _pricing.monthlyPrice,
+                    billed: _pricing.monthlyBilled,
                   ),
-                ],
-              )
-            else ...[
-              _buildPlanCard(
-                plan: _PaywallPlan.yearly,
-                title: AppLocalizations.of(context).paywall_yearly,
-                price: _pricing.yearlyPrice,
-                billed: _pricing.yearlyBilled,
-                badge: _pricing.discountBadge,
-              ),
-              _buildPlanCard(
-                plan: _PaywallPlan.monthly,
-                title: AppLocalizations.of(context).paywall_monthly,
-                price: _pricing.monthlyPrice,
-                billed: _pricing.monthlyBilled,
-              ),
-            ],
+                ),
+              ],
+            ),
             if (!_iapManager.isPurchased.value) _buildFullVersionCard(context),
           ],
         );
