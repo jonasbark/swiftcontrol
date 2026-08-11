@@ -62,20 +62,31 @@ class TrainerInput {
     required this.deviceId,
     required this.name,
     required this.presence,
-    required this.gearsConfigured,
-    this.gearsSummary,
+    required this.appHoldsBridge,
+    this.bridgeName,
     this.metrics,
   });
 
   final String deviceId;
   final String name;
+
+  /// Presence here means *bridged* — the bridge is running for this trainer —
+  /// not merely that its Bluetooth link is up. That is the distinction
+  /// onboarding draws (`onboardingTrainerBridged`), and the one that matters:
+  /// a trainer BikeControl is talking to but isn't bridging does nothing for
+  /// the rider.
   final DevicePresence presence;
 
-  /// Whether an active [ShiftingConfig] exists for this trainer.
-  final bool gearsConfigured;
+  /// Whether the trainer app has actually picked up the virtual trainer, as
+  /// opposed to the bridge merely running. Mirrors
+  /// `ProxyDevice.isConnectedListenable`, the same flag onboarding's summary
+  /// uses to decide between "Bridged" and "Waiting for {app}…".
+  final bool appHoldsBridge;
 
-  /// e.g. "24 gears · ratio 2.40".
-  final String? gearsSummary;
+  /// What the bridge advertises itself as, e.g. "KICKR CORE - BikeControl" —
+  /// the entry a rider has to pick in their trainer app, and the one they most
+  /// often miss.
+  final String? bridgeName;
 
   /// Live telemetry for the ready-state status line, e.g. "250 W · 90 rpm".
   final String? metrics;

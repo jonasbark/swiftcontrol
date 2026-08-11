@@ -82,8 +82,10 @@ class _HomePageState extends State<HomePage> {
     super.initState();
 
     _connectionListener = core.connection.connectionStream.listen((_) {
+      _syncProxyListeners();
       if (mounted) setState(() {});
     });
+    _syncProxyListeners();
     _actionListener = core.connection.actionStream.listen((notification) {
       if (notification is ButtonNotification && notification.buttonsClicked.isNotEmpty) {
         final id = notification.device.uniqueId;
@@ -101,7 +103,7 @@ class _HomePageState extends State<HomePage> {
     // there anyway.
     if (!screenshotMode) {
       _metricsTicker = Timer.periodic(const Duration(seconds: 2), (_) {
-        if (mounted && core.connection.proxyDevices.any((p) => p.isConnected)) setState(() {});
+        if (mounted && core.connection.proxyDevices.any((p) => p.isStartedListenable.value)) setState(() {});
       });
     }
 
@@ -109,8 +111,32 @@ class _HomePageState extends State<HomePage> {
     IAPManager.instance.isPurchased.addListener(_onPurchaseChanged);
   }
 
+  /// Whether the bridge is running and whether the trainer app holds it are
+  /// ValueNotifiers on each ProxyDevice, not events on the connection stream —
+  /// so without these listeners the trainer card would sit on a stale status
+  /// until something else happened to rebuild the page.
+  final Set<ProxyDevice> _watchedProxies = {};
+
+  void _syncProxyListeners() {
+    for (final proxy in core.connection.proxyDevices) {
+      if (!_watchedProxies.add(proxy)) continue;
+      proxy.isStarting.addListener(_onProxyChanged);
+      proxy.isStartedListenable.addListener(_onProxyChanged);
+      proxy.isConnectedListenable.addListener(_onProxyChanged);
+    }
+  }
+
+  void _onProxyChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    for (final proxy in _watchedProxies) {
+      proxy.isStarting.removeListener(_onProxyChanged);
+      proxy.isStartedListenable.removeListener(_onProxyChanged);
+      proxy.isConnectedListenable.removeListener(_onProxyChanged);
+    }
     _connectionListener.cancel();
     _actionListener.cancel();
     _metricsTicker?.cancel();
@@ -167,19 +193,35 @@ class _HomePageState extends State<HomePage> {
 
     TrainerInput? trainer;
     if (proxy != null) {
-      final config = core.shiftingConfigs.configsFor(proxy.trainerKey);
+      // "Connected" for a trainer means *bridged*, exactly as onboarding
+      // defines it (onboardingTrainerBridged): the bridge is running for this
+      // trainer. A trainer whose Bluetooth link is up but which isn't bridging
+      // anything does nothing for the rider, and saying "connected" about it
+      // is the kind of technically-true status this redesign exists to remove.
+      final bridged = proxy.isStartedListenable.value || proxy.isConnectedListenable.value;
       // Picking "No connection" — letting the trainer app handle shifting — is
       // a deliberate resting state. Whatever happened earlier in the session,
       // a trainer the rider has switched off is not a trainer that broke.
       final wanted = core.settings.getAutoConnect(proxy.trainerKey);
+      final DevicePresence presence;
+      if (bridged) {
+        presence = DevicePresence.connected;
+      } else if (!wanted) {
+        presence = DevicePresence.discovered;
+      } else if (core.connection.wasConnectedThisSession(proxy.uniqueId)) {
+        presence = DevicePresence.lost;
+      } else {
+        presence = DevicePresence.discovered;
+      }
       trainer = TrainerInput(
         deviceId: proxy.uniqueId,
         name: proxy.toString(),
-        presence: !proxy.isConnected && !wanted
-            ? DevicePresence.discovered
-            : _presenceOf(proxy, isStandIn: false),
-        gearsConfigured: config.isNotEmpty,
-        gearsSummary: _gearsSummary(proxy),
+        presence: presence,
+        // isConnectedListenable mirrors emulator.isConnected — the trainer app
+        // actually holds the virtual trainer, not just "the bridge is running".
+        appHoldsBridge: proxy.isConnectedListenable.value,
+        // The exact entry to look for in the trainer app's device list.
+        bridgeName: proxy.advertisementName,
         metrics: _trainerMetrics(proxy),
       );
     } else if (remembered != null) {
@@ -187,7 +229,7 @@ class _HomePageState extends State<HomePage> {
         deviceId: remembered.deviceId,
         name: remembered.name ?? context.i18n.chainTrainerTitle,
         presence: DevicePresence.remembered,
-        gearsConfigured: core.shiftingConfigs.configsFor(remembered.name ?? remembered.deviceId).isNotEmpty,
+        appHoldsBridge: false,
       );
     }
 
@@ -217,16 +259,10 @@ class _HomePageState extends State<HomePage> {
 
   bool _appConnectedThisSession = false;
 
-  String? _gearsSummary(ProxyDevice proxy) {
-    final config = core.shiftingConfigs.configsFor(proxy.trainerKey).firstOrNull;
-    if (config == null) return null;
-    return context.i18n.onboardingVirtualTrainerGears('${config.maxGear}');
-  }
-
   /// A compact, plain-text version of the trainer's live telemetry for the
   /// status line. The full metric row still lives on the trainer's own page.
   String? _trainerMetrics(ProxyDevice proxy) {
-    if (!proxy.isConnected) return null;
+    if (!proxy.isStartedListenable.value) return null;
     final bike = proxy.fitnessBike;
     if (bike == null) return null;
     final parts = <String>[
@@ -475,16 +511,22 @@ class _HomePageState extends State<HomePage> {
 
   Widget _trainerCard(ChainLink link, ChainInputs inputs) {
     final proxy = core.connection.proxyDevices.sortedBy((p) => p.isConnected ? 0 : 1).firstOrNull;
-    final connected = link.status == LinkStatus.ready || (proxy?.isConnected ?? false);
+    // Bridged, in onboarding's sense — not merely "the Bluetooth link is up".
+    final bridged = link.status != LinkStatus.off && link.status != LinkStatus.problem;
     final appReady = inputs.app.isConnected;
-    final appName = inputs.app.name;
+    final appName = inputs.app.name ?? context.i18n.chainAppTitle;
+    final appHoldsBridge = inputs.trainer?.appHoldsBridge ?? false;
 
+    // Same three answers onboarding's summary gives for a trainer: bridged,
+    // waiting for the app to pick the bridge up, or not connected at all.
     final String statusLabel;
-    if (link.status == LinkStatus.ready) {
-      statusLabel = context.i18n.connected;
-    } else if (link.status == LinkStatus.problem) {
+    if (link.status == LinkStatus.problem) {
       statusLabel = context.i18n.chainStatusLostConnection;
-    } else if (link.status == LinkStatus.off && appReady && appName != null) {
+    } else if (bridged) {
+      statusLabel = appHoldsBridge
+          ? context.i18n.chainStatusBridged
+          : context.i18n.onboardingSummaryWaitingFor(appName);
+    } else if (appReady && inputs.app.name != null) {
       // Only vouch for the app handling shifting when the app is actually
       // working — otherwise this card would excuse a broken link.
       statusLabel = context.i18n.chainStatusHandledByApp(appName);
@@ -506,9 +548,9 @@ class _HomePageState extends State<HomePage> {
       statusLabel: statusLabel,
       // Until a trainer is actually bridged there is nothing to edit — the
       // useful offer is to connect it, the same way onboarding does.
-      editLabel: connected ? context.i18n.chainEdit : context.i18n.connect,
+      editLabel: bridged ? context.i18n.chainEdit : context.i18n.connect,
       onEdit: () async {
-        if (connected && proxy != null) {
+        if (bridged && proxy != null) {
           await context.push(ProxyDeviceDetailsPage(device: proxy));
         } else {
           await openTrainerConnectSheet(context);

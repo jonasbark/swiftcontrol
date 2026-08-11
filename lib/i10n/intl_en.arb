@@ -1781,8 +1781,6 @@
   "chainStepInRangeHint": "Press any button to wake it, and close any other app that might be holding it.",
   "chainStepTrainerPaired": "Trainer connected",
   "chainStepTrainerPairedPending": "Connect your trainer",
-  "chainStepTrainerGears": "Gears set up",
-  "chainStepTrainerGearsHint": "Set your gear count and ratios for virtual shifting.",
   "chainStepAppSelected": "Trainer app chosen",
   "chainStepAppSelectedPending": "Choose your trainer app",
   "chainStepAppSelectedHint": "Pick the app you ride in.",
@@ -1842,5 +1840,33 @@
   },
   "chainUndo": "Undo",
   "chainUpgrade": "Upgrade",
-  "chainMoreOptions": "More options"
+  "chainMoreOptions": "More options",
+  "chainStepTrainerBridged": "Picked up by {app}",
+  "@chainStepTrainerBridged": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepTrainerBridgedPending": "Waiting for {app} to pick it up",
+  "@chainStepTrainerBridgedPending": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepTrainerBridgedHint": "Choose “{bridge}” as the trainer in {app}.",
+  "@chainStepTrainerBridgedHint": {
+    "placeholders": {
+      "bridge": {
+        "type": "String"
+      },
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStatusBridged": "Bridged"
 }

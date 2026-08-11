@@ -109,10 +109,14 @@ ChainLink _trainerLink(ChainInputs inputs) {
   // work outstanding when nothing is outstanding at all.
   final committed =
       trainer.presence != DevicePresence.discovered && trainer.presence != DevicePresence.remembered;
+  // The two facts onboarding checks, in its order: the bridge is running, and
+  // the trainer app has picked the virtual trainer up. Gear ratios are a
+  // preference with a working default, not a step — a rider is never blocked
+  // waiting to "set up gears".
   final steps = committed
       ? <SetupStep>[
           SetupStep(id: SetupStepId.trainerPaired, done: paired),
-          SetupStep(id: SetupStepId.trainerGears, done: trainer.gearsConfigured, hintArg: trainer.gearsSummary),
+          SetupStep(id: SetupStepId.trainerAppBridged, done: trainer.appHoldsBridge, hintArg: trainer.bridgeName),
         ]
       : const <SetupStep>[];
 

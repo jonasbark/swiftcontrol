@@ -36,11 +36,14 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
     SetupStepId.trainerPaired => step.done
         ? ChainStepText(l.chainStepTrainerPaired)
         : ChainStepText(l.chainStepTrainerPairedPending),
-    // The one step whose hint is worth showing when it's *done*: the configured
-    // gear count and ratio are the answer to "did I set this up right?".
-    SetupStepId.trainerGears => step.done
-        ? ChainStepText(l.chainStepTrainerGears, step.hintArg)
-        : ChainStepText(l.chainStepTrainerGears, l.chainStepTrainerGearsHint),
+    // Whether the trainer app has actually picked the bridge up. The hint names
+    // the exact entry to look for, which is the thing riders miss.
+    SetupStepId.trainerAppBridged => step.done
+        ? ChainStepText(l.chainStepTrainerBridged(app))
+        : ChainStepText(
+            l.chainStepTrainerBridgedPending(app),
+            l.chainStepTrainerBridgedHint(step.hintArg ?? 'BikeControl', app),
+          ),
     SetupStepId.appSelected => step.done
         ? ChainStepText(l.chainStepAppSelected)
         : ChainStepText(l.chainStepAppSelectedPending, l.chainStepAppSelectedHint),

@@ -29,14 +29,14 @@ ControllerInput controller({
 
 TrainerInput trainer({
   DevicePresence presence = DevicePresence.connected,
-  bool gearsConfigured = true,
+  bool appHoldsBridge = true,
 }) {
   return TrainerInput(
     deviceId: 'trainer-1',
     name: 'Wahoo KICKR CORE',
     presence: presence,
-    gearsConfigured: gearsConfigured,
-    gearsSummary: '24 gears · ratio 2.40',
+    appHoldsBridge: appHoldsBridge,
+    bridgeName: 'KICKR CORE - BikeControl',
     metrics: '250 W · 90 rpm',
   );
 }
@@ -262,17 +262,27 @@ void main() {
       expect(chain.byKey(ChainLinkKey.trainer).status, LinkStatus.problem);
     });
 
-    test('a connected trainer without gears is amber, with gears as the active step', () {
-      final chain = buildChain(ChainInputs(trainer: trainer(gearsConfigured: false), app: _readyApp));
+    // Onboarding is the source of truth: a bridge the trainer app hasn't picked
+    // up yet is honest about it rather than claiming to be bridged.
+    test('a bridged trainer the app has not picked up is amber, not ready', () {
+      final chain = buildChain(ChainInputs(trainer: trainer(appHoldsBridge: false), app: _readyApp));
       final link = chain.byKey(ChainLinkKey.trainer);
       expect(link.status, LinkStatus.attention);
-      expect(link.activeStep!.id, SetupStepId.trainerGears);
+      expect(link.activeStep!.id, SetupStepId.trainerAppBridged);
     });
 
-    test('the gears hint carries the configured summary', () {
+    test('the pick-up step names the bridge to look for', () {
       final chain = buildChain(ChainInputs(trainer: trainer(), app: _readyApp));
-      final step = chain.byKey(ChainLinkKey.trainer).steps.firstWhere((s) => s.id == SetupStepId.trainerGears);
-      expect(step.hintArg, '24 gears · ratio 2.40');
+      final step = chain.byKey(ChainLinkKey.trainer).steps.firstWhere((s) => s.id == SetupStepId.trainerAppBridged);
+      expect(step.hintArg, 'KICKR CORE - BikeControl');
+    });
+
+    test('gear ratios are a preference, never a setup step', () {
+      final chain = buildChain(ChainInputs(trainer: trainer(), app: _readyApp));
+      expect(
+        chain.byKey(ChainLinkKey.trainer).steps.map((s) => s.id),
+        [SetupStepId.trainerPaired, SetupStepId.trainerAppBridged],
+      );
     });
   });
 
