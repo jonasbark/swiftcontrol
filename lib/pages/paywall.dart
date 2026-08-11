@@ -2,7 +2,6 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/widgets/ui/colors.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
-import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -231,7 +230,12 @@ class _PaywallState extends State<Paywall> {
   }
 
   Future<void> _loadRevenueCatPricing() async {
-    if (defaultTargetPlatform != TargetPlatform.macOS) {
+    // Every RevenueCat platform (iOS, Android, macOS) shows this paywall, so
+    // every one of them needs the live store prices — without this the
+    // hardcoded [_PaywallPricing.fallback] placeholders ("About 2.25 $/mo")
+    // leak into the UI. The Windows-outside-store build sells via Stripe and
+    // has no offerings to read, so it keeps the fallback.
+    if (!_iapManager.isUsingRevenueCat) {
       return;
     }
 
