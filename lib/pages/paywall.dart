@@ -588,45 +588,37 @@ class _PaywallState extends State<Paywall> {
         return Column(
           spacing: 12,
           children: [
-            // Base leads, mirroring the comparison table above it: its column
-            // is the left one, so reading top-to-bottom here matches reading
-            // left-to-right there.
-            if (!_iapManager.isPurchased.value) _buildFullVersionCard(context),
             // Yearly and monthly always sit side by side — they're a
             // comparison. IntrinsicHeight bounds the row to its tallest card
             // so stretch can equalise them: inside the sheet's scroll view
             // the cross axis is unbounded, and stretching against that hands
             // the cards an infinite height ("RenderBox was not laid out").
-            Padding(
-              // The yearly card's discount badge hangs 10px above the row and
-              // would otherwise sit on top of the Base card now above it.
-              padding: const EdgeInsets.only(top: 8),
-              child: IntrinsicHeight(
-                child: Row(
-                spacing: 12,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: _PaywallPlan.yearly,
-                      title: AppLocalizations.of(context).paywall_yearly,
-                      price: _pricing.yearlyPrice,
-                      billed: _pricing.yearlyBilled,
-                      badge: _pricing.discountBadge,
-                    ),
+            IntrinsicHeight(
+              child: Row(
+              spacing: 12,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _buildPlanCard(
+                    plan: _PaywallPlan.yearly,
+                    title: AppLocalizations.of(context).paywall_yearly,
+                    price: _pricing.yearlyPrice,
+                    billed: _pricing.yearlyBilled,
+                    badge: _pricing.discountBadge,
                   ),
-                  Expanded(
-                    child: _buildPlanCard(
-                      plan: _PaywallPlan.monthly,
-                      title: AppLocalizations.of(context).paywall_monthly,
-                      price: _pricing.monthlyPrice,
-                      billed: _pricing.monthlyBilled,
-                    ),
-                  ),
-                ],
                 ),
+                Expanded(
+                  child: _buildPlanCard(
+                    plan: _PaywallPlan.monthly,
+                    title: AppLocalizations.of(context).paywall_monthly,
+                    price: _pricing.monthlyPrice,
+                    billed: _pricing.monthlyBilled,
+                  ),
+                ),
+              ],
               ),
             ),
+            if (!_iapManager.isPurchased.value) _buildFullVersionCard(context),
           ],
         );
       },
