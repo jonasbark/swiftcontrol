@@ -1,4 +1,5 @@
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/controller_settings.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
@@ -15,6 +16,15 @@ void main() {
   // The page builds CustomizePage, whose IAP wiring reaches Supabase.instance;
   // give it an offline dummy instance (no session, so no network request).
   setUpAll(() async {
+    // handleServices below awaits UniversalBle.requestConnectionPriority, a
+    // platform channel call, and testWidgets runs on a fake clock: the reply
+    // never arrives (nothing drains the real event loop while the test awaits)
+    // and the BLE command queue's own 10s timeout is a Timer that only fires if
+    // the test pumps time forward, which an await does not. Both escape hatches
+    // are disabled at once, and the test used to deadlock for its full 10-minute
+    // budget before building a single widget. The fake platform answers in
+    // process, on the fake clock.
+    UniversalBle.setInstance(FakeUniversalBlePlatform());
     SharedPreferences.setMockInitialValues({});
     await Supabase.initialize(
       url: 'http://127.0.0.1:9',
