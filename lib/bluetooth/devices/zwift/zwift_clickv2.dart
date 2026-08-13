@@ -11,6 +11,7 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/controller/controller_layout.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:bike_control/widgets/unlock_confirm.dart';
+import 'package:bike_control/widgets/unlock_toggle.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -219,7 +220,15 @@ class ZwiftClickV2 extends ZwiftRide {
 
   @override
   List<Widget> showAdditionalInformation(BuildContext context) {
-    return unlockWarnings(context);
+    return [
+      // The unified controller is where unlock-with-Zwift lands the rider, so
+      // the way back into the explainer has to be here too — otherwise
+      // arriving on it is a one-way trip with no route to right-side-only.
+      // Empty children: unlike the left puck, this card shows its unlock
+      // warnings in every mode (below), not only in unlock-with-Zwift.
+      const UnlockToggle(children: []),
+      ...unlockWarnings(context),
+    ];
   }
 
   /// The unlock-status warning(s) for this Click. Split out from

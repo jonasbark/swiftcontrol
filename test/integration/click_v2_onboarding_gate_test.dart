@@ -258,8 +258,44 @@ Future<void> main() async {
       isNot(contains(ZwiftClickV2LeftSide.label)),
     );
     await IntegrationEnv.waitFor(
-      () => core.connection.devices.whereType<ZwiftClickV2LeftSide>().isNotEmpty,
-      description: 'the Click V2 left side to come back after un-ignoring',
+      // As the unified controller: this mode is "both pucks as one device", so
+      // it switches the split representation off too. Not just "a
+      // ZwiftClickV2" — ZwiftClickV2LeftSide extends it, so that alone would
+      // also pass on a stale split-side object left behind.
+      () => core.connection.devices.whereType<ZwiftClickV2>().any((d) => d is! ZwiftClickV2LeftSide),
+      description: 'the left puck to come back as the unified Click V2',
+    );
+  });
+
+  // Reported from a device: picking unlock-with-Zwift on the right puck's card
+  // updated the mode but left the separate right-side entry connected, with no
+  // way back to the joined controller — the switch that used to do it was the
+  // only thing that could turn the split representation off.
+  test('unlock-with-Zwift folds the split entries back into the unified controller', () async {
+    await core.settings.setClickV2OnboardingDone(true);
+    await core.settings.setUnlockWithZwift(false);
+    await core.settings.setUseNewUnlockMethod(true);
+    await core.settings.setClickV2RightSideOnly(true);
+
+    final left = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_LEFT_SIDE);
+    final right = buildZwiftClickV2(sideCode: ZwiftConstants.CLICK_V2_RIGHT_SIDE);
+    env.ble.addPeripheral(left);
+    env.ble.addPeripheral(right);
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<ZwiftClickV2RightSide>().isNotEmpty,
+      description: 'the Click V2 right side to appear',
+    );
+
+    await ClickV2Onboarding.chooseUnlockWithZwift();
+
+    expect(core.settings.getUseNewUnlockMethod(), isFalse);
+    expect(core.settings.getClickV2RightSideOnly(), isFalse);
+    await IntegrationEnv.waitFor(
+      () =>
+          core.connection.devices.whereType<ZwiftClickV2>().any((d) => d is! ZwiftClickV2LeftSide) &&
+          core.connection.devices.whereType<ZwiftClickV2RightSide>().isEmpty,
+      description: 'the unified Click V2 to replace the separate right-side entry',
     );
   });
 

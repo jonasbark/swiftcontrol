@@ -1,3 +1,4 @@
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
@@ -6,11 +7,18 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:universal_ble/universal_ble.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    // Applying a choice reaches the connection layer (rescan, availability
+    // check). Against the real platform channel those calls go through the BLE
+    // command queue, whose 10s timeout is a Timer armed in the fake zone that
+    // outlives the widget tree — "A Timer is still pending even after the
+    // widget tree was disposed". The fake platform answers in process.
+    UniversalBle.setInstance(FakeUniversalBlePlatform());
     SharedPreferences.setMockInitialValues({});
     core.settings.prefs = await SharedPreferences.getInstance();
     await AppLocalizations.load(const Locale('en'));
@@ -128,6 +136,11 @@ void main() {
     expect(core.settings.getUnlockWithZwift(), isTrue);
     expect(core.settings.getClickV2RightSideOnly(), isFalse);
     expect(core.settings.getClickV2OnboardingDone(), isTrue);
+    // This mode also folds the split representation back into the unified
+    // controller, which restarts the scan — so the app is genuinely still
+    // scanning when the assertions above pass. Wind it down, or the periodic
+    // scan timer outlives the widget tree and trips the pending-timer check.
+    await core.connection.stop();
   });
 
   testWidgets('closing without choosing writes nothing', (tester) async {
