@@ -710,6 +710,7 @@
   "unlock_useRightSideOnlyDescription": "Die rechte Seite muss nicht entsperrt werden. Trenne die linke Seite und lass die rechte Seite das Schalten übernehmen – + schaltet hoch, B schaltet runter.",
   "unlock_rightSideOnlyConfigured": "Fertig – es wird nur die rechte Seite verwendet. Du kannst die linke Seite jederzeit unter „Ignorierte Geräte“ wieder aktivieren.",
   "unlock_unlockManually": "Manuelles Entsperren",
+  "unlock_zwiftNeedsLeftSide": "Das Entsperren passiert am linken Controller — schalte ihn ein, um ihn mit Zwift zu entsperren.",
   "unlock_unlockNow": "Jetzt freischalten",
   "unlock_unlockedUntilAroundDate": "Entsperrt bis etwa {date}",
   "unlock_waitingForZwift": "Warten auf die Entsperrung deines Geräts durch Zwift...",

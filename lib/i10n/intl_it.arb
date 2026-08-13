@@ -710,6 +710,7 @@
   "unlock_useRightSideOnlyDescription": "Il lato destro non richiede alcuno sblocco. Scollega il lato sinistro e lascia che il destro gestisca il cambio: + sale, B scende.",
   "unlock_rightSideOnlyConfigured": "Fatto: viene usato solo il lato destro. Puoi riattivare il lato sinistro in qualsiasi momento in Dispositivi ignorati.",
   "unlock_unlockManually": "Sblocca manualmente",
+  "unlock_zwiftNeedsLeftSide": "Lo sblocco avviene sul controller sinistro: accendilo per sbloccarlo con Zwift.",
   "unlock_unlockNow": "Sblocca ora",
   "unlock_unlockedUntilAroundDate": "Sbloccato fino a circa {date}",
   "unlock_waitingForZwift": "In attesa che Zwift sblocchi il tuo dispositivo...",

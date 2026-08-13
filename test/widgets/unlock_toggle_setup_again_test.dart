@@ -56,4 +56,62 @@ void main() {
 
     expect(find.byType(Select<bool>), findsNothing);
   });
+
+  // Without this the card looked identical whichever mode was set, so coming
+  // back from the explainer read as if the choice had done nothing.
+  group('names the mode that is actually set', () {
+    Future<void> pump(WidgetTester tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      );
+      await tester.pumpWidget(
+        ShadcnApp(
+          localizationsDelegates: const [AppLocalizations.delegate],
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(child: const UnlockToggle(children: [])),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('unlock with Zwift', (tester) async {
+      await core.settings.setUnlockWithZwift(true);
+      await pump(tester);
+      expect(find.text(AppLocalizations.current.unlock_modeZwift), findsOneWidget);
+    });
+
+    testWidgets('right side only', (tester) async {
+      await core.settings.setClickV2RightSideOnly(true);
+      await pump(tester);
+      expect(find.text(AppLocalizations.current.clickV2Onboarding_rightOnlyTitle), findsOneWidget);
+    });
+
+    testWidgets('the legacy restart loop is the fallback', (tester) async {
+      await pump(tester);
+      expect(find.text(AppLocalizations.current.unlock_modeRestart), findsOneWidget);
+    });
+  });
+
+  // The "unlock now" action lives on the left puck and needs it connected, so
+  // in Zwift mode without one there is nothing to show — say where unlocking
+  // happens rather than leaving the card looking like the mode did nothing.
+  testWidgets('points at the left puck when Zwift mode has none connected', (tester) async {
+    await core.settings.setUnlockWithZwift(true);
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
+    );
+    await tester.pumpWidget(
+      ShadcnApp(
+        localizationsDelegates: const [AppLocalizations.delegate],
+        supportedLocales: const [Locale('en')],
+        home: Scaffold(
+          child: UnlockToggle(children: [Text('unlock action')]),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(AppLocalizations.current.unlock_zwiftNeedsLeftSide), findsOneWidget);
+    expect(find.text('unlock action'), findsNothing);
+  });
 }

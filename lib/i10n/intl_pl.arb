@@ -710,6 +710,7 @@
   "unlock_useRightSideOnlyDescription": "Prawa strona nie wymaga odblokowywania. Odłącz lewą stronę i pozwól prawej obsługiwać zmianę biegów — + w górę, B w dół.",
   "unlock_rightSideOnlyConfigured": "Gotowe — używana jest tylko prawa strona. Lewą stronę możesz ponownie włączyć w dowolnej chwili w sekcji Ignorowane urządzenia.",
   "unlock_unlockManually": "Odblokuj ręcznie",
+  "unlock_zwiftNeedsLeftSide": "Odblokowanie odbywa się na lewym kontrolerze — włącz go, aby odblokować go za pomocą Zwift.",
   "unlock_unlockNow": "Odblokuj teraz",
   "unlock_unlockedUntilAroundDate": "Odblokowane do około {date}",
   "unlock_waitingForZwift": "Czekamy, aż Zwift odblokuje Twoje urządzenie...",

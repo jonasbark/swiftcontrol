@@ -1118,6 +1118,7 @@
   "unlock_useRightSideOnlyDescription": "The right side needs no unlocking. Drop the left side and let the right side handle shifting — + shifts up, B shifts down.",
   "unlock_rightSideOnlyConfigured": "Done — using the right side only. Re-enable the left side anytime under Ignored devices.",
   "unlock_unlockManually": "Unlock manually",
+  "unlock_zwiftNeedsLeftSide": "Unlocking happens on the left controller — switch it on to unlock it with Zwift.",
   "unlock_unlockNow": "Unlock now",
   "unlock_unlockedUntilAroundDate": "Unlocked until around {date}",
   "unlock_waitingForZwift": "Waiting for Zwift to unlock your device...",
