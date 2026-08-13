@@ -350,7 +350,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Schließen die App, um die neue Version zu verwenden.",
-  "full": "VOLL",
+  "full": "Basis",
   "fullVersion": "Basis Version",
   "fullVersionDescription": "Die Basisversion beinhaltet: \n– Unbegrenzte Befehle pro Tag \n– Zugriff auf zukünftigen Updates \n– Kein Abonnement! Nur eine einmalige Gebühr :)",
   "getSupport": "Unterstützung erhalten",
@@ -1675,5 +1675,6 @@
   "vsStageFrontHint": "Zweites Kettenblatt dazuschalten",
   "vsStageTrainersHeading": "SMART TRAINER",
   "vsStageAppsHeading": "TRAINING-APPS",
-  "onboardingTrainersFound": "{count, plural, =1{1 Trainer gefunden} other{{count} Trainer gefunden}}"
+  "onboardingTrainersFound": "{count, plural, =1{1 Trainer gefunden} other{{count} Trainer gefunden}}",
+  "forget": "Vergessen"
 }

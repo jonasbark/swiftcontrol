@@ -350,7 +350,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Fuerza el cierre de la app para usar la nueva versión",
-  "full": "LLENO",
+  "full": "Base",
   "fullVersion": "Base",
   "fullVersionDescription": "La versión básica incluye: \n- Comandos ilimitados por día \n- Acceso a todas las actualizaciones futuras \n- ¡Sin suscripción! Un solo pago :)",
   "getSupport": "Obtener ayuda",
@@ -1675,5 +1675,6 @@
   "vsStageFrontHint": "Añade un segundo plato",
   "vsStageTrainersHeading": "RODILLOS INTELIGENTES",
   "vsStageAppsHeading": "APPS DE ENTRENAMIENTO",
-  "onboardingTrainersFound": "{count, plural, =1{1 rodillo encontrado} other{{count} rodillos encontrados}}"
+  "onboardingTrainersFound": "{count, plural, =1{1 rodillo encontrado} other{{count} rodillos encontrados}}",
+  "forget": "Olvidar"
 }

@@ -123,7 +123,12 @@ class _CustomizeState extends State<CustomizePage> {
                   onPressed: IAPManager.instance.isProEnabled
                       ? null
                       : () {
-                          IAPManager.instance.ensureProForFeature(context);
+                          // The cloud icon carries no label of its own, so the
+                          // dialog is where the rider finds out what it does.
+                          IAPManager.instance.ensureProForFeature(
+                            context,
+                            featureName: context.i18n.synchronizeAcrossDevices,
+                          );
                         },
                 ),
               ),
@@ -138,8 +143,7 @@ class _CustomizeState extends State<CustomizePage> {
           ),
 
         if (!screenshotMode) Gap(12),
-        if (core.actionHandler.supportedApp != null &&
-            (core.connection.controllerDevices.isNotEmpty || (core.connection.proxyDevices.any((e) => e.isConnected))))
+        if (core.actionHandler.supportedApp != null && _hasSomethingToMap)
           KeymapExplanation(
             key: Key(core.actionHandler.supportedApp!.keymap.runtimeType.toString()),
             keymap: core.actionHandler.supportedApp!.keymap,
@@ -177,6 +181,20 @@ class _CustomizeState extends State<CustomizePage> {
       ],
     );
   }
+
+  /// Whether there are any buttons worth showing a mapping table for.
+  ///
+  /// [CustomizePage.filterDevice] is the strongest answer there is: the page is
+  /// embedded in that device's own settings, so the rider is looking straight
+  /// at the thing whose buttons they came to map. It counts even when the
+  /// device is only a remembered stand-in — a controller that is switched off
+  /// is still one whose mapping can be edited, and falling through to "no
+  /// connection method selected" both hid that and named a reason that had
+  /// nothing to do with it.
+  bool get _hasSomethingToMap =>
+      widget.filterDevice != null ||
+      core.connection.controllerDevices.isNotEmpty ||
+      core.connection.proxyDevices.any((e) => e.isConnected);
 
   List<SupportedApp> _getAllApps() {
     final baseApp = core.settings.getTrainerApp();

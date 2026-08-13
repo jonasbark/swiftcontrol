@@ -317,34 +317,58 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
             );
           },
         ),
-        LoadingWidget(
-          futureCallback: () async {
-            await core.connection.disconnect(device, forget: true, persistForget: false);
-            if (mounted) Navigator.of(context).pop();
-          },
-          renderChild: (isLoading, tap) => _buildActionButton(
-            icon: LucideIcons.bluetoothOff,
-            label: AppLocalizations.of(context).disconnectAndForgetForThisSession,
-            isLoading: isLoading,
-            onTap: tap,
+        if (_isRemembered(device))
+          // A remembered controller is a picture of a device, not a device:
+          // there is no link to drop, so both disconnect variants collapse
+          // into the one thing that can actually be done to it.
+          LoadingWidget(
+            futureCallback: () async {
+              await core.connection.forgetRemembered(device.uniqueId);
+              if (mounted) Navigator.of(context).pop();
+            },
+            renderChild: (isLoading, tap) => _buildActionButton(
+              icon: LucideIcons.trash2,
+              label: AppLocalizations.of(context).forget,
+              isLoading: isLoading,
+              isDestructive: true,
+              onTap: tap,
+            ),
+          )
+        else ...[
+          LoadingWidget(
+            futureCallback: () async {
+              await core.connection.disconnect(device, forget: true, persistForget: false);
+              if (mounted) Navigator.of(context).pop();
+            },
+            renderChild: (isLoading, tap) => _buildActionButton(
+              icon: LucideIcons.bluetoothOff,
+              label: AppLocalizations.of(context).disconnectAndForgetForThisSession,
+              isLoading: isLoading,
+              onTap: tap,
+            ),
           ),
-        ),
-        LoadingWidget(
-          futureCallback: () async {
-            await core.connection.disconnect(device, forget: true, persistForget: true);
-            if (mounted) Navigator.of(context).pop();
-          },
-          renderChild: (isLoading, tap) => _buildActionButton(
-            icon: LucideIcons.trash2,
-            label: AppLocalizations.of(context).disconnectAndForget,
-            isLoading: isLoading,
-            isDestructive: true,
-            onTap: tap,
+          LoadingWidget(
+            futureCallback: () async {
+              await core.connection.disconnect(device, forget: true, persistForget: true);
+              if (mounted) Navigator.of(context).pop();
+            },
+            renderChild: (isLoading, tap) => _buildActionButton(
+              icon: LucideIcons.trash2,
+              label: AppLocalizations.of(context).disconnectAndForget,
+              isLoading: isLoading,
+              isDestructive: true,
+              onTap: tap,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
+
+  /// True for a controller that only exists as a remembered stand-in — no live
+  /// device has taken it over, so nothing is connected to disconnect from.
+  bool _isRemembered(BaseDevice device) =>
+      core.connection.offlineControllers.any((d) => d.uniqueId == device.uniqueId);
 
   Widget _buildActionButton({
     required IconData icon,

@@ -350,7 +350,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Wymuś zamknięcie aplikacji, aby móc korzystać z nowej wersji",
-  "full": "PEŁNY",
+  "full": "Podstawa",
   "fullVersion": "Opierać",
   "fullVersionDescription": "Wersja podstawowa zawiera: \n- Nielimitowane polecenia dziennie \n- Dostęp do wszystkich przyszłych aktualizacji \n- Brak subskrypcji! Opłata jednorazowa :)",
   "getSupport": "Uzyskaj wsparcie",
@@ -1675,5 +1675,6 @@
   "vsStageFrontHint": "Dodaj drugą tarczę",
   "vsStageTrainersHeading": "SMART TRENAŻERY",
   "vsStageAppsHeading": "APLIKACJE TRENINGOWE",
-  "onboardingTrainersFound": "{count, plural, =1{Znaleziono 1 trenażer} few{Znaleziono {count} trenażery} other{Znaleziono {count} trenażerów}}"
+  "onboardingTrainersFound": "{count, plural, =1{Znaleziono 1 trenażer} few{Znaleziono {count} trenażery} other{Znaleziono {count} trenażerów}}",
+  "forget": "Zapomnij"
 }

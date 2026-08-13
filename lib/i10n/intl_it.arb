@@ -350,7 +350,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Forza la chiusura dell'app per utilizzare la nuova versione",
-  "full": "PIENO",
+  "full": "Base",
   "fullVersion": "Base",
   "fullVersionDescription": "La versione base include: \n- Comandi illimitati al giorno \n- Accesso a tutti i futuri aggiornamenti \n- Nessun abbonamento! Un solo pagamento una tantum :)",
   "getSupport": "Ottieni supporto",
@@ -1675,5 +1675,6 @@
   "vsStageFrontHint": "Aggiungi una seconda corona",
   "vsStageTrainersHeading": "SMART TRAINER",
   "vsStageAppsHeading": "APP DI ALLENAMENTO",
-  "onboardingTrainersFound": "{count, plural, =1{1 trainer trovato} other{{count} trainer trovati}}"
+  "onboardingTrainersFound": "{count, plural, =1{1 trainer trovato} other{{count} trainer trovati}}",
+  "forget": "Dimentica"
 }

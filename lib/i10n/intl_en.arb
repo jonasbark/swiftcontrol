@@ -351,7 +351,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Force-close the app to use the new version",
-  "full": "FULL",
+  "full": "Base",
   "fullVersion": "Base",
   "fullVersionDescription": "The base version includes:\n- Unlimited commands per day\n- Access to all future updates\n- No subscription! A one-time fee only :)",
   "getSupport": "Get Support",
@@ -1883,5 +1883,6 @@
         "type": "int"
       }
     }
-  }
+  },
+  "forget": "Forget"
 }

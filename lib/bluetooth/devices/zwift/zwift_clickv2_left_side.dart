@@ -88,7 +88,7 @@ class ZwiftClickV2LeftSide extends ZwiftClickV2 {
   @override
   List<Widget> showAdditionalInformation(BuildContext context) {
     return [
-      UnlockToggle(device: this, children: unlockWarnings(context)),
+      UnlockToggle(children: unlockWarnings(context)),
     ];
   }
 }

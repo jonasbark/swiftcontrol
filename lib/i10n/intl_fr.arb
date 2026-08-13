@@ -350,7 +350,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Fermez de force l'application pour utiliser la nouvelle version.",
-  "full": "COMPLET",
+  "full": "Base",
   "fullVersion": "Base",
   "fullVersionDescription": "La version de base comprend : \n- Commandes illimitées par jour \n- Accès à toutes les mises à jour futures \n- Aucun abonnement ! Un paiement unique :)",
   "getSupport": "Obtenir de l'aide",
@@ -1675,5 +1675,6 @@
   "vsStageFrontHint": "Ajoute un second plateau",
   "vsStageTrainersHeading": "HOME TRAINERS",
   "vsStageAppsHeading": "APPLIS D’ENTRAÎNEMENT",
-  "onboardingTrainersFound": "{count, plural, =1{1 home trainer trouvé} other{{count} home trainers trouvés}}"
+  "onboardingTrainersFound": "{count, plural, =1{1 home trainer trouvé} other{{count} home trainers trouvés}}",
+  "forget": "Oublier"
 }
