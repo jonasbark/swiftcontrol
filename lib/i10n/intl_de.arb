@@ -1687,5 +1687,9 @@
   "vsStageMoreControllersTitle": "Alle Controller",
   "vsStageMoreControllersSub": "Jeder gekoppelte Shifter schaltet",
   "vsStageMoreGearCountTitle": "Gangzahl anpassen",
-  "vsStageMoreGearCountSub": "Alles von 1 bis 30"
+  "vsStageMoreGearCountSub": "Alles von 1 bis 30",
+  "vsStageMoreModesTitle": "SIM & ERG voll unterstützt",
+  "vsStageMoreModesSub": "Workouts wie freie Fahrten",
+  "vsStageMoreProfilesTitle": "Profile umschalten",
+  "vsStageMoreProfilesSub": "Race-Modus, Climb-Modus, eigene"
 }

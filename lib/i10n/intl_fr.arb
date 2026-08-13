@@ -1687,5 +1687,9 @@
   "vsStageMoreControllersTitle": "Tous les contrôleurs",
   "vsStageMoreControllersSub": "Chaque manette appairée",
   "vsStageMoreGearCountTitle": "Nombre de vitesses réglable",
-  "vsStageMoreGearCountSub": "De 1 à 30"
+  "vsStageMoreGearCountSub": "De 1 à 30",
+  "vsStageMoreModesTitle": "SIM et ERG pris en charge",
+  "vsStageMoreModesSub": "Séances comme sorties libres",
+  "vsStageMoreProfilesTitle": "Changer de profil",
+  "vsStageMoreProfilesSub": "Mode course, mode montée, le tien"
 }

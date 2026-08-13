@@ -1687,5 +1687,9 @@
   "vsStageMoreControllersTitle": "Todos los mandos",
   "vsStageMoreControllersSub": "Cualquier shifter emparejado",
   "vsStageMoreGearCountTitle": "Ajusta las marchas",
-  "vsStageMoreGearCountSub": "De 1 a 30"
+  "vsStageMoreGearCountSub": "De 1 a 30",
+  "vsStageMoreModesTitle": "Compatible con SIM y ERG",
+  "vsStageMoreModesSub": "Entrenos y rodadas libres",
+  "vsStageMoreProfilesTitle": "Cambia de perfil",
+  "vsStageMoreProfilesSub": "Modo carrera, modo subida, el tuyo"
 }
