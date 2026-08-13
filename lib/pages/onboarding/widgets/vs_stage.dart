@@ -29,8 +29,10 @@ class VirtualShiftingStage extends StatefulWidget {
   /// Snapshot tests set it to capture each scene; the wizard leaves it at 0.
   final int initialScene;
 
-  /// How long each scene holds before the next one takes over.
-  static const Duration dwell = Duration(milliseconds: 5400);
+  /// How long each scene holds before the next one takes over. Long enough to
+  /// read the caption and watch the scene's own animation play through before
+  /// it's taken away.
+  static const Duration dwell = Duration(milliseconds: 8000);
 
   @override
   State<VirtualShiftingStage> createState() => _VirtualShiftingStageState();
