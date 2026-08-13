@@ -1,5 +1,7 @@
+import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
+import 'package:bike_control/pages/onboarding/widgets/vs_stage.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -31,9 +33,9 @@ Widget onboardingTrainerBody(BuildContext context,
     {required SupportedApp app,
     required List<ProxyDevice> trainers,
     required void Function(ProxyDevice) onPick,
+    VoidCallback? onRescan,
     bool virtualShiftingBlocked = false}) {
   final bridged = trainers.where((t) => t.isBridged).toList();
-  final scheme = Theme.of(context).colorScheme;
 
   // MyWhoosh on Android can't see a network virtual bike, so a bridge on this
   // same device would never be found — explain it and name the two setups
@@ -107,66 +109,16 @@ Widget onboardingTrainerBody(BuildContext context,
     ]));
   }
 
-  Widget benefit(IconData icon, String title, String sub) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-        decoration: BoxDecoration(color: scheme.muted, borderRadius: BorderRadius.circular(10)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(icon, size: 18, color: onboardingAccent(context)),
-          Gap(12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title).small.semiBold,
-              Text(sub).xSmall.muted,
-            ]),
-          ),
-        ]),
-      );
-
   return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([
     Text(context.i18n.onboardingTrainerTitle).h4,
     Gap(6),
     Text(context.i18n.onboardingTrainerSubtitle).small.muted,
     Gap(16),
-    benefit(LucideIcons.slidersHorizontal, context.i18n.onboardingTrainerBenefitRatiosTitle,
-        context.i18n.onboardingTrainerBenefitRatiosSub),
-    benefit(LucideIcons.gauge, context.i18n.onboardingTrainerBenefitResistanceTitle,
-        context.i18n.onboardingTrainerBenefitResistanceSub),
-    benefit(LucideIcons.blocks, context.i18n.onboardingTrainerBenefitAppsTitle,
-        context.i18n.onboardingTrainerBenefitAppsSub),
+    // What Virtual Shifting does, animated in the widgets it actually does it
+    // with, instead of three lines of copy claiming the same thing.
+    const VirtualShiftingStage(),
     Gap(14),
-    Row(children: [
-      Text(context.i18n.onboardingNearbyTrainers).xSmall.semiBold.muted,
-      Gap(8),
-      SizedBox(width: 12, height: 12, child: CircularProgressIndicator()),
-    ]),
-    Gap(8),
-    if (trainers.isEmpty) Text(context.i18n.lookingForSmartTrainers).xSmall.muted,
-    for (final t in trainers)
-      Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: Button.card(
-          onPressed: t.isStarting.value ? null : () => onPick(t),
-          child: Row(children: [
-            Icon(LucideIcons.bike, size: 20),
-            Gap(12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(t.name).small.semiBold,
-                Text(t.isStarting.value
-                        ? context.i18n.onboardingDeviceConnecting
-                        : context.i18n.onboardingTrainerMeta)
-                    .xSmall
-                    .muted,
-              ]),
-            ),
-            if (t.isStarting.value)
-              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(size: 16))
-            else
-              Icon(LucideIcons.chevronRight, size: 16),
-          ]),
-        ),
-      ),
+    _ScanCard(trainers: trainers, onPick: onPick, onRescan: onRescan),
     Gap(10),
     Button.ghost(
       onPressed: () => launchUrlString('https://bikecontrol.app/blog/virtual-shifting-with-and-without-bikecontrol/', mode: LaunchMode.externalApplication),
@@ -179,4 +131,158 @@ Widget onboardingTrainerBody(BuildContext context,
       ]),
     ),
   ]));
+}
+
+/// The scan, as its own card: a pulsing radar, what the scan is doing right
+/// now, and the trainers themselves listed inside it. Keeping the found
+/// devices in the same card as the radar is what makes this the step's main
+/// element rather than a footnote under the pitch.
+class _ScanCard extends StatelessWidget {
+  const _ScanCard({required this.trainers, required this.onPick, this.onRescan});
+
+  final List<ProxyDevice> trainers;
+  final void Function(ProxyDevice) onPick;
+  final VoidCallback? onRescan;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final accent = onboardingAccent(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: trainers.isEmpty ? accent.withValues(alpha: 0.3) : cs.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(13, 12, 10, 12),
+            child: Row(children: [
+              _Radar(accent: accent),
+              Gap(12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(trainers.isEmpty
+                          ? context.i18n.lookingForSmartTrainers
+                          : context.i18n.onboardingTrainersFound(trainers.length))
+                      .small
+                      .semiBold,
+                  Text(context.i18n.onboardingNearbyTrainers).xSmall.muted,
+                ]),
+              ),
+              if (onRescan != null)
+                IconButton.ghost(
+                  icon: Icon(LucideIcons.refreshCw, size: 15),
+                  onPressed: onRescan,
+                ),
+            ]),
+          ),
+          for (final t in trainers)
+            Container(
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: cs.border))),
+              child: Button.ghost(
+                style: ButtonStyle.ghost().withPadding(padding: const EdgeInsets.fromLTRB(13, 11, 13, 11)),
+                onPressed: t.isStarting.value ? null : () => onPick(t),
+                child: Row(children: [
+                  Icon(LucideIcons.bike, size: 18, color: accent),
+                  Gap(12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(t.name).small.semiBold,
+                      Text(context.i18n.onboardingTrainerMeta).xSmall.muted,
+                    ]),
+                  ),
+                  if (t.isStarting.value) ...[
+                    Text(context.i18n.onboardingDeviceConnecting).xSmall.muted,
+                    Gap(8),
+                    SizedBox(width: 14, height: 14, child: CircularProgressIndicator(size: 14)),
+                  ] else ...[
+                    Text(context.i18n.connect).xSmall.semiBold,
+                    Icon(LucideIcons.chevronRight, size: 14),
+                  ],
+                ]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Three rings expanding out of the Bluetooth mark, one behind the other.
+/// Renders as the plain mark under reduced motion and in [screenshotMode].
+class _Radar extends StatefulWidget {
+  const _Radar({required this.accent});
+
+  final Color accent;
+
+  @override
+  State<_Radar> createState() => _RadarState();
+}
+
+class _RadarState extends State<_Radar> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+
+  bool get _still => screenshotMode || MediaQuery.of(context).disableAnimations;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Never leave a ticker running where motion is off — a repeating
+    // controller would also keep `pumpAndSettle` from ever returning.
+    if (_still) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = _still;
+    final mark = Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: widget.accent.withValues(alpha: 0.16)),
+      child: Icon(LucideIcons.bluetooth, size: 17, color: widget.accent),
+    );
+    if (still) return SizedBox(width: 40, height: 40, child: Center(child: mark));
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) => Stack(
+          alignment: Alignment.center,
+          children: [
+            for (final phase in const [0.0, 0.33, 0.66])
+              Builder(builder: (context) {
+                final t = (_c.value + phase) % 1.0;
+                return Transform.scale(
+                  scale: 0.55 + t * 1.35,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: widget.accent.withValues(alpha: 0.55 * (1 - t))),
+                    ),
+                  ),
+                );
+              }),
+            mark,
+          ],
+        ),
+      ),
+    );
+  }
 }

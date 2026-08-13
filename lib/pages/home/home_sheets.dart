@@ -232,6 +232,10 @@ class _TrainerPickerState extends State<_TrainerPicker> {
             await connectTrainerFromPicker(context, device);
             if (mounted) setState(() {});
           },
+          onRescan: () {
+            core.connection.performScanning();
+            setState(() {});
+          },
           virtualShiftingBlocked: onboardingVirtualShiftingBlocked(widget.app),
         ),
         const Gap(16),

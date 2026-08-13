@@ -703,12 +703,6 @@
   },
   "onboardingTrainerTitle": "Optional: let BikeControl handle Virtual Shifting",
   "onboardingTrainerSubtitle": "Connect your smart trainer and BikeControl computes every gear for you — in any app you ride.",
-  "onboardingTrainerBenefitRatiosTitle": "Your gear ratios",
-  "onboardingTrainerBenefitRatiosSub": "Set your own chainrings, cassette and gear count.",
-  "onboardingTrainerBenefitResistanceTitle": "Consistent resistance",
-  "onboardingTrainerBenefitResistanceSub": "Shifts feel the same in every app, every ride.",
-  "onboardingTrainerBenefitAppsTitle": "Works where the app doesn't",
-  "onboardingTrainerBenefitAppsSub": "Adds shifting to apps that have none.",
   "onboardingNearbyTrainers": "Nearby smart trainers",
   "onboardingTrainerMeta": "Supports virtual shifting",
   "onboardingTrainerHowItWorks": "Virtual shifting with and without BikeControl — what's the difference?",
@@ -1860,5 +1854,34 @@
     }
   },
   "chainStatusBridged": "Bridged",
-  "chainCloseAndQuit": "Close connections & quit app"
+  "chainCloseAndQuit": "Close connections & quit app",
+  "ratioCurveLabel": "RATIO CURVE",
+  "easier": "Easier",
+  "harder": "Harder",
+  "frontShiftRangeLabel": "RANGE",
+  "frontShiftFactorLabel": "CHAINRINGS",
+  "frontShiftRingActive": "{teeth}T ring active",
+  "@frontShiftRingActive": {
+    "placeholders": {
+      "teeth": {
+        "type": "int"
+      }
+    }
+  },
+  "frontShiftChainringCount": "2 chainrings",
+  "vsStageAppsLabel": "Works in every app",
+  "vsStageAppsHint": "With almost any smart trainer",
+  "vsStageRatiosLabel": "Your gearing, your way",
+  "vsStageRatiosHint": "Presets or gear by gear",
+  "vsStageFrontHint": "Add a second chainring",
+  "vsStageTrainersHeading": "SMART TRAINERS",
+  "vsStageAppsHeading": "TRAINING APPS",
+  "onboardingTrainersFound": "{count, plural, =1{1 trainer found} other{{count} trainers found}}",
+  "@onboardingTrainersFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

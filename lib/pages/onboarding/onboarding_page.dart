@@ -636,6 +636,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
             app: _selectedApp!,
             trainers: core.connection.proxyDevices,
             onPick: _onPickTrainer,
+            onRescan: () {
+              core.connection.performScanning();
+              setState(() {});
+            },
             virtualShiftingBlocked: onboardingVirtualShiftingBlocked(_selectedApp!),
           ),
         OnboardingStep.connection => onboardingConnectionBody(

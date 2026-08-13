@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
@@ -7,6 +5,7 @@ import 'package:bike_control/models/shifting_config.dart';
 import 'package:bike_control/pages/proxy_device_details/front_shift_card.dart';
 import 'package:bike_control/pages/proxy_device_details/gear_hero_card.dart';
 import 'package:bike_control/pages/proxy_device_details/gear_ratio_curve.dart';
+import 'package:bike_control/pages/proxy_device_details/gear_ratio_presets.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:bike_control/widgets/ui/stepper_control.dart';
@@ -233,32 +232,6 @@ class _GearRatiosEditorPageState extends State<GearRatiosEditorPage> {
 
   // ---------- Presets ----------
 
-  static List<double> _evenSteps(double lo, double hi, int count) =>
-      List<double>.generate(count, (i) => lerpDouble(lo, hi, count == 1 ? 0.0 : i / (count - 1))!);
-
-  List<_Preset> _presetsForCount(BuildContext context, int count) => [
-    _Preset(
-      label: AppLocalizations.of(context).presetDefault,
-      range: '0.75–5.49',
-      values: List<double>.unmodifiable(FitnessBikeDefinition.defaultGearRatiosFor(count)),
-    ),
-    _Preset(
-      label: AppLocalizations.of(context).presetCompact,
-      range: '1.00–4.00',
-      values: List<double>.unmodifiable(_evenSteps(1.00, 4.00, count)),
-    ),
-    _Preset(
-      label: AppLocalizations.of(context).presetWide,
-      range: '0.50–6.50',
-      values: List<double>.unmodifiable(_evenSteps(0.50, 6.50, count)),
-    ),
-    _Preset(
-      label: AppLocalizations.of(context).preset1x,
-      range: '2.20–4.20',
-      values: List<double>.unmodifiable(_evenSteps(2.20, 4.20, count)),
-    ),
-  ];
-
   static bool _ratiosMatch(List<double> a, List<double> b, {double tol = 0.001}) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
@@ -287,7 +260,7 @@ class _GearRatiosEditorPageState extends State<GearRatiosEditorPage> {
           builder: (context, current, _) {
             return Row(
               spacing: 8,
-              children: _presetsForCount(
+              children: gearRatioPresets(
                 context,
                 def.maxGear,
               ).map((p) => Expanded(child: _presetButton(context, p, current))).toList(),
@@ -298,7 +271,7 @@ class _GearRatiosEditorPageState extends State<GearRatiosEditorPage> {
     );
   }
 
-  Widget _presetButton(BuildContext context, _Preset preset, List<double> current) {
+  Widget _presetButton(BuildContext context, GearRatioPreset preset, List<double> current) {
     final cs = Theme.of(context).colorScheme;
     final active = _ratiosMatch(preset.values, current);
     return Button(
@@ -506,13 +479,6 @@ String _hintFor(BuildContext context, int gear, double ratio, List<double> ratio
   final mag = delta.abs().toStringAsFixed(2);
   if (delta > 0) return l10n.harderThanNeutral(mag);
   return l10n.easierThanNeutral(mag);
-}
-
-class _Preset {
-  final String label;
-  final String range;
-  final List<double> values;
-  _Preset({required this.label, required this.range, required this.values});
 }
 
 /// The Virtual Shifting mode selector (Target Power / Track Resistance / Basic),
