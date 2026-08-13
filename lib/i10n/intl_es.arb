@@ -1677,5 +1677,15 @@
   "vsStageTrainersHeading": "RODILLOS INTELIGENTES",
   "vsStageAppsHeading": "APPS DE ENTRENAMIENTO",
   "onboardingTrainersFound": "{count, plural, =1{1 rodillo encontrado} other{{count} rodillos encontrados}}",
-  "forget": "Olvidar"
+  "forget": "Olvidar",
+  "vsStageMoreLabel": "Y hay más",
+  "vsStageMoreHint": "Ajuste fino para cada salida",
+  "vsStageMoreInstantTitle": "Cambios instantáneos",
+  "vsStageMoreInstantSub": "Sin pasar por la app",
+  "vsStageMoreWifiTitle": "Bluetooth → WiFi",
+  "vsStageMoreWifiSub": "Llega también al Apple TV",
+  "vsStageMoreControllersTitle": "Todos los mandos",
+  "vsStageMoreControllersSub": "Cualquier shifter emparejado",
+  "vsStageMoreGearCountTitle": "Ajusta las marchas",
+  "vsStageMoreGearCountSub": "De 1 a 30"
 }

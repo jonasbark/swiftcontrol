@@ -1677,5 +1677,15 @@
   "vsStageTrainersHeading": "HOME TRAINERS",
   "vsStageAppsHeading": "APPLIS D’ENTRAÎNEMENT",
   "onboardingTrainersFound": "{count, plural, =1{1 home trainer trouvé} other{{count} home trainers trouvés}}",
-  "forget": "Oublier"
+  "forget": "Oublier",
+  "vsStageMoreLabel": "Et plus encore",
+  "vsStageMoreHint": "Réglage fin pour chaque sortie",
+  "vsStageMoreInstantTitle": "Changements instantanés",
+  "vsStageMoreInstantSub": "Sans détour par l’appli",
+  "vsStageMoreWifiTitle": "Bluetooth → WiFi",
+  "vsStageMoreWifiSub": "Atteint aussi l’Apple TV",
+  "vsStageMoreControllersTitle": "Tous les contrôleurs",
+  "vsStageMoreControllersSub": "Chaque manette appairée",
+  "vsStageMoreGearCountTitle": "Nombre de vitesses réglable",
+  "vsStageMoreGearCountSub": "De 1 à 30"
 }

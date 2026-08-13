@@ -1677,5 +1677,15 @@
   "vsStageTrainersHeading": "SMART TRENAŻERY",
   "vsStageAppsHeading": "APLIKACJE TRENINGOWE",
   "onboardingTrainersFound": "{count, plural, =1{Znaleziono 1 trenażer} few{Znaleziono {count} trenażery} other{Znaleziono {count} trenażerów}}",
-  "forget": "Zapomnij"
+  "forget": "Zapomnij",
+  "vsStageMoreLabel": "I jeszcze więcej",
+  "vsStageMoreHint": "Dostrojenie każdej jazdy",
+  "vsStageMoreInstantTitle": "Natychmiastowe zmiany biegów",
+  "vsStageMoreInstantSub": "Bez obiegu przez aplikację",
+  "vsStageMoreWifiTitle": "Bluetooth → WiFi",
+  "vsStageMoreWifiSub": "Dociera też do Apple TV",
+  "vsStageMoreControllersTitle": "Pełna obsługa kontrolerów",
+  "vsStageMoreControllersSub": "Każdy sparowany shifter",
+  "vsStageMoreGearCountTitle": "Zmień liczbę biegów",
+  "vsStageMoreGearCountSub": "Od 1 do 30"
 }

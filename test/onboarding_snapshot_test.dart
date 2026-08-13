@@ -180,7 +180,7 @@ Future<void> main() async {
 
   // The stage holds still under screenshotMode, so each scene is captured by
   // opening on it — that's also the only way to see scenes 2 and 3 at rest.
-  for (final (i, name) in const [(0, 'apps'), (1, 'ratios'), (2, 'front')]) {
+  for (final (i, name) in const [(0, 'apps'), (1, 'ratios'), (2, 'front'), (3, 'more')]) {
     testWidgets('vs stage scene $name', (tester) async {
       await captureWidget(tester, name: 'onboarding_vs_stage_$name', width: 380, settle: false,
           builder: (c) => VirtualShiftingStage(initialScene: i));

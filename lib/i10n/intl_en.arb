@@ -1885,5 +1885,15 @@
       }
     }
   },
-  "forget": "Forget"
+  "forget": "Forget",
+  "vsStageMoreLabel": "And there's more",
+  "vsStageMoreHint": "Fine-tuning for every ride",
+  "vsStageMoreInstantTitle": "Instant gear changes",
+  "vsStageMoreInstantSub": "No round trip through the app",
+  "vsStageMoreWifiTitle": "Bluetooth → WiFi",
+  "vsStageMoreWifiSub": "Reaches Apple TV too",
+  "vsStageMoreControllersTitle": "Full controller support",
+  "vsStageMoreControllersSub": "Every paired shifter shifts",
+  "vsStageMoreGearCountTitle": "Adjust the gear count",
+  "vsStageMoreGearCountSub": "Anything from 1 to 30"
 }

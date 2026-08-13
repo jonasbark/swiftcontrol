@@ -13,9 +13,9 @@ import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-/// The three things Virtual Shifting buys a rider, shown rather than listed:
-/// it works everywhere, the gearing is yours, and there's a front derailleur
-/// in it too.
+/// What Virtual Shifting buys a rider, shown rather than listed: it works
+/// everywhere, the gearing is yours, there's a front derailleur in it too —
+/// and a last scene for the features that don't need a picture.
 ///
 /// Each scene animates the widget the rider will actually meet later — the
 /// real ratio curve from the gear editor, the real chainring picture from the
@@ -43,7 +43,7 @@ class _VirtualShiftingStageState extends State<VirtualShiftingStage> {
   bool _paused = false;
   Timer? _advance;
 
-  static const int _sceneCount = 3;
+  static const int _sceneCount = 4;
 
   @override
   void dispose() {
@@ -82,6 +82,7 @@ class _VirtualShiftingStageState extends State<VirtualShiftingStage> {
       (label: context.i18n.vsStageAppsLabel, hint: context.i18n.vsStageAppsHint),
       (label: context.i18n.vsStageRatiosLabel, hint: context.i18n.vsStageRatiosHint),
       (label: context.i18n.frontShiftEnableLabel, hint: context.i18n.vsStageFrontHint),
+      (label: context.i18n.vsStageMoreLabel, hint: context.i18n.vsStageMoreHint),
     ];
 
     return Column(
@@ -115,7 +116,8 @@ class _VirtualShiftingStageState extends State<VirtualShiftingStage> {
                         child: switch (i) {
                           0 => _SceneApps(active: i == scene && !still),
                           1 => _SceneRatios(active: i == scene && !still),
-                          _ => _SceneFront(active: i == scene && !still),
+                          2 => _SceneFront(active: i == scene && !still),
+                          _ => const _SceneMore(),
                         },
                       ),
                     ),
@@ -506,6 +508,86 @@ class _SceneFront extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ── Scene 4: everything else ────────────────────────────────────────────────
+
+/// The features that don't need a picture — four of them, in a grid. The one
+/// still scene: there is nothing here that moves, and a rider is reading it
+/// rather than watching it.
+class _SceneMore extends StatelessWidget {
+  const _SceneMore();
+
+  @override
+  Widget build(BuildContext context) {
+    final i18n = context.i18n;
+    final items = <({String title, String sub})>[
+      (title: i18n.vsStageMoreInstantTitle, sub: i18n.vsStageMoreInstantSub),
+      (title: i18n.vsStageMoreWifiTitle, sub: i18n.vsStageMoreWifiSub),
+      (title: i18n.vsStageMoreControllersTitle, sub: i18n.vsStageMoreControllersSub),
+      (title: i18n.vsStageMoreGearCountTitle, sub: i18n.vsStageMoreGearCountSub),
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var row = 0; row < 2; row++) ...[
+          if (row > 0) const Gap(8),
+          // Both cells in a row share the taller one's height, so the grid
+          // stays a grid once a translation wraps.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _cell(context, items[row * 2])),
+                const Gap(8),
+                Expanded(child: _cell(context, items[row * 2 + 1])),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _cell(BuildContext context, ({String title, String sub}) item) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: cs.border.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(color: onboardingAccent(context), shape: BoxShape.circle),
+          ),
+          const Gap(7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, height: 1.2, color: cs.foreground),
+                ),
+                const Gap(2),
+                Text(
+                  item.sub,
+                  style: TextStyle(fontSize: 9, height: 1.25, color: cs.mutedForeground),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

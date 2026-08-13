@@ -1677,5 +1677,15 @@
   "vsStageTrainersHeading": "SMART TRAINER",
   "vsStageAppsHeading": "APP DI ALLENAMENTO",
   "onboardingTrainersFound": "{count, plural, =1{1 trainer trovato} other{{count} trainer trovati}}",
-  "forget": "Dimentica"
+  "forget": "Dimentica",
+  "vsStageMoreLabel": "E non è tutto",
+  "vsStageMoreHint": "Messa a punto per ogni uscita",
+  "vsStageMoreInstantTitle": "Cambi istantanei",
+  "vsStageMoreInstantSub": "Senza passare dall’app",
+  "vsStageMoreWifiTitle": "Bluetooth → WiFi",
+  "vsStageMoreWifiSub": "Raggiunge anche Apple TV",
+  "vsStageMoreControllersTitle": "Tutti i controller",
+  "vsStageMoreControllersSub": "Ogni shifter abbinato",
+  "vsStageMoreGearCountTitle": "Numero di rapporti",
+  "vsStageMoreGearCountSub": "Da 1 a 30"
 }

@@ -1677,5 +1677,15 @@
   "vsStageTrainersHeading": "SMART TRAINER",
   "vsStageAppsHeading": "TRAINING-APPS",
   "onboardingTrainersFound": "{count, plural, =1{1 Trainer gefunden} other{{count} Trainer gefunden}}",
-  "forget": "Vergessen"
+  "forget": "Vergessen",
+  "vsStageMoreLabel": "Und noch mehr",
+  "vsStageMoreHint": "Feintuning für jede Fahrt",
+  "vsStageMoreInstantTitle": "Sofortige Gangwechsel",
+  "vsStageMoreInstantSub": "Kein Umweg über die App",
+  "vsStageMoreWifiTitle": "Bluetooth → WLAN",
+  "vsStageMoreWifiSub": "Erreicht auch Apple TV",
+  "vsStageMoreControllersTitle": "Alle Controller",
+  "vsStageMoreControllersSub": "Jeder gekoppelte Shifter schaltet",
+  "vsStageMoreGearCountTitle": "Gangzahl anpassen",
+  "vsStageMoreGearCountSub": "Alles von 1 bis 30"
 }
