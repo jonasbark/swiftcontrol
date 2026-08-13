@@ -528,11 +528,13 @@ class _SceneMore extends StatelessWidget {
       (title: i18n.vsStageMoreWifiTitle, sub: i18n.vsStageMoreWifiSub),
       (title: i18n.vsStageMoreControllersTitle, sub: i18n.vsStageMoreControllersSub),
       (title: i18n.vsStageMoreGearCountTitle, sub: i18n.vsStageMoreGearCountSub),
+      (title: i18n.vsStageMoreModesTitle, sub: i18n.vsStageMoreModesSub),
+      (title: i18n.vsStageMoreProfilesTitle, sub: i18n.vsStageMoreProfilesSub),
     ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (var row = 0; row < 2; row++) ...[
+        for (var row = 0; row < items.length ~/ 2; row++) ...[
           if (row > 0) const Gap(8),
           // Both cells in a row share the taller one's height, so the grid
           // stays a grid once a translation wraps.

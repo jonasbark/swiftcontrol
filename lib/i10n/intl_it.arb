@@ -1687,5 +1687,9 @@
   "vsStageMoreControllersTitle": "Tutti i controller",
   "vsStageMoreControllersSub": "Ogni shifter abbinato",
   "vsStageMoreGearCountTitle": "Numero di rapporti",
-  "vsStageMoreGearCountSub": "Da 1 a 30"
+  "vsStageMoreGearCountSub": "Da 1 a 30",
+  "vsStageMoreModesTitle": "Supporto SIM ed ERG",
+  "vsStageMoreModesSub": "Allenamenti e uscite libere",
+  "vsStageMoreProfilesTitle": "Cambia profilo",
+  "vsStageMoreProfilesSub": "Modalità gara, salita, la tua"
 }

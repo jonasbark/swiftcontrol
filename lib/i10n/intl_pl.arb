@@ -1687,5 +1687,9 @@
   "vsStageMoreControllersTitle": "Pełna obsługa kontrolerów",
   "vsStageMoreControllersSub": "Każdy sparowany shifter",
   "vsStageMoreGearCountTitle": "Zmień liczbę biegów",
-  "vsStageMoreGearCountSub": "Od 1 do 30"
+  "vsStageMoreGearCountSub": "Od 1 do 30",
+  "vsStageMoreModesTitle": "Pełna obsługa SIM i ERG",
+  "vsStageMoreModesSub": "Treningi i jazda swobodna",
+  "vsStageMoreProfilesTitle": "Przełączaj profile",
+  "vsStageMoreProfilesSub": "Tryb wyścig, podjazd, własny"
 }

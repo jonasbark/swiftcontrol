@@ -1895,5 +1895,9 @@
   "vsStageMoreControllersTitle": "Full controller support",
   "vsStageMoreControllersSub": "Every paired shifter shifts",
   "vsStageMoreGearCountTitle": "Adjust the gear count",
-  "vsStageMoreGearCountSub": "Anything from 1 to 30"
+  "vsStageMoreGearCountSub": "Anything from 1 to 30",
+  "vsStageMoreModesTitle": "Full SIM & ERG support",
+  "vsStageMoreModesSub": "Workouts and free rides alike",
+  "vsStageMoreProfilesTitle": "Switch setting profiles",
+  "vsStageMoreProfilesSub": "Race mode, climb mode, your own"
 }
