@@ -32,7 +32,7 @@ class VirtualShiftingStage extends StatefulWidget {
   /// How long each scene holds before the next one takes over. Long enough to
   /// read the caption and watch the scene's own animation play through before
   /// it's taken away.
-  static const Duration dwell = Duration(milliseconds: 8000);
+  static const Duration dwell = Duration(milliseconds: 5500);
 
   @override
   State<VirtualShiftingStage> createState() => _VirtualShiftingStageState();
@@ -305,14 +305,14 @@ class _SceneApps extends StatelessWidget {
   }
 
   Widget _heading(BuildContext context, String text) => Text(
-        text,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.3,
-          color: Theme.of(context).colorScheme.mutedForeground,
-        ),
-      );
+    text,
+    style: TextStyle(
+      fontSize: 9,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 1.3,
+      color: Theme.of(context).colorScheme.mutedForeground,
+    ),
+  );
 
   Widget _chips(BuildContext context, List<String> items, int highlighted, Color accent) {
     final cs = Theme.of(context).colorScheme;
