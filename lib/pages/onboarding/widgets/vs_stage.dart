@@ -41,7 +41,19 @@ class _VirtualShiftingStageState extends State<VirtualShiftingStage> {
   bool _paused = false;
   Timer? _advance;
 
+  /// Horizontal distance dragged in the current swipe, and whether a finger is
+  /// still down — the stage nudges along with the drag and springs back if the
+  /// swipe doesn't carry.
+  double _drag = 0;
+  bool _dragging = false;
+
   static const int _sceneCount = 4;
+
+  /// How far the stage may follow a finger, how far a swipe has to travel to
+  /// count, and the fling speed that counts regardless of distance.
+  static const double _dragMax = 80;
+  static const double _dragCommit = 45;
+  static const double _flingVelocity = 250;
 
   @override
   void dispose() {
@@ -60,8 +72,9 @@ class _VirtualShiftingStageState extends State<VirtualShiftingStage> {
     });
   }
 
-  /// A tap on the dots is a rider taking over — the carousel stops moving
-  /// under them rather than snatching the scene back a few seconds later.
+  /// A tap on the dots, or a swipe, is a rider taking over — the carousel
+  /// stops moving under them rather than snatching the scene back a few
+  /// seconds later.
   void _pick(int i) {
     setState(() {
       _scene = i;
@@ -69,12 +82,41 @@ class _VirtualShiftingStageState extends State<VirtualShiftingStage> {
     });
   }
 
+  void _onDragUpdate(DragUpdateDetails d) {
+    setState(() {
+      _dragging = true;
+      _drag = (_drag + d.delta.dx).clamp(-_dragMax, _dragMax);
+    });
+  }
+
+  /// Swiping left goes forward, right goes back, and both wrap — the dots
+  /// already say where in the four you are, so a dead end at either edge would
+  /// only read as the swipe having failed.
+  void _onDragEnd(DragEndDetails d) {
+    final velocity = d.primaryVelocity ?? 0;
+    final step = (velocity < -_flingVelocity || _drag <= -_dragCommit)
+        ? 1
+        : (velocity > _flingVelocity || _drag >= _dragCommit)
+            ? -1
+            : 0;
+    setState(() {
+      _dragging = false;
+      _drag = 0;
+    });
+    if (step != 0) _pick((_scene + step + _sceneCount) % _sceneCount);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final still = screenshotMode || MediaQuery.of(context).disableAnimations;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // Nothing moves on its own in either case. They differ in what a rider can
+    // still do: [screenshotMode] pins the scene so captures are deterministic,
+    // while reduced motion only means "don't move by yourself" — swiping and
+    // the dots still work.
+    final still = screenshotMode || reduceMotion;
     _sync(still);
-    final scene = still ? widget.initialScene : _scene;
+    final scene = screenshotMode ? widget.initialScene : _scene;
 
     final captions = <({String label, String hint})>[
       (label: context.i18n.vsStageAppsLabel, hint: context.i18n.vsStageAppsHint),
@@ -86,42 +128,61 @@ class _VirtualShiftingStageState extends State<VirtualShiftingStage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: cs.muted,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cs.border),
-          ),
-          clipBehavior: Clip.antiAlias,
-          // Every scene is laid out, so the stage keeps the height of the
-          // tallest one and nothing jumps as they cross-fade.
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              for (var i = 0; i < _sceneCount; i++)
-                IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: i == scene ? 1 : 0,
-                    duration: const Duration(milliseconds: 420),
-                    curve: Curves.easeOut,
-                    // Full width under the Stack's loose constraints, so the
-                    // shorter scenes centre instead of hugging the top.
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                        child: switch (i) {
-                          0 => _SceneApps(active: i == scene && !still),
-                          1 => _SceneRatios(active: i == scene && !still),
-                          2 => _SceneFront(active: i == scene && !still),
-                          _ => const _SceneMore(),
-                        },
+        GestureDetector(
+          // Opaque so the whole stage answers a swipe, including the gaps
+          // between a scene's own widgets.
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: _onDragUpdate,
+          onHorizontalDragEnd: _onDragEnd,
+          onHorizontalDragCancel: () => setState(() {
+            _dragging = false;
+            _drag = 0;
+          }),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: cs.muted,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: cs.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: AnimatedSlide(
+              // Follows the finger a little, then springs back on release —
+              // enough for the swipe to feel answered before the scene turns
+              // over. The border stays put; only the contents move.
+              offset: Offset(reduceMotion ? 0 : _drag / _dragMax * 0.05, 0),
+              duration: _dragging ? Duration.zero : const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              // Every scene is laid out, so the stage keeps the height of the
+              // tallest one and nothing jumps as they cross-fade.
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  for (var i = 0; i < _sceneCount; i++)
+                    IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: i == scene ? 1 : 0,
+                        duration: const Duration(milliseconds: 420),
+                        curve: Curves.easeOut,
+                        // Full width under the Stack's loose constraints, so
+                        // the shorter scenes centre instead of hugging the top.
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                            child: switch (i) {
+                              0 => _SceneApps(active: i == scene && !still),
+                              1 => _SceneRatios(active: i == scene && !still),
+                              2 => _SceneFront(active: i == scene && !still),
+                              _ => const _SceneMore(),
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
         const Gap(11),
