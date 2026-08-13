@@ -578,12 +578,12 @@ class _SceneMore extends StatelessWidget {
               children: [
                 Text(
                   item.title,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, height: 1.2, color: cs.foreground),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2, color: cs.foreground),
                 ),
                 const Gap(2),
                 Text(
                   item.sub,
-                  style: TextStyle(fontSize: 9, height: 1.25, color: cs.mutedForeground),
+                  style: TextStyle(fontSize: 10.5, height: 1.25, color: cs.mutedForeground),
                 ),
               ],
             ),
