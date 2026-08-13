@@ -9,7 +9,6 @@ import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/interpreter.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/controller/controller_layout.dart';
-import 'package:bike_control/widgets/new_unlock_method_toggle.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:bike_control/widgets/unlock_confirm.dart';
 import 'package:dartx/dartx.dart';
@@ -221,23 +220,6 @@ class ZwiftClickV2 extends ZwiftRide {
   @override
   List<Widget> showAdditionalInformation(BuildContext context) {
     return unlockWarnings(context);
-  }
-
-  /// The new-unlock-method toggle lives in the detail page's "Preferences"
-  /// section (via [buildPreferences]) rather than [showAdditionalInformation],
-  /// so it shows only when the controller entry is opened, not on the compact
-  /// overview card.
-  @override
-  Widget? buildPreferences(BuildContext context) {
-    final superPreferences = super.buildPreferences(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 12,
-      children: [
-        if (superPreferences != null) superPreferences,
-        const NewUnlockMethodToggle(),
-      ],
-    );
   }
 
   /// The unlock-status warning(s) for this Click. Split out from

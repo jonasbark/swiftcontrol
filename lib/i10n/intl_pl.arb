@@ -350,7 +350,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Wymuś zamknięcie aplikacji, aby móc korzystać z nowej wersji",
-  "full": "PEŁNY",
+  "full": "Podstawa",
   "fullVersion": "Opierać",
   "fullVersionDescription": "Wersja podstawowa zawiera: \n- Nielimitowane polecenia dziennie \n- Dostęp do wszystkich przyszłych aktualizacji \n- Brak subskrypcji! Opłata jednorazowa :)",
   "getSupport": "Uzyskaj wsparcie",
@@ -1666,5 +1666,6 @@
   "chainUndo": "Cofnij",
   "chainUpgrade": "Uaktualnij",
   "chainMoreOptions": "Więcej opcji",
-  "chainCloseAndQuit": "Zamknij połączenia i wyjdź z aplikacji"
+  "chainCloseAndQuit": "Zamknij połączenia i wyjdź z aplikacji",
+  "forget": "Zapomnij"
 }

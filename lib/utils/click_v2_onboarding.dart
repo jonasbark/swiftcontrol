@@ -89,7 +89,7 @@ abstract final class ClickV2Onboarding {
       for (final device in pendingDevices) {
         // forget: false is what drops the cached scan result, so the active
         // scan rediscovers the controller and rebuilds it with the class the
-        // new setting selects. This mirrors NewUnlockMethodToggle exactly.
+        // new setting selects.
         // persistForget: false keeps it out of the ignored-devices list.
         await core.connection.disconnect(device, forget: false, persistForget: false);
       }
@@ -146,10 +146,10 @@ abstract final class ClickV2Onboarding {
   /// which is exactly [ZwiftClickV2LeftSide.label], since that is what
   /// `Connection.disconnect` wrote there.
   ///
-  /// Public because right-side-only is not the only way out of it: switching
-  /// off the split representation entirely (NewUnlockMethodToggle) rebuilds the
-  /// LEFT puck as the legacy unified controller, so leaving it ignored would
-  /// leave the rider with no Click at all.
+  /// Public because right-side-only is not the only way out of it: anything
+  /// that switches off the split representation rebuilds the LEFT puck as the
+  /// legacy unified controller, so leaving it ignored would leave the rider
+  /// with no Click at all.
   static Future<void> restoreLeftSides() async {
     const labels = {ZwiftClickV2LeftSide.label, ZwiftClickV2.label};
     final ignored = core.settings.getIgnoredDevices().where((d) => labels.contains(d.name)).toList();

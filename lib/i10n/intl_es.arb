@@ -350,7 +350,7 @@
   },
   "firmware": "Firmware",
   "forceCloseToUpdate": "Fuerza el cierre de la app para usar la nueva versión",
-  "full": "LLENO",
+  "full": "Base",
   "fullVersion": "Base",
   "fullVersionDescription": "La versión básica incluye: \n- Comandos ilimitados por día \n- Acceso a todas las actualizaciones futuras \n- ¡Sin suscripción! Un solo pago :)",
   "getSupport": "Obtener ayuda",
@@ -1666,5 +1666,6 @@
   "chainUndo": "Deshacer",
   "chainUpgrade": "Mejorar",
   "chainMoreOptions": "Más opciones",
-  "chainCloseAndQuit": "Cerrar conexiones y salir de la app"
+  "chainCloseAndQuit": "Cerrar conexiones y salir de la app",
+  "forget": "Olvidar"
 }

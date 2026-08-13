@@ -468,14 +468,20 @@ class IAPManager {
     }
   }
 
-  Future<bool> ensureProForFeature(BuildContext context, {bool isAllowedForOldPurchases = false}) async {
+  /// [featureName] names the gated feature in the upgrade dialog — see
+  /// [showGoProDialog].
+  Future<bool> ensureProForFeature(
+    BuildContext context, {
+    bool isAllowedForOldPurchases = false,
+    String? featureName,
+  }) async {
     if (isProEnabledForCurrentDevice || (isAllowedForOldPurchases && hasPurchasedBefore50RVC)) {
       return true;
     } else if (isProEnabled) {
       buildToast(title: AppLocalizations.of(context).currentDeviceIsNotRegistered);
       return isProEnabledForCurrentDevice;
     } else {
-      await showGoProDialog(context);
+      await showGoProDialog(context, featureName: featureName);
     }
     return IAPManager.instance.hasActiveSubscription;
   }
