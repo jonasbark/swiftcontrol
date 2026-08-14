@@ -26,7 +26,13 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class ProxyDeviceDetailsPage extends StatefulWidget {
   final ProxyDevice device;
-  const ProxyDeviceDetailsPage({super.key, required this.device});
+
+  /// Scrolls to the Overlay section after the first frame. Used by the
+  /// one-time overlay hint (OverlayConnectHint) so its button lands the rider
+  /// directly on the "Show overlay during ride" switch.
+  final bool revealOverlaySection;
+
+  const ProxyDeviceDetailsPage({super.key, required this.device, this.revealOverlaySection = false});
 
   @override
   State<ProxyDeviceDetailsPage> createState() => _ProxyDeviceDetailsPageState();
@@ -34,6 +40,7 @@ class ProxyDeviceDetailsPage extends StatefulWidget {
 
 class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
   late StreamSubscription<BaseDevice> _connectionSub;
+  final GlobalKey _overlaySectionKey = GlobalKey();
 
   void _onEmulatorStateChanged() => setState(() {});
 
@@ -47,6 +54,25 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
     _connectionSub = core.connection.connectionStream.listen((_) {
       if (mounted) setState(() {});
     });
+    if (widget.revealOverlaySection) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _revealOverlaySection());
+    }
+  }
+
+  /// Scrolls the Overlay section into view. No-op when the section isn't in
+  /// the tree (e.g. the VS session ended before the hint's button was tapped,
+  /// so the settings section isn't rendered).
+  void _revealOverlaySection() {
+    final ctx = _overlaySectionKey.currentContext;
+    if (!mounted || ctx == null) return;
+    unawaited(
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        alignment: 0.1,
+      ),
+    );
   }
 
   @override
@@ -290,7 +316,10 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.2),
         ),
         TrainerSettingsSection(definition: def, device: widget.device),
-        OverlaySettingsSection(definition: def, device: widget.device),
+        KeyedSubtree(
+          key: _overlaySectionKey,
+          child: OverlaySettingsSection(definition: def, device: widget.device),
+        ),
       ],
     );
   }

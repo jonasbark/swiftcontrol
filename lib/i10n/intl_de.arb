@@ -24,6 +24,15 @@
   "overlayPermissionExplain": "Android benötigt die Berechtigung, das Overlay über deiner Trainer-App anzuzeigen.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Live-Ganganzeige während der Fahrt.",
+  "overlayConnectHint": "{appName} kann BikeControls virtuelle Gänge nicht anzeigen. Aktiviere das Gang-Overlay, um deinen aktuellen Gang während der Fahrt zu sehen.",
+  "@overlayConnectHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayConnectHintButton": "Overlay aktivieren",
   "overlaySettings": "Overlay-Einstellungen",
   "overlayWindowsTip": "Führe die Trainer-App im randlosen Fenstermodus aus, damit das Overlay sichtbar bleibt.",
   "virtualShiftingHint": "Fügt Virtual Shifting hinzu oder passt es an und meldet BikeControl als Trainer an.",

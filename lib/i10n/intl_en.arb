@@ -527,6 +527,15 @@
   "overlayPermissionExplain": "Android needs permission to draw the overlay over your trainer app.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Live gear display while you ride.",
+  "overlayConnectHint": "{appName} can't display BikeControl's virtual gears. Enable the gear overlay to see your current gear during the ride.",
+  "@overlayConnectHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayConnectHintButton": "Enable overlay",
   "overlaySettings": "Overlay settings",
   "overlayWindowsTip": "Run the trainer app in borderless-windowed mode for the overlay to stay visible.",
   "ok": "OK",

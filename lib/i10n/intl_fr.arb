@@ -24,6 +24,15 @@
   "overlayPermissionExplain": "Android a besoin d'une autorisation pour afficher l'Overlay par-dessus ton application Trainer.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Affichage des vitesses en direct pendant que tu roules.",
+  "overlayConnectHint": "{appName} ne peut pas afficher les vitesses virtuelles de BikeControl. Active l'Overlay pour voir ta vitesse actuelle pendant la séance.",
+  "@overlayConnectHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayConnectHintButton": "Activer l'Overlay",
   "overlaySettings": "Réglages de l'Overlay",
   "overlayWindowsTip": "Lance l'application Trainer en mode fenêtré sans bordure pour que l'Overlay reste visible.",
   "virtualShiftingHint": "Ajoute ou ajuste le Virtual Shifting et présente BikeControl comme un home-trainer.",

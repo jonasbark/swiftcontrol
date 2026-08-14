@@ -6,6 +6,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
+import 'package:bike_control/services/overlay/overlay_connect_hint.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/erg_power_stepping.dart';
@@ -199,8 +200,25 @@ class ProxyDevice extends BluetoothDevice {
   void _initEmulator() {
     _proxyEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
     _proxyEmulator.deviceName = () => scanResult.name;
+    // On the device-level wrapper (not emulator.isConnected) so the hint
+    // survives emulator/mode swaps and fires exactly on the false→true
+    // transition of "a trainer app is connected to the virtual trainer".
+    _isConnectedN.addListener(_maybeShowOverlayConnectHint);
     _rebindEmulatorState();
   }
+
+  /// First-client-connect hint: point the rider at the gear overlay before
+  /// they write support asking why the trainer app doesn't show the gear.
+  void _maybeShowOverlayConnectHint() {
+    if (!_isConnectedN.value) return;
+    OverlayConnectHint.maybeShow(this);
+  }
+
+  /// Test-only: drive the device-level "trainer app connected" wrapper
+  /// directly, without running the active emulator's connect machinery (whose
+  /// real BLE/transport futures race the widget-test fake clock).
+  @visibleForTesting
+  void debugSetTrainerAppConnected(bool connected) => _isConnectedN.value = connected;
 
   /// (Re)establish the retrofit-mode listener and the active-emulator state
   /// mirrors into our stable wrappers. Run on construction and on every

@@ -24,6 +24,15 @@
   "overlayPermissionExplain": "Android potrzebuje uprawnienia, aby rysować Overlay nad aplikacją treningową.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Podgląd biegów na żywo podczas jazdy.",
+  "overlayConnectHint": "{appName} nie może wyświetlać wirtualnych biegów BikeControl. Włącz Overlay, aby widzieć aktualny bieg podczas jazdy.",
+  "@overlayConnectHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayConnectHintButton": "Włącz Overlay",
   "overlaySettings": "Ustawienia Overlay",
   "overlayWindowsTip": "Uruchom aplikację treningową w trybie okna bez obramowania, aby Overlay pozostał widoczny.",
   "virtualShiftingHint": "Dodaje lub dostosowuje Virtual Shifting i ogłasza BikeControl jako trenażer.",

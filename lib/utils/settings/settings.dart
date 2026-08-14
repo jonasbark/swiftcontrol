@@ -810,6 +810,15 @@ class Settings {
     await prefs.setDouble('overlay_position_y', p.dy);
   }
 
+  /// One-time flag: the "enable the gear overlay" hint has fired after a
+  /// trainer app first connected to the virtual trainer. Once set, the hint
+  /// never fires again (see OverlayConnectHint).
+  bool getOverlayConnectHintShown() => prefs.getBool('overlay_connect_hint_shown') ?? false;
+
+  Future<void> setOverlayConnectHintShown(bool shown) async {
+    await prefs.setBool('overlay_connect_hint_shown', shown);
+  }
+
   Future<void> setShowExperimental(bool value) async {
     await prefs.setBool('show_experimental', value);
   }

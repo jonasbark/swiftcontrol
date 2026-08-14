@@ -24,6 +24,15 @@
   "overlayPermissionExplain": "Android necessita dell'autorizzazione per mostrare l'Overlay sopra la tua app di allenamento.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Visualizzazione delle marce in tempo reale mentre pedali.",
+  "overlayConnectHint": "{appName} non può mostrare le marce virtuali di BikeControl. Attiva l'Overlay per vedere la marcia attuale durante la sessione.",
+  "@overlayConnectHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayConnectHintButton": "Attiva l'Overlay",
   "overlaySettings": "Impostazioni Overlay",
   "overlayWindowsTip": "Esegui l'app di allenamento in modalità finestra senza bordi affinché l'Overlay resti visibile.",
   "virtualShiftingHint": "Aggiunge o regola il Virtual Shifting e annuncia BikeControl come rullo.",
