@@ -141,6 +141,29 @@ class CustomFrame extends StatelessWidget {
   /// the device 5% of a canvas whose landscape app render has room to spare.
   static double bandFraction(DeviceType platform) => isWide(platform) ? 0.22 : 0.17;
 
+  /// The bezel around the screen, as a fraction of the viewport's SHORT side.
+  ///
+  /// Short side, not width, because a bezel is a physical property of the
+  /// device: a tablet held in landscape has the same bezel it had in portrait.
+  /// Taken off the width it would be 28 logical units on the 1280-wide tablet
+  /// against 9 on the phone — the same slab of plastic, three times thicker.
+  static const double bezelFraction = 0.022;
+
+  /// The screen's corner radius, as a fraction of the viewport's SHORT side.
+  ///
+  /// Phones really are dramatically rounder than tablets — an iPhone 15 Pro's
+  /// corner is about 0.14 of its width, an iPad Pro's about 0.02 — so one
+  /// fraction cannot serve both. 0.085 is what the phone slots already look
+  /// right at; the tablets get 0.030.
+  ///
+  /// This is not only taste. `golden_screenshot` paints the status bar as a
+  /// full-width image whose clock and battery sit close to the edges — on the
+  /// iPad slot they end 23 logical units in from the right and start 9.5 down
+  /// from the top — and a radius past ~53 there swallows the battery. The
+  /// phone fraction applied to a 917-wide landscape viewport gives 78.
+  /// `store_board_test.dart` holds every slot's corner clear of that point.
+  static double radiusFraction(DeviceType platform) => isWide(platform) ? 0.030 : 0.085;
+
   /// Headline size, as a fraction of the canvas WIDTH.
   ///
   /// 0.072 on the phone slots. A landscape canvas is two to three times wider,
@@ -259,8 +282,9 @@ class CustomFrame extends StatelessWidget {
     final bandTop = canvas.height * _bandTopFraction;
     final bandInner = band(platform, canvas);
     final side = canvas.width * _sideFraction;
-    final bezel = app.width * 0.022;
-    final radius = app.width * 0.085;
+    final short = math.min(app.width, app.height);
+    final bezel = short * bezelFraction;
+    final radius = short * radiusFraction(platform);
     final titleStyle = TextStyle(
       color: style.titleColor,
       fontSize: canvas.width * titleFraction(platform),
@@ -350,15 +374,15 @@ class CustomFrame extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: const Color(0xFF15171A),
                       borderRadius: BorderRadius.circular(radius + bezel),
-                      // Sized in APP logical units like the bezel, so the drop
-                      // stays the same fraction of the phone on every slot
-                      // rather than growing with the canvas.
+                      // Sized off the viewport's short side like the bezel, so
+                      // the drop stays the same fraction of the device on every
+                      // slot rather than growing with the canvas.
                       boxShadow: <BoxShadow>[
                         BoxShadow(
                           color: const Color(0xFF000000).withValues(alpha: 0.42),
-                          blurRadius: app.width * 0.10,
-                          spreadRadius: app.width * 0.005,
-                          offset: Offset(0, app.width * 0.04),
+                          blurRadius: short * 0.10,
+                          spreadRadius: short * 0.005,
+                          offset: Offset(0, short * 0.04),
                         ),
                       ],
                     ),

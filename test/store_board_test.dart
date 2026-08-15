@@ -12,6 +12,7 @@
 // So these assert the composition arithmetically, on every slot the pipeline
 // emits, against the same fractions `CustomFrame` lays out with.
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
@@ -141,6 +142,47 @@ void main() {
             reason: 'the rotated corner no longer starts at the band foot');
         expect(tester.getRect(find.byKey(CustomFrame.headlineKey)).bottom,
             lessThanOrEqualTo(paintedTop));
+      });
+
+      testWidgets('the rounded corner never swallows the status bar',
+          (tester) async {
+        // golden_screenshot paints the status bar as a full-width image, and
+        // its clock and battery sit close to the edges — so a corner radius
+        // sized for a phone, applied to a landscape tablet viewport, eats the
+        // battery. The insets below are measured off the package's own topbar
+        // assets (the opaque bounding box, as a fraction of the image), and
+        // the assertion is simply that the corner arc still contains the
+        // status bar's outermost corner.
+        final ({double inset, double top}) statusBar = switch (slot.type) {
+          // iphone_topbar.png 1320x186 drawn 62 logical tall: content spans
+          // x 0.135–0.908, y from 0.403 of the bar.
+          DeviceType.iPhone => (inset: 1 - 0.9076, top: 0.403 * 62),
+          // android_phone_topbar.png 1280x156 drawn 52 tall: x to 0.934,
+          // y from 0.372.
+          DeviceType.android => (inset: 1 - 0.9344, top: 0.372 * 52),
+          // android_tablet_topbar.png 2560x36 drawn 24 tall: x to 0.986,
+          // y from 0.194 — the tightest of the four.
+          DeviceType.androidTablet => (inset: 1 - 0.9859, top: 0.194 * 24),
+          // ipad_topbar.png 2064x64 drawn 32 tall: x to 0.975, y from 0.297.
+          DeviceType.iPad => (inset: 1 - 0.9748, top: 0.297 * 32),
+          // The desktop slot uses the frameless chrome — no status bar to eat.
+          _ => (inset: 0.0, top: 0.0),
+        };
+        if (statusBar.top == 0) return;
+
+        final canvas = await _pumpBoard(tester, slot);
+        // The app is laid out at the canvas' own logical size in this pipeline.
+        final app = canvas;
+        final r = math.min(app.width, app.height) *
+            CustomFrame.radiusFraction(slot.type);
+        // Distance from the corner circle's centre to the status bar's outer
+        // corner. Deliberately not gated on the point actually falling in the
+        // corner quadrant: outside it this is stricter than it needs to be,
+        // and erring towards a slightly squarer screen is the safe direction.
+        final dx = app.width * statusBar.inset - r;
+        final dy = statusBar.top - r;
+        expect(math.sqrt(dx * dx + dy * dy), lessThan(r),
+            reason: 'a radius of $r clips the status bar on ${slot.type.name}');
       });
 
       testWidgets('the device bleeds off the bottom of the canvas',
