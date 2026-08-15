@@ -64,6 +64,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/emulators/dircon_emulator.dart';
 import 'package:prop/emulators/transporter/network_transporter.dart';
+import 'package:prop/utils/prefs.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
@@ -99,11 +100,14 @@ void testGoldens(
 
 Future<void> main() async {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // The overview header prints this, so every board carries it — keep it on
+  // the version being shipped rather than whichever one the fixture was
+  // written against.
   PackageInfo.setMockInitialValues(
     appName: 'BikeControl',
     packageName: 'de.jonasbark.swiftcontrol',
-    version: '6.1.0',
-    buildNumber: '1',
+    version: '6.4.2',
+    buildNumber: '146',
     buildSignature: '',
   );
   FlutterSecureStorage.setMockInitialValues({});
@@ -390,8 +394,45 @@ Future<void> main() async {
     }
   }
 
+  // The home screen — the first board on the listing, so it has to show a
+  // FINISHED setup. The home chain derives its top banner from the cards below
+  // it, and anything outstanding turns that banner amber ("3 steps left —
+  // Controller & Trainer app still need setting up"), which is not a claim a
+  // store listing should make. Every line below buys off one outstanding step:
+  //
+  //   * one controller, not the nine the card goldens further down need. The
+  //     marketing shot is a phone with a Zwift Click V2 on the bars, and the
+  //     smart trainer it bridges — a stack of every controller BikeControl
+  //     supports reads as a lab bench.
+  //   * the Click V2's unlock-mode choice made and its unlock persisted, so the
+  //     controller card is green instead of carrying "Unlock it with Zwift".
+  //   * the MyWhoosh Link enabled AND connected, which is what satisfies the
+  //     app link's "connection method" and "connected" steps.
+  //   * the trainer bridged, so its card reads "connected" rather than offering
+  //     a "Connect" button on the flagship image. (`isBridged` is what the
+  //     chain calls connected for a trainer — the bridge running, not merely a
+  //     Bluetooth link — so driving the wrapper is enough.)
   testGoldens('Device', (WidgetTester tester) async {
-    await shoot(tester, 'device', () => BikeControlApp());
+    final savedDevices = core.connection.devices.toList();
+    core.connection.devices
+      ..clear()
+      ..addAll([device, proxy]);
+    core.connection.hasDevices.value = true;
+    await core.settings.setClickV2OnboardingDone(true);
+    propPrefs.setZwiftClickV2LastUnlock(device.scanResult.deviceId, DateTime.now());
+    core.settings.setMyWhooshLinkEnabled(true);
+    core.whooshLink.isConnected.value = true;
+    proxy.debugSetTrainerAppConnected(true);
+    try {
+      await shoot(tester, 'device', () => BikeControlApp());
+    } finally {
+      // Restored so the scenes stay independent of the order they run in.
+      proxy.debugSetTrainerAppConnected(false);
+      core.connection.devices
+        ..clear()
+        ..addAll(savedDevices);
+      core.connection.hasDevices.value = core.connection.devices.isNotEmpty;
+    }
   });
 
   testGoldens('Trainer', (WidgetTester tester) async {
