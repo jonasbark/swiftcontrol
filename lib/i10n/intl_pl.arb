@@ -235,6 +235,8 @@
     }
   },
   "connection": "Połączenie",
+  "connectionWifi": "Wi-Fi",
+  "connectionBluetooth": "Bluetooth",
   "continueAction": "Kontynuuj",
   "controlAppUsingModes": "Kontroluj {appName} za pomocą {modes}",
   "@controlAppUsingModes": {

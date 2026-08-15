@@ -10,6 +10,21 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 bool onboardingTrainerBridged(List<ProxyDevice> trainers) => trainers.any((t) => t.isBridged);
 
+/// The icon that says how BikeControl talks to this trainer. The same physical
+/// trainer is regularly discovered twice — once over BLE, once over mDNS/DirCon
+/// — and the rows are otherwise identical, so the leading icon carries the
+/// transport rather than the generic bike mark.
+IconData onboardingTrainerIcon(ProxyDevice trainer) =>
+    trainer.isWifiUpstream ? LucideIcons.wifi : LucideIcons.bluetooth;
+
+/// `WiFi · Supports virtual shifting` — the constant meta line alone is
+/// identical for both duplicates of one trainer, which is exactly what made
+/// the list unpickable.
+String onboardingTrainerSubtitleFor(BuildContext context, ProxyDevice trainer) {
+  final transport = trainer.isWifiUpstream ? context.i18n.connectionWifi : context.i18n.connectionBluetooth;
+  return '$transport · ${context.i18n.onboardingTrainerMeta}';
+}
+
 Widget _alternative(BuildContext context, IconData icon, String title, String body) {
   final scheme = Theme.of(context).colorScheme;
   return Container(
@@ -98,9 +113,14 @@ Widget onboardingTrainerBody(BuildContext context,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(children: [
-          Icon(LucideIcons.bike, size: 20, color: const Color(0xFF22C55E)),
+          Icon(onboardingTrainerIcon(t), size: 20, color: const Color(0xFF22C55E)),
           Gap(12),
-          Expanded(child: Text(t.name).small.semiBold),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t.name).small.semiBold,
+              Text(onboardingTrainerSubtitleFor(context, t)).xSmall.muted,
+            ]),
+          ),
           SecondaryBadge(child: Text(context.i18n.onboardingDeviceConnected)),
         ]),
       ),
@@ -187,12 +207,12 @@ class _ScanCard extends StatelessWidget {
                 style: ButtonStyle.ghost().withPadding(padding: const EdgeInsets.fromLTRB(13, 11, 13, 11)),
                 onPressed: t.isStarting.value ? null : () => onPick(t),
                 child: Row(children: [
-                  Icon(LucideIcons.bike, size: 18, color: accent),
+                  Icon(onboardingTrainerIcon(t), size: 18, color: accent),
                   Gap(12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(t.name).small.semiBold,
-                      Text(context.i18n.onboardingTrainerMeta).xSmall.muted,
+                      Text(onboardingTrainerSubtitleFor(context, t)).xSmall.muted,
                     ]),
                   ),
                   if (t.isStarting.value) ...[

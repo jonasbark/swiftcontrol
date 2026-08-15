@@ -529,13 +529,11 @@ class ProxyDevice extends BluetoothDevice {
   @override
   Widget? nameBadge(BuildContext context) {
     // The same physical trainer can be discovered over both WiFi (DirCon) and
-    // Bluetooth, producing two entries with an identical name. When that
-    // happens, show a transport icon so the duplicates can be told apart at a
-    // glance — WiFi on the DirCon entry, Bluetooth on the BLE one.
-    final hasDuplicateName = core.connection.proxyDevices.any(
-      (d) => d.uniqueId != uniqueId && d.name == name,
-    );
-    if (!hasDuplicateName) return null;
+    // Bluetooth, producing two entries for one trainer. Their names are only
+    // *nearly* identical (BLE advertisement name vs DirCon service name), so
+    // gating this on an exact-name duplicate missed the confusing case it was
+    // meant to solve — every smart trainer carries its transport instead.
+    if (!isSmartTrainer) return null;
     return Icon(
       isWifiUpstream ? LucideIcons.wifi : LucideIcons.bluetooth,
       size: 14,
@@ -564,7 +562,9 @@ class ProxyDevice extends BluetoothDevice {
             final fitnessDef = emulator.fitnessBike;
             final parts = <Widget>[];
             if (proxyDef != null) {
-              if (isWifiUpstream) _addTextMetric(parts, context, 'WiFi', LucideIcons.wifi);
+              if (isWifiUpstream) {
+                _addTextMetric(parts, context, AppLocalizations.of(context).connectionWifi, LucideIcons.wifi);
+              }
               _addMetric(parts, context, proxyDef.powerW.value, 'W', LucideIcons.zap);
               _addMetric(parts, context, proxyDef.heartRateBpm.value, 'bpm', LucideIcons.heart);
               _addMetric(parts, context, proxyDef.cadenceRpm.value, 'rpm', LucideIcons.rotateCw);
@@ -573,7 +573,9 @@ class ProxyDevice extends BluetoothDevice {
                 _addMetric(parts, context, units.fromKph(speed).round(), units.speedSymbol, LucideIcons.gauge);
               }
             } else if (fitnessDef != null) {
-              if (isWifiUpstream) _addTextMetric(parts, context, 'WiFi', LucideIcons.wifi);
+              if (isWifiUpstream) {
+                _addTextMetric(parts, context, AppLocalizations.of(context).connectionWifi, LucideIcons.wifi);
+              }
               _addMetric(parts, context, fitnessDef.powerW.value, 'W', LucideIcons.zap);
               _addMetric(parts, context, fitnessDef.heartRateBpm.value, 'bpm', LucideIcons.heart);
               _addMetric(parts, context, fitnessDef.cadenceRpm.value, 'rpm', LucideIcons.rotateCw);

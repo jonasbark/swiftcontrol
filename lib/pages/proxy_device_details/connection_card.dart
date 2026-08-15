@@ -367,15 +367,16 @@ class _ConnectionCardState extends State<ConnectionCard> {
 
   /// Inline WiFi/Bluetooth toggle shown inside the active Virtual Shifting row.
   Widget _transportToggle(RetrofitMode active) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _transportButton(RetrofitMode.wifi, LucideIcons.wifi, 'WiFi', active == RetrofitMode.wifi),
+        _transportButton(RetrofitMode.wifi, LucideIcons.wifi, l10n.connectionWifi, active == RetrofitMode.wifi),
         const SizedBox(width: 6),
         _transportButton(
           RetrofitMode.bluetooth,
           LucideIcons.bluetooth,
-          'BT',
+          l10n.connectionBluetooth,
           active == RetrofitMode.bluetooth,
         ),
       ],
