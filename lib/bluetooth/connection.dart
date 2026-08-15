@@ -1129,6 +1129,13 @@ class Connection {
       UniversalBle.stopScan();
     }
     _wifiTrainerScanner?.stop();
+    // Symmetric with [performScanning], which arms it: gamepad polling is part
+    // of scanning, and stopping left it running. It also leaked — stop() clears
+    // isScanning, so the next performScanning() sails past its guard and
+    // assigns a second periodic timer over the top of the first, once per
+    // stop/rescan cycle (unlock-mode switches do exactly that).
+    _gamePadSearchTimer?.cancel();
+    _gamePadSearchTimer = null;
     isScanning.value = false;
     _lastScanResult.clear();
     _androidNotificationsSetup = false;

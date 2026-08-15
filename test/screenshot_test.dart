@@ -69,15 +69,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 import 'custom_frame.dart';
-
-enum DeviceType {
-  android,
-  androidTablet,
-  iPhone,
-  iPad,
-  desktop,
-  noFrame,
-}
+import 'store_copy.dart';
 
 /// Drop-in for golden_screenshot's [testGoldens] that leaves
 /// [debugDisableShadows] = false at teardown.
@@ -225,77 +217,17 @@ Future<void> main() async {
   core.settings.setKeyMap(keymap);
   core.settings.setLastTarget(Target.thisDevice);
 
-  final List<({DeviceType type, TargetPlatform platform, Size size})> sizes = [
-    (type: DeviceType.android, platform: TargetPlatform.android, size: Size(1320, 2868)),
-    (type: DeviceType.androidTablet, platform: TargetPlatform.android, size: Size(3840, 2400)),
-    (type: DeviceType.iPhone, platform: TargetPlatform.iOS, size: Size(1242, 2688)),
-    (type: DeviceType.iPad, platform: TargetPlatform.iOS, size: Size(2752, 2064)),
-    (type: DeviceType.desktop, platform: TargetPlatform.windows, size: Size(2560, 1600)),
-    (type: DeviceType.noFrame, platform: TargetPlatform.windows, size: Size(1320, 2868) / 1.2),
-    /*('iPhone', Size(1242, 2688)),
-    ('macOS', Size(1280, 800)),
-    ('GitHub', Size(600, 900)),*/
-  ];
+  // The slot table lives in custom_frame.dart, next to the board that lays them
+  // out, so store_board_test.dart can assert against the real slots.
+  const sizes = kStoreSlots;
 
   debugDisableShadows = true;
 
-  // Locales to render — one screenshot folder per language so the store
-  // listings get genuinely localized screenshots (instead of the English ones
-  // copied to every locale).
-  const screenshotLocales = ['en', 'de', 'es', 'fr', 'it', 'pl'];
+  // Locales to render — see kScreenshotLocales.
+  const screenshotLocales = kScreenshotLocales;
 
-  // Marketing headline per scene, per locale. English is the source of truth;
-  // the other languages are drafts — review/adjust the copy as needed.
-  const titles = <String, Map<String, String>>{
-    'device': {
-      'en': 'Control any trainer with ANY controller',
-      'de': 'Steuere jeden Trainer mit JEDEM Controller',
-      'es': 'Controla cualquier rodillo con CUALQUIER mando',
-      'fr': 'Contrôlez n’importe quel home-trainer avec N’IMPORTE QUEL contrôleur',
-      'it': 'Controlla qualsiasi rullo con QUALSIASI controller',
-      'pl': 'Steruj każdym trenażerem DOWOLNYM kontrolerem',
-    },
-    'trainer': {
-      'en': 'Connect BikeControl to your trainer',
-      'de': 'Verbinde BikeControl mit deinem Trainer',
-      'es': 'Conecta BikeControl a tu rodillo',
-      'fr': 'Connectez BikeControl à votre home-trainer',
-      'it': 'Collega BikeControl al tuo rullo',
-      'pl': 'Połącz BikeControl ze swoim trenażerem',
-    },
-    'customization': {
-      'en': 'Customize every controller button',
-      'de': 'Passe jede Controller-Taste an',
-      'es': 'Personaliza cada botón del mando',
-      'fr': 'Personnalisez chaque bouton du contrôleur',
-      'it': 'Personalizza ogni pulsante del controller',
-      'pl': 'Dostosuj każdy przycisk kontrolera',
-    },
-    'companion': {
-      'en': 'Companion App mode with custom hotkeys',
-      'de': 'Companion-App-Modus mit eigenen Tastenkürzeln',
-      'es': 'Modo app complementaria con atajos personalizados',
-      'fr': 'Mode application compagnon avec raccourcis personnalisés',
-      'it': 'Modalità app companion con scorciatoie personalizzate',
-      'pl': 'Tryb aplikacji towarzyszącej z własnymi skrótami',
-    },
-    'virtualshifting': {
-      'en': 'Add or adjust Virtual Shifting functionality',
-      'de': 'Virtuelles Schalten hinzufügen oder anpassen',
-      'es': 'Añade o ajusta el cambio virtual',
-      'fr': 'Ajoutez ou réglez le passage de vitesses virtuel',
-      'it': 'Aggiungi o regola il cambio virtuale',
-      'pl': 'Dodaj lub dostosuj wirtualną zmianę biegów',
-    },
-    'virtualshifting-settings': {
-      'en': 'Full Control of Virtual Shifting',
-      'de': 'Volle Kontrolle über das virtuelle Schalten',
-      'es': 'Control total del cambio virtual',
-      'fr': 'Contrôle total du passage de vitesses virtuel',
-      'it': 'Controllo totale del cambio virtuale',
-      'pl': 'Pełna kontrola nad wirtualną zmianą biegów',
-    },
-  };
+  // Marketing copy, the brand gradient and the per-scene hue ramp all live in
+  // store_copy.dart, so the board tests can read them without booting the app.
 
   // Renders [scene] for every locale × device size and writes
   // ../screenshots/<locale>/<scene>-<device>-<WxH>.png.
@@ -305,7 +237,9 @@ Future<void> main() async {
     Widget Function() homeBuilder, {
     Future<void> Function(WidgetTester tester)? afterPump,
   }) async {
-    final sceneTitles = titles[scene]!;
+    // The gradient rotated to this scene's place in the listing, so the six
+    // boards read as a series rather than as one image repeated.
+    final sceneStyle = kStoreBrandStyle.forScene(scene);
     // core.settings.reset() (in main) clears this, so re-assert the Base version
     // is active — otherwise the overview shows the "N day trial available" banner.
     IAPManager.instance.isPurchased.value = true;
@@ -328,8 +262,11 @@ Future<void> main() async {
                     required Widget child,
                   }) => CustomFrame(
                     platform: size.type,
-                    title: sceneTitles[loc] ?? sceneTitles['en']!,
+                    title: sceneHeadline(scene, loc),
+                    accent: sceneAccent(scene, loc),
+                    style: sceneStyle,
                     device: device,
+                    frameColors: frameColors,
                     child: child,
                   ),
             ),

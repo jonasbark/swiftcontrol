@@ -6,8 +6,13 @@ import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Shows a dialog prompting the user to upgrade to Pro.
+///
+/// [featureName] names the thing the rider just reached for. Pass it wherever
+/// the entry point is an icon or a toggle: "Pro Feature" alone tells them the
+/// price of something they never found out the name of.
+///
 /// Returns true if the user initiated a purchase, false otherwise.
-Future<bool> showGoProDialog(BuildContext context) async {
+Future<bool> showGoProDialog(BuildContext context, {String? featureName}) async {
   final iapManager = IAPManager.instance;
 
   final result = await showDialog<bool>(
@@ -19,7 +24,7 @@ Future<bool> showGoProDialog(BuildContext context) async {
           children: [
             Icon(Icons.workspace_premium, color: Colors.orange),
             const SizedBox(width: 8),
-            Text('Pro Feature'),
+            Expanded(child: Text(featureName ?? 'Pro Feature')),
           ],
         ),
         content: Text(AppLocalizations.of(c).thisFeatureIsOnlyAvailableWithPro),

@@ -96,9 +96,11 @@ class _KeymapExplanationState extends State<KeymapExplanation> {
 
   @override
   Widget build(BuildContext context) {
-    final devices = widget.filterDevice != null
-        ? core.connection.controllerDevices.where((d) => d == widget.filterDevice).toList()
-        : core.connection.controllerDevices;
+    // Filtered to one device, that device IS the answer — no need to find it in
+    // the live list, which a remembered controller (switched off, still fully
+    // editable) is deliberately not part of. Looking it up there left its own
+    // settings page with no mapping table at all.
+    final devices = widget.filterDevice != null ? [widget.filterDevice!] : core.connection.controllerDevices;
     final keyButtonMap = devices.associateWith((device) {
       return device.availableButtons.distinct().sortedBy(
         (button) => button.color != null ? '0${(button.icon?.codePoint ?? 0)}' : '1${(button.icon?.codePoint ?? 0)}',

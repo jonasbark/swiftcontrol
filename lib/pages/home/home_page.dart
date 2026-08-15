@@ -44,6 +44,27 @@ import 'package:dartx/dartx.dart';
 import 'package:prop/prop.dart' show LogLevel;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+/// How much the chain card wants to talk about a given trainer. Lower wins.
+///
+/// One physical trainer is regularly discovered twice — once over BLE, once
+/// over mDNS/DirCon — and the two entries are separate [ProxyDevice]s. Ranking
+/// only on `isBridged` left the two idle duplicates tied, so the chain card
+/// could pick the twin the rider isn't using. Falling back through "the BLE /
+/// DirCon link is up" and "we're connecting right now" keeps the live entry in
+/// front of its idle double.
+@visibleForTesting
+int proxyChainRank(ProxyDevice p) {
+  if (p.isBridged) return 0;
+  if (p.isConnected) return 1;
+  if (p.isStarting.value) return 2;
+  return 3;
+}
+
+/// The trainer the chain card speaks for: the liveliest of the discovered
+/// proxies. See [proxyChainRank].
+@visibleForTesting
+ProxyDevice? chainProxy() => core.connection.proxyDevices.sortedBy(proxyChainRank).firstOrNull;
+
 /// The Main tab: the setup chain.
 ///
 /// One card per link, in signal-path order — your controllers, then the gears
@@ -224,7 +245,7 @@ class _HomePageState extends State<HomePage> {
     final controllers = _knownControllers;
     final standInIds = core.connection.offlineControllers.map((d) => d.uniqueId).toSet();
     final trainerApp = core.settings.getTrainerApp();
-    final proxy = core.connection.proxyDevices.sortedBy((p) => p.isBridged ? 0 : 1).firstOrNull;
+    final proxy = chainProxy();
     final remembered = core.connection.rememberedTrainer;
 
     TrainerInput? trainer;
@@ -605,7 +626,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _trainerCard(ChainLink link, ChainInputs inputs) {
-    final proxy = core.connection.proxyDevices.sortedBy((p) => p.isBridged ? 0 : 1).firstOrNull;
+    final proxy = chainProxy();
     // Straight from the device, in onboarding's sense — not inferred back out
     // of the card's own status, which is how a remembered trainer that isn't
     // even here ended up presenting itself as bridged.

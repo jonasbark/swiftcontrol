@@ -474,13 +474,19 @@ class _PaywallState extends State<Paywall> {
         SizedBox(
           width: fullColumnWidth,
           child: Center(
-            child: Text(
-              AppLocalizations.of(context).full,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                letterSpacing: 0.8,
-                color: Color(0xFF55565C),
+            // "Base" is short in most languages but not all — shrink rather
+            // than wrap or clip inside a fixed-width column.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                AppLocalizations.of(context).full,
+                maxLines: 1,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  letterSpacing: 0.8,
+                  color: Color(0xFF55565C),
+                ),
               ),
             ),
           ),

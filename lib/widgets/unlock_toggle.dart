@@ -1,32 +1,47 @@
-import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
-import 'package:bike_control/bluetooth/messages/notification.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/pages/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
-import 'package:prop/devices/click_logic.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+/// The unlock-mode section shown on both Zwift Click V2 pucks: which mode is
+/// set, what it costs, and the way back into the explainer that changes it.
+///
+/// Deliberately not a mode picker. The explainer is the one place the choice is
+/// made — it is what applies the follow-on work each mode needs (un-ignoring
+/// the left puck, remapping for right-side-only, cancelling the reset timer),
+/// none of which a bare dropdown did. But it does have to *name* the current
+/// mode: without that the card looked identical before and after a change, and
+/// picking a new mode read as having done nothing at all.
 class UnlockToggle extends StatefulWidget {
-  final ZwiftClickV2LeftSide device;
+  /// Shown only in unlock-with-Zwift mode — the warnings that mode implies.
   final List<Widget> children;
-  const UnlockToggle({super.key, required this.device, required this.children});
+  const UnlockToggle({super.key, required this.children});
 
   @override
   State<UnlockToggle> createState() => _UnlockToggleState();
 }
 
 class _UnlockToggleState extends State<UnlockToggle> {
-  bool _unlockWithZwift = false;
+  late _UnlockMode _mode = _readMode();
 
-  @override
-  void initState() {
-    _unlockWithZwift = core.settings.getUnlockWithZwift();
-    super.initState();
+  _UnlockMode _readMode() {
+    if (core.settings.getUnlockWithZwift()) return _UnlockMode.zwift;
+    if (core.settings.getClickV2RightSideOnly()) return _UnlockMode.rightSideOnly;
+    return _UnlockMode.restart;
   }
+
+  /// Whether the puck that unlock-with-Zwift actually unlocks is here. Only a
+  /// connected one can be unlocked — [ZwiftClickV2.unlockWarnings], which is
+  /// where the "unlock now" action lives, renders nothing without it — and the
+  /// right puck never carries that action at all. So when it's missing the
+  /// rider is told where unlocking happens rather than shown an empty card.
+  bool get _hasConnectedLeftSide => core.connection.devices.whereType<ZwiftClickV2>().any((d) => d.isConnected);
 
   @override
   Widget build(BuildContext context) {
+    final showsUnlockAction = _mode == _UnlockMode.zwift && _hasConnectedLeftSide;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 8,
@@ -41,90 +56,60 @@ class _UnlockToggleState extends State<UnlockToggle> {
               },
             ),
             const Spacer(),
-            // The explainer that introduced these two modes stays reachable
-            // after onboarding, so the trade-offs can be re-read later.
+            // The explainer that introduced these modes stays reachable after
+            // onboarding, so the trade-offs can be re-read later.
             Button.ghost(
               onPressed: () async {
                 await context.push(const ClickV2OnboardingPage());
                 if (!mounted) return;
-                // The page may have applied a different choice than what's
-                // currently shown here (ClickV2Onboarding writes the setting
-                // directly, not through this widget's onChanged) — refresh so
-                // the Select and the gated warning children reflect it.
-                setState(() => _unlockWithZwift = core.settings.getUnlockWithZwift());
+                // The page writes the settings directly, so re-read them: the
+                // name below and the gated children have to follow the choice.
+                setState(() => _mode = _readMode());
               },
               child: Text(context.i18n.clickV2Onboarding_setUpAgain).xSmall,
             ),
           ],
         ),
-        Select<bool>(
-          value: _unlockWithZwift,
-          popup: SelectPopup(
-            items: SelectItemList(
-              children: [
-                SelectItemButton(
-                  value: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(context.i18n.unlock_modeRestart).bold,
-                      Text(context.i18n.unlock_modeRestartDescription).xSmall.muted,
-                    ],
-                  ),
-                ),
-                SelectItemButton(
-                  value: true,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(context.i18n.unlock_modeZwift).bold,
-                      Text(context.i18n.unlock_modeZwiftDescription).xSmall.muted,
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ).call,
-          itemBuilder: (context, value) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value ? context.i18n.unlock_modeZwift : context.i18n.unlock_modeRestart),
-              Text(
-                value ? context.i18n.unlock_modeZwiftDescription : context.i18n.unlock_modeRestartDescription,
-              ).xSmall.normal.muted,
-            ],
-          ),
-          onChanged: (unlockWithZwift) async {
-            if (unlockWithZwift == null) return;
-            setState(() {
-              _unlockWithZwift = unlockWithZwift;
-            });
-            await core.settings.setUnlockWithZwift(unlockWithZwift);
-            if (unlockWithZwift) {
-              ClickLogic.resetTimer();
-            } else {
-              // `services` is populated by BluetoothDevice.connect() after
-              // discovery completes, but `isConnected` flips true earlier --
-              // from the raw BLE connection-state listener -- so there's a
-              // narrow window where this fires with services still null.
-              // The rider's choice still needs to be recorded either way;
-              // only the handshake itself is skipped when we can't send it.
-              final services = widget.device.services;
-              if (services != null) {
-                ClickLogic.setupHandshake(services, widget.device.device.deviceId, isRight: false);
-              } else {
-                core.connection.signalNotification(
-                  LogNotification(
-                    'UnlockToggle: skipped setupHandshake for ${widget.device.device.deviceId} -- services not ready yet',
-                  ),
-                );
-              }
-            }
-          },
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_mode.title(context)).small,
+            Text(_mode.description(context)).xSmall.muted,
+          ],
         ),
 
-        if (_unlockWithZwift) ...widget.children,
+        if (_mode == _UnlockMode.zwift) ...[
+          if (showsUnlockAction)
+            ...widget.children
+          else
+            Text(context.i18n.unlock_zwiftNeedsLeftSide).xSmall.muted,
+        ],
       ],
     );
   }
+}
+
+/// The three states a Click V2 setup can rest in. Kept here rather than read ad
+/// hoc from settings so every card names the same mode the same way.
+enum _UnlockMode {
+  /// Both pucks, re-unlocked through Zwift every 24 hours.
+  zwift,
+
+  /// The right puck alone — nothing to unlock, ever.
+  rightSideOnly,
+
+  /// The legacy workaround: the left puck reboots itself every minute.
+  restart;
+
+  String title(BuildContext context) => switch (this) {
+    _UnlockMode.zwift => context.i18n.unlock_modeZwift,
+    _UnlockMode.rightSideOnly => context.i18n.clickV2Onboarding_rightOnlyTitle,
+    _UnlockMode.restart => context.i18n.unlock_modeRestart,
+  };
+
+  String description(BuildContext context) => switch (this) {
+    _UnlockMode.zwift => context.i18n.unlock_modeZwiftDescription,
+    _UnlockMode.rightSideOnly => context.i18n.clickV2Onboarding_rightOnlyRecap,
+    _UnlockMode.restart => context.i18n.unlock_modeRestartDescription,
+  };
 }

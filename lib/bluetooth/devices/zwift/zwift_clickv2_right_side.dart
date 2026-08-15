@@ -10,8 +10,8 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:bike_control/utils/keymap/manager.dart';
 import 'package:bike_control/widgets/controller/controller_layout.dart';
-import 'package:bike_control/widgets/new_unlock_method_toggle.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
+import 'package:bike_control/widgets/unlock_toggle.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -105,32 +105,22 @@ class ZwiftClickV2RightSide extends ZwiftRide {
     // side back rather than forgetting it, so it stays in the device list.
     // Offering to drop a puck that is already out would just be confusing.
     final hasLiveLeftSide = core.connection.devices.whereType<ZwiftClickV2LeftSide>().any((d) => d.isConnected);
-    if (!hasLiveLeftSide) return [];
     return [
-      Text(context.i18n.unlock_useRightSideOnlyDescription).xSmall.normal,
-      SizedBox(
-        width: double.infinity,
-        child: Button.outline(
-          onPressed: () => _useRightSideOnly(context),
-          child: Text(context.i18n.unlock_useRightSideOnly),
+      // The unlock mode is one setting covering both pucks, so the way back
+      // into the explainer belongs on either card — a rider looking at the
+      // right side shouldn't have to find the left one to change it.
+      const UnlockToggle(children: []),
+      if (hasLiveLeftSide) ...[
+        Text(context.i18n.unlock_useRightSideOnlyDescription).xSmall.normal,
+        SizedBox(
+          width: double.infinity,
+          child: Button.outline(
+            onPressed: () => _useRightSideOnly(context),
+            child: Text(context.i18n.unlock_useRightSideOnly),
+          ),
         ),
-      ),
-    ];
-  }
-
-  /// Detail page only: the new-unlock-method toggle lives under "Preferences"
-  /// so it doesn't show on the compact overview card.
-  @override
-  Widget? buildPreferences(BuildContext context) {
-    final superPreferences = super.buildPreferences(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 12,
-      children: [
-        if (superPreferences != null) superPreferences,
-        const NewUnlockMethodToggle(),
       ],
-    );
+    ];
   }
 
   /// Switches to a "right side only" setup: the left controller (which needs

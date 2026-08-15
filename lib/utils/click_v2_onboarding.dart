@@ -89,7 +89,7 @@ abstract final class ClickV2Onboarding {
       for (final device in pendingDevices) {
         // forget: false is what drops the cached scan result, so the active
         // scan rediscovers the controller and rebuilds it with the class the
-        // new setting selects. This mirrors NewUnlockMethodToggle exactly.
+        // new setting selects.
         // persistForget: false keeps it out of the ignored-devices list.
         await core.connection.disconnect(device, forget: false, persistForget: false);
       }
@@ -146,10 +146,10 @@ abstract final class ClickV2Onboarding {
   /// which is exactly [ZwiftClickV2LeftSide.label], since that is what
   /// `Connection.disconnect` wrote there.
   ///
-  /// Public because right-side-only is not the only way out of it: switching
-  /// off the split representation entirely (NewUnlockMethodToggle) rebuilds the
-  /// LEFT puck as the legacy unified controller, so leaving it ignored would
-  /// leave the rider with no Click at all.
+  /// Public because right-side-only is not the only way out of it: anything
+  /// that switches off the split representation rebuilds the LEFT puck as the
+  /// legacy unified controller, so leaving it ignored would leave the rider
+  /// with no Click at all.
   static Future<void> restoreLeftSides() async {
     const labels = {ZwiftClickV2LeftSide.label, ZwiftClickV2.label};
     final ignored = core.settings.getIgnoredDevices().where((d) => labels.contains(d.name)).toList();
@@ -173,23 +173,58 @@ abstract final class ClickV2Onboarding {
 
   /// Unlock with Zwift: both controllers work, at the cost of re-unlocking
   /// through the Zwift app every 24 hours.
+  ///
+  /// Both controllers as ONE device: this mode also switches the split
+  /// representation back off, so the rider ends up on the unified
+  /// [ZwiftClickV2] rather than a separate left and right entry. The split
+  /// exists for exactly one reason — letting the RIGHT puck work alone, unlock
+  /// free — and that is [chooseRightSideOnly], the other mode. Keeping the two
+  /// in step is what makes the representation follow the choice instead of
+  /// being a setting of its own that nothing can turn back off.
   static Future<void> chooseUnlockWithZwift() async {
     await core.settings.setUnlockWithZwift(true);
     await core.settings.setClickV2RightSideOnly(false);
+    // Recorded and applied BEFORE restoreLeftSides(), which can restart the
+    // scan: a rescan while the split representation is still selected rebuilds
+    // exactly the separate right-side entry this mode folds back in.
+    final wasSplit = core.settings.getUseNewUnlockMethod();
+    if (wasSplit) await core.settings.setUseNewUnlockMethod(false);
     // This mode is "both controllers", so a left side that right-side-only put
     // on the ignored list has to come back off it — otherwise the rider picks
     // the both-sides option and only ever gets one.
     await restoreLeftSides();
-    // Mirrors UnlockToggle's own Select.onChanged: switching to Zwift mode
-    // must cancel any live ClickLogic reset timer immediately, or the rider
-    // gets one spurious restart right after choosing the mode whose whole
-    // selling point is "no restarts during your ride".
+    // Switching to Zwift mode must cancel any live ClickLogic reset timer
+    // immediately, or the rider gets one spurious restart right after choosing
+    // the mode whose whole selling point is "no restarts during your ride".
     try {
       ClickLogic.resetTimer();
     } catch (e, stack) {
       recordError(e, stack, context: 'ClickV2Onboarding.chooseUnlockWithZwift');
     }
     await _complete();
+
+    if (wasSplit) {
+      // Connected or not: every split instance has to go, or there is nothing
+      // for the scan to rebuild. In the unified representation the LEFT puck's
+      // advert becomes the whole controller and the right puck's builds nothing
+      // at all (see BluetoothDevice.fromScanResult) — which is what drops the
+      // separate right-side entry the rider is looking at.
+      // forget: false drops the cached scan result; persistForget: false keeps
+      // the puck off the ignored list so it can come straight back.
+      final clicks = core.connection.bluetoothDevices
+          .where((d) => d is ZwiftClickV2 || d is ZwiftClickV2RightSide)
+          .toList();
+      for (final device in clicks) {
+        await core.connection.disconnect(device, forget: false, persistForget: false);
+      }
+      // A full restart, not just performScanning(): that returns immediately
+      // while a scan is already running, and the scanner dedupes against its
+      // cached adverts, so without clearing them the pucks are never
+      // rediscovered and the unified controller is never built.
+      await core.connection.stop();
+      await core.connection.performScanning();
+      return;
+    }
     await _connectPending();
   }
 

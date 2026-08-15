@@ -102,7 +102,7 @@ List<Widget> buildMenuButtons(BuildContext context) {
 Future<String> debugText({bool includeDiscovery = true}) async {
   final userId = IAPManager.instance.isUsingRevenueCat ? (await Purchases.appUserID) : null;
   final proxies = core.connection.proxyDevices;
-  final proxyBlock = proxies.isEmpty ? '-' : proxies.map(_describeProxyDevice).join('\n  ');
+  final proxyBlock = proxies.isEmpty ? '-' : proxies.map(describeProxyDevice).join('\n  ');
   String diagnostics;
   try {
     final diag = await DebugDiagnostics.gather(includeDiscovery: includeDiscovery);
@@ -136,7 +136,8 @@ ${core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transfor
 /// manufacturer). When the emulator has discovered non-standard BLE
 /// services on the trainer, the same "Services & characteristics:" block
 /// the chat freetext uses is appended on subsequent lines.
-String _describeProxyDevice(ProxyDevice device) {
+@visibleForTesting
+String describeProxyDevice(ProxyDevice device) {
   final emulator = device.emulator;
   final state = !device.isConnected
       ? 'disconnected'
@@ -151,6 +152,11 @@ String _describeProxyDevice(ProxyDevice device) {
 
   final parts = <String>[
     device.scanResult.name ?? device.scanResult.deviceId,
+    // The *upstream* link to the real trainer, as opposed to `mode` below
+    // (the downstream retrofit mode BikeControl emulates towards the trainer
+    // app). One physical trainer is often discovered twice — over BLE and over
+    // mDNS/DirCon — and this is what tells the two entries apart in a bundle.
+    'upstream=${device.isWifiUpstream ? 'wifi' : 'ble'}',
     'mode=$mode',
     'state=$state',
     'def=$defKind',

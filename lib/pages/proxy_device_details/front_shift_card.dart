@@ -1,6 +1,7 @@
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/models/shifting_config.dart';
+import 'package:bike_control/pages/proxy_device_details/front_shift_visual.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:bike_control/widgets/ui/stepper_control.dart';
@@ -29,8 +30,13 @@ class FrontShiftCard extends StatelessWidget {
     final enabled = config.frontShiftEnabled;
     final small = config.smallChainringTeeth;
     final large = config.largeChainringTeeth;
-    final factor = large / small;
-    final cs = Theme.of(context).colorScheme;
+    // The live curve if the definition has one, else whatever this config
+    // stores (or the stock curve for its gear count) — the picture should be
+    // right even before the trainer has published its ratios.
+    final live = definition.gearRatios.value;
+    final ratios = live.isNotEmpty
+        ? live
+        : (config.gearRatios ?? FitnessBikeDefinition.defaultGearRatiosFor(config.maxGear));
     return SettingTile(
       icon: LucideIcons.bike,
       title: AppLocalizations.of(context).frontShiftEnableLabel,
@@ -47,6 +53,18 @@ class FrontShiftCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: 12,
               children: [
+                // Which ring is engaged changes on every front shift, so the
+                // picture listens rather than reading it once at build time.
+                ValueListenableBuilder<FrontRing>(
+                  valueListenable: definition.frontRing,
+                  builder: (context, ring, _) => FrontShiftVisual(
+                    smallTeeth: small,
+                    largeTeeth: large,
+                    largeRingActive: ring == FrontRing.large,
+                    ratios: ratios,
+                    gearCount: config.maxGear,
+                  ),
+                ),
                 Row(
                   children: [
                     Expanded(
@@ -92,11 +110,6 @@ class FrontShiftCard extends StatelessWidget {
                       },
                     ),
                   ],
-                ),
-                Text(
-                  '${factor.toStringAsFixed(2)}×',
-                  style: TextStyle(fontSize: 12, color: cs.mutedForeground),
-                  textAlign: TextAlign.end,
                 ),
               ],
             )

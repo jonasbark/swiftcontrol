@@ -13,6 +13,7 @@ import 'package:bike_control/pages/onboarding/steps/step_controller.dart';
 import 'package:bike_control/pages/onboarding/steps/step_done.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
 import 'package:bike_control/pages/onboarding/steps/step_where.dart';
+import 'package:bike_control/pages/onboarding/widgets/vs_stage.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
@@ -163,6 +164,28 @@ Future<void> main() async {
               onPick: (_) {},
             ));
   });
+
+  // A trainer in range: the scan card lists it with its Connect affordance.
+  testWidgets('step trainer with device', (tester) async {
+    final trainer = ProxyDevice(BleDevice(deviceId: 'trainer-snap', name: 'KICKR CORE 1EB7'));
+    await captureWidget(tester, name: 'onboarding_step_trainer_device', width: 380, settle: false,
+        builder: (c) => onboardingTrainerBody(
+              c,
+              app: SupportedApp.supportedApps.first,
+              trainers: [trainer],
+              onPick: (_) {},
+              onRescan: () {},
+            ));
+  });
+
+  // The stage holds still under screenshotMode, so each scene is captured by
+  // opening on it — that's also the only way to see scenes 2 and 3 at rest.
+  for (final (i, name) in const [(0, 'apps'), (1, 'ratios'), (2, 'front'), (3, 'more')]) {
+    testWidgets('vs stage scene $name', (tester) async {
+      await captureWidget(tester, name: 'onboarding_vs_stage_$name', width: 380, settle: false,
+          builder: (c) => VirtualShiftingStage(initialScene: i));
+    });
+  }
 
   // MyWhoosh + Android + same-device can't reach a network virtual bike.
   testWidgets('step trainer virtual shifting blocked', (tester) async {
