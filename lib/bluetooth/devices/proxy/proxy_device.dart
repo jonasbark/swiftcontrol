@@ -393,6 +393,11 @@ class ProxyDevice extends BluetoothDevice {
 
   static const _bridgeSuffix = 'Bridge';
 
+  /// Rouvy needs an IPv4-only listener; the controller endpoint has bound one
+  /// for it for a while. Reasoning in `prop` ([DirconEmulator.forceIPv4]).
+  @visibleForTesting
+  bool rouvyNeedsIPv4() => core.settings.getTrainerApp() is Rouvy;
+
   /// Mirrors `emulator.advertisementName`. Exposed on ProxyDevice for the UI
   /// so it doesn't have to dereference through the contextual `emulator`
   /// getter.
@@ -464,6 +469,7 @@ class ProxyDevice extends BluetoothDevice {
         ftmsEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
         ftmsEmulator.deviceName = () => scanResult.name;
         ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
+        ftmsEmulator.forceIPv4 = rouvyNeedsIPv4;
         _fbd = fbd;
         _currentFbd = fbd;
         await ftmsEmulator.attachDefinition(_fbd!);
@@ -919,6 +925,7 @@ class ProxyDevice extends BluetoothDevice {
       ftmsEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
       ftmsEmulator.deviceName = () => scanResult.name;
       ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
+      ftmsEmulator.forceIPv4 = rouvyNeedsIPv4;
       _bindToActiveEmulator();
 
       if (_fbd != null) {

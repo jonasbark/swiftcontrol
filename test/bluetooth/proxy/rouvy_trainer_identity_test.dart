@@ -162,5 +162,13 @@ void main() {
 
       expect(deviceNamed('Wahoo KICKR 1EB7').rouvyAdvertisementName(), isNull);
     });
+
+    test('binds IPv4-only for Rouvy and dual-stack for everyone else', () {
+      core.settings.setTrainerApp(Rouvy());
+      expect(deviceNamed('Wahoo KICKR 1EB7').rouvyNeedsIPv4(), isTrue);
+
+      core.settings.setTrainerApp(Zwift());
+      expect(deviceNamed('Wahoo KICKR 1EB7').rouvyNeedsIPv4(), isFalse);
+    });
   });
 }
