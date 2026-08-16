@@ -359,7 +359,6 @@ class ProxyDevice extends BluetoothDevice {
       connectedDeviceServices: services,
       data: ftmsEmulator.data,
       shouldAdvertiseZwift: shouldAdvertiseZwift,
-      exposeZwiftPlayService: _exposeZwiftPlayService,
       transport: transport,
     );
     _seedFitnessBikeDefinition(fbd);
@@ -372,27 +371,27 @@ class ProxyDevice extends BluetoothDevice {
   }
 
   /// True when [_zwiftControllerEmulator] rides along in the composite next to
-  /// the FBD. It owns the Zwift *Ride* service (`0000fc82-…`), which is what
-  /// makes the bridge usable as a Remote Control on top of being the power
-  /// source.
+  /// the FBD, adding the Zwift *Ride* service (`0000fc82-…`).
+  ///
+  /// Zwift only; Rouvy would lose Virtual Shifting over it and gets its
+  /// controller from the standalone endpoint instead. Reasoning in `prop`.
   bool get _attachesZwiftController {
     if (_zwiftControllerEmulator == null) return false;
-    final trainerApp = core.settings.getTrainerApp();
-    return trainerApp is Zwift || trainerApp is Rouvy;
+    return core.settings.getTrainerApp() is Zwift;
   }
 
-  /// True when the bridge offers Rouvy the Remote Control role on top of being
-  /// the trainer, so one endpoint fills both.
-  bool get _presentsAsRideController => _attachesZwiftController && core.settings.getTrainerApp() is Rouvy;
+  /// The name Rouvy needs the bridge to advertise under; null for every other
+  /// app, leaving the usual name in place. Reasoning in `prop`
+  /// ([DirconEmulator.advertisementNameOverride]).
+  @visibleForTesting
+  String? rouvyAdvertisementName() {
+    if (core.settings.getTrainerApp() is! Rouvy) return null;
+    final name = scanResult.name;
+    final composed = name == null || name.isEmpty ? _bridgeSuffix : '$name - $_bridgeSuffix';
+    return composed.toLowerCase().contains('bikecontrol') ? _bridgeSuffix : composed;
+  }
 
-  /// Whether the FBD may also carry the Zwift *Play* service
-  /// (`00000001-19ca-…`).
-  ///
-  /// Rouvy takes only one Zwift custom service per device — offered both, it
-  /// never finishes pairing and sits on "Connecting". So when the controller
-  /// emulator is attached for Rouvy the FBD yields the Play service to it and
-  /// only the Ride service goes on the wire. Zwift is happy with both.
-  bool get _exposeZwiftPlayService => !_presentsAsRideController;
+  static const _bridgeSuffix = 'Bridge';
 
   /// Mirrors `emulator.advertisementName`. Exposed on ProxyDevice for the UI
   /// so it doesn't have to dereference through the contextual `emulator`
@@ -464,6 +463,7 @@ class ProxyDevice extends BluetoothDevice {
         // VS modes (wifi / bluetooth): the FBD lives in the shared ftmsEmulator.
         ftmsEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
         ftmsEmulator.deviceName = () => scanResult.name;
+        ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
         _fbd = fbd;
         _currentFbd = fbd;
         await ftmsEmulator.attachDefinition(_fbd!);
@@ -909,7 +909,6 @@ class ProxyDevice extends BluetoothDevice {
           connectedDeviceServices: services!,
           data: ftmsEmulator.data,
           shouldAdvertiseZwift: _shouldAdvertiseZwift,
-          exposeZwiftPlayService: _exposeZwiftPlayService,
           transport: transport,
         );
         _currentFbd = _fbd;
@@ -919,6 +918,7 @@ class ProxyDevice extends BluetoothDevice {
       _retrofitModeN.value = next;
       ftmsEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
       ftmsEmulator.deviceName = () => scanResult.name;
+      ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
       _bindToActiveEmulator();
 
       if (_fbd != null) {
