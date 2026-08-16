@@ -149,6 +149,48 @@ void main() async {
     expect(find.text(l.chainOptional.toUpperCase()), findsNothing);
   });
 
+  // The gear overlay: an offer that lives in the checklist rather than in a
+  // toast that scrolls away. It has to read as an offer on the line itself,
+  // otherwise a rider who doesn't want it sees a card that is never finished.
+  group('an optional step', () {
+    ChainLink overlayLink({bool alone = true}) => ChainLink(
+      key: ChainLinkKey.trainer,
+      id: 'trainer',
+      status: LinkStatus.ready,
+      title: 'KICKR CORE',
+      optional: true,
+      steps: [
+        const SetupStep(id: SetupStepId.trainerPaired, done: true),
+        SetupStep(id: SetupStepId.trainerAppBridged, done: alone),
+        const SetupStep(id: SetupStepId.trainerGearOverlay, done: false, optional: true),
+      ],
+    );
+
+    testWidgets('is tagged optional on its own line', (tester) async {
+      await pumpCard(tester, overlayLink());
+
+      expect(find.text(l.chainStepOverlay), findsOneWidget);
+      // Once on the card header, once on the step — and the step's tag sits
+      // beside the step, not up in the title row.
+      expect(find.text(l.chainOptional.toUpperCase()), findsNWidgets(2));
+      expect(
+        tester.getTopLeft(find.text(l.chainOptional.toUpperCase()).last).dy,
+        greaterThan(tester.getTopLeft(find.text(l.chainStepOverlay)).dy - 1),
+      );
+    });
+
+    testWidgets('states why it exists before it is the active step', (tester) async {
+      await pumpCard(tester, overlayLink(alone: false));
+
+      final rows = tester.widgetList<StepRow>(find.byType(StepRow)).toList();
+      expect(rows.map((r) => r.step.id), [SetupStepId.trainerAppBridged, SetupStepId.trainerGearOverlay]);
+      // Not the active step, so no button — but the reason is on screen anyway:
+      // it is the whole content of the offer.
+      expect(rows.last.active, isFalse);
+      expect(find.text(l.chainStepOverlayHint(l.chainAppTitle)), findsOneWidget);
+    });
+  });
+
   group('alignment', () {
     testWidgets('every step tick shares one left edge', (tester) async {
       await pumpCard(tester, link(status: LinkStatus.attention, steps: [false, false, false]));

@@ -24,15 +24,6 @@
   "overlayPermissionExplain": "Android necessita dell'autorizzazione per mostrare l'Overlay sopra la tua app di allenamento.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Visualizzazione delle marce in tempo reale mentre pedali.",
-  "overlayConnectHint": "{appName} non può mostrare le marce virtuali di BikeControl. Attiva l'Overlay per vedere la marcia attuale durante la sessione.",
-  "@overlayConnectHint": {
-    "placeholders": {
-      "appName": {
-        "type": "String"
-      }
-    }
-  },
-  "overlayConnectHintButton": "Attiva l'Overlay",
   "overlaySettings": "Impostazioni Overlay",
   "overlayWindowsTip": "Esegui l'app di allenamento in modalità finestra senza bordi affinché l'Overlay resti visibile.",
   "virtualShiftingHint": "Aggiunge o regola il Virtual Shifting e annuncia BikeControl come rullo.",
@@ -1586,6 +1577,17 @@
   "chainStepClickV2SetupHint": "Zwift vincola il Click V2 alla propria app. Scegli come BikeControl aggira il problema e si collegherà subito.",
   "chainStepTrainerPaired": "Rullo collegato",
   "chainStepTrainerPairedPending": "Collega il tuo rullo",
+  "chainStepOverlay": "Mostra la marcia sullo schermo",
+  "chainStepOverlayDone": "L'Overlay marce è attivo",
+  "chainStepOverlayHint": "{appName} non può mostrare le marce virtuali di BikeControl. Attiva l'Overlay per vedere la marcia attuale durante la sessione.",
+  "@chainStepOverlayHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepOverlayAction": "Attiva l'Overlay",
   "chainStepAppSelected": "App di allenamento scelta",
   "chainStepAppSelectedPending": "Scegli la tua app di allenamento",
   "chainStepAppSelectedHint": "Scegli l’app con cui pedali.",

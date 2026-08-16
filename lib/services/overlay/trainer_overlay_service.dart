@@ -14,6 +14,16 @@ class TrainerOverlayService {
     return _instance ??= _build();
   }
 
+  /// Whether this platform can draw an overlay at all — i.e. whether
+  /// [forCurrentPlatform] would hand back something other than a no-op.
+  /// Answered without building a controller, so callers on a hot path (the
+  /// home screen rebuilds on every BLE event) don't spin up platform channels
+  /// just to ask.
+  static bool get isSupportedPlatform {
+    if (kIsWeb) return false;
+    return Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isWindows;
+  }
+
   static TrainerOverlayController _build() {
     if (kIsWeb) return NoOpOverlayController();
     if (Platform.isAndroid) return AndroidOverlayController();

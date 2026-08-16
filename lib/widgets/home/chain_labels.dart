@@ -65,6 +65,12 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
             l.chainStepTrainerBridgedPending(app),
             l.chainStepTrainerBridgedHint(step.hintArg ?? 'BikeControl', app),
           ),
+    // The hint carries the whole reason this step exists — that the number the
+    // trainer app draws is its own, not the one BikeControl computes — so it
+    // shows even before the step is the active one.
+    SetupStepId.trainerGearOverlay => step.done
+        ? ChainStepText(l.chainStepOverlayDone)
+        : ChainStepText(l.chainStepOverlay, l.chainStepOverlayHint(app)),
     SetupStepId.appSelected => step.done
         ? ChainStepText(l.chainStepAppSelected)
         : ChainStepText(l.chainStepAppSelectedPending, l.chainStepAppSelectedHint),

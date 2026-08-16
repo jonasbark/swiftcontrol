@@ -41,6 +41,8 @@ TrainerInput trainer({
   DevicePresence presence = DevicePresence.connected,
   bool appHoldsBridge = true,
   String? metrics = '250 W · 90 rpm',
+  bool overlayOffered = false,
+  bool overlayEnabled = false,
 }) {
   return TrainerInput(
     deviceId: 'trainer-1',
@@ -49,6 +51,8 @@ TrainerInput trainer({
     appHoldsBridge: appHoldsBridge,
     bridgeName: 'KICKR CORE - BikeControl',
     metrics: metrics,
+    overlayOffered: overlayOffered,
+    overlayEnabled: overlayEnabled,
   );
 }
 
@@ -464,6 +468,83 @@ void main() {
         chain.byKey(ChainLinkKey.trainer).steps.map((s) => s.id),
         [SetupStepId.trainerPaired, SetupStepId.trainerAppBridged],
       );
+    });
+  });
+
+  // The trainer app draws its own gear, not the one BikeControl computes, so a
+  // bridged rider without the overlay is looking at a number that disagrees
+  // with their shifter — the single most common support question. It used to be
+  // a toast, which scrolled away before anyone read it; now it is a line on the
+  // card that stays until it is acted on.
+  group('the gear overlay step', () {
+    test('a bridged trainer that can show the overlay offers it', () {
+      final chain = buildChain(ChainInputs(trainer: trainer(overlayOffered: true), app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.trainer);
+      final step = link.steps.firstWhere((s) => s.id == SetupStepId.trainerGearOverlay);
+      expect(step.done, isFalse);
+      expect(step.optional, isTrue);
+      // Last, so it never displaces the work that actually blocks the rider.
+      expect(link.steps.last.id, SetupStepId.trainerGearOverlay);
+    });
+
+    // Riding from another device, on a platform that can't draw one, or without
+    // a Virtual Shifting session: all three are answered upstream, and all three
+    // arrive here as "don't offer it".
+    test('is absent when the overlay is not on offer', () {
+      final chain = buildChain(ChainInputs(trainer: trainer(), app: _readyApp));
+      expect(_hasStep(chain.byKey(ChainLinkKey.trainer), SetupStepId.trainerGearOverlay), isFalse);
+    });
+
+    test('ticks off once the rider has turned the overlay on', () {
+      final chain = buildChain(
+        ChainInputs(trainer: trainer(overlayOffered: true, overlayEnabled: true), app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.trainer);
+      expect(_stepDone(link, SetupStepId.trainerGearOverlay), isTrue);
+      // Done steps leave the checklist, so the card is back to its header.
+      expect(link.pendingSteps, isEmpty);
+    });
+
+    // The regression this guards: an offer that turns the card amber and stops
+    // "Ready to ride" is not an offer, it is a demand.
+    test('never blocks the rider or colours the card', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller()],
+          trainer: trainer(overlayOffered: true),
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.trainer);
+      expect(link.status, LinkStatus.ready);
+      expect(link.isBlocking, isFalse);
+      expect(link.remainingSteps, 0);
+      final banner = deriveBanner(chain);
+      expect(banner.kind, ChainBannerKind.ready);
+      expect(banner.stepsLeft, 0);
+    });
+
+    // Before the bridge is up BikeControl computes no gear, so there is nothing
+    // for an overlay to show and nothing to contradict.
+    test('is not offered on a trainer whose bridge is down', () {
+      final chain = buildChain(
+        ChainInputs(
+          trainer: trainer(presence: DevicePresence.lost, appHoldsBridge: false, overlayOffered: true),
+          app: _readyApp,
+        ),
+      );
+      expect(_hasStep(chain.byKey(ChainLinkKey.trainer), SetupStepId.trainerGearOverlay), isFalse);
+    });
+
+    // Ordering, stated as the thing that matters: while the app has not picked
+    // the bridge up, that is still the next action — the offer waits its turn.
+    test('waits behind the pick-up step', () {
+      final chain = buildChain(
+        ChainInputs(trainer: trainer(appHoldsBridge: false, overlayOffered: true), app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.trainer);
+      expect(link.activeStep?.id, SetupStepId.trainerAppBridged);
+      expect(link.status, LinkStatus.attention);
     });
   });
 
