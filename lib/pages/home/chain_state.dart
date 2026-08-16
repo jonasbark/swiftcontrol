@@ -95,6 +95,15 @@ class SetupStep {
 }
 
 /// One card in the chain.
+/// Whether the app link's "Show me how" should open Trainer Connections
+/// rather than the trainer-app guide.
+///
+/// While a connection method still has to be switched on, the guide answers
+/// the step after this one — what to do inside the trainer app — and leaves
+/// the rider reading pairing instructions for a bridge that isn't running.
+/// The button label follows the same rule, so the two cannot drift.
+bool appLinkOpensConnectionSettings(ChainLink link) => link.activeStep?.id == SetupStepId.appConnectionMethod;
+
 class ChainLink {
   const ChainLink({
     required this.key,

@@ -734,6 +734,9 @@ class _HomePageState extends State<HomePage> {
         _update();
       },
       onInstructions: () => _openInstructions(link),
+      // Opening Trainer Connections is an action, not an explanation, so the
+      // button says so.
+      instructionsLabel: appLinkOpensConnectionSettings(link) ? context.i18n.chainSetUp : null,
     );
   }
 
@@ -818,7 +821,16 @@ class _HomePageState extends State<HomePage> {
           await openTrainerConnectSheet(context);
         }
       case ChainLinkKey.app:
-        await openAppGuideSheet(context);
+        // "Activate a connection method" is something the rider does HERE, in
+        // Trainer Connections. The app guide answers the step after it — what
+        // to do inside the trainer app — and handing that over instead leaves
+        // the rider reading pairing instructions for a bridge that isn't
+        // running yet.
+        if (appLinkOpensConnectionSettings(link)) {
+          await context.push(const TrainerConnectionSettingsPage());
+        } else {
+          await openAppGuideSheet(context);
+        }
     }
     _update();
   }

@@ -6,17 +6,17 @@ import 'package:bike_control/bluetooth/devices/gamepad/gamepad_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/hid/hid_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
-import 'package:bike_control/bluetooth/incline/incline_controller.dart';
-import 'package:bike_control/bluetooth/incline/incline_sink.dart';
-import 'package:bike_control/bluetooth/incline/manual_incline_device.dart';
-import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
-import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
+import 'package:bike_control/bluetooth/incline/incline_controller.dart';
+import 'package:bike_control/bluetooth/incline/incline_sink.dart';
+import 'package:bike_control/bluetooth/incline/manual_incline_device.dart';
 import 'package:bike_control/bluetooth/wifi_trainer_scanner.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
+import 'package:bike_control/models/remembered_device.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/interpreter.dart';
@@ -24,8 +24,8 @@ import 'package:bike_control/utils/requirements/android.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:bike_control/models/remembered_device.dart';
 import 'package:gamepads/gamepads.dart';
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/prop.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -309,10 +309,8 @@ class Connection {
 
     _inactivityDisconnector = InactivityDisconnector(
       isTrainerAppConnected: () => core.logic.connectedNonLocalTrainerConnections.isNotEmpty,
-      isOnlyLocalActive: () =>
-          core.logic.enabledNonLocalTrainerConnections.isEmpty && core.settings.getLocalEnabled(),
-      hasEligibleControllers: () =>
-          controllerDevices.whereType<BluetoothDevice>().any((d) => d.isConnected),
+      isOnlyLocalActive: () => core.logic.enabledNonLocalTrainerConnections.isEmpty && core.settings.getLocalEnabled(),
+      hasEligibleControllers: () => controllerDevices.whereType<BluetoothDevice>().any((d) => d.isConnected),
       onTimeout: _onInactivityTimeout,
     );
 
@@ -360,7 +358,6 @@ class Connection {
       core.mediaKeyHandler.isMediaKeyDetectionEnabled.value = core.settings.getMediaKeyDetectionEnabled();
     }
 
-    ftmsEmulator.trainerApp = () => core.settings.getTrainerApp()?.name;
     ftmsEmulator.isTrial = () => !IAPManager.instance.isProEnabledForCurrentDevice;
 
     // The advertised name depends on the selected trainer app (e.g. Rouvy →
@@ -1146,8 +1143,7 @@ class Connection {
   /// Test seam: run the inactivity battery-saver disconnect directly instead of
   /// waiting out the real idle timer.
   @visibleForTesting
-  void debugTriggerInactivityTimeout([Duration timeout = const Duration(minutes: 60)]) =>
-      _onInactivityTimeout(timeout);
+  void debugTriggerInactivityTimeout([Duration timeout = const Duration(minutes: 60)]) => _onInactivityTimeout(timeout);
 
   /// Called by [_inactivityDisconnector] when the idle timeout elapses.
   /// Disconnects every connected BLE controller (battery-powered; ProxyDevice

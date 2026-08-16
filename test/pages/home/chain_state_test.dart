@@ -189,4 +189,42 @@ void main() {
       expect(links.map((l) => l.id), contains(banner.targetLinkId));
     });
   });
+
+  group('app link "Show me how"', () {
+    ChainLink appLink(List<SetupStepId> pending) => ChainLink(
+      key: ChainLinkKey.app,
+      id: 'app',
+      status: LinkStatus.attention,
+      title: 'Rouvy',
+      steps: [
+        for (final id in SetupStepId.values)
+          if (id == SetupStepId.appSelected || id == SetupStepId.appConnectionMethod || id == SetupStepId.appConnected)
+            SetupStep(id: id, done: !pending.contains(id)),
+      ],
+    );
+
+    test('opens Trainer Connections while a method still has to be switched on', () {
+      final l = appLink([SetupStepId.appConnectionMethod, SetupStepId.appConnected]);
+
+      expect(l.activeStep?.id, SetupStepId.appConnectionMethod);
+      expect(appLinkOpensConnectionSettings(l), isTrue);
+    });
+
+    test('falls back to the app guide once a method is on', () {
+      final l = appLink([SetupStepId.appConnected]);
+
+      expect(l.activeStep?.id, SetupStepId.appConnected);
+      expect(appLinkOpensConnectionSettings(l), isFalse);
+    });
+
+    test('falls back to the app guide when no app is picked yet', () {
+      final l = appLink([SetupStepId.appSelected, SetupStepId.appConnectionMethod, SetupStepId.appConnected]);
+
+      expect(appLinkOpensConnectionSettings(l), isFalse);
+    });
+
+    test('falls back to the app guide when everything is done', () {
+      expect(appLinkOpensConnectionSettings(appLink(const [])), isFalse);
+    });
+  });
 }
