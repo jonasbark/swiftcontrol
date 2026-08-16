@@ -359,6 +359,7 @@ class ProxyDevice extends BluetoothDevice {
       connectedDeviceServices: services,
       data: ftmsEmulator.data,
       shouldAdvertiseZwift: shouldAdvertiseZwift,
+      exposeZwiftPlayService: _exposeZwiftPlayService,
       transport: transport,
     );
     _seedFitnessBikeDefinition(fbd);
@@ -369,6 +370,29 @@ class ProxyDevice extends BluetoothDevice {
     final trainerApp = core.settings.getTrainerApp();
     return trainerApp is Rouvy || trainerApp is Zwift;
   }
+
+  /// True when [_zwiftControllerEmulator] rides along in the composite next to
+  /// the FBD. It owns the Zwift *Ride* service (`0000fc82-…`), which is what
+  /// makes the bridge usable as a Remote Control on top of being the power
+  /// source.
+  bool get _attachesZwiftController {
+    if (_zwiftControllerEmulator == null) return false;
+    final trainerApp = core.settings.getTrainerApp();
+    return trainerApp is Zwift || trainerApp is Rouvy;
+  }
+
+  /// True when the bridge offers Rouvy the Remote Control role on top of being
+  /// the trainer, so one endpoint fills both.
+  bool get _presentsAsRideController => _attachesZwiftController && core.settings.getTrainerApp() is Rouvy;
+
+  /// Whether the FBD may also carry the Zwift *Play* service
+  /// (`00000001-19ca-…`).
+  ///
+  /// Rouvy takes only one Zwift custom service per device — offered both, it
+  /// never finishes pairing and sits on "Connecting". So when the controller
+  /// emulator is attached for Rouvy the FBD yields the Play service to it and
+  /// only the Ride service goes on the wire. Zwift is happy with both.
+  bool get _exposeZwiftPlayService => !_presentsAsRideController;
 
   /// Mirrors `emulator.advertisementName`. Exposed on ProxyDevice for the UI
   /// so it doesn't have to dereference through the contextual `emulator`
@@ -443,7 +467,7 @@ class ProxyDevice extends BluetoothDevice {
         _fbd = fbd;
         _currentFbd = fbd;
         await ftmsEmulator.attachDefinition(_fbd!);
-        if (_zwiftControllerEmulator != null && core.settings.getTrainerApp() is Zwift) {
+        if (_attachesZwiftController) {
           await ftmsEmulator.attachDefinition(_zwiftControllerEmulator!);
         }
         await ftmsEmulator.startServer(
@@ -691,8 +715,7 @@ class ProxyDevice extends BluetoothDevice {
   /// baseline or manual-range boundary) is Ignored — handled internally, shows
   /// what happened, never forwarded to the app — and never yanks a >500 W
   /// game-set target down.
-  ActionResult _stepErg(FitnessBikeDefinition def, AppLocalizations l10n, ControllerButton button,
-      {required bool up}) {
+  ActionResult _stepErg(FitnessBikeDefinition def, AppLocalizations l10n, ControllerButton button, {required bool up}) {
     final next = def.stepManualErgPower(up: up);
     if (next != null) {
       return Success(l10n.trainerErgTarget(next), button: button);
@@ -756,9 +779,7 @@ class ProxyDevice extends BluetoothDevice {
           return Ignored(l10n.trainerFrontShiftUnavailable, button: button);
         }
         return Success(
-          def.frontRing.value == FrontRing.large
-              ? l10n.trainerFrontShiftedLarge
-              : l10n.trainerFrontShiftedSmall,
+          def.frontRing.value == FrontRing.large ? l10n.trainerFrontShiftedLarge : l10n.trainerFrontShiftedSmall,
           button: button,
         );
       default:
@@ -888,6 +909,7 @@ class ProxyDevice extends BluetoothDevice {
           connectedDeviceServices: services!,
           data: ftmsEmulator.data,
           shouldAdvertiseZwift: _shouldAdvertiseZwift,
+          exposeZwiftPlayService: _exposeZwiftPlayService,
           transport: transport,
         );
         _currentFbd = _fbd;
@@ -903,7 +925,7 @@ class ProxyDevice extends BluetoothDevice {
         await ftmsEmulator.attachDefinition(_fbd!);
       }
 
-      if (_zwiftControllerEmulator != null && core.settings.getTrainerApp() is Zwift) {
+      if (_attachesZwiftController) {
         await ftmsEmulator.attachDefinition(_zwiftControllerEmulator!);
       }
 
