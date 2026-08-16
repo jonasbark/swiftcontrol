@@ -145,10 +145,22 @@ ChainLink _trainerLink(ChainInputs inputs) {
             done: trainer.appHoldsBridge,
             hintArg: trainer.bridgeName,
           ),
+          // Last, and optional: the trainer app shows its own gear, not the one
+          // BikeControl computes, so a bridged rider who has not turned the
+          // overlay on is looking at a number that will disagree with their
+          // shifter. That is the single most common support question, and it
+          // outlived a toast — so it lives on the card until it is acted on.
+          // Only offered once the bridge is up: before that there is no gear.
+          if (paired && trainer.overlayOffered)
+            SetupStep(
+              id: SetupStepId.trainerGearOverlay,
+              done: trainer.overlayEnabled,
+              optional: true,
+            ),
         ]
       : const <SetupStep>[];
 
-  final incomplete = steps.any((s) => !s.done);
+  final incomplete = steps.any((s) => !s.done && !s.optional);
   // An uncommitted trainer — in range but never bridged, or deliberately left
   // to the app — rests at "off". Amber would be wrong twice: it isn't waiting
   // on anything, and on an optional card amber blocks "Ready to ride".

@@ -107,6 +107,8 @@ class TrainerInput {
     required this.appHoldsBridge,
     this.bridgeName,
     this.metrics,
+    this.overlayOffered = false,
+    this.overlayEnabled = false,
   });
 
   final String deviceId;
@@ -132,6 +134,20 @@ class TrainerInput {
 
   /// Live telemetry for the ready-state status line, e.g. "250 W · 90 rpm".
   final String? metrics;
+
+  /// Whether the gear overlay is worth offering on this trainer's card at all.
+  ///
+  /// Three things have to hold, and the card asks about none of them itself:
+  /// the trainer app runs on *this* device (an overlay cannot be drawn over an
+  /// app on someone else's iPad), the platform can draw one, and BikeControl is
+  /// actually computing gears (a Virtual Shifting session) — without that last
+  /// one there is no gear for the overlay to show, and the offer would be an
+  /// answer to a question the rider has not got.
+  final bool overlayOffered;
+
+  /// Whether the rider already turned the overlay on, which is what ticks the
+  /// optional step off the card.
+  final bool overlayEnabled;
 }
 
 class AppInput {
