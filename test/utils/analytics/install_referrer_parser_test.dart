@@ -48,5 +48,9 @@ void main() {
       final result = parseInstallReferrer('utm_campaign=$long');
       expect(result['utm_campaign']!.length, 200);
     });
+
+    test('throws FormatException on malformed percent-encoding', () {
+      expect(() => parseInstallReferrer('utm_source=100%'), throwsFormatException);
+    });
   });
 }

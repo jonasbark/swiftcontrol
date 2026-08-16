@@ -18,7 +18,17 @@ const int _maxValueLength = 200;
 Map<String, String> parseInstallReferrer(String? referrer) {
   if (referrer == null || referrer.trim().isEmpty) return const <String, String>{};
 
-  final params = Uri.splitQueryString(referrer);
+  final Map<String, String> params;
+  try {
+    params = Uri.splitQueryString(referrer);
+  } on FormatException {
+    rethrow;
+  } catch (e) {
+    // Uri.splitQueryString throws ArgumentError (not FormatException) for
+    // malformed percent-encoding, e.g. a truncated '%' or an invalid escape.
+    // Normalise to FormatException so callers can rely on a single type.
+    throw FormatException('Malformed install referrer: $referrer ($e)');
+  }
   final result = <String, String>{};
 
   for (final key in utmKeys) {
