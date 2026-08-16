@@ -40,6 +40,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  android_play_install_referrer:
+    dependency: "direct main"
+    description:
+      name: android_play_install_referrer
+      sha256: cba8387c1aaa35d2441159beebe5e9160901c44632d02d0579c6875756ecb798
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0"
   animation_kit:
     dependency: transitive
     description:

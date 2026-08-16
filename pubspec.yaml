@@ -66,6 +66,7 @@ dependencies:
   keypress_simulator:
     path: keypress_simulator/packages/keypress_simulator
   shared_preferences: ^2.5.3
+  android_play_install_referrer: ^0.4.0
   media_key_detector:
     path: media_key_detector/media_key_detector
   accessibility:
