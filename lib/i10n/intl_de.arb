@@ -1588,6 +1588,17 @@
     }
   },
   "chainStepOverlayAction": "Overlay aktivieren",
+  "chainStepLocalControl": "Tastatur- und Maus-Aktionen freischalten",
+  "chainStepLocalControlDone": "Tastatur- und Maus-Aktionen sind aktiv",
+  "chainStepLocalControlHint": "Mit lokaler Steuerung kann eine Taste in {appName} auf diesem Gerät drücken oder klicken — Screenshots, ERG-Steuerung, alles wofür die App ein Tastenkürzel hat.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Lokale Steuerung aktivieren",
   "chainStepAppSelected": "Trainer-App gewählt",
   "chainStepAppSelectedPending": "Wähle deine Trainer-App",
   "chainStepAppSelectedHint": "Wähle die App, in der du fährst.",

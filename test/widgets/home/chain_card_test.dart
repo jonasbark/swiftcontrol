@@ -139,7 +139,7 @@ void main() async {
     });
   });
 
-  testWidgets('an optional card is tagged as such', (tester) async {
+  testWidgets('an unfilled optional card is tagged as such', (tester) async {
     await pumpCard(tester, link(status: LinkStatus.off, optional: true, steps: []));
     expect(find.text(l.chainOptional.toUpperCase()), findsOneWidget);
   });
@@ -147,6 +147,17 @@ void main() async {
   testWidgets('a required card carries no optional tag', (tester) async {
     await pumpCard(tester, link());
     expect(find.text(l.chainOptional.toUpperCase()), findsNothing);
+  });
+
+  // OPTIONAL reassures a rider looking at an empty slot. Once a smart trainer
+  // is actually connected the card is doing a job, and captioning live hardware
+  // "optional" is just noise — even though the link stays optional underneath,
+  // which is what keeps a trainer nobody owns from blocking "Ready to ride".
+  testWidgets('a connected optional card drops the tag', (tester) async {
+    for (final status in [LinkStatus.ready, LinkStatus.attention, LinkStatus.problem]) {
+      await pumpCard(tester, link(status: status, optional: true, steps: []));
+      expect(find.text(l.chainOptional.toUpperCase()), findsNothing, reason: status.name);
+    }
   });
 
   // The gear overlay: an offer that lives in the checklist rather than in a
@@ -170,11 +181,12 @@ void main() async {
       await pumpCard(tester, overlayLink());
 
       expect(find.text(l.chainStepOverlay), findsOneWidget);
-      // Once on the card header, once on the step — and the step's tag sits
-      // beside the step, not up in the title row.
-      expect(find.text(l.chainOptional.toUpperCase()), findsNWidgets(2));
+      // The card is connected, so its header has dropped the tag — the only one
+      // left is the step's own, sitting beside the step rather than in the
+      // title row.
+      expect(find.text(l.chainOptional.toUpperCase()), findsOneWidget);
       expect(
-        tester.getTopLeft(find.text(l.chainOptional.toUpperCase()).last).dy,
+        tester.getTopLeft(find.text(l.chainOptional.toUpperCase())).dy,
         greaterThan(tester.getTopLeft(find.text(l.chainStepOverlay)).dy - 1),
       );
     });

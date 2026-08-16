@@ -1782,6 +1782,17 @@
     }
   },
   "chainStepOverlayAction": "Enable overlay",
+  "chainStepLocalControl": "Add keyboard and mouse actions",
+  "chainStepLocalControlDone": "Keyboard and mouse actions are on",
+  "chainStepLocalControlHint": "Local control lets a button press a key or click in {appName} on this device — screenshots, ERG controls, anything the app has a shortcut for.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Enable local control",
   "chainStepAppSelected": "Trainer app chosen",
   "chainStepAppSelectedPending": "Choose your trainer app",
   "chainStepAppSelectedHint": "Pick the app you ride in.",

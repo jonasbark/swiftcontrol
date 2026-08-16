@@ -80,6 +80,12 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
     SetupStepId.appConnected => step.done
         ? ChainStepText(l.chainStepAppConnected(app))
         : ChainStepText(l.chainStepAppConnectedPending(app), l.chainStepAppConnectedHint),
+    // Like the overlay step, the hint is the offer: "Local control" means
+    // nothing on its own, and what it buys — keyboard and mouse actions on a
+    // button — is the only reason to read the line at all.
+    SetupStepId.appLocalControl => step.done
+        ? ChainStepText(l.chainStepLocalControlDone)
+        : ChainStepText(l.chainStepLocalControl, l.chainStepLocalControlHint(app)),
   };
 }
 

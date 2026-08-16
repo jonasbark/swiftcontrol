@@ -599,6 +599,84 @@ void main() {
     });
   });
 
+  // Local control is not a way to reach the trainer app, it is a way to do more
+  // to it: keystrokes and clicks the button editor only offers once it is on. A
+  // rider on the same device who never turns it on never learns those actions
+  // exist, so the app card says so — as an offer, never as work.
+  group('the local control step', () {
+    const offered = AppInput(
+      name: 'MyWhoosh',
+      hasEnabledConnection: true,
+      isConnected: true,
+      wasConnectedThisSession: true,
+      connectionSummary: 'Network',
+      localControlOffered: true,
+    );
+
+    test('an app on this device with Local switched off offers it', () {
+      final chain = buildChain(const ChainInputs(app: offered));
+      final link = chain.byKey(ChainLinkKey.app);
+      final step = link.steps.firstWhere((s) => s.id == SetupStepId.appLocalControl);
+      expect(step.done, isFalse);
+      expect(step.optional, isTrue);
+      // Last, behind every step that actually blocks the rider.
+      expect(link.steps.last.id, SetupStepId.appLocalControl);
+    });
+
+    // Riding from another device, or on a platform with no local control at
+    // all: both are answered upstream by CoreLogic.showLocalControl.
+    test('is absent when Local is not available here', () {
+      final chain = buildChain(ChainInputs(app: _readyApp));
+      expect(_hasStep(chain.byKey(ChainLinkKey.app), SetupStepId.appLocalControl), isFalse);
+    });
+
+    test('ticks off once Local is on', () {
+      final chain = buildChain(
+        const ChainInputs(
+          app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            isConnected: true,
+            localControlOffered: true,
+            localControlEnabled: true,
+          ),
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.app);
+      expect(_stepDone(link, SetupStepId.appLocalControl), isTrue);
+      expect(link.pendingSteps, isEmpty);
+    });
+
+    // The copy names the app, and there is nothing to control before one is
+    // chosen.
+    test('is not offered before a trainer app is picked', () {
+      final chain = buildChain(const ChainInputs(app: AppInput(localControlOffered: true)));
+      expect(_hasStep(chain.byKey(ChainLinkKey.app), SetupStepId.appLocalControl), isFalse);
+    });
+
+    // The regression this guards: an offer that keeps a working app card amber
+    // and holds back "Ready to ride" is not an offer.
+    test('never blocks the rider or colours the card', () {
+      final chain = buildChain(const ChainInputs(controllers: [], app: offered));
+      final link = chain.byKey(ChainLinkKey.app);
+      expect(link.status, LinkStatus.ready);
+      expect(link.isBlocking, isFalse);
+      expect(link.remainingSteps, 0);
+      expect(deriveBanner([link]).kind, ChainBannerKind.ready);
+    });
+
+    // While the app is still being wired up, that is the next action — the
+    // offer waits its turn rather than competing with it.
+    test('waits behind the connection steps', () {
+      final chain = buildChain(
+        const ChainInputs(app: AppInput(name: 'MyWhoosh', localControlOffered: true)),
+      );
+      final link = chain.byKey(ChainLinkKey.app);
+      expect(link.activeStep?.id, SetupStepId.appConnectionMethod);
+      expect(link.status, LinkStatus.attention);
+    });
+  });
+
   group('end to end with the banner', () {
     test('the everyday case: ready to ride', () {
       final chain = buildChain(ChainInputs(controllers: [controller()], trainer: trainer(), app: _readyApp));

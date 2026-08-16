@@ -195,10 +195,22 @@ ChainLink _appLink(ChainInputs inputs) {
     SetupStep(id: SetupStepId.appSelected, done: selected),
     SetupStep(id: SetupStepId.appConnectionMethod, done: selected && hasMethod),
     SetupStep(id: SetupStepId.appConnected, done: selected && connected),
+    // Last, and optional: Local is not a way to reach the app, it is a way to
+    // do *more* to it — keystrokes and clicks the button editor only offers
+    // once it is on. Nobody has to have it, so it never colours the card; but
+    // a rider who never turns it on never finds out those actions exist.
+    // Named after an app because the copy does: there is nothing to control
+    // until one is chosen.
+    if (selected && app.localControlOffered)
+      SetupStep(
+        id: SetupStepId.appLocalControl,
+        done: app.localControlEnabled,
+        optional: true,
+      ),
   ];
 
   final LinkStatus status;
-  if (steps.every((s) => s.done)) {
+  if (steps.every((s) => s.done || s.optional)) {
     status = LinkStatus.ready;
   } else if (!selected) {
     status = LinkStatus.off;

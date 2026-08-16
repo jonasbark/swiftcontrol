@@ -1588,6 +1588,17 @@
     }
   },
   "chainStepOverlayAction": "Włącz Overlay",
+  "chainStepLocalControl": "Dodaj akcje klawiatury i myszy",
+  "chainStepLocalControlDone": "Akcje klawiatury i myszy są włączone",
+  "chainStepLocalControlHint": "Sterowanie lokalne pozwala przyciskowi nacisnąć klawisz lub kliknąć w {appName} na tym urządzeniu — zrzuty ekranu, sterowanie ERG i wszystko, co ma skrót w aplikacji.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Włącz sterowanie lokalne",
   "chainStepAppSelected": "Wybrano aplikację treningową",
   "chainStepAppSelectedPending": "Wybierz aplikację treningową",
   "chainStepAppSelectedHint": "Wybierz aplikację, w której jeździsz.",

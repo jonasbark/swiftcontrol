@@ -1588,6 +1588,17 @@
     }
   },
   "chainStepOverlayAction": "Attiva l'Overlay",
+  "chainStepLocalControl": "Aggiungi azioni da tastiera e mouse",
+  "chainStepLocalControlDone": "Le azioni da tastiera e mouse sono attive",
+  "chainStepLocalControlHint": "Il controllo locale permette a un pulsante di premere un tasto o fare clic in {appName} su questo dispositivo: screenshot, controlli ERG e tutto ciò che ha una scorciatoia nell'app.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Attiva il controllo locale",
   "chainStepAppSelected": "App di allenamento scelta",
   "chainStepAppSelectedPending": "Scegli la tua app di allenamento",
   "chainStepAppSelectedHint": "Scegli l’app con cui pedali.",

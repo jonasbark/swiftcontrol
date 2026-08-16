@@ -1588,6 +1588,17 @@
     }
   },
   "chainStepOverlayAction": "Activer l'Overlay",
+  "chainStepLocalControl": "Ajoute les actions clavier et souris",
+  "chainStepLocalControlDone": "Les actions clavier et souris sont activées",
+  "chainStepLocalControlHint": "Le contrôle local permet à un bouton d'appuyer sur une touche ou de cliquer dans {appName} sur cet appareil : captures d'écran, commandes ERG, tout ce qui a un raccourci dans l'appli.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Activer le contrôle local",
   "chainStepAppSelected": "Application d’entraînement choisie",
   "chainStepAppSelectedPending": "Choisis ton application d’entraînement",
   "chainStepAppSelectedHint": "Choisis l’application avec laquelle tu roules.",

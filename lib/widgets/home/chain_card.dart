@@ -70,12 +70,22 @@ const Key stepTickKey = ValueKey('chain-step-tick');
 const double _leadingSize = 17;
 const double _leadingGap = 10;
 
+/// Whether this card is an optional slot nobody has filled — the state the
+/// faded border and the OPTIONAL tag both describe.
+///
+/// [ChainLink.optional] stays true for the whole life of a trainer card, because
+/// that is what keeps a trainer nobody owns from blocking "Ready to ride". But
+/// once a smart trainer is actually connected the card is doing a job, and
+/// labelling working hardware OPTIONAL is noise — the word is there to reassure
+/// a rider looking at an empty slot, not to caption a live one.
+bool _atRest(ChainLink link) => link.optional && link.status == LinkStatus.off;
+
 class _ChainCardState extends State<ChainCard> {
   @override
   Widget build(BuildContext context) {
     final link = widget.link;
     final theme = Theme.of(context);
-    final dimmed = link.optional && link.status == LinkStatus.off;
+    final dimmed = _atRest(link);
     final border = BorderSide(
       color: dimmed ? theme.colorScheme.mutedForeground.withAlpha(90) : theme.colorScheme.border,
       width: 1.5,
@@ -142,7 +152,7 @@ class _ChainCardState extends State<ChainCard> {
                         style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
                       ),
                     ),
-                    if (link.optional) ...[
+                    if (_atRest(link)) ...[
                       const Gap(7),
                       const OptionalTag(),
                     ],

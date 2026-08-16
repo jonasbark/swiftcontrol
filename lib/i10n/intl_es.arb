@@ -1588,6 +1588,17 @@
     }
   },
   "chainStepOverlayAction": "Activar el Overlay",
+  "chainStepLocalControl": "Añade acciones de teclado y ratón",
+  "chainStepLocalControlDone": "Las acciones de teclado y ratón están activas",
+  "chainStepLocalControlHint": "El control local permite que un botón pulse una tecla o haga clic en {appName} en este dispositivo: capturas, controles ERG y todo lo que la app tenga como atajo.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Activar el control local",
   "chainStepAppSelected": "App de entrenamiento elegida",
   "chainStepAppSelectedPending": "Elige tu app de entrenamiento",
   "chainStepAppSelectedHint": "Elige la app con la que ruedas.",
