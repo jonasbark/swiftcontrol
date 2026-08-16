@@ -24,15 +24,6 @@
   "overlayPermissionExplain": "Android necesita permiso para dibujar el Overlay sobre tu app de entrenamiento.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Visualización de marchas en directo mientras ruedas.",
-  "overlayConnectHint": "{appName} no puede mostrar las marchas virtuales de BikeControl. Activa el Overlay para ver tu marcha actual durante la sesión.",
-  "@overlayConnectHint": {
-    "placeholders": {
-      "appName": {
-        "type": "String"
-      }
-    }
-  },
-  "overlayConnectHintButton": "Activar el Overlay",
   "overlaySettings": "Ajustes del Overlay",
   "overlayWindowsTip": "Ejecuta la app de entrenamiento en modo ventana sin bordes para que el Overlay siga visible.",
   "virtualShiftingHint": "Añade o ajusta el Virtual Shifting y anuncia BikeControl como rodillo.",
@@ -1586,6 +1577,28 @@
   "chainStepClickV2SetupHint": "Zwift limita el Click V2 a su propia aplicación. Elige cómo lo resuelve BikeControl y se conectará enseguida.",
   "chainStepTrainerPaired": "Rodillo conectado",
   "chainStepTrainerPairedPending": "Conecta tu rodillo",
+  "chainStepOverlay": "Muestra tu marcha en pantalla",
+  "chainStepOverlayDone": "El Overlay de marchas está activo",
+  "chainStepOverlayHint": "{appName} no puede mostrar las marchas virtuales de BikeControl. Activa el Overlay para ver tu marcha actual durante la sesión.",
+  "@chainStepOverlayHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepOverlayAction": "Activar el Overlay",
+  "chainStepLocalControl": "Añade acciones de teclado y ratón",
+  "chainStepLocalControlDone": "Las acciones de teclado y ratón están activas",
+  "chainStepLocalControlHint": "El control local permite que un botón pulse una tecla o haga clic en {appName} en este dispositivo: capturas, controles ERG y todo lo que la app tenga como atajo.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Activar el control local",
   "chainStepAppSelected": "App de entrenamiento elegida",
   "chainStepAppSelectedPending": "Elige tu app de entrenamiento",
   "chainStepAppSelectedHint": "Elige la app con la que ruedas.",

@@ -97,16 +97,11 @@ class _OverlaySettingsSectionState extends State<OverlaySettingsSection> {
   Future<void> _toggle(bool v) async {
     if (kIsWeb) return;
     if (v) {
-      final res = await _controller.show(
-        widget.definition,
-        _fields,
-        liveDef: () => widget.device.fitnessBike,
-      );
+      final res = await enableTrainerOverlay(widget.device);
       if (!mounted) return;
       // Permission state may have changed during show().
       _refreshAndroidPermission();
       if (res.ok) {
-        await core.settings.setOverlayEnabled(true);
         setState(() => _enabled = true);
       } else {
         // Stay off and surface message.

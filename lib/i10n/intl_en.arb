@@ -529,15 +529,6 @@
   "overlayPermissionExplain": "Android needs permission to draw the overlay over your trainer app.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Live gear display while you ride.",
-  "overlayConnectHint": "{appName} can't display BikeControl's virtual gears. Enable the gear overlay to see your current gear during the ride.",
-  "@overlayConnectHint": {
-    "placeholders": {
-      "appName": {
-        "type": "String"
-      }
-    }
-  },
-  "overlayConnectHintButton": "Enable overlay",
   "overlaySettings": "Overlay settings",
   "overlayWindowsTip": "Run the trainer app in borderless-windowed mode for the overlay to stay visible.",
   "ok": "OK",
@@ -1780,6 +1771,28 @@
   "chainStepClickV2SetupHint": "Zwift locks the Click V2 to their own app. Pick how BikeControl works around it and it connects straight away.",
   "chainStepTrainerPaired": "Trainer connected",
   "chainStepTrainerPairedPending": "Connect your trainer",
+  "chainStepOverlay": "Show your gear on screen",
+  "chainStepOverlayDone": "Gear overlay is on",
+  "chainStepOverlayHint": "{appName} can't display BikeControl's virtual gears. Enable the gear overlay to see your current gear during the ride.",
+  "@chainStepOverlayHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepOverlayAction": "Enable overlay",
+  "chainStepLocalControl": "Add keyboard and mouse actions",
+  "chainStepLocalControlDone": "Keyboard and mouse actions are on",
+  "chainStepLocalControlHint": "Local control lets a button press a key or click in {appName} on this device — screenshots, ERG controls, anything the app has a shortcut for.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Enable local control",
   "chainStepAppSelected": "Trainer app chosen",
   "chainStepAppSelectedPending": "Choose your trainer app",
   "chainStepAppSelectedHint": "Pick the app you ride in.",

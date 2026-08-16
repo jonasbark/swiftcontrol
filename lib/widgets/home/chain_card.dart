@@ -70,12 +70,22 @@ const Key stepTickKey = ValueKey('chain-step-tick');
 const double _leadingSize = 17;
 const double _leadingGap = 10;
 
+/// Whether this card is an optional slot nobody has filled — the state the
+/// faded border and the OPTIONAL tag both describe.
+///
+/// [ChainLink.optional] stays true for the whole life of a trainer card, because
+/// that is what keeps a trainer nobody owns from blocking "Ready to ride". But
+/// once a smart trainer is actually connected the card is doing a job, and
+/// labelling working hardware OPTIONAL is noise — the word is there to reassure
+/// a rider looking at an empty slot, not to caption a live one.
+bool _atRest(ChainLink link) => link.optional && link.status == LinkStatus.off;
+
 class _ChainCardState extends State<ChainCard> {
   @override
   Widget build(BuildContext context) {
     final link = widget.link;
     final theme = Theme.of(context);
-    final dimmed = link.optional && link.status == LinkStatus.off;
+    final dimmed = _atRest(link);
     final border = BorderSide(
       color: dimmed ? theme.colorScheme.mutedForeground.withAlpha(90) : theme.colorScheme.border,
       width: 1.5,
@@ -142,24 +152,9 @@ class _ChainCardState extends State<ChainCard> {
                         style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
                       ),
                     ),
-                    if (link.optional) ...[
+                    if (_atRest(link)) ...[
                       const Gap(7),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.muted,
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: Text(
-                          context.i18n.chainOptional.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                            color: theme.colorScheme.mutedForeground,
-                          ),
-                        ),
-                      ),
+                      const OptionalTag(),
                     ],
                   ],
                 ),
@@ -221,6 +216,34 @@ class _ChainCardState extends State<ChainCard> {
               instructionsLabel: widget.instructionsLabel,
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The "OPTIONAL" tag, worn by a whole card (a trainer nobody has to own) and
+/// by a single step (the gear overlay). Same words, same weight, so a rider
+/// reads the two the same way.
+class OptionalTag extends StatelessWidget {
+  const OptionalTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.muted,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        context.i18n.chainOptional.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+          color: theme.colorScheme.mutedForeground,
+        ),
       ),
     );
   }
@@ -288,14 +311,32 @@ class StepRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  text.label,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.35,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: step.done ? theme.colorScheme.mutedForeground : theme.colorScheme.foreground,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        text.label,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          height: 1.35,
+                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                          color: step.done ? theme.colorScheme.mutedForeground : theme.colorScheme.foreground,
+                        ),
+                      ),
+                    ),
+                    // An optional step sits in the same list as the required
+                    // ones, so it has to say so on the line itself — otherwise
+                    // a rider who doesn't want it reads the card as unfinished
+                    // forever.
+                    if (step.optional) ...[
+                      const Gap(7),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 1),
+                        child: OptionalTag(),
+                      ),
+                    ],
+                  ],
                 ),
                 // A hint on a finished step is only worth the space when it says
                 // something the label doesn't — the gear summary, for instance.

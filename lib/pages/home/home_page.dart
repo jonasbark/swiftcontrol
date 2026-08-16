@@ -24,6 +24,7 @@ import 'package:bike_control/pages/home/home_extras.dart';
 import 'package:bike_control/pages/home/home_sheets.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
+import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -39,6 +40,7 @@ import 'package:bike_control/widgets/home/chain_labels.dart';
 import 'package:bike_control/widgets/home/ready_banner.dart';
 import 'package:bike_control/widgets/home/trial_card.dart';
 import 'package:bike_control/widgets/ui/animated_button_widget.dart';
+import 'package:bike_control/widgets/ui/connection_method.dart' show enableLocalControl;
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:prop/prop.dart' show LogLevel;
@@ -280,6 +282,8 @@ class _HomePageState extends State<HomePage> {
         // The exact entry to look for in the trainer app's device list.
         bridgeName: proxy.advertisementName,
         metrics: proxy.liveReadout,
+        overlayOffered: _overlayOffered(proxy),
+        overlayEnabled: core.settings.getOverlayEnabled(),
       );
     } else if (remembered != null) {
       trainer = TrainerInput(
@@ -318,8 +322,26 @@ class _HomePageState extends State<HomePage> {
         isConnected: core.logic.appFacingConnections.isNotEmpty,
         wasConnectedThisSession: _appConnectedThisSession,
         connectionSummary: core.logic.appFacingConnections.firstOrNull?.title,
+        // showLocalControl is already "the rider's target is this device, and
+        // this platform can drive it" — see CoreLogic.
+        localControlOffered: core.logic.showLocalControl,
+        localControlEnabled: core.settings.getLocalEnabled(),
       ),
     );
+  }
+
+  /// Whether the trainer card should offer the gear overlay.
+  ///
+  /// The overlay answers one question — "why does my trainer app show a
+  /// different gear than my shifter?" — and it can only answer it when the
+  /// trainer app is on this very screen. Riding from another device puts the
+  /// app somewhere BikeControl cannot draw, and a Virtual Shifting session is
+  /// what produces a gear to draw in the first place: without one the trainer
+  /// app's gear is the only gear, and there is nothing to reconcile.
+  bool _overlayOffered(ProxyDevice proxy) {
+    if (!TrainerOverlayService.isSupportedPlatform) return false;
+    if (core.settings.getLastTarget() != Target.thisDevice) return false;
+    return proxy.fitnessBike != null;
   }
 
   bool _appConnectedThisSession = false;
@@ -681,6 +703,11 @@ class _HomePageState extends State<HomePage> {
         _update();
       },
       onInstructions: () => _openInstructions(link),
+      // The overlay step is an offer, not a puzzle: its button turns the thing
+      // on rather than explaining how it works.
+      instructionsLabel: link.activeStep?.id == SetupStepId.trainerGearOverlay
+          ? context.i18n.chainStepOverlayAction
+          : null,
       // A trainer that has never been connected is the rider who has never
       // seen what bridging one does — so the card makes the case instead of
       // sitting empty. Dropped the moment it has actually been connected:
@@ -734,6 +761,14 @@ class _HomePageState extends State<HomePage> {
         _update();
       },
       onInstructions: () => _openInstructions(link),
+      // Both of this card's buttons act rather than explain, so both say what
+      // they do: opening Trainer Connections is an action, and so is switching
+      // Local on.
+      instructionsLabel: link.activeStep?.id == SetupStepId.appLocalControl
+          ? context.i18n.chainStepLocalControlAction
+          : appLinkOpensConnectionSettings(link)
+          ? context.i18n.chainSetUp
+          : null,
     );
   }
 
@@ -808,7 +843,9 @@ class _HomePageState extends State<HomePage> {
         // Three different problems, three different answers — routed on the
         // card's state, never on the wording of the active step.
         final activeStep = link.activeStep?.id;
-        if (activeStep == SetupStepId.trainerAppBridged) {
+        if (activeStep == SetupStepId.trainerGearOverlay) {
+          await _enableOverlay();
+        } else if (activeStep == SetupStepId.trainerAppBridged) {
           // The bridge is up and the app hasn't picked it up: show how to pair
           // BikeControl as the trainer, not how to connect a trainer.
           await openPairAsTrainerSheet(context, trainerName: _bridgedTrainerName);
@@ -818,9 +855,48 @@ class _HomePageState extends State<HomePage> {
           await openTrainerConnectSheet(context);
         }
       case ChainLinkKey.app:
-        await openAppGuideSheet(context);
+        if (link.activeStep?.id == SetupStepId.appLocalControl) {
+          // enableLocalControl runs the permission sheet itself when the
+          // accessibility service or the keyboard grant is still missing, and
+          // only reports success once the grant actually landed.
+          await enableLocalControl(context);
+        } else if (appLinkOpensConnectionSettings(link)) {
+          // "Activate a connection method" is something the rider does HERE, in
+          // Trainer Connections. The app guide answers the step after it — what
+          // to do inside the trainer app — and handing that over instead leaves
+          // the rider reading pairing instructions for a bridge that isn't
+          // running yet.
+          await context.push(const TrainerConnectionSettingsPage());
+        } else {
+          await openAppGuideSheet(context);
+        }
     }
     _update();
+  }
+
+  /// Turns the gear overlay on, then opens the Overlay section.
+  ///
+  /// The button says "Enable overlay", so it enables the overlay — a button
+  /// that only navigates somewhere with another switch on it is the toast
+  /// problem again, one tap further along. The page still opens afterwards:
+  /// the rider has just turned on something they have never seen, and that is
+  /// where the fields, the Picture-in-Picture choice and — when the platform
+  /// refused — Android's draw-over permission live.
+  Future<void> _enableOverlay() async {
+    final proxy = chainProxy();
+    if (proxy == null) return;
+
+    final result = await enableTrainerOverlay(proxy);
+    if (!mounted) return;
+    if (!result.ok) {
+      // Say why here rather than leaving the rider to work it out from a
+      // switch that sprang back to off.
+      buildToast(
+        level: LogLevel.LOGLEVEL_WARNING,
+        title: result.message ?? context.i18n.overlayLowPowerMode,
+      );
+    }
+    await context.push(ProxyDeviceDetailsPage(device: proxy, revealOverlaySection: true));
   }
 
   Future<void> _forget(ChainLink link) async {

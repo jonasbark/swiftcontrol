@@ -24,15 +24,6 @@
   "overlayPermissionExplain": "Android benötigt die Berechtigung, das Overlay über deiner Trainer-App anzuzeigen.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Live-Ganganzeige während der Fahrt.",
-  "overlayConnectHint": "{appName} kann BikeControls virtuelle Gänge nicht anzeigen. Aktiviere das Gang-Overlay, um deinen aktuellen Gang während der Fahrt zu sehen.",
-  "@overlayConnectHint": {
-    "placeholders": {
-      "appName": {
-        "type": "String"
-      }
-    }
-  },
-  "overlayConnectHintButton": "Overlay aktivieren",
   "overlaySettings": "Overlay-Einstellungen",
   "overlayWindowsTip": "Führe die Trainer-App im randlosen Fenstermodus aus, damit das Overlay sichtbar bleibt.",
   "virtualShiftingHint": "Fügt Virtual Shifting hinzu oder passt es an und meldet BikeControl als Trainer an.",
@@ -1586,6 +1577,28 @@
   "chainStepClickV2SetupHint": "Zwift bindet den Click V2 an die eigene App. Wähle, wie BikeControl das umgeht — danach verbindet er sich sofort.",
   "chainStepTrainerPaired": "Trainer verbunden",
   "chainStepTrainerPairedPending": "Verbinde deinen Trainer",
+  "chainStepOverlay": "Zeig deinen Gang auf dem Bildschirm",
+  "chainStepOverlayDone": "Gang-Overlay ist aktiv",
+  "chainStepOverlayHint": "{appName} kann BikeControls virtuelle Gänge nicht anzeigen. Aktiviere das Gang-Overlay, um deinen aktuellen Gang während der Fahrt zu sehen.",
+  "@chainStepOverlayHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepOverlayAction": "Overlay aktivieren",
+  "chainStepLocalControl": "Tastatur- und Maus-Aktionen freischalten",
+  "chainStepLocalControlDone": "Tastatur- und Maus-Aktionen sind aktiv",
+  "chainStepLocalControlHint": "Mit lokaler Steuerung kann eine Taste in {appName} auf diesem Gerät drücken oder klicken — Screenshots, ERG-Steuerung, alles wofür die App ein Tastenkürzel hat.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Lokale Steuerung aktivieren",
   "chainStepAppSelected": "Trainer-App gewählt",
   "chainStepAppSelectedPending": "Wähle deine Trainer-App",
   "chainStepAppSelectedHint": "Wähle die App, in der du fährst.",

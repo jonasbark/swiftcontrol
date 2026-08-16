@@ -55,6 +55,27 @@ void main() {
       final l = link(id: 'a', steps: [false, true, false]);
       expect(l.activeStepIndex, 0);
     });
+
+    // An optional step is an offer. Counting it would have the banner announce
+    // "1 step left" at a rider who is completely set up and simply doesn't want
+    // the gear overlay.
+    test('an outstanding optional step is not counted as remaining work', () {
+      final l = ChainLink(
+        key: ChainLinkKey.trainer,
+        id: 't',
+        status: LinkStatus.ready,
+        title: 't',
+        steps: const [
+          SetupStep(id: SetupStepId.trainerPaired, done: true),
+          SetupStep(id: SetupStepId.trainerGearOverlay, done: false, optional: true),
+        ],
+      );
+      expect(l.remainingSteps, 0);
+      expect(l.doneSteps, 1);
+      // It is still on the card — that is the whole point of it.
+      expect(l.pendingSteps.map((s) => s.id), [SetupStepId.trainerGearOverlay]);
+      expect(l.activeStep?.id, SetupStepId.trainerGearOverlay);
+    });
   });
 
   group('ChainLink.isBlocking', () {
@@ -187,6 +208,44 @@ void main() {
       ];
       final banner = deriveBanner(links);
       expect(links.map((l) => l.id), contains(banner.targetLinkId));
+    });
+  });
+
+  group('app link "Show me how"', () {
+    ChainLink appLink(List<SetupStepId> pending) => ChainLink(
+      key: ChainLinkKey.app,
+      id: 'app',
+      status: LinkStatus.attention,
+      title: 'Rouvy',
+      steps: [
+        for (final id in SetupStepId.values)
+          if (id == SetupStepId.appSelected || id == SetupStepId.appConnectionMethod || id == SetupStepId.appConnected)
+            SetupStep(id: id, done: !pending.contains(id)),
+      ],
+    );
+
+    test('opens Trainer Connections while a method still has to be switched on', () {
+      final l = appLink([SetupStepId.appConnectionMethod, SetupStepId.appConnected]);
+
+      expect(l.activeStep?.id, SetupStepId.appConnectionMethod);
+      expect(appLinkOpensConnectionSettings(l), isTrue);
+    });
+
+    test('falls back to the app guide once a method is on', () {
+      final l = appLink([SetupStepId.appConnected]);
+
+      expect(l.activeStep?.id, SetupStepId.appConnected);
+      expect(appLinkOpensConnectionSettings(l), isFalse);
+    });
+
+    test('falls back to the app guide when no app is picked yet', () {
+      final l = appLink([SetupStepId.appSelected, SetupStepId.appConnectionMethod, SetupStepId.appConnected]);
+
+      expect(appLinkOpensConnectionSettings(l), isFalse);
+    });
+
+    test('falls back to the app guide when everything is done', () {
+      expect(appLinkOpensConnectionSettings(appLink(const [])), isFalse);
     });
   });
 }

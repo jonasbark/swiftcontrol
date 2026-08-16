@@ -46,9 +46,11 @@ enum SetupStepId {
   controllerClickV2Setup,
   trainerPaired,
   trainerAppBridged,
+  trainerGearOverlay,
   appSelected,
   appConnectionMethod,
   appConnected,
+  appLocalControl,
 }
 
 /// What the banner's action button does. The banner never invents a target: it
@@ -66,10 +68,28 @@ enum ChainBannerKind {
 
 /// One line of a card's checklist.
 class SetupStep {
-  const SetupStep({required this.id, required this.done, this.hintArg, this.uncertain = false});
+  const SetupStep({
+    required this.id,
+    required this.done,
+    this.hintArg,
+    this.uncertain = false,
+    this.optional = false,
+  });
 
   final SetupStepId id;
   final bool done;
+
+  /// Whether this step is an offer rather than work. An optional step sits in
+  /// the checklist like any other and can be actioned like any other, but it
+  /// does not colour its card, does not count towards the banner's steps, and
+  /// never stops a rider being ready to ride.
+  ///
+  /// It exists because the single most common support question — "why does
+  /// MyWhoosh show the wrong gear?" — has an answer no rider is *required* to
+  /// act on (turn the gear overlay on), and a toast that scrolls away was not
+  /// reaching them. A permanent line on the card is, precisely because it does
+  /// not expire.
+  final bool optional;
 
   /// Whether [done] is a best guess rather than a fact. Only
   /// [SetupStepId.controllerUnlocked] uses it: BikeControl cannot read a Click
@@ -83,11 +103,12 @@ class SetupStep {
   /// localized sentence is assembled in the widget layer.
   final String? hintArg;
 
-  SetupStep copyWith({bool? done, String? hintArg, bool? uncertain}) => SetupStep(
+  SetupStep copyWith({bool? done, String? hintArg, bool? uncertain, bool? optional}) => SetupStep(
     id: id,
     done: done ?? this.done,
     hintArg: hintArg ?? this.hintArg,
     uncertain: uncertain ?? this.uncertain,
+    optional: optional ?? this.optional,
   );
 
   @override
@@ -95,6 +116,15 @@ class SetupStep {
 }
 
 /// One card in the chain.
+/// Whether the app link's "Show me how" should open Trainer Connections
+/// rather than the trainer-app guide.
+///
+/// While a connection method still has to be switched on, the guide answers
+/// the step after this one — what to do inside the trainer app — and leaves
+/// the rider reading pairing instructions for a bridge that isn't running.
+/// The button label follows the same rule, so the two cannot drift.
+bool appLinkOpensConnectionSettings(ChainLink link) => link.activeStep?.id == SetupStepId.appConnectionMethod;
+
 class ChainLink {
   const ChainLink({
     required this.key,
@@ -147,9 +177,14 @@ class ChainLink {
     return true;
   }
 
-  int get doneSteps => steps.where((s) => s.done).length;
+  /// The steps that are actually required — an optional one is an offer, and
+  /// counting it would have the banner announce work a rider may ignore
+  /// forever.
+  List<SetupStep> get requiredSteps => steps.where((s) => !s.optional).toList();
 
-  int get remainingSteps => steps.length - doneSteps;
+  int get doneSteps => requiredSteps.where((s) => s.done).length;
+
+  int get remainingSteps => requiredSteps.length - doneSteps;
 
   /// The first unfinished step: the one thing to do next on this card, and the
   /// only step that shows an instructions affordance. Null when the checklist
@@ -184,7 +219,7 @@ class ChainLink {
   }
 
   @override
-  String toString() => 'ChainLink($id, ${status.name}, $doneSteps/${steps.length})';
+  String toString() => 'ChainLink($id, ${status.name}, $doneSteps/${requiredSteps.length})';
 }
 
 /// The one-glance answer at the top of the screen.

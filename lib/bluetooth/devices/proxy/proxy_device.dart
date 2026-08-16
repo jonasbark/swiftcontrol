@@ -6,7 +6,6 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
-import 'package:bike_control/services/overlay/overlay_connect_hint.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/erg_power_stepping.dart';
@@ -200,18 +199,7 @@ class ProxyDevice extends BluetoothDevice {
   void _initEmulator() {
     _proxyEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
     _proxyEmulator.deviceName = () => scanResult.name;
-    // On the device-level wrapper (not emulator.isConnected) so the hint
-    // survives emulator/mode swaps and fires exactly on the false→true
-    // transition of "a trainer app is connected to the virtual trainer".
-    _isConnectedN.addListener(_maybeShowOverlayConnectHint);
     _rebindEmulatorState();
-  }
-
-  /// First-client-connect hint: point the rider at the gear overlay before
-  /// they write support asking why the trainer app doesn't show the gear.
-  void _maybeShowOverlayConnectHint() {
-    if (!_isConnectedN.value) return;
-    OverlayConnectHint.maybeShow(this);
   }
 
   /// Test-only: drive the device-level "trainer app connected" wrapper
@@ -370,6 +358,34 @@ class ProxyDevice extends BluetoothDevice {
     return trainerApp is Rouvy || trainerApp is Zwift;
   }
 
+  /// True when [_zwiftControllerEmulator] rides along in the composite next to
+  /// the FBD, adding the Zwift *Ride* service (`0000fc82-…`).
+  ///
+  /// Zwift only; Rouvy would lose Virtual Shifting over it and gets its
+  /// controller from the standalone endpoint instead. Reasoning in `prop`.
+  bool get _attachesZwiftController {
+    if (_zwiftControllerEmulator == null) return false;
+    return core.settings.getTrainerApp() is Zwift;
+  }
+
+  /// The name Rouvy needs the bridge to advertise under; null for every other
+  /// app, leaving the usual name in place. Reasoning in `prop`
+  /// ([DirconEmulator.advertisementNameOverride]).
+  @visibleForTesting
+  String? rouvyAdvertisementName() {
+    if (core.settings.getTrainerApp() is! Rouvy) return null;
+    final name = scanResult.name;
+    final composed = name == null || name.isEmpty ? _bridgeSuffix : '$name - $_bridgeSuffix';
+    return composed.toLowerCase().contains('bikecontrol') ? _bridgeSuffix : composed;
+  }
+
+  static const _bridgeSuffix = 'Bridge';
+
+  /// Rouvy needs an IPv4-only listener; the controller endpoint has bound one
+  /// for it for a while. Reasoning in `prop` ([DirconEmulator.forceIPv4]).
+  @visibleForTesting
+  bool rouvyNeedsIPv4() => core.settings.getTrainerApp() is Rouvy;
+
   /// Mirrors `emulator.advertisementName`. Exposed on ProxyDevice for the UI
   /// so it doesn't have to dereference through the contextual `emulator`
   /// getter.
@@ -440,10 +456,12 @@ class ProxyDevice extends BluetoothDevice {
         // VS modes (wifi / bluetooth): the FBD lives in the shared ftmsEmulator.
         ftmsEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
         ftmsEmulator.deviceName = () => scanResult.name;
+        ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
+        ftmsEmulator.forceIPv4 = rouvyNeedsIPv4;
         _fbd = fbd;
         _currentFbd = fbd;
         await ftmsEmulator.attachDefinition(_fbd!);
-        if (_zwiftControllerEmulator != null && core.settings.getTrainerApp() is Zwift) {
+        if (_attachesZwiftController) {
           await ftmsEmulator.attachDefinition(_zwiftControllerEmulator!);
         }
         await ftmsEmulator.startServer(
@@ -691,8 +709,7 @@ class ProxyDevice extends BluetoothDevice {
   /// baseline or manual-range boundary) is Ignored — handled internally, shows
   /// what happened, never forwarded to the app — and never yanks a >500 W
   /// game-set target down.
-  ActionResult _stepErg(FitnessBikeDefinition def, AppLocalizations l10n, ControllerButton button,
-      {required bool up}) {
+  ActionResult _stepErg(FitnessBikeDefinition def, AppLocalizations l10n, ControllerButton button, {required bool up}) {
     final next = def.stepManualErgPower(up: up);
     if (next != null) {
       return Success(l10n.trainerErgTarget(next), button: button);
@@ -756,9 +773,7 @@ class ProxyDevice extends BluetoothDevice {
           return Ignored(l10n.trainerFrontShiftUnavailable, button: button);
         }
         return Success(
-          def.frontRing.value == FrontRing.large
-              ? l10n.trainerFrontShiftedLarge
-              : l10n.trainerFrontShiftedSmall,
+          def.frontRing.value == FrontRing.large ? l10n.trainerFrontShiftedLarge : l10n.trainerFrontShiftedSmall,
           button: button,
         );
       default:
@@ -897,13 +912,15 @@ class ProxyDevice extends BluetoothDevice {
       _retrofitModeN.value = next;
       ftmsEmulator.shouldAdvertise = () => !_isBridgeTrialOver;
       ftmsEmulator.deviceName = () => scanResult.name;
+      ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
+      ftmsEmulator.forceIPv4 = rouvyNeedsIPv4;
       _bindToActiveEmulator();
 
       if (_fbd != null) {
         await ftmsEmulator.attachDefinition(_fbd!);
       }
 
-      if (_zwiftControllerEmulator != null && core.settings.getTrainerApp() is Zwift) {
+      if (_attachesZwiftController) {
         await ftmsEmulator.attachDefinition(_zwiftControllerEmulator!);
       }
 

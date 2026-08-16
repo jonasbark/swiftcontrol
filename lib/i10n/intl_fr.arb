@@ -24,15 +24,6 @@
   "overlayPermissionExplain": "Android a besoin d'une autorisation pour afficher l'Overlay par-dessus ton application Trainer.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Affichage des vitesses en direct pendant que tu roules.",
-  "overlayConnectHint": "{appName} ne peut pas afficher les vitesses virtuelles de BikeControl. Active l'Overlay pour voir ta vitesse actuelle pendant la séance.",
-  "@overlayConnectHint": {
-    "placeholders": {
-      "appName": {
-        "type": "String"
-      }
-    }
-  },
-  "overlayConnectHintButton": "Activer l'Overlay",
   "overlaySettings": "Réglages de l'Overlay",
   "overlayWindowsTip": "Lance l'application Trainer en mode fenêtré sans bordure pour que l'Overlay reste visible.",
   "virtualShiftingHint": "Ajoute ou ajuste le Virtual Shifting et présente BikeControl comme un home-trainer.",
@@ -1586,6 +1577,28 @@
   "chainStepClickV2SetupHint": "Zwift réserve le Click V2 à sa propre application. Choisis comment BikeControl contourne cela et il se connecte aussitôt.",
   "chainStepTrainerPaired": "Home trainer connecté",
   "chainStepTrainerPairedPending": "Connecte ton home trainer",
+  "chainStepOverlay": "Affiche ta vitesse à l'écran",
+  "chainStepOverlayDone": "L'Overlay de vitesse est activé",
+  "chainStepOverlayHint": "{appName} ne peut pas afficher les vitesses virtuelles de BikeControl. Active l'Overlay pour voir ta vitesse actuelle pendant la séance.",
+  "@chainStepOverlayHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepOverlayAction": "Activer l'Overlay",
+  "chainStepLocalControl": "Ajoute les actions clavier et souris",
+  "chainStepLocalControlDone": "Les actions clavier et souris sont activées",
+  "chainStepLocalControlHint": "Le contrôle local permet à un bouton d'appuyer sur une touche ou de cliquer dans {appName} sur cet appareil : captures d'écran, commandes ERG, tout ce qui a un raccourci dans l'appli.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Activer le contrôle local",
   "chainStepAppSelected": "Application d’entraînement choisie",
   "chainStepAppSelectedPending": "Choisis ton application d’entraînement",
   "chainStepAppSelectedHint": "Choisis l’application avec laquelle tu roules.",

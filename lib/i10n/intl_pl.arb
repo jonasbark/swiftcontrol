@@ -24,15 +24,6 @@
   "overlayPermissionExplain": "Android potrzebuje uprawnienia, aby rysować Overlay nad aplikacją treningową.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Podgląd biegów na żywo podczas jazdy.",
-  "overlayConnectHint": "{appName} nie może wyświetlać wirtualnych biegów BikeControl. Włącz Overlay, aby widzieć aktualny bieg podczas jazdy.",
-  "@overlayConnectHint": {
-    "placeholders": {
-      "appName": {
-        "type": "String"
-      }
-    }
-  },
-  "overlayConnectHintButton": "Włącz Overlay",
   "overlaySettings": "Ustawienia Overlay",
   "overlayWindowsTip": "Uruchom aplikację treningową w trybie okna bez obramowania, aby Overlay pozostał widoczny.",
   "virtualShiftingHint": "Dodaje lub dostosowuje Virtual Shifting i ogłasza BikeControl jako trenażer.",
@@ -1586,6 +1577,28 @@
   "chainStepClickV2SetupHint": "Zwift przypisuje Click V2 do własnej aplikacji. Wybierz, jak BikeControl to obchodzi — połączy się od razu.",
   "chainStepTrainerPaired": "Trenażer połączony",
   "chainStepTrainerPairedPending": "Połącz swój trenażer",
+  "chainStepOverlay": "Pokaż swój bieg na ekranie",
+  "chainStepOverlayDone": "Overlay biegów jest włączony",
+  "chainStepOverlayHint": "{appName} nie może wyświetlać wirtualnych biegów BikeControl. Włącz Overlay, aby widzieć aktualny bieg podczas jazdy.",
+  "@chainStepOverlayHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepOverlayAction": "Włącz Overlay",
+  "chainStepLocalControl": "Dodaj akcje klawiatury i myszy",
+  "chainStepLocalControlDone": "Akcje klawiatury i myszy są włączone",
+  "chainStepLocalControlHint": "Sterowanie lokalne pozwala przyciskowi nacisnąć klawisz lub kliknąć w {appName} na tym urządzeniu — zrzuty ekranu, sterowanie ERG i wszystko, co ma skrót w aplikacji.",
+  "@chainStepLocalControlHint": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "chainStepLocalControlAction": "Włącz sterowanie lokalne",
   "chainStepAppSelected": "Wybrano aplikację treningową",
   "chainStepAppSelectedPending": "Wybierz aplikację treningową",
   "chainStepAppSelectedHint": "Wybierz aplikację, w której jeździsz.",

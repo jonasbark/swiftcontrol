@@ -107,6 +107,8 @@ class TrainerInput {
     required this.appHoldsBridge,
     this.bridgeName,
     this.metrics,
+    this.overlayOffered = false,
+    this.overlayEnabled = false,
   });
 
   final String deviceId;
@@ -132,6 +134,20 @@ class TrainerInput {
 
   /// Live telemetry for the ready-state status line, e.g. "250 W · 90 rpm".
   final String? metrics;
+
+  /// Whether the gear overlay is worth offering on this trainer's card at all.
+  ///
+  /// Three things have to hold, and the card asks about none of them itself:
+  /// the trainer app runs on *this* device (an overlay cannot be drawn over an
+  /// app on someone else's iPad), the platform can draw one, and BikeControl is
+  /// actually computing gears (a Virtual Shifting session) — without that last
+  /// one there is no gear for the overlay to show, and the offer would be an
+  /// answer to a question the rider has not got.
+  final bool overlayOffered;
+
+  /// Whether the rider already turned the overlay on, which is what ticks the
+  /// optional step off the card.
+  final bool overlayEnabled;
 }
 
 class AppInput {
@@ -142,6 +158,8 @@ class AppInput {
     this.isConnected = false,
     this.wasConnectedThisSession = false,
     this.connectionSummary,
+    this.localControlOffered = false,
+    this.localControlEnabled = false,
   });
 
   /// The selected trainer app, or null when the rider hasn't picked one.
@@ -160,6 +178,19 @@ class AppInput {
 
   /// e.g. "Network" — which method is carrying the commands.
   final String? connectionSummary;
+
+  /// Whether Local control is available on this device but switched off.
+  ///
+  /// Local is what lets a button send a keystroke or a click to the trainer
+  /// app running on this very machine, and it is the gate on a whole class of
+  /// actions in the button editor — so a rider riding on this device with it
+  /// off is missing options they never learn exist. It needs the app to be on
+  /// the same machine, which is why it is offered on the app card and only
+  /// when the rider's target is this device.
+  final bool localControlOffered;
+
+  /// Whether Local is already on, which is what ticks the optional step off.
+  final bool localControlEnabled;
 }
 
 class ChainInputs {

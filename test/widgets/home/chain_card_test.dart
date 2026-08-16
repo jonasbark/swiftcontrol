@@ -139,7 +139,7 @@ void main() async {
     });
   });
 
-  testWidgets('an optional card is tagged as such', (tester) async {
+  testWidgets('an unfilled optional card is tagged as such', (tester) async {
     await pumpCard(tester, link(status: LinkStatus.off, optional: true, steps: []));
     expect(find.text(l.chainOptional.toUpperCase()), findsOneWidget);
   });
@@ -147,6 +147,60 @@ void main() async {
   testWidgets('a required card carries no optional tag', (tester) async {
     await pumpCard(tester, link());
     expect(find.text(l.chainOptional.toUpperCase()), findsNothing);
+  });
+
+  // OPTIONAL reassures a rider looking at an empty slot. Once a smart trainer
+  // is actually connected the card is doing a job, and captioning live hardware
+  // "optional" is just noise — even though the link stays optional underneath,
+  // which is what keeps a trainer nobody owns from blocking "Ready to ride".
+  testWidgets('a connected optional card drops the tag', (tester) async {
+    for (final status in [LinkStatus.ready, LinkStatus.attention, LinkStatus.problem]) {
+      await pumpCard(tester, link(status: status, optional: true, steps: []));
+      expect(find.text(l.chainOptional.toUpperCase()), findsNothing, reason: status.name);
+    }
+  });
+
+  // The gear overlay: an offer that lives in the checklist rather than in a
+  // toast that scrolls away. It has to read as an offer on the line itself,
+  // otherwise a rider who doesn't want it sees a card that is never finished.
+  group('an optional step', () {
+    ChainLink overlayLink({bool alone = true}) => ChainLink(
+      key: ChainLinkKey.trainer,
+      id: 'trainer',
+      status: LinkStatus.ready,
+      title: 'KICKR CORE',
+      optional: true,
+      steps: [
+        const SetupStep(id: SetupStepId.trainerPaired, done: true),
+        SetupStep(id: SetupStepId.trainerAppBridged, done: alone),
+        const SetupStep(id: SetupStepId.trainerGearOverlay, done: false, optional: true),
+      ],
+    );
+
+    testWidgets('is tagged optional on its own line', (tester) async {
+      await pumpCard(tester, overlayLink());
+
+      expect(find.text(l.chainStepOverlay), findsOneWidget);
+      // The card is connected, so its header has dropped the tag — the only one
+      // left is the step's own, sitting beside the step rather than in the
+      // title row.
+      expect(find.text(l.chainOptional.toUpperCase()), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(l.chainOptional.toUpperCase())).dy,
+        greaterThan(tester.getTopLeft(find.text(l.chainStepOverlay)).dy - 1),
+      );
+    });
+
+    testWidgets('states why it exists before it is the active step', (tester) async {
+      await pumpCard(tester, overlayLink(alone: false));
+
+      final rows = tester.widgetList<StepRow>(find.byType(StepRow)).toList();
+      expect(rows.map((r) => r.step.id), [SetupStepId.trainerAppBridged, SetupStepId.trainerGearOverlay]);
+      // Not the active step, so no button — but the reason is on screen anyway:
+      // it is the whole content of the offer.
+      expect(rows.last.active, isFalse);
+      expect(find.text(l.chainStepOverlayHint(l.chainAppTitle)), findsOneWidget);
+    });
   });
 
   group('alignment', () {

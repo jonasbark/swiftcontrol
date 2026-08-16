@@ -65,6 +65,12 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
             l.chainStepTrainerBridgedPending(app),
             l.chainStepTrainerBridgedHint(step.hintArg ?? 'BikeControl', app),
           ),
+    // The hint carries the whole reason this step exists — that the number the
+    // trainer app draws is its own, not the one BikeControl computes — so it
+    // shows even before the step is the active one.
+    SetupStepId.trainerGearOverlay => step.done
+        ? ChainStepText(l.chainStepOverlayDone)
+        : ChainStepText(l.chainStepOverlay, l.chainStepOverlayHint(app)),
     SetupStepId.appSelected => step.done
         ? ChainStepText(l.chainStepAppSelected)
         : ChainStepText(l.chainStepAppSelectedPending, l.chainStepAppSelectedHint),
@@ -74,6 +80,12 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
     SetupStepId.appConnected => step.done
         ? ChainStepText(l.chainStepAppConnected(app))
         : ChainStepText(l.chainStepAppConnectedPending(app), l.chainStepAppConnectedHint),
+    // Like the overlay step, the hint is the offer: "Local control" means
+    // nothing on its own, and what it buys — keyboard and mouse actions on a
+    // button — is the only reason to read the line at all.
+    SetupStepId.appLocalControl => step.done
+        ? ChainStepText(l.chainStepLocalControlDone)
+        : ChainStepText(l.chainStepLocalControl, l.chainStepLocalControlHint(app)),
   };
 }
 
