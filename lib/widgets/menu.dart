@@ -26,38 +26,45 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import '../utils/iap/iap_manager.dart';
 import 'package:bike_control/services/debug_diagnostics.dart';
-import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/main.dart' show recordError, screenshotMode;
 
 List<Widget> buildMenuButtons(BuildContext context) {
   final iap = IAPManager.instance;
   return [
-    // Pro/Subscription Button
-    Builder(
-      builder: (context) {
-        return Button(
-          style: ButtonStyle.primary()
-              .withBackgroundColor(color: iap.isProEnabled && false ? BKColor.mainEnd : null)
-              .withBorderRadius(
-                borderRadius: BorderRadius.circular(16),
-              ),
-          onPressed: () {
-            openDrawer(
-              context: context,
-              builder: (c) => SubscriptionPage(),
-              position: OverlayPosition.end,
-            );
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.workspace_premium, size: 14),
-              const SizedBox(width: 4),
-              Text('Pro'),
-            ],
-          ),
-        );
-      },
-    ),
+    // Pro/Subscription Button.
+    //
+    // Not in [screenshotMode]: the marketing renders lay the app bar out
+    // narrower than a real window, and this button takes enough of the trailing
+    // side that the wordmark wraps mid-word — "BikeContr / ol". Dropping it
+    // gives the title its line back, and a Pro upsell is not what the store
+    // boards are selling anyway.
+    if (!screenshotMode)
+      Builder(
+        builder: (context) {
+          return Button(
+            style: ButtonStyle.primary()
+                .withBackgroundColor(color: iap.isProEnabled && false ? BKColor.mainEnd : null)
+                .withBorderRadius(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+            onPressed: () {
+              openDrawer(
+                context: context,
+                builder: (c) => SubscriptionPage(),
+                position: OverlayPosition.end,
+              );
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.workspace_premium, size: 14),
+                const SizedBox(width: 4),
+                Text('Pro'),
+              ],
+            ),
+          );
+        },
+      ),
 
     if (IAPManager.instance.isPurchased.value || IAPManager.instance.isProEnabled) ...[
       Gap(8),
