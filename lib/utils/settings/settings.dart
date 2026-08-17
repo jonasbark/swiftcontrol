@@ -68,7 +68,10 @@ class Settings {
         await windowManager.ensureInitialized();
       }
 
-      final app = getKeyMap();
+      // Fall back to the selected trainer app when the keymap pref ('app') is
+      // missing — they are independent prefs and a null keymap leaves every
+      // button unregistered and every press erroring out.
+      final app = getKeyMap() ?? getTrainerApp();
       core.actionHandler.init(app);
 
       try {
@@ -290,7 +293,7 @@ class Settings {
     await prefs.remove('customapp_$profileName');
     // If the current app is the one being deleted, reset
     if (prefs.getString('app') == profileName) {
-      core.actionHandler.init(null);
+      core.actionHandler.init(getTrainerApp());
       await prefs.remove('app');
     }
     _triggerAutoSync();

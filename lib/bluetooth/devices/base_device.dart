@@ -158,6 +158,7 @@ abstract class BaseDevice {
 
       _scheduleLongPress(button);
     } catch (e, st) {
+      recordError(e, st, context: 'handleButtonsClicked');
       actionStreamInternal.add(
         LogNotification('Error handling button clicks: $e\n$st'),
       );
@@ -590,7 +591,14 @@ abstract class BaseDevice {
 
   ControllerButton getOrAddButton(String key, ControllerButton Function() creator) {
     if (core.actionHandler.supportedApp == null) {
-      return creator();
+      // No keymap resolved (e.g. the 'app' pref is missing). We can't register
+      // the button with a keymap, but the device must still expose it — dropping
+      // it here is what makes the device render without any buttons at all.
+      final createdButton = creator();
+      if (availableButtons.none((e) => e.name == createdButton.name)) {
+        availableButtons.add(createdButton);
+      }
+      return createdButton;
     }
     if (core.actionHandler.supportedApp is! CustomApp) {
       final currentProfile = core.actionHandler.supportedApp!.name;
