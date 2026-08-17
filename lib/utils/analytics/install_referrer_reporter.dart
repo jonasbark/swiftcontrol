@@ -1,6 +1,6 @@
-import 'package:android_play_install_referrer/android_play_install_referrer.dart';
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/utils/analytics/install_referrer_parser.dart';
+import 'package:play_install_referrer/play_install_referrer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Where the install referrer comes from. Abstracted so the reporter can be
@@ -14,7 +14,7 @@ class PlayInstallReferrerSource implements InstallReferrerSource {
   @override
   Future<String?> read() async {
     try {
-      final details = await AndroidPlayInstallReferrer.installReferrer;
+      final details = await PlayInstallReferrer.installReferrer;
       return details.installReferrer;
     } catch (e, s) {
       // Expected on sideloaded builds, emulators without Play Services, and
