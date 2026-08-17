@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/subscriptions/login.dart';
 import 'package:bike_control/pages/support_chat/support_thread_page.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_composer.dart';
@@ -57,6 +58,11 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
   List<SupportMessage> _messages = [];
   final List<SupportMessage> _pendingMessages = [];
   bool _sending = false;
+
+  /// Attachments already uploaded to storage but whose message send failed.
+  /// Keyed by the staged attachment the composer restores, so retrying re-uses
+  /// the blob instead of orphaning it (there is no client-side delete).
+  final Map<StagedAttachment, SupportAttachmentUpload> _retainedUploads = {};
   List<SupportIssue> _openIssues = const [];
   IntakeAnswers? _intakeAnswers;
   bool _intakeSent = false;
@@ -177,12 +183,20 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
     try {
       final attachments = <SupportAttachmentUpload>[];
       if (staged != null) {
-        final upload = await _service.uploadAttachment(
-          chatId: chat.id,
-          file: staged.file,
-          attachmentTooLargeMessage: context.i18n.attachmentTooLarge,
-          unsupportedMimeMessage: context.i18n.attachmentMimeUnsupported,
-        );
+        // The blob is uploaded before the message send, so a failed send would
+        // otherwise leak it: there is no client-side delete for the bucket.
+        // Instead we remember the successful upload against the staged file the
+        // composer hands back, so a retry re-uses that blob instead of
+        // orphaning it and uploading a second copy.
+        final upload =
+            _retainedUploads[staged] ??
+            await _service.uploadAttachment(
+              chatId: chat.id,
+              file: staged.file,
+              attachmentTooLargeMessage: context.i18n.attachmentTooLarge,
+              unsupportedMimeMessage: context.i18n.attachmentMimeUnsupported,
+            );
+        _retainedUploads[staged] = upload;
         attachments.add(upload);
       }
       final intakePayload = (!_intakeSent && _intakeAnswers != null)
@@ -195,6 +209,7 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
         telemetry: telemetry.toJson(),
         intakeAnswers: intakePayload,
       );
+      if (staged != null) _retainedUploads.remove(staged);
       if (!mounted) return;
       setState(() {
         _pendingMessages.removeWhere((m) => m.id == placeholderId);
@@ -202,15 +217,19 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
         _sending = false;
         if (intakePayload != null) _intakeSent = true;
       });
-    } on SupportChatException catch (e) {
+    } on SupportChatException catch (e, s) {
+      recordError(e, s, context: 'support.chat.send');
       if (!mounted) return;
       setState(() {
         _pendingMessages.removeWhere((m) => m.id == placeholderId);
         _sending = false;
       });
       buildToast(level: LogLevel.LOGLEVEL_ERROR, title: e.message);
+      // The composer relies on this to know it must restore the text and the
+      // staged attachment; it swallows it there rather than passing it on.
       rethrow;
-    } catch (_) {
+    } catch (e, s) {
+      recordError(e, s, context: 'support.chat.send');
       if (!mounted) return;
       setState(() {
         _pendingMessages.removeWhere((m) => m.id == placeholderId);

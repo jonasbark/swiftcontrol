@@ -1468,6 +1468,7 @@
   "attachImage": "Pick image",
   "attachDocument": "Pick file",
   "diagnosticInfoAttached": "The following data will be attached to the message for diagnostic purposes",
+  "attachmentOnlyMessageBody": "(screenshot)",
   "attachmentTooLarge": "Attachment exceeds 10 MB",
   "attachmentMimeUnsupported": "Unsupported file type",
   "failedToSendMessage": "Failed to send message",

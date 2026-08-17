@@ -931,6 +931,7 @@
   "attachImage": "Scegli un'immagine",
   "attachDocument": "Scegli un file",
   "diagnosticInfoAttached": "I seguenti dati verranno allegati al messaggio a fini diagnostici",
+  "attachmentOnlyMessageBody": "(screenshot)",
   "attachmentTooLarge": "L'allegato supera 10 MB",
   "attachmentMimeUnsupported": "Tipo di file non supportato",
   "failedToSendMessage": "Invio del messaggio non riuscito",

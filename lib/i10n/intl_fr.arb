@@ -931,6 +931,7 @@
   "attachImage": "Choisir une image",
   "attachDocument": "Choisir un fichier",
   "diagnosticInfoAttached": "Les données suivantes seront jointes au message à des fins de diagnostic",
+  "attachmentOnlyMessageBody": "(capture d'écran)",
   "attachmentTooLarge": "La pièce jointe dépasse 10 Mo",
   "attachmentMimeUnsupported": "Type de fichier non pris en charge",
   "failedToSendMessage": "Échec de l'envoi du message",

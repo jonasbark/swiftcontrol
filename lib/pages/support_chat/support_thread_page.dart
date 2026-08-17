@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_composer.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_message_group.dart';
@@ -36,6 +37,9 @@ class _SupportThreadPageState extends State<SupportThreadPage> {
   final List<SupportMessage> _pendingReplies = [];
   bool _loading = true;
   bool _sending = false;
+
+  /// Uploads whose message send failed, kept so a retry re-uses the blob.
+  final Map<StagedAttachment, SupportAttachmentUpload> _retainedUploads = {};
 
   @override
   void initState() {
@@ -89,12 +93,18 @@ class _SupportThreadPageState extends State<SupportThreadPage> {
     try {
       final attachments = <SupportAttachmentUpload>[];
       if (staged != null) {
-        final upload = await _service.uploadAttachment(
-          chatId: widget.chat.id,
-          file: staged.file,
-          attachmentTooLargeMessage: context.i18n.attachmentTooLarge,
-          unsupportedMimeMessage: context.i18n.attachmentMimeUnsupported,
-        );
+        // Uploaded before the send, so a failed send would orphan the blob —
+        // retain it against the staged file the composer restores so a retry
+        // re-uses it instead of uploading a second copy.
+        final upload =
+            _retainedUploads[staged] ??
+            await _service.uploadAttachment(
+              chatId: widget.chat.id,
+              file: staged.file,
+              attachmentTooLargeMessage: context.i18n.attachmentTooLarge,
+              unsupportedMimeMessage: context.i18n.attachmentMimeUnsupported,
+            );
+        _retainedUploads[staged] = upload;
         attachments.add(upload);
       }
       final sent = await _service.sendMessage(
@@ -104,21 +114,25 @@ class _SupportThreadPageState extends State<SupportThreadPage> {
         attachments: attachments,
         telemetry: telemetry.toJson(),
       );
+      if (staged != null) _retainedUploads.remove(staged);
       if (!mounted) return;
       setState(() {
         _pendingReplies.removeWhere((m) => m.id == placeholderId);
         _replies = [..._replies, sent];
         _sending = false;
       });
-    } on SupportChatException catch (e) {
+    } on SupportChatException catch (e, s) {
+      recordError(e, s, context: 'support.chat.send');
       if (!mounted) return;
       setState(() {
         _pendingReplies.removeWhere((m) => m.id == placeholderId);
         _sending = false;
       });
       buildToast(level: LogLevel.LOGLEVEL_ERROR, title: e.message);
+      // The composer swallows this; it only needs it to restore its state.
       rethrow;
-    } catch (_) {
+    } catch (e, s) {
+      recordError(e, s, context: 'support.chat.send');
       if (!mounted) return;
       setState(() {
         _pendingReplies.removeWhere((m) => m.id == placeholderId);
