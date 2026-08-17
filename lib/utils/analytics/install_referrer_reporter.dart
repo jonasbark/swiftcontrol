@@ -32,6 +32,8 @@ class PlayInstallReferrerSource implements InstallReferrerSource {
 /// the website writes to, so an install joins its originating ad click on
 /// `utm_content`.
 class InstallReferrerReporter {
+  /// [source] reads the raw referrer, [prefs] persists the once-only flag,
+  /// and [send] posts the resulting event body to analytics.
   InstallReferrerReporter({required this.source, required this.prefs, required this.send});
 
   final InstallReferrerSource source;

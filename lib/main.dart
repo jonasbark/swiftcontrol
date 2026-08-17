@@ -149,7 +149,7 @@ Future<void> main(List<String> args) async {
       // Attribute this install back to the ad that produced it. Android only:
       // no other store passes a referrer through to the app. Fire-and-forget,
       // because nothing here should ever delay startup.
-      if (!kIsWeb && Platform.isAndroid) {
+      if (!kIsWeb && Platform.isAndroid && core.settings.isInitialized) {
         unawaited(
           InstallReferrerReporter(
             source: PlayInstallReferrerSource(),
