@@ -25,6 +25,8 @@ void main() {
   final trainerServices = [
     BleService(FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID, []),
     BleService(deviceInformation, []),
+    // Elite's own service, as an Elite trainer would present it.
+    BleService('347b0001-7635-408b-8918-8ff3949ce592', []),
   ];
 
   FitnessBikeDefinition buildFbd() => FitnessBikeDefinition(
@@ -54,11 +56,17 @@ void main() {
       expect(lower(buildFbd().advertiseServiceUUIDs), isNot(contains(marker)));
     });
 
-    test('keeps FTMS and the trainer passthrough', () {
+    test('serves FTMS and Device Information itself', () {
       final uuids = lower(buildFbd().serviceUUIDs);
 
       expect(uuids, contains(FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID));
       expect(uuids, contains(deviceInformation));
+    });
+
+    test('does not put the trainer\'s own services on the wire', () {
+      // A vendor service tells Rouvy what hardware this is, and it drives the
+      // device differently for it.
+      expect(lower(buildFbd().serviceUUIDs), isNot(contains('347b0001-7635-408b-8918-8ff3949ce592')));
     });
   });
 
