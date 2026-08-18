@@ -14,6 +14,10 @@ class ZwiftConstants {
 
   static const ZWIFT_MANUFACTURER_ID = 2378; // Zwift, Inc => 0x094A
 
+  /// Controller firmware can only be updated through the Zwift Companion app.
+  /// The landing page localizes itself and forwards to the right app store.
+  static const ZWIFT_COMPANION_URL = "https://www.zwift.com/companion";
+
   // Zwift Play = RC1
   static const RC1_LEFT_SIDE = 0x03;
   static const RC1_RIGHT_SIDE = 0x02;
