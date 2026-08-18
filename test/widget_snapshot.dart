@@ -88,6 +88,12 @@ Future<void> _runBootstrap() async {
 /// - [name]: output base filename. One locale → `name.png`; many → `name-<loc>.png`.
 /// - [width]: logical width given to the widget. The capture is cropped tight to
 ///   `width + padding` — make it wide enough that the widget doesn't overflow.
+/// - [height]: normally omitted, so the widget is given unbounded height and
+///   sets its own. Pass one to shoot a full-screen PAGE instead: the surface
+///   becomes exactly `width` × `height`, the scroll view is dropped (a page
+///   with its own viewport can't live inside another one), and MediaQuery
+///   reports that size — which is what a page measuring itself against the
+///   screen, e.g. the touch-area editor, needs to lay out correctly.
 /// - [padding]: breathing room painted around the widget (in [background]).
 /// - [background]: backdrop colour; defaults to the theme's background.
 /// - [brightness]: light or dark app theme (mirrors main.dart's themes).
@@ -102,6 +108,7 @@ Future<List<File>> captureWidget(
   required Widget Function(BuildContext context) builder,
   List<String> locales = const ['en'],
   double width = 380,
+  double? height,
   EdgeInsets padding = const EdgeInsets.all(16),
   Color? background,
   Brightness brightness = Brightness.light,
@@ -116,9 +123,15 @@ Future<List<File>> captureWidget(
 
   // Surface width == widget + padding so the full-width scroll viewport (which
   // forces a tight cross-axis width) crops exactly to the widget. Height is
-  // arbitrary: the SingleChildScrollView makes the captured subtree's vertical
-  // axis unbounded, so the widget sets its own height.
-  tester.view.physicalSize = Size(width + padding.horizontal, 2000) * pixelRatio;
+  // arbitrary when [height] is null: the SingleChildScrollView makes the
+  // captured subtree's vertical axis unbounded, so the widget sets its own
+  // height. With a [height], the surface IS the widget plus its padding.
+  tester.view.physicalSize =
+      Size(
+        width + padding.horizontal,
+        height == null ? 2000 : height + padding.vertical,
+      ) *
+      pixelRatio;
   tester.view.devicePixelRatio = pixelRatio;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -170,18 +183,25 @@ Future<List<File>> captureWidget(
             : ThemeMode.light,
         materialTheme: m.ThemeData(),
         home: Builder(
-          builder: (context) => SingleChildScrollView(
-            child: RepaintBoundary(
+          builder: (context) {
+            final captured = RepaintBoundary(
               key: boundaryKey,
               child: ColoredBox(
                 color: background ?? Theme.of(context).colorScheme.background,
                 child: Padding(
                   padding: padding,
-                  child: SizedBox(width: width, child: builder(context)),
+                  child: SizedBox(
+                    width: width,
+                    height: height,
+                    child: builder(context),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+            return height == null
+                ? SingleChildScrollView(child: captured)
+                : captured;
+          },
         ),
       ),
     );
