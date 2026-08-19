@@ -341,6 +341,20 @@ class IAPManager {
   }
 
   Future<void> _showPaywall(BuildContext context, bool subscription) async {
+    // openDrawer needs a DrawerOverlay ancestor (Scaffold creates one) and does
+    // `parentLayer!` in release, so a caller that hands us a context from above
+    // its own Scaffold turns "Go Pro" into a bare "Null check operator used on
+    // a null value" toast and the paywall never opens. Callers should pass a
+    // context below the Scaffold, but the paywall is the last thing that should
+    // break when one doesn't — fall back to a dialog, which only needs a
+    // Navigator. Paywall already constrains and scrolls itself.
+    if (DrawerOverlay.maybeFind(context) == null) {
+      await showDialog<void>(
+        context: context,
+        builder: (c) => Paywall(defaultToFullVersion: !subscription),
+      );
+      return;
+    }
     openDrawer(
       context: context,
       // The paywall scrolls, which swallows the drawer's own swipe-to-close —

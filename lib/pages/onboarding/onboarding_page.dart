@@ -579,7 +579,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// of ConnectionCard._onSelect (proxy_device_details/connection_card.dart);
   /// the details page stays reachable from the home screen for mode changes.
   Future<void> _onPickTrainer(ProxyDevice device) async {
-    await connectTrainerFromPicker(context, device);
+    // _sheetContext, not context: the trial gate in connectTrainerFromPicker
+    // opens the Go Pro dialog, whose purchase action opens the paywall drawer.
+    // The State's own context sits above the Scaffold's DrawerOverlay, so that
+    // drawer died on a null check — see the note on [_sheetContext].
+    await connectTrainerFromPicker(_sheetContext, device);
     if (mounted) setState(() {});
   }
 
