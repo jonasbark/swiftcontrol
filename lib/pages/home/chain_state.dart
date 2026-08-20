@@ -44,6 +44,7 @@ enum SetupStepId {
   controllerUnlocked,
   controllerSramSetup,
   controllerClickV2Setup,
+  controllerClickV2KeepAwake,
   trainerPaired,
   trainerAppBridged,
   trainerGearOverlay,

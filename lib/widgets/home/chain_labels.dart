@@ -51,6 +51,13 @@ ChainStepText chainStepText(BuildContext context, SetupStep step, {String? appNa
       l.chainStepClickV2Setup,
       l.chainStepClickV2SetupHint,
     ),
+    // Optional, so it is only ever emitted while outstanding — the hint carries
+    // the whole point, since "switch the left side on" makes no sense without
+    // the reason.
+    SetupStepId.controllerClickV2KeepAwake => ChainStepText(
+      l.chainStepClickV2KeepAwake,
+      l.chainStepClickV2KeepAwakeHint,
+    ),
     SetupStepId.controllerSramSetup => step.done
         ? ChainStepText(l.chainStepSramSetup)
         : ChainStepText(l.sramSetup, l.chainStepSramSetupHint),
