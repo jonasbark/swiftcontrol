@@ -193,6 +193,16 @@ class Settings {
     await prefs.setBool(_autoConnectKey(trainerKey), autoConnect);
   }
 
+  String _selfTestKey(String trainerKey) => 'self_test_$trainerKey';
+
+  String? getSelfTestResultJson(String trainerKey) {
+    return prefs.getString(_selfTestKey(trainerKey));
+  }
+
+  Future<void> setSelfTestResultJson(String trainerKey, String json) async {
+    await prefs.setString(_selfTestKey(trainerKey), json);
+  }
+
   static const String _virtualShiftingIntroSeenKey = 'virtual_shifting_intro_seen';
 
   /// Whether the user has seen the one-time Virtual Shifting beta intro shown
