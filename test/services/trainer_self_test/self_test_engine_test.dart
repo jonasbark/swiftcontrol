@@ -109,4 +109,97 @@ void main() {
     expect(r.verdict, SelfTestVerdict.pass);
     expect(h.gear, 24);
   });
+
+  test('tiny gear range (maxGear 2) completes instead of shifting down forever', () async {
+    final harness = _FlooredGearHarness()
+      ..maxGear = 2
+      ..gear = 2;
+    final engine = SelfTestEngine(
+      harness: harness,
+      sleep: (_) async => harness.publishTick(),
+      now: () => DateTime(2026, 8, 20),
+    );
+    final r = await engine.run();
+    expect(r.verdict, isNot(SelfTestVerdict.aborted), reason: 'must not hang or bail out');
+    expect(harness.gear, 2, reason: 'gear restored');
+    expect(harness.logLines, contains('shift: headroom stalled at gear 1'));
+  });
+
+  test('trainer that refuses to shift terminates with a sensible verdict', () async {
+    final harness = _RefusingShiftHarness()..gear = 24;
+    final engine = SelfTestEngine(
+      harness: harness,
+      sleep: (_) async => harness.publishTick(),
+      now: () => DateTime(2026, 8, 20),
+    );
+    final r = await engine.run();
+    expect(r.verdict, SelfTestVerdict.ergOkVsFail, reason: 'ERG obeyed, shifting did not');
+    expect(r.shiftStepsPassed, 0);
+    expect(harness.gear, 24, reason: 'never moved, nothing to restore');
+  });
+
+  test('ERG-less trainer: rider ERG is dropped for the sweep and restored at finish', () async {
+    final (r, h) = await runScenario((h) {
+      h.supportsPowerTarget = false;
+      h.setErgTarget(210);
+    });
+    expect(r.verdict, SelfTestVerdict.pass);
+    expect(r.ergStepsTotal, 0);
+    expect(r.shiftStepsPassed, 3, reason: 'plateaus must be measured in SIM, not ERG-pinned');
+    expect(h.ergMode, isTrue);
+    expect(h.ergTarget, 210, reason: 'rider ERG restored');
+  });
+
+  test('upstream dropout mid-staircase aborts instead of reporting noControl', () async {
+    final harness = FakeSelfTestHarness();
+    var ticks = 0;
+    final engine = SelfTestEngine(
+      harness: harness,
+      now: () => DateTime(2026, 8, 20),
+      sleep: (_) async {
+        ticks++;
+        if (ticks == 16) harness.upstreamConnected = false; // BLE drops mid-ERG
+        harness.publishTick();
+      },
+    );
+    final r = await engine.run();
+    expect(r.verdict, SelfTestVerdict.aborted);
+    expect(harness.ergMode, isFalse, reason: 'restore ran despite the dropout');
+    expect(harness.gear, 12);
+  });
+  test('a refused ERG exit is logged, not fatal — the run keeps its score', () async {
+    final harness = _RefusingErgExitHarness();
+    final engine = SelfTestEngine(
+      harness: harness,
+      sleep: (_) async => harness.publishTick(),
+      now: () => DateTime(2026, 8, 20),
+    );
+    final r = await engine.run();
+    expect(r.verdict, SelfTestVerdict.ergOkVsFail, reason: 'scored, not downgraded to aborted');
+    expect(r.ergStepsPassed, 3);
+    expect(harness.gear, 12, reason: 'gear restore still ran');
+  });
+}
+
+/// Mirrors prop's clamp: the trainer will not shift below its lowest gear.
+class _FlooredGearHarness extends FakeSelfTestHarness {
+  @override
+  void shiftDown() {
+    if (gear > 1) super.shiftDown();
+  }
+}
+
+/// A trainer that acknowledges shift commands but never changes gear.
+class _RefusingShiftHarness extends FakeSelfTestHarness {
+  @override
+  void shiftUp() {}
+  @override
+  void shiftDown() {}
+}
+
+/// A trainer whose control point rejects the ERG exit — the write throws and
+/// the mode stays put.
+class _RefusingErgExitHarness extends FakeSelfTestHarness {
+  @override
+  void exitErg() => throw StateError('control point refused');
 }

@@ -113,8 +113,10 @@ class SelfTestEngine {
   /// A transition must not be explained by the rider spinning up/down.
   static const double cadenceDriftTolerance = 0.15;
 
-  /// Safety stop for the gear-restore loop (a trainer may refuse to shift).
+  /// Safety stops for the shifting loops (a trainer may refuse to shift, and
+  /// maxGear is rider-configurable down to 1).
   static const int maxRestoreShifts = 60;
+  static const int maxHeadroomShifts = 8;
 
   // ------------------------------------------------------------------ state
   final ValueNotifier<SelfTestState> _state = ValueNotifier(const SelfTestState());
@@ -148,7 +150,9 @@ class SelfTestEngine {
   bool _ergDirty = false;
   bool _gearDirty = false;
 
-  /// Runs the whole test. Safe to call repeatedly — later calls join the first.
+  /// Runs the whole test, once. A repeat call returns the first run's result —
+  /// in flight or already completed — so a second tap can't interleave two
+  /// sweeps; a genuine re-test needs a fresh engine.
   Future<SelfTestResult> run() => _runFuture ??= _run();
 
   /// Ends the test at the next tick with [SelfTestVerdict.aborted]; restore
@@ -234,16 +238,19 @@ class SelfTestEngine {
 
   /// 4. ERG staircase — command targets and watch whether power follows.
   Future<void> _ergStaircase(int p0) async {
-    _phase = SelfTestPhase.ergStaircase;
-    _emit();
-    harness.log('phase: erg staircase');
-    if (!harness.supportsPowerTarget) {
-      // Skipped, not failed: ergStepsTotal stays 0 and the verdict ignores it.
-      harness.log('erg: skipped, trainer has no power-target support');
-      return;
-    }
-    final targets = [p0 + ergStepUpW, math.max(ergStepMinW, p0 - ergStepDownW), p0 + ergStepUpW];
     try {
+      if (!harness.supportsPowerTarget) {
+        // Skipped, not failed: ergStepsTotal stays 0 and the verdict ignores
+        // it. Inside the try on purpose — the finally below still has to take
+        // the trainer out of ERG before the sweep measures anything.
+        harness.log('erg: skipped, trainer has no power-target support');
+        return;
+      }
+      // Only now, so a skipped phase doesn't flash "Testing power targets".
+      _phase = SelfTestPhase.ergStaircase;
+      _emit();
+      harness.log('phase: erg staircase');
+      final targets = [p0 + ergStepUpW, math.max(ergStepMinW, p0 - ergStepDownW), p0 + ergStepUpW];
       for (final target in targets) {
         _currentErgTarget = target;
         _emit();
@@ -262,7 +269,12 @@ class SelfTestEngine {
       // power flat and would score every transition as "no change". A rider's
       // own ERG session is put back in _finish, once the sweep is done.
       _currentErgTarget = null;
-      _exitErgForSweep();
+      try {
+        _exitErgForSweep();
+      } catch (e, s) {
+        // A refused write must not downgrade an otherwise scored run.
+        recordError(e, s, context: 'self-test erg exit');
+      }
       _emit();
     }
   }
@@ -296,21 +308,35 @@ class SelfTestEngine {
     harness.log('phase: shift sweep');
     try {
       // Headroom: leave room for the upshifts before measuring anything.
+      // Bounded twice over — a rider can configure maxGear down to 1 (the
+      // target gear then sits below every reachable gear), and a trainer at its
+      // lowest gear, or one refusing to shift at all, never moves.
+      var headroomShifts = 0;
       while (harness.currentGear > harness.maxGear - headroomGears) {
         if (!await _tick()) {
           continue;
         }
-        harness.shiftDown();
+        final before = harness.currentGear;
         _gearDirty = true;
+        harness.shiftDown();
+        headroomShifts++;
+        if (harness.currentGear == before) {
+          harness.log('shift: headroom stalled at gear $before');
+          break;
+        }
         harness.log('shift: headroom -> gear ${harness.currentGear}');
+        if (headroomShifts >= maxHeadroomShifts) {
+          harness.log('shift: headroom gave up at gear ${harness.currentGear}');
+          break;
+        }
       }
       var previous = await _plateau();
       harness.log(
         'shift: gear ${harness.currentGear} plateau ${_w(previous.power)} @ ${previous.cadence.round()}rpm',
       );
       for (var i = 0; i < shiftTransitions; i++) {
-        harness.shiftUp();
         _gearDirty = true;
+        harness.shiftUp();
         var current = await _plateau();
         var passed = _transitionPassed(current, previous);
         if (!passed) {
@@ -329,7 +355,12 @@ class SelfTestEngine {
         previous = current;
       }
     } finally {
-      await _restoreGear(startGear);
+      try {
+        await _restoreGear(startGear);
+      } catch (e, s) {
+        // Same rule as the staircase: a refused shift is logged, not fatal.
+        recordError(e, s, context: 'self-test restore gear');
+      }
     }
   }
 
@@ -373,11 +404,18 @@ class SelfTestEngine {
   ///
   /// Returns false when the tick was swallowed by a pause — the caller must
   /// then not count it toward the current step's clock. Throws
-  /// [_AbortedException] on cancel or when the pause outlives [pauseTimeout].
+  /// [_AbortedException] on cancel, on an upstream dropout, or when the pause
+  /// outlives [pauseTimeout].
   Future<bool> _tick() async {
     _throwIfCancelled();
     await _sleep(tick);
     _throwIfCancelled();
+    if (!harness.upstreamConnected) {
+      // The power/cadence notifiers latch their last value on disconnect, so
+      // without this the sweep would happily "measure" a dead link and report
+      // NO_CONTROL for what is really a dropout.
+      throw const _AbortedException('trainer disconnected');
+    }
     _power = harness.powerW.value;
     _cadence = harness.cadenceRpm.value;
     if (!_pauseArmed) {
@@ -428,52 +466,82 @@ class SelfTestEngine {
     required int? prevErgTarget,
     required int startGear,
   }) async {
+    // Separate guards: a gear restore that throws must not cost the rider
+    // their ERG session, and neither may stop run() from resolving.
     try {
       await _restoreGear(startGear);
+    } catch (e, s) {
+      recordError(e, s, context: 'self-test restore gear');
+    }
+    try {
       _restoreErg(wasErg: wasErg, prevErgTarget: prevErgTarget);
     } catch (e, s) {
-      recordError(e, s, context: 'self-test restore');
+      recordError(e, s, context: 'self-test restore erg');
     }
-    final result = SelfTestResult(
+    final result = _buildResult(verdict);
+    try {
+      _result = result;
+      _phase = SelfTestPhase.done;
+      _paused = false;
+      _currentErgTarget = null;
+      _emit();
+      harness.log('verdict: ${result.toBundleString()}');
+    } catch (e, s) {
+      recordError(e, s, context: 'self-test finish');
+    }
+    return result;
+  }
+
+  SelfTestResult _buildResult(SelfTestVerdict? verdict) {
+    var vsMode = 'unknown';
+    var protocol = 'unknown';
+    try {
+      vsMode = harness.vsModeName;
+      protocol = harness.protocolName;
+    } catch (e, s) {
+      // Labels are diagnostics only — never worth losing the verdict over.
+      recordError(e, s, context: 'self-test result labels');
+    }
+    return SelfTestResult(
       at: _now(),
       verdict: verdict ?? _verdictFromSteps(),
       ergStepsPassed: _ergResults.where((passed) => passed).length,
       ergStepsTotal: _ergTotal,
       shiftStepsPassed: _shiftResults.where((passed) => passed).length,
       shiftStepsTotal: _shiftTotal,
-      vsMode: harness.vsModeName,
-      protocol: harness.protocolName,
+      vsMode: vsMode,
+      protocol: protocol,
     );
-    _result = result;
-    _phase = SelfTestPhase.done;
-    _paused = false;
-    _currentErgTarget = null;
-    _emit();
-    harness.log('verdict: ${result.toBundleString()}');
-    return result;
   }
 
-  /// Leaves the ERG mode the staircase commanded, so the sweep runs in SIM.
+  /// Takes the trainer out of ERG before the sweep, whether the ERG session is
+  /// one the staircase commanded or one the rider brought with them — a sweep
+  /// measured under ERG reads flat and scores every transition as "no change".
   ///
-  /// [_ergDirty] deliberately stays set: the rider's own ERG session (if they
-  /// had one) is put back by [_restoreErg] at the very end.
+  /// [_ergDirty] is deliberately left *set*: it now means "an ERG restore is
+  /// owed", and [_restoreErg] settles it at the very end.
   void _exitErgForSweep() {
-    if (!_ergDirty) {
+    if (!_ergDirty && !harness.isErgMode) {
       return;
     }
+    _ergDirty = true;
     harness.exitErg();
     harness.log('erg: exited for the shift sweep');
   }
 
   /// Restores the ERG state captured at the start of [run] — a rider who was
   /// riding a manual ERG target gets that target back; everyone else is left
-  /// out of ERG. Gated on [_ergDirty], so a run that never commanded a target
-  /// (noData, early abort) writes nothing at all.
+  /// out of ERG.
+  ///
+  /// Fires when we owe a restore *or* when the trainer's ERG state no longer
+  /// matches the snapshot — shifting alone drops the definition out of ERG, so
+  /// [_ergDirty] on its own would miss a session the sweep ended. A run that
+  /// changed nothing (noData, early abort) still writes nothing at all.
   void _restoreErg({required bool wasErg, required int? prevErgTarget}) {
-    if (!_ergDirty) {
+    final changed = _ergDirty || harness.isErgMode != wasErg || harness.ergTarget != prevErgTarget;
+    if (!changed) {
       return;
     }
-    _ergDirty = false;
     if (wasErg && prevErgTarget != null) {
       harness.setErgTarget(prevErgTarget);
       harness.log('restore: erg target ${prevErgTarget}W');
@@ -481,6 +549,9 @@ class SelfTestEngine {
       harness.exitErg();
       harness.log('restore: erg exited');
     }
+    // Cleared only once the write went through, so a refused restore stays
+    // visible to anything that looks after us.
+    _ergDirty = false;
   }
 
   /// Shifts back to the starting gear, one shift per tick. Deliberately uses
@@ -492,12 +563,18 @@ class SelfTestEngine {
     }
     var shifts = 0;
     while (harness.currentGear != startGear && shifts < maxRestoreShifts) {
-      if (harness.currentGear > startGear) {
+      final before = harness.currentGear;
+      if (before > startGear) {
         harness.shiftDown();
       } else {
         harness.shiftUp();
       }
       shifts++;
+      if (harness.currentGear == before) {
+        // Refused — burning 30 s of ticks on a trainer that won't move helps
+        // nobody.
+        break;
+      }
       await _sleep(tick);
     }
     _gearDirty = false;
