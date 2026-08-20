@@ -1724,5 +1724,20 @@
   "vsStageMoreModesTitle": "Pełna obsługa SIM i ERG",
   "vsStageMoreModesSub": "Treningi i jazda swobodna",
   "vsStageMoreProfilesTitle": "Przełączaj profile",
-  "vsStageMoreProfilesSub": "Tryb wyścig, podjazd, własny"
+  "vsStageMoreProfilesSub": "Tryb wyścig, podjazd, własny",
+  "signInWithEmail": "Zaloguj się e-mailem",
+  "emailAddress": "Adres e-mail",
+  "sendMeACode": "Wyślij mi kod",
+  "checkYourInbox": "Sprawdź skrzynkę pocztową",
+  "weSentACodeTo": "Wysłaliśmy 6-cyfrowy kod na adres {email}",
+  "@weSentACodeTo": {"placeholders": {"email": {"type": "String"}}},
+  "sendANewCode": "Wyślij nowy kod",
+  "sendANewCodeIn": "Nowy kod za {seconds}s",
+  "@sendANewCodeIn": {"placeholders": {"seconds": {"type": "int"}}},
+  "useADifferentEmailAddress": "Użyj innego adresu",
+  "pleaseEnterAValidEmailAddress": "Podaj prawidłowy adres e-mail",
+  "theCodeIsIncorrectOrExpired": "Kod jest nieprawidłowy lub wygasł. Poproś o nowy.",
+  "tooManyCodeRequestsPleaseWait": "Zbyt wiele żądań. Odczekaj minutę i spróbuj ponownie.",
+  "couldNotSendTheCodePleaseTryAgain": "Nie udało się wysłać kodu. Spróbuj ponownie.",
+  "orSeparator": "lub"
 }

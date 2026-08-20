@@ -1932,5 +1932,20 @@
   "vsStageMoreModesTitle": "Full SIM & ERG support",
   "vsStageMoreModesSub": "Workouts and free rides alike",
   "vsStageMoreProfilesTitle": "Switch setting profiles",
-  "vsStageMoreProfilesSub": "Race mode, climb mode, your own"
+  "vsStageMoreProfilesSub": "Race mode, climb mode, your own",
+  "signInWithEmail": "Sign in with email",
+  "emailAddress": "Email address",
+  "sendMeACode": "Send me a code",
+  "checkYourInbox": "Check your inbox",
+  "weSentACodeTo": "We sent a 6-digit code to {email}",
+  "@weSentACodeTo": {"placeholders": {"email": {"type": "String"}}},
+  "sendANewCode": "Send a new code",
+  "sendANewCodeIn": "Send a new code in {seconds}s",
+  "@sendANewCodeIn": {"placeholders": {"seconds": {"type": "int"}}},
+  "useADifferentEmailAddress": "Use a different address",
+  "pleaseEnterAValidEmailAddress": "Please enter a valid email address",
+  "theCodeIsIncorrectOrExpired": "That code is incorrect or has expired. Request a new one.",
+  "tooManyCodeRequestsPleaseWait": "Too many requests. Please wait a minute, then try again.",
+  "couldNotSendTheCodePleaseTryAgain": "We couldn't send the code. Please try again.",
+  "orSeparator": "or"
 }

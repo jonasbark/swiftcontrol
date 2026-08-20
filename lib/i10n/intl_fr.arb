@@ -1724,5 +1724,20 @@
   "vsStageMoreModesTitle": "SIM et ERG pris en charge",
   "vsStageMoreModesSub": "Séances comme sorties libres",
   "vsStageMoreProfilesTitle": "Changer de profil",
-  "vsStageMoreProfilesSub": "Mode course, mode montée, le tien"
+  "vsStageMoreProfilesSub": "Mode course, mode montée, le tien",
+  "signInWithEmail": "Se connecter par e-mail",
+  "emailAddress": "Adresse e-mail",
+  "sendMeACode": "Envoyez-moi un code",
+  "checkYourInbox": "Consulte ta boîte mail",
+  "weSentACodeTo": "Nous avons envoyé un code à 6 chiffres à {email}",
+  "@weSentACodeTo": {"placeholders": {"email": {"type": "String"}}},
+  "sendANewCode": "Envoyer un nouveau code",
+  "sendANewCodeIn": "Nouveau code dans {seconds}s",
+  "@sendANewCodeIn": {"placeholders": {"seconds": {"type": "int"}}},
+  "useADifferentEmailAddress": "Utiliser une autre adresse",
+  "pleaseEnterAValidEmailAddress": "Saisis une adresse e-mail valide",
+  "theCodeIsIncorrectOrExpired": "Ce code est incorrect ou a expiré. Demandes-en un nouveau.",
+  "tooManyCodeRequestsPleaseWait": "Trop de demandes. Patiente une minute, puis réessaie.",
+  "couldNotSendTheCodePleaseTryAgain": "Impossible d'envoyer le code. Réessaie.",
+  "orSeparator": "ou"
 }

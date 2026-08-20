@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/pages/subscriptions/email_login_form.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -81,6 +82,8 @@ class _LoginPageState extends State<LoginPage> {
               spacing: 16,
               mainAxisSize: MainAxisSize.min,
               children: [
+                EmailLoginForm(onSignedIn: _afterSignIn),
+                Divider(child: Text(context.i18n.orSeparator).small.muted),
                 SignInButton(
                   Buttons.google,
                   onPressed: _nativeGoogleSignIn,
@@ -188,6 +191,18 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  /// Leaves the sign-in screen the way it was opened: a pushed page pops, an
+  /// embedded one hands control back to its host.
+  void _afterSignIn() {
+    if (!mounted) return;
+    setState(() {});
+    if (widget.pushed) {
+      Navigator.pop(context);
+    } else {
+      widget.onBack?.call();
+    }
+  }
+
   Future<AuthResponse?> _nativeGoogleSignIn() async {
     if (Platform.isAndroid || Platform.isIOS) {
       const webClientId = '709945926587-bgk7j9qc86t7nuemu100ngvl9c7irv9k.apps.googleusercontent.com';
@@ -218,11 +233,7 @@ class _LoginPageState extends State<LoginPage> {
         accessToken: authorization.accessToken,
       );
 
-      if (widget.pushed) {
-        Navigator.pop(context);
-      } else {
-        widget.onBack?.call();
-      }
+      _afterSignIn();
       return response;
     } else {
       await core.supabase.auth.signInWithOAuth(
@@ -230,11 +241,7 @@ class _LoginPageState extends State<LoginPage> {
         redirectTo: kIsWeb ? null : 'bikecontrol://login/',
         authScreenLaunchMode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
       );
-      if (widget.pushed) {
-        Navigator.pop(context);
-      } else {
-        widget.onBack?.call();
-      }
+      _afterSignIn();
       return null;
     }
   }
@@ -258,11 +265,7 @@ class _LoginPageState extends State<LoginPage> {
         nonce: rawNonce,
       );
 
-      if (widget.pushed) {
-        Navigator.pop(context);
-      } else {
-        widget.onBack?.call();
-      }
+      _afterSignIn();
       return authResponse;
     } else {
       await core.supabase.auth.signInWithOAuth(
@@ -270,11 +273,7 @@ class _LoginPageState extends State<LoginPage> {
         redirectTo: kIsWeb ? null : 'bikecontrol://login/',
         authScreenLaunchMode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
       );
-      if (widget.pushed) {
-        Navigator.pop(context);
-      } else {
-        widget.onBack?.call();
-      }
+      _afterSignIn();
       return null;
     }
   }

@@ -1724,5 +1724,20 @@
   "vsStageMoreModesTitle": "Supporto SIM ed ERG",
   "vsStageMoreModesSub": "Allenamenti e uscite libere",
   "vsStageMoreProfilesTitle": "Cambia profilo",
-  "vsStageMoreProfilesSub": "Modalità gara, salita, la tua"
+  "vsStageMoreProfilesSub": "Modalità gara, salita, la tua",
+  "signInWithEmail": "Accedi con e-mail",
+  "emailAddress": "Indirizzo e-mail",
+  "sendMeACode": "Inviami un codice",
+  "checkYourInbox": "Controlla la tua casella di posta",
+  "weSentACodeTo": "Abbiamo inviato un codice di 6 cifre a {email}",
+  "@weSentACodeTo": {"placeholders": {"email": {"type": "String"}}},
+  "sendANewCode": "Invia un nuovo codice",
+  "sendANewCodeIn": "Nuovo codice tra {seconds}s",
+  "@sendANewCodeIn": {"placeholders": {"seconds": {"type": "int"}}},
+  "useADifferentEmailAddress": "Usa un altro indirizzo",
+  "pleaseEnterAValidEmailAddress": "Inserisci un indirizzo e-mail valido",
+  "theCodeIsIncorrectOrExpired": "Il codice non è corretto o è scaduto. Richiedine uno nuovo.",
+  "tooManyCodeRequestsPleaseWait": "Troppe richieste. Attendi un minuto e riprova.",
+  "couldNotSendTheCodePleaseTryAgain": "Non siamo riusciti a inviare il codice. Riprova.",
+  "orSeparator": "o"
 }
