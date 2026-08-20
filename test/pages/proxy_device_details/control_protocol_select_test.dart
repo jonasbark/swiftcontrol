@@ -141,6 +141,10 @@ Future<void> main() async {
     await pumpSection(tester, device);
 
     expect(find.text(AppLocalizations.current.controlProtocolLabel), findsNothing);
+
+    // The FTMS-only fixture's seeding write starts the control-grant 400ms
+    // fallback timer (7cfedd4); drain it so the binding's timer check passes.
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('selector shown for dual-protocol trainer and persists choice', (tester) async {
