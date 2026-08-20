@@ -34,7 +34,11 @@ class SelfTestCard extends StatefulWidget {
   /// Wired by the page to its overlay-section reveal; used by the PASS CTA.
   final VoidCallback? onShowOverlaySettings;
 
-  const SelfTestCard({super.key, required this.device, this.engineFactory, this.onShowOverlaySettings});
+  /// Test seam: the connection cycle a protocol switch triggers; defaults to
+  /// [ProxyDevice.reconnectUpstream].
+  final Future<void> Function()? reconnectDevice;
+
+  const SelfTestCard({super.key, required this.device, this.engineFactory, this.onShowOverlaySettings, this.reconnectDevice});
 
   @override
   State<SelfTestCard> createState() => _SelfTestCardState();
@@ -411,6 +415,16 @@ class _SelfTestCardState extends State<SelfTestCard> {
   /// [ShiftingConfig].
   Future<void> _switchProtocolAndRerun(String protocol) async {
     _engine?.harness.setProtocol(protocol);
+    // The trainer only honors the new delivery on a fresh connection (it
+    // latches its control session at connect time) — cycle the bridge the way
+    // the ConnectionCard's manual disconnect/reconnect does, then rerun on
+    // the rebuilt definition. [ProxyDevice.reconnectUpstream] itself waits
+    // for the definition to come back.
+    try {
+      await (widget.reconnectDevice ?? widget.device.reconnectUpstream)();
+    } catch (e, s) {
+      recordError(e, s, context: 'self-test protocol switch reconnect');
+    }
     await _start();
   }
 

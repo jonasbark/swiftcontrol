@@ -116,7 +116,11 @@ Future<void> main() async {
     return device;
   }
 
-  Future<void> pumpSection(WidgetTester tester, ProxyDevice device) async {
+  Future<void> pumpSection(
+    WidgetTester tester,
+    ProxyDevice device, {
+    Future<void> Function()? reconnect,
+  }) async {
     await tester.pumpWidget(
       ShadcnApp(
         localizationsDelegates: const [AppLocalizations.delegate],
@@ -125,7 +129,12 @@ Future<void> main() async {
           child: SingleChildScrollView(
             child: SizedBox(
               width: 380,
-              child: TrainerSettingsSection(definition: device.fitnessBike!, device: device),
+              child: TrainerSettingsSection(
+                definition: device.fitnessBike!,
+                device: device,
+                // Keep widget tests off the real connection manager.
+                reconnectDevice: reconnect ?? () async {},
+              ),
             ),
           ),
         ),
@@ -164,6 +173,38 @@ Future<void> main() async {
 
     expect(def.controlProtocolOverride, TrainerControlProtocol.zwiftHub);
     expect(core.settings.getControlProtocolOverride(device.trainerKey), 'zwiftHub');
+  });
+
+  testWidgets('switching to a different effective protocol cycles the connection', (tester) async {
+    final device = trainer(dualProtocolServices());
+    var reconnects = 0;
+    await pumpSection(tester, device, reconnect: () async => reconnects++);
+
+    await tester.tap(find.byType(Select<TrainerControlProtocol?>));
+    await tester.pumpAndSettle();
+    // Auto on this fixture is zwiftHub, so forcing FTMS changes the delivery.
+    await tester.tap(find.text(AppLocalizations.current.controlProtocolFtms).last);
+    await tester.pumpAndSettle();
+
+    expect(device.fitnessBike!.controlProtocol, TrainerControlProtocol.ftms);
+    expect(reconnects, 1);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('an inert selection (same effective protocol) does not cycle the connection', (tester) async {
+    final device = trainer(dualProtocolServices());
+    var reconnects = 0;
+    await pumpSection(tester, device, reconnect: () async => reconnects++);
+
+    await tester.tap(find.byType(Select<TrainerControlProtocol?>));
+    await tester.pumpAndSettle();
+    // Explicitly picking "Zwift protocol" on an auto-zwiftHub trainer is the
+    // documented inert choice — no delivery change, so no reconnect.
+    await tester.tap(find.text(AppLocalizations.current.controlProtocolZwift).last);
+    await tester.pumpAndSettle();
+
+    expect(device.fitnessBike!.controlProtocol, TrainerControlProtocol.zwiftHub);
+    expect(reconnects, 0);
   });
 
   testWidgets('picking Auto again clears the stored override', (tester) async {

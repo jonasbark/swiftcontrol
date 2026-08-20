@@ -14,7 +14,12 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 class TrainerSettingsSection extends StatefulWidget {
   final FitnessBikeDefinition definition;
   final ProxyDevice device;
-  const TrainerSettingsSection({super.key, required this.definition, required this.device});
+
+  /// Test seam: the connection cycle a protocol change triggers; defaults to
+  /// [ProxyDevice.reconnectUpstream].
+  final Future<void> Function()? reconnectDevice;
+
+  const TrainerSettingsSection({super.key, required this.definition, required this.device, this.reconnectDevice});
 
   @override
   State<TrainerSettingsSection> createState() => _TrainerSettingsSectionState();
@@ -110,11 +115,21 @@ class _TrainerSettingsSectionState extends State<TrainerSettingsSection> {
             Text(protocol == null ? context.i18n.controlProtocolAuto : _protocolLabel(protocol)),
         placeholder: Text(context.i18n.controlProtocolAuto),
         onChanged: (protocol) async {
+          final before = def.controlProtocol;
           def.setControlProtocolOverride(protocol);
           await core.settings.setControlProtocolOverride(widget.device.trainerKey, protocol?.name);
           // The override is plain state on the definition, not a listenable —
           // nothing else would repaint the select with the new value.
           if (mounted) setState(() {});
+          // The trainer latches its control session to the protocol that was
+          // live at connect time, so an effective change only takes hold on a
+          // fresh connection — cycle the bridge like the ConnectionCard's
+          // manual disconnect/reconnect would. Inert picks (same effective
+          // delivery, e.g. forcing zwiftHub on an auto-zwiftHub trainer)
+          // skip the cycle.
+          if (def.controlProtocol != before) {
+            await (widget.reconnectDevice ?? widget.device.reconnectUpstream)();
+          }
         },
       ),
     );

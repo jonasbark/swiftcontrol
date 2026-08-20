@@ -71,6 +71,7 @@ Future<void> main() async {
     ProxyDevice device,
     FakeSelfTestHarness harness, {
     VoidCallback? onShowOverlaySettings,
+    Future<void> Function()? reconnect,
   }) async {
     await tester.pumpWidget(
       ShadcnApp(
@@ -81,6 +82,8 @@ Future<void> main() async {
             device: device,
             engineFactory: () => engineOver(harness),
             onShowOverlaySettings: onShowOverlaySettings,
+            // Keep widget tests off the real connection manager.
+            reconnectDevice: reconnect ?? () async {},
           ),
         ),
       ),
@@ -276,7 +279,8 @@ Future<void> main() async {
       ..obeysShift = false
       ..supportedProtocolNames = ['ftms', 'zwiftHub'];
 
-    await pumpCard(tester, connectedTrainer(), harness);
+    var reconnects = 0;
+    await pumpCard(tester, connectedTrainer(), harness, reconnect: () async => reconnects++);
     await tester.tap(find.text('Test resistance control'));
     await tester.pumpAndSettle();
 
@@ -288,8 +292,10 @@ Future<void> main() async {
     await tester.tap(find.text('Try via Zwift protocol & run again'));
     await tester.pump();
 
-    // The tap flips the fake's recorded protocol before the fresh run starts.
+    // The tap flips the fake's recorded protocol and cycles the trainer
+    // connection before the fresh run starts.
     expect(harness.protocolName, 'zwiftHub');
+    expect(reconnects, 1);
     expect(find.text('Stop test'), findsOneWidget);
 
     await tester.pumpAndSettle();

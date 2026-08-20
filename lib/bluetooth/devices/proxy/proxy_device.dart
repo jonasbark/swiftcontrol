@@ -855,6 +855,25 @@ class ProxyDevice extends BluetoothDevice {
   @override
   Future<void> disconnectUpstream() => transport.disconnect();
 
+  /// Tears the upstream trainer connection down and brings it back up — the
+  /// programmatic twin of picking "No connection" and then the bridge mode
+  /// again in the ConnectionCard. A control-protocol change only takes real
+  /// effect on a fresh connection: trainers latch their control session to
+  /// the protocol that was live at connect time, so the cycle re-runs
+  /// discovery, reseeds the definition (re-applying the persisted override)
+  /// and performs the new protocol's handshakes from scratch.
+  Future<void> reconnectUpstream() async {
+    if (!isConnected && !isStartedListenable.value) return;
+    await core.connection.disconnect(this, forget: false, persistForget: false, keepInList: true);
+    await core.connection.connectDevice(this);
+    // connectDevice resolves before discovery finishes on some transports —
+    // wait for the rebuilt definition so callers can start using it.
+    final deadline = DateTime.now().add(const Duration(seconds: 15));
+    while ((!isConnected || fitnessBike == null) && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+  }
+
   void _onWifiDisconnected() {
     if (!isConnected) return;
     isConnected = false;
