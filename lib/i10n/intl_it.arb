@@ -1766,5 +1766,11 @@
   "selfTestVerdictAbortedBody": "Il test non è arrivato in fondo. Servono una pedalata costante e una lettura di cadenza: continua a pedalare per tutta la durata e riprova.",
   "selfTestCtaOverlay": "Mostra la configurazione dell'Overlay",
   "selfTestCtaSwitchMode": "Cambia modalità e ripeti",
-  "selfTestCtaReport": "Invia il risultato al supporto"
+  "selfTestCtaReport": "Invia il risultato al supporto",
+  "controlProtocolLabel": "Protocollo di controllo",
+  "controlProtocolHint": "Come BikeControl comunica con questo rullo. Auto è la scelta giusta, a meno che un test non dica il contrario.",
+  "controlProtocolAuto": "Auto (consigliato)",
+  "controlProtocolFtms": "FTMS",
+  "controlProtocolFec": "FE-C",
+  "controlProtocolZwift": "Protocollo Zwift"
 }

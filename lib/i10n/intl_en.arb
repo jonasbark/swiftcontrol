@@ -1974,5 +1974,11 @@
   "selfTestVerdictAbortedBody": "The test didn't finish. It needs steady pedaling and a cadence reading — keep pedaling throughout and try again.",
   "selfTestCtaOverlay": "Show gear overlay setup",
   "selfTestCtaSwitchMode": "Switch mode & run again",
-  "selfTestCtaReport": "Send result to support"
+  "selfTestCtaReport": "Send result to support",
+  "controlProtocolLabel": "Control protocol",
+  "controlProtocolHint": "How BikeControl talks to this trainer. Auto is right unless a test told you otherwise.",
+  "controlProtocolAuto": "Auto (recommended)",
+  "controlProtocolFtms": "FTMS",
+  "controlProtocolFec": "FE-C",
+  "controlProtocolZwift": "Zwift protocol"
 }

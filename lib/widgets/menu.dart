@@ -183,7 +183,15 @@ String describeProxyDevice(ProxyDevice device) {
       'gear=${formatGearReadout(currentGear: def.currentGear.value, maxGear: def.maxGear, frontShiftEnabled: def.frontShiftEnabled, largeRing: def.frontRing.value == FrontRing.large)}',
     );
     parts.add('trainerMode=${def.trainerMode.value.name}');
-    parts.add('proto=${def.controlProtocol.name}');
+    // `(manual)` separates a rider-forced delivery from an auto-picked one —
+    // otherwise the two read identically, and "did you change the protocol?"
+    // is support's first question on any "trainer ignores BikeControl" report.
+    parts.add('proto=${def.controlProtocol.name}${def.controlProtocolOverride != null ? '(manual)' : ''}');
+    // Only worth a field when there was actually something to choose between;
+    // on a plain FTMS trainer it would be noise in every bundle.
+    if (def.supportedControlProtocols.length > 1) {
+      parts.add('protoAvail=${def.supportedControlProtocols.map((p) => p.name).join('+')}');
+    }
     parts.add('vsMode=${def.virtualShiftingMode.value.name}');
     parts.add('ftms=${def.ftmsCapabilitySummary}');
     final ctl = def.lastControlWrite;

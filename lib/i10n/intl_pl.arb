@@ -1766,5 +1766,11 @@
   "selfTestVerdictAbortedBody": "Test nie został ukończony. Potrzebuje równego pedałowania i odczytu kadencji — pedałuj przez cały czas i spróbuj ponownie.",
   "selfTestCtaOverlay": "Pokaż konfigurację Overlay",
   "selfTestCtaSwitchMode": "Zmień tryb i powtórz",
-  "selfTestCtaReport": "Wyślij wynik do wsparcia"
+  "selfTestCtaReport": "Wyślij wynik do wsparcia",
+  "controlProtocolLabel": "Protokół sterowania",
+  "controlProtocolHint": "Sposób, w jaki BikeControl komunikuje się z tym trenażerem. Auto jest właściwe, chyba że test wskazał inaczej.",
+  "controlProtocolAuto": "Auto (zalecane)",
+  "controlProtocolFtms": "FTMS",
+  "controlProtocolFec": "FE-C",
+  "controlProtocolZwift": "Protokół Zwift"
 }

@@ -1766,5 +1766,11 @@
   "selfTestVerdictAbortedBody": "Le test n'est pas allé au bout. Il lui faut un pédalage régulier et une mesure de cadence — continue de pédaler du début à la fin et réessaie.",
   "selfTestCtaOverlay": "Voir la configuration de l'Overlay",
   "selfTestCtaSwitchMode": "Changer de mode et relancer",
-  "selfTestCtaReport": "Envoyer le résultat au support"
+  "selfTestCtaReport": "Envoyer le résultat au support",
+  "controlProtocolLabel": "Protocole de commande",
+  "controlProtocolHint": "La façon dont BikeControl parle à ce home-trainer. Auto est le bon choix, sauf si un test t'a dit le contraire.",
+  "controlProtocolAuto": "Auto (recommandé)",
+  "controlProtocolFtms": "FTMS",
+  "controlProtocolFec": "FE-C",
+  "controlProtocolZwift": "Protocole Zwift"
 }

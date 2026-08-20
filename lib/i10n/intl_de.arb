@@ -1766,5 +1766,11 @@
   "selfTestVerdictAbortedBody": "Der Test wurde nicht beendet. Er braucht gleichmäßiges Treten und eine Trittfrequenz-Messung – tritt durchgehend weiter und versuche es erneut.",
   "selfTestCtaOverlay": "Overlay-Einrichtung anzeigen",
   "selfTestCtaSwitchMode": "Modus wechseln & erneut testen",
-  "selfTestCtaReport": "Ergebnis an den Support senden"
+  "selfTestCtaReport": "Ergebnis an den Support senden",
+  "controlProtocolLabel": "Steuerungsprotokoll",
+  "controlProtocolHint": "Wie BikeControl mit diesem Trainer spricht. Automatisch ist richtig, solange ein Test nichts anderes sagt.",
+  "controlProtocolAuto": "Automatisch (empfohlen)",
+  "controlProtocolFtms": "FTMS",
+  "controlProtocolFec": "FE-C",
+  "controlProtocolZwift": "Zwift-Protokoll"
 }

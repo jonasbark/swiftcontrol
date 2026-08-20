@@ -193,6 +193,26 @@ class Settings {
     await prefs.setBool(_autoConnectKey(trainerKey), autoConnect);
   }
 
+  static String _controlProtocolKey(String trainerKey) => 'control_protocol_$trainerKey';
+
+  /// The rider's forced trainer control protocol for this trainer as a
+  /// [TrainerControlProtocol] name, or null for auto-detection (the default).
+  ///
+  /// Stored as the raw name rather than the enum so an unknown value — an
+  /// older/newer build, or a protocol this trainer no longer advertises —
+  /// degrades to "auto" at the parse site instead of throwing on read.
+  String? getControlProtocolOverride(String trainerKey) {
+    return prefs.getString(_controlProtocolKey(trainerKey));
+  }
+
+  Future<void> setControlProtocolOverride(String trainerKey, String? name) async {
+    if (name == null) {
+      await prefs.remove(_controlProtocolKey(trainerKey));
+      return;
+    }
+    await prefs.setString(_controlProtocolKey(trainerKey), name);
+  }
+
   String _selfTestKey(String trainerKey) => 'self_test_$trainerKey';
 
   String? getSelfTestResultJson(String trainerKey) {
