@@ -122,6 +122,43 @@ class DebugDiagnostics {
     );
   }
 
+  /// Name fragments that mean "VPN tunnel" — the VPN subset of the address
+  /// picker's broader "virtual" set, which also covers docker bridges, the
+  /// Personal Hotspot bridge and cellular interfaces (none of them a VPN).
+  ///
+  /// Matched case-insensitively, and partly as a substring, because on Windows
+  /// `NetworkInterface.name` is the adapter's FriendlyName ("NordLynx",
+  /// "ProtonVPN TUN", "TAP-Windows Adapter V9") rather than a unix device
+  /// name, so prefix matching alone would miss nearly every Windows VPN.
+  static final _tunnelNamePattern = RegExp(
+    r'^(utun|tun|tap|ipsec|ppp|wg|nordlynx|zt)'
+    r'|wireguard|openvpn|tailscale|zerotier|mullvad|proton|anyconnect|vpn|tunnel',
+    caseSensitive: false,
+  );
+
+  /// 169.254/16 is link-local and 192.0.0/24 is the 464XLAT CLAT dummy range;
+  /// neither is ever a VPN, and both show up on healthy devices.
+  static bool _isRoutable(String address) =>
+      !address.startsWith('169.254.') && !address.startsWith('192.0.0.');
+
+  /// 100.64/10, the CGNAT range mesh VPNs (Tailscale, ZeroTier) hand out.
+  static bool _isCgnat(String address) {
+    final parts = address.split('.').map(int.tryParse).toList();
+    if (parts.length != 4 || parts.any((p) => p == null)) return false;
+    return parts[0] == 100 && parts[1]! >= 64 && parts[1]! <= 127;
+  }
+
+  /// Tunnel interfaces that carry a real IPv4 — i.e. the ones a VPN actually
+  /// brought up.
+  ///
+  /// Apple platforms always keep several idle `utun` devices around (iCloud
+  /// Private Relay, Continuity, Wi-Fi Calling, content filters). Those carry
+  /// only an IPv6 link-local, so they never become an [AddressCandidate] in
+  /// the first place — which is what stops this from firing on every iPhone.
+  List<AddressCandidate> get tunnelCandidates => addressReport.candidates
+      .where((c) => _tunnelNamePattern.hasMatch(c.interfaceName) && _isRoutable(c.address))
+      .toList();
+
   String _txt(Map<String, String> txt) {
     final entries = txt.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
     return entries.map((e) => '${e.key}=${e.value}').join(', ');
@@ -165,6 +202,24 @@ class DebugDiagnostics {
         if (c.isVirtual) 'virtual',
       ];
       b.writeln('    ${c.interfaceName}/${c.address} = ${c.score}${tags.isEmpty ? '' : ' (${tags.join(', ')})'}');
+    }
+
+    // Its own line, spelled "VPN", because support reads this block at a
+    // glance and a "(virtual)" suffix on one of five interface rows does not
+    // survive that. A live VPN leaves mDNS working (multicast is not tunnelled)
+    // while blackholing the inbound TCP connection, so the rest of the block
+    // looks perfectly healthy — advertised, discovered, listening, no client.
+    final tunnels = tunnelCandidates;
+    if (tunnels.isEmpty) {
+      b.writeln('  VPN: none detected');
+    } else {
+      // Mesh VPNs route only their own overlay and leave the LAN path alone,
+      // so they are almost never why a trainer app cannot connect.
+      final meshOnly = tunnels.every((c) => _isCgnat(c.address));
+      b.writeln(
+        '  VPN: likely active — ${tunnels.map((c) => '${c.interfaceName}/${c.address}').join(', ')}'
+        '${meshOnly ? ' (mesh/CGNAT range — usually harmless)' : ' (a full-tunnel VPN blocks inbound LAN connections — try turning it off)'}',
+      );
     }
 
     b.writeln('  TCP servers:');
