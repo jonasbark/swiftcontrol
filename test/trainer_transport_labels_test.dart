@@ -6,6 +6,7 @@ import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/home/home_page.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
+import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -39,6 +40,24 @@ Future<void> main() async {
 
   ProxyDevice wifiTrainer({String id = 'dircon://KICKR CORE 1EB7'}) =>
       ProxyDevice.wifi(scan(id), host: '192.168.1.20', port: 36866);
+
+  // Mirrors reveal_overlay_section_test.dart's makeVsDevice(): a trainer with
+  // an attached (unprobed) FitnessBikeDefinition, which is what makes the
+  // proto=/vsMode=/ftms= diagnostics fields appear in describeProxyDevice at
+  // all. Named 'KICKR CORE' by default so device.trainerKey lines up with the
+  // 'self_test_KICKR CORE' settings key the self-test group below seeds.
+  ProxyDevice trainerWithFitnessBike({String id = 'kickr', String name = 'KICKR CORE'}) {
+    final device = ProxyDevice(scan(id, name: name))
+      ..services = [BleService(FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID, [])];
+    device.debugAttachFitnessBike(
+      FitnessBikeDefinition(
+        connectedDevice: device.scanResult,
+        connectedDeviceServices: device.services!,
+        data: ValueNotifier(''),
+      ),
+    );
+    return device;
+  }
 
   Future<void> pump(WidgetTester tester, Widget Function(BuildContext) builder) async {
     await tester.pumpWidget(
@@ -165,6 +184,43 @@ Future<void> main() async {
       final line = describeProxyDevice(device);
       expect(line, contains('upstream=ble'));
       expect(line, contains('mode=wifi'));
+    });
+
+    test('trainer line carries proto, vsMode, ftms capability and selfTest', () async {
+      SharedPreferences.setMockInitialValues({
+        'self_test_KICKR CORE': SelfTestResult(
+          at: DateTime(2026, 8, 20),
+          verdict: SelfTestVerdict.pass,
+          ergStepsPassed: 3,
+          ergStepsTotal: 3,
+          shiftStepsPassed: 3,
+          shiftStepsTotal: 3,
+          vsMode: 'targetPower',
+          protocol: 'ftms',
+        ).toJsonString(),
+      });
+      core.settings.prefs = await SharedPreferences.getInstance();
+
+      final device = trainerWithFitnessBike();
+
+      final line = describeProxyDevice(device);
+      expect(line, contains('proto=ftms'));
+      expect(line, contains('vsMode=targetPower'));
+      expect(line, contains('ftms=unknown')); // unprobed definition
+      expect(line, contains('selfTest=PASS,2026-08-20,a:3/3,b:3/3,targetPower'));
+      expect(line, isNot(contains('lastCtl='))); // no control write happened
+    });
+  });
+
+  group('describeControllers', () {
+    test('renders firmware when known, plain toString otherwise', () {
+      final withFw = bleTrainer(id: 'ctrl-with-fw')..firmwareVersion = '1.5.0';
+      final withoutFw = bleTrainer(id: 'ctrl-without-fw');
+
+      final s = describeControllers([withFw, withoutFw]);
+
+      expect(s, contains('(fw 1.5.0)'));
+      expect(s.split(', ').last, isNot(contains('fw')));
     });
   });
 

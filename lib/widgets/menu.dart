@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/emulation/profiles/all_profiles.dart';
 import 'package:bike_control/pages/markdown.dart';
@@ -8,6 +10,7 @@ import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/subscription.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
+import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -126,7 +129,7 @@ Update Track: ${IAPManager.instance.isBetaTester ? 'beta' : 'stable'}
 Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}
 Target: ${core.settings.getLastTarget()?.name ?? '-'}
 Trainer App: ${core.settings.getTrainerApp()?.name ?? '-'}
-Connected Controllers: ${core.connection.devices.map((e) => e.toString()).join(', ')}
+Connected Controllers: ${describeControllers(core.connection.devices)}
 Connected Trainers: ${core.logic.connectedTrainerConnections.map((e) => e.title).join(', ')}
 Smart Trainers:
   $proxyBlock
@@ -154,7 +157,12 @@ String describeProxyDevice(ProxyDevice device) {
       ? 'bridged'
       : 'started';
   final mode = device.retrofitMode.value.name;
-  final def = emulator.fitnessBike;
+  // Not emulator.fitnessBike: [emulator] is contextual (proxy vs. the shared
+  // ftmsEmulator) and swaps with retrofit mode, while [ProxyDevice.fitnessBike]
+  // always tracks the current FBD regardless — see the identical reasoning at
+  // navigation.dart's `_tryAutoShowOverlayFor`. It's also what makes the
+  // `debugAttachFitnessBike` test hook (and the self-test harness) reach this.
+  final def = device.fitnessBike;
   final defKind = def == null ? 'none' : def.runtimeType.toString();
 
   final parts = <String>[
@@ -175,6 +183,16 @@ String describeProxyDevice(ProxyDevice device) {
       'gear=${formatGearReadout(currentGear: def.currentGear.value, maxGear: def.maxGear, frontShiftEnabled: def.frontShiftEnabled, largeRing: def.frontRing.value == FrontRing.large)}',
     );
     parts.add('trainerMode=${def.trainerMode.value.name}');
+    parts.add('proto=${def.controlProtocol.name}');
+    parts.add('vsMode=${def.virtualShiftingMode.value.name}');
+    parts.add('ftms=${def.ftmsCapabilitySummary}');
+    final ctl = def.lastControlWrite;
+    if (ctl != null) {
+      final age = DateTime.now().difference(ctl.at).inSeconds;
+      parts.add('lastCtl=${ctl.ok ? 'ok' : 'fail'}·${age}s');
+    }
+    final selfTest = SelfTestResult.tryParse(core.settings.getSelfTestResultJson(device.trainerKey));
+    if (selfTest != null) parts.add('selfTest=${selfTest.toBundleString()}');
   }
 
   final summary = parts.join(' · ');
@@ -184,6 +202,20 @@ String describeProxyDevice(ProxyDevice device) {
   final indented = services.split('\n').map((l) => '    $l').join('\n');
   return '$summary\n$indented';
 }
+
+/// Compact `Connected Controllers:` rendering for the support bundle — plain
+/// `toString()` per device, plus `(fw <version>)` when a firmware read
+/// succeeded.
+///
+/// Takes [BaseDevice], not [BluetoothDevice]: `core.connection.devices` also
+/// holds gamepad / HID / gyroscope-steering controllers, which carry no
+/// firmware field, and dropping them from this line would be a real support
+/// regression, not just a formatting change.
+@visibleForTesting
+String describeControllers(Iterable<BaseDevice> devices) => devices.map((e) {
+  final fw = e is BluetoothDevice ? e.firmwareVersion : null;
+  return fw != null ? '$e (fw $fw)' : e.toString();
+}).join(', ');
 
 class BKMenuButton extends StatelessWidget {
   const BKMenuButton({super.key});
