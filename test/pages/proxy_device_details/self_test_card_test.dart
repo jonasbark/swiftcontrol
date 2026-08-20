@@ -166,6 +166,29 @@ Future<void> main() async {
     expect(find.text('Your trainer responds correctly'), findsOneWidget);
   });
 
+  testWidgets('Run again refuses when the trainer app attaches after a verdict', (tester) async {
+    final harness = FakeSelfTestHarness();
+    final device = connectedTrainer();
+
+    await pumpCard(tester, device, harness);
+    await tester.tap(find.text('Test resistance control'));
+    await tester.pumpAndSettle();
+    expect(find.text('Run again'), findsOneWidget);
+
+    device.debugSetTrainerAppConnected(true);
+    await tester.tap(find.text('Run again'));
+    await tester.pump();
+
+    // The refusal must actually be visible — not silently swallowed behind a
+    // stale verdict view that a still-attached finished engine would
+    // otherwise keep rendering.
+    expect(find.textContaining('exclusive control'), findsOneWidget);
+    expect(find.text('Test resistance control'), findsOneWidget);
+    // No new run was started.
+    expect(find.text('Stop test'), findsNothing);
+    expect(find.text('Your trainer responds correctly'), findsNothing);
+  });
+
   testWidgets('PASS verdict offers the overlay CTA and fires the callback', (tester) async {
     var revealed = false;
 

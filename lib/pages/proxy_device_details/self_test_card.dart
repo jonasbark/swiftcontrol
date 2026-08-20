@@ -64,12 +64,24 @@ class _SelfTestCardState extends State<SelfTestCard> {
     // Prechecks read the device, not the harness: with no upstream link there
     // is no harness worth building, and the trainer-app check is about who owns
     // the trainer right now — both live on ProxyDevice.
+    //
+    // Both branches also clear _engine: [_body] only renders [_idle] (where
+    // _refusal is actually shown) when _engine is null, so a "Run again" tap
+    // that refuses while a finished verdict engine is still attached would
+    // otherwise leave the verdict view on screen with the refusal invisible
+    // behind it — a silent no-op from the rider's point of view.
     if (!widget.device.isConnected) {
-      setState(() => _refusal = _Refusal.disconnected);
+      setState(() {
+        _refusal = _Refusal.disconnected;
+        _engine = null;
+      });
       return;
     }
     if (widget.device.isConnectedListenable.value) {
-      setState(() => _refusal = _Refusal.trainerApp);
+      setState(() {
+        _refusal = _Refusal.trainerApp;
+        _engine = null;
+      });
       return;
     }
     final engine = _buildEngine();

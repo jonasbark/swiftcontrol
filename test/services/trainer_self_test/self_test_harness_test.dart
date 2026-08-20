@@ -1,4 +1,3 @@
-import 'package:bike_control/services/trainer_self_test/self_test_harness.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

@@ -213,7 +213,7 @@ class Settings {
     await prefs.setString(_controlProtocolKey(trainerKey), name);
   }
 
-  String _selfTestKey(String trainerKey) => 'self_test_$trainerKey';
+  static String _selfTestKey(String trainerKey) => 'self_test_$trainerKey';
 
   String? getSelfTestResultJson(String trainerKey) {
     return prefs.getString(_selfTestKey(trainerKey));
