@@ -1767,6 +1767,8 @@
   "selfTestCtaOverlay": "Ver la configuración del Overlay",
   "selfTestCtaSwitchMode": "Cambiar de modo y repetir",
   "selfTestCtaReport": "Enviar el resultado al soporte",
+  "selfTestCtaTryProtocol": "Probar {protocol} y repetir",
+  "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Protocolo de control",
   "controlProtocolHint": "Cómo se comunica BikeControl con este rodillo. Auto es lo correcto salvo que una prueba diga lo contrario.",
   "controlProtocolAuto": "Auto (recomendado)",

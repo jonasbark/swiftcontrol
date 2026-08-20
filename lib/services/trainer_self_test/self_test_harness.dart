@@ -1,4 +1,5 @@
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/utils/core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/utils/shared.dart' show Logger;
@@ -11,6 +12,11 @@ abstract class SelfTestHarness {
   bool get supportsPowerTarget;
   String get vsModeName; // VirtualShiftingMode.name
   String get protocolName; // TrainerControlProtocol.name
+
+  /// Every control-protocol delivery this trainer's advertised services can
+  /// actually carry, by [TrainerControlProtocol.name] — see
+  /// [FitnessBikeDefinition.supportedControlProtocols].
+  List<String> get supportedProtocolNames;
   bool get isErgMode; // trainerMode == TrainerMode.ergMode
   int? get ergTarget;
   int get currentGear;
@@ -23,6 +29,11 @@ abstract class SelfTestHarness {
   /// rather than the enum itself so the fake-backed tests don't need the prop
   /// package's definition to observe it.
   void setVsMode(String modeName);
+
+  /// Forces the control-protocol delivery by [TrainerControlProtocol.name] —
+  /// same fake-friendly string reasoning as [setVsMode] — and persists it as
+  /// the rider's override for this trainer.
+  void setProtocol(String name);
   void shiftUp();
   void shiftDown();
   void log(String message);
@@ -48,6 +59,8 @@ class FitnessBikeHarness implements SelfTestHarness {
   @override
   String get protocolName => _def.controlProtocol.name;
   @override
+  List<String> get supportedProtocolNames => _def.supportedControlProtocols.map((p) => p.name).toList();
+  @override
   bool get isErgMode => _def.trainerMode.value == TrainerMode.ergMode;
   @override
   int? get ergTarget => _def.ergTargetPower.value;
@@ -63,6 +76,12 @@ class FitnessBikeHarness implements SelfTestHarness {
   void exitErg() => _def.exitErgMode();
   @override
   void setVsMode(String modeName) => _def.setVirtualShiftingMode(VirtualShiftingMode.values.byName(modeName));
+  @override
+  void setProtocol(String name) {
+    _def.setControlProtocolOverride(TrainerControlProtocol.values.byName(name));
+    core.settings.setControlProtocolOverride(device.trainerKey, name);
+  }
+
   @override
   void shiftUp() => _def.shiftUp();
   @override

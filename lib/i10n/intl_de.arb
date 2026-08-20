@@ -1767,6 +1767,8 @@
   "selfTestCtaOverlay": "Overlay-Einrichtung anzeigen",
   "selfTestCtaSwitchMode": "Modus wechseln & erneut testen",
   "selfTestCtaReport": "Ergebnis an den Support senden",
+  "selfTestCtaTryProtocol": "{protocol} versuchen & erneut testen",
+  "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Steuerungsprotokoll",
   "controlProtocolHint": "Wie BikeControl mit diesem Trainer spricht. Automatisch ist richtig, solange ein Test nichts anderes sagt.",
   "controlProtocolAuto": "Automatisch (empfohlen)",

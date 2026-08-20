@@ -1975,6 +1975,8 @@
   "selfTestCtaOverlay": "Show gear overlay setup",
   "selfTestCtaSwitchMode": "Switch mode & run again",
   "selfTestCtaReport": "Send result to support",
+  "selfTestCtaTryProtocol": "Try via {protocol} & run again",
+  "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Control protocol",
   "controlProtocolHint": "How BikeControl talks to this trainer. Auto is right unless a test told you otherwise.",
   "controlProtocolAuto": "Auto (recommended)",

@@ -39,6 +39,11 @@ Future<void> main() async {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     core.settings.prefs = await SharedPreferences.getInstance();
+    // core.shiftingConfigs is a `late final` — re-initializing it per test
+    // (rather than just reassigning core.settings.prefs) is what actually
+    // clears its in-memory list; without this, a config an earlier test
+    // upserted would still be sitting there for this one to trip over.
+    await core.shiftingConfigs.init();
     core.actionHandler = StubActions();
     _mockWakelock(true);
   });
@@ -200,10 +205,71 @@ Future<void> main() async {
     // The switch flips the fake's recorded mode before the fresh run starts.
     expect(harness.vsModeName, 'trackResistance');
     expect(find.text('Stop test'), findsOneWidget);
+    // ... and persists it, mirroring the settings-UI path: the pick must
+    // stick past the run rather than reverting on the rider's next connect.
+    expect(core.shiftingConfigs.activeFor('KICKR CORE').mode.name, 'trackResistance');
 
     await tester.pumpAndSettle();
     // obeysShift is still false, so the rerun lands on the same verdict.
     expect(find.text("Power targets work, shifting doesn't"), findsOneWidget);
+  });
+
+  testWidgets('ergOkVsFail shows mode switch first, protocol CTA second', (tester) async {
+    final harness = FakeSelfTestHarness()
+      ..obeysShift = false
+      ..supportedProtocolNames = ['ftms', 'zwiftHub'];
+
+    await pumpCard(tester, connectedTrainer(), harness);
+    await tester.tap(find.text('Test resistance control'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Power targets work, shifting doesn't"), findsOneWidget);
+    expect(find.text('Switch mode & run again'), findsOneWidget);
+    expect(find.text('Try via Zwift protocol & run again'), findsOneWidget);
+
+    // The mode switch leads; the protocol CTA is the secondary offer below it.
+    final switchModeTop = tester.getTopLeft(find.text('Switch mode & run again')).dy;
+    final protocolTop = tester.getTopLeft(find.text('Try via Zwift protocol & run again')).dy;
+    expect(switchModeTop, lessThan(protocolTop));
+  });
+
+  testWidgets('single-protocol trainer never shows the protocol CTA', (tester) async {
+    final harness = FakeSelfTestHarness()..obeysShift = false;
+    // supportedProtocolNames defaults to ['ftms'], same as protocolName —
+    // nothing else to offer.
+
+    await pumpCard(tester, connectedTrainer(), harness);
+    await tester.tap(find.text('Test resistance control'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Power targets work, shifting doesn't"), findsOneWidget);
+    expect(find.text('Switch mode & run again'), findsOneWidget);
+    expect(find.textContaining('Try via'), findsNothing);
+  });
+
+  testWidgets('noControl on a dual-protocol trainer leads with the protocol CTA', (tester) async {
+    final harness = FakeSelfTestHarness()
+      ..obeysErg = false
+      ..obeysShift = false
+      ..supportedProtocolNames = ['ftms', 'zwiftHub'];
+
+    await pumpCard(tester, connectedTrainer(), harness);
+    await tester.tap(find.text('Test resistance control'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Trainer isn't responding to BikeControl"), findsOneWidget);
+    expect(find.text('Try via Zwift protocol & run again'), findsOneWidget);
+    // Support is still offered, but below the protocol CTA.
+    expect(find.text('Send result to support'), findsOneWidget);
+
+    await tester.tap(find.text('Try via Zwift protocol & run again'));
+    await tester.pump();
+
+    // The tap flips the fake's recorded protocol before the fresh run starts.
+    expect(harness.protocolName, 'zwiftHub');
+    expect(find.text('Stop test'), findsOneWidget);
+
+    await tester.pumpAndSettle();
   });
 
   testWidgets('noControl offers the support CTA', (tester) async {
@@ -219,6 +285,9 @@ Future<void> main() async {
     expect(find.text('Send result to support'), findsOneWidget);
     // NO_CONTROL has no mode-switch CTA — the ERG phase failed too.
     expect(find.text('Switch mode & run again'), findsNothing);
+    // Single-protocol fake (default supportedProtocolNames) — no other wire
+    // to offer.
+    expect(find.textContaining('Try via'), findsNothing);
   });
 
   testWidgets('last-result chip renders when a stored result exists', (tester) async {

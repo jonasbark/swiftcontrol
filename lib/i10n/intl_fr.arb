@@ -1767,6 +1767,8 @@
   "selfTestCtaOverlay": "Voir la configuration de l'Overlay",
   "selfTestCtaSwitchMode": "Changer de mode et relancer",
   "selfTestCtaReport": "Envoyer le résultat au support",
+  "selfTestCtaTryProtocol": "Essayer {protocol} et relancer",
+  "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Protocole de commande",
   "controlProtocolHint": "La façon dont BikeControl parle à ce home-trainer. Auto est le bon choix, sauf si un test t'a dit le contraire.",
   "controlProtocolAuto": "Auto (recommandé)",

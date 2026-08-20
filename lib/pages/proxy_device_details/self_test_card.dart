@@ -11,6 +11,7 @@ import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/support/intake_options.dart';
 import 'package:bike_control/widgets/menu.dart' show debugText;
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart' show VirtualShiftingMode;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -291,10 +292,23 @@ class _SelfTestCardState extends State<SelfTestCard> {
   }
 
   /// Verdict-specific calls to action, rendered above the always-present
-  /// "Run again" button. `ergOkVsFail` gets both of its CTAs stacked: try the
-  /// other virtual-shifting mode first, but the report option stays right
-  /// there for a rider who would rather just tell us.
+  /// "Run again" button.
+  ///
+  /// `ergOkVsFail` gets all three CTAs stacked: try the other virtual-
+  /// shifting mode first, then the other control protocol (secondary — the
+  /// mode switch is the more likely fix once ERG has already proven the
+  /// trainer takes power targets at all), then the report option for a rider
+  /// who'd rather just tell us.
+  ///
+  /// `noControl` leads with the protocol CTA instead — nothing proved this
+  /// trainer takes commands over its current delivery, so a different wire
+  /// is the more promising thing to try before asking the rider to report
+  /// it. Both verdict-specific CTAs (with or without a protocol to offer)
+  /// still sit above support, never noData: a data dropout isn't a control-
+  /// protocol problem, so there is nothing to switch to.
   List<Widget> _verdictCtas(BuildContext context, AppLocalizations l10n, SelfTestResult result) {
+    final harness = _engine?.harness;
+    final otherProtocol = harness == null ? null : _otherProtocol(harness.supportedProtocolNames, result.protocol);
     return switch (result.verdict) {
       SelfTestVerdict.pass => [
         Button.primary(
@@ -304,13 +318,27 @@ class _SelfTestCardState extends State<SelfTestCard> {
       ],
       SelfTestVerdict.ergOkVsFail => [
         Button.primary(onPressed: _switchModeAndRerun, child: Text(l10n.selfTestCtaSwitchMode)),
+        if (otherProtocol != null) _protocolCta(l10n, otherProtocol, primary: false),
         Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
       ],
-      SelfTestVerdict.noControl || SelfTestVerdict.noData => [
+      SelfTestVerdict.noControl => [
+        if (otherProtocol != null) _protocolCta(l10n, otherProtocol, primary: true),
+        Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
+      ],
+      SelfTestVerdict.noData => [
         Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
       ],
       SelfTestVerdict.aborted => const [],
     };
+  }
+
+  /// Builds the "try the other protocol" CTA; only ever called once
+  /// [otherProtocol] has already been established non-null by the caller.
+  Widget _protocolCta(AppLocalizations l10n, String otherProtocol, {required bool primary}) {
+    final label = Text(l10n.selfTestCtaTryProtocol(_protocolDisplayName(l10n, otherProtocol)));
+    return primary
+        ? Button.primary(onPressed: () => _switchProtocolAndRerun(otherProtocol), child: label)
+        : Button.outline(onPressed: () => _switchProtocolAndRerun(otherProtocol), child: label);
   }
 
   /// ERG_OK_VS_FAIL CTA: flip between the two virtual-shifting modes the
@@ -324,6 +352,7 @@ class _SelfTestCardState extends State<SelfTestCard> {
       final next = _nextVsMode(harness);
       if (next != null) {
         harness.setVsMode(next);
+        await _persistVsMode(next);
       }
     }
     await _start();
@@ -341,6 +370,61 @@ class _SelfTestCardState extends State<SelfTestCard> {
       return 'trackResistance';
     }
     return harness.supportsPowerTarget ? 'targetPower' : null;
+  }
+
+  /// Mirrors the settings-UI path (`TrainerSettingsSection`'s virtual-
+  /// shifting-mode radio, via `_updateActive`): the CTA's own mode switch
+  /// must stick the same way a manual pick in settings does, or the rider's
+  /// next connect quietly reverts to whatever the active [ShiftingConfig] on
+  /// disk still says. Only the mode field changes — everything else on the
+  /// active config carries over untouched.
+  ///
+  /// Wrapped in its own try/catch, like the verdict persistence in [_start]:
+  /// a failing prefs write must not block the rerun that needs to happen
+  /// regardless, and must not go unreported.
+  Future<void> _persistVsMode(String modeName) async {
+    try {
+      final current = core.shiftingConfigs.activeFor(widget.device.trainerKey);
+      await core.shiftingConfigs.upsert(current.copyWith(mode: VirtualShiftingMode.values.byName(modeName)));
+    } catch (e, s) {
+      recordError(e, s, context: 'self-test mode-switch persist');
+    }
+  }
+
+  /// NO_CONTROL / ERG_OK_VS_FAIL CTA: force the other control-protocol
+  /// delivery this trainer supports and try again. Reads and writes through
+  /// the current engine's harness, same as [_switchModeAndRerun] — the
+  /// harness itself (not this card) is what persists the override, since
+  /// unlike virtual-shifting mode it lives in [core.settings], not a
+  /// [ShiftingConfig].
+  Future<void> _switchProtocolAndRerun(String protocol) async {
+    _engine?.harness.setProtocol(protocol);
+    await _start();
+  }
+
+  /// The first protocol this trainer supports other than the one the
+  /// just-finished run actually used — null when there is nothing else to
+  /// offer (a single-protocol trainer).
+  static String? _otherProtocol(List<String> supportedProtocolNames, String currentProtocol) {
+    for (final name in supportedProtocolNames) {
+      if (name != currentProtocol) {
+        return name;
+      }
+    }
+    return null;
+  }
+
+  /// Mirrors `TrainerSettingsSection._protocolLabel`: the three protocols the
+  /// settings picker knows about get their translated name; anything else
+  /// (a name this build doesn't recognize) falls back to the raw value
+  /// rather than crashing.
+  static String _protocolDisplayName(AppLocalizations l10n, String name) {
+    return switch (name) {
+      'ftms' => l10n.controlProtocolFtms,
+      'fec' => l10n.controlProtocolFec,
+      'zwiftHub' => l10n.controlProtocolZwift,
+      _ => name,
+    };
   }
 
   /// NO_CONTROL / ERG_OK_VS_FAIL / NO_DATA CTA: hands the verdict to support

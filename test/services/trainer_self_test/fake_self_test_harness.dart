@@ -24,6 +24,8 @@ class FakeSelfTestHarness implements SelfTestHarness {
   String vsModeName = 'targetPower';
   @override
   String protocolName = 'ftms';
+  @override
+  List<String> supportedProtocolNames = ['ftms'];
 
   bool ergMode = false;
   int? _ergTarget;
@@ -64,6 +66,9 @@ class FakeSelfTestHarness implements SelfTestHarness {
 
   @override
   void setVsMode(String modeName) => vsModeName = modeName;
+
+  @override
+  void setProtocol(String name) => protocolName = name;
 
   @override
   void shiftUp() => gear++;

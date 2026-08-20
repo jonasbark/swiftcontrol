@@ -1767,6 +1767,8 @@
   "selfTestCtaOverlay": "Mostra la configurazione dell'Overlay",
   "selfTestCtaSwitchMode": "Cambia modalità e ripeti",
   "selfTestCtaReport": "Invia il risultato al supporto",
+  "selfTestCtaTryProtocol": "Prova {protocol} e ripeti",
+  "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Protocollo di controllo",
   "controlProtocolHint": "Come BikeControl comunica con questo rullo. Auto è la scelta giusta, a meno che un test non dica il contrario.",
   "controlProtocolAuto": "Auto (consigliato)",
