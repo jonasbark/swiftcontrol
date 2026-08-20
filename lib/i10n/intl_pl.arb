@@ -1755,7 +1755,7 @@
   "selfTestLastResult": "Ostatni test: {result}",
   "@selfTestLastResult": {"placeholders": {"result": {"type": "String"}}},
   "selfTestVerdictPassTitle": "Twój trenażer reaguje prawidłowo",
-  "selfTestVerdictPassBody": "BikeControl może sterować tym trenażerem. Jeśli podczas jazdy zmiana biegów wydaje się martwa, twoja aplikacja treningowa nie jedzie przez BikeControl — albo po prostu nie widzisz biegu. Overlay biegów rozwiązuje kwestię widoczności.",
+  "selfTestVerdictPassBody": "BikeControl może sterować tym trenażerem. Jeśli podczas jazdy zmiana biegów wydaje się martwa, twoja aplikacja treningowa nie działa przez BikeControl — albo po prostu nie widzisz biegu. Overlay biegów rozwiązuje kwestię widoczności.",
   "selfTestVerdictErgOkTitle": "Cele mocy działają, zmiana biegów nie",
   "selfTestVerdictErgOkBody": "Trenażer wykonuje bezpośrednie cele mocy, ale zignorował tryb Virtual Shifting. Zmiana trybu zmiany biegów często to naprawia.",
   "selfTestVerdictNoControlTitle": "Trenażer nie reaguje na BikeControl",

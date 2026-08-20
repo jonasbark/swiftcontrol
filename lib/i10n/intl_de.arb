@@ -1755,7 +1755,7 @@
   "selfTestLastResult": "Letzter Test: {result}",
   "@selfTestLastResult": {"placeholders": {"result": {"type": "String"}}},
   "selfTestVerdictPassTitle": "Dein Trainer reagiert korrekt",
-  "selfTestVerdictPassBody": "BikeControl kann diesen Trainer steuern. Wenn sich das Schalten während der Fahrt tot anfühlt, läuft deine Trainer-App nicht über BikeControl – oder du siehst den Gang einfach nicht. Das Gang-Overlay löst zumindest die Sichtbarkeit.",
+  "selfTestVerdictPassBody": "BikeControl kann diesen Trainer steuern. Wenn sich das Schalten während der Fahrt tot anfühlt, läuft deine Trainer-App nicht über BikeControl – oder du siehst den Gang einfach nicht. Das Gang-Overlay löst zumindest das Sichtbarkeitsproblem.",
   "selfTestVerdictErgOkTitle": "Leistungsvorgaben funktionieren, das Schalten nicht",
   "selfTestVerdictErgOkBody": "Der Trainer folgt direkten Leistungsvorgaben, hat den Virtual-Shifting-Modus aber ignoriert. Ein anderer Schaltmodus behebt das oft.",
   "selfTestVerdictNoControlTitle": "Trainer reagiert nicht auf BikeControl",

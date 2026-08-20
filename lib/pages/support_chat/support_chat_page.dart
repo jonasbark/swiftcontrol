@@ -36,12 +36,18 @@ class SupportChatPage extends StatefulWidget {
   /// pushing this page). The user can still remove it before sending.
   final StagedAttachment? initialAttachment;
 
+  /// Pre-fills the intake summary (skipping the form) for callers that already
+  /// know the answer — e.g. the self-test card's verdict CTAs, which map
+  /// directly onto a smart-trainer intake branch.
+  final IntakeAnswers? initialIntake;
+
   const SupportChatPage({
     super.key,
     required this.telemetryBuilder,
     this.diagnosticPreviewFuture,
     this.initialText,
     this.initialAttachment,
+    this.initialIntake,
   });
 
   @override
@@ -72,6 +78,11 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
   @override
   void initState() {
     super.initState();
+    // Lets a caller that already knows the answer (e.g. the self-test card's
+    // verdict CTAs) skip straight past the intake form; the existing send
+    // path already attaches whatever is in _intakeAnswers to the next
+    // outgoing message.
+    _intakeAnswers = widget.initialIntake ?? _intakeAnswers;
     WidgetsBinding.instance.addObserver(this);
     _authSub = core.supabase.auth.onAuthStateChange.listen((_) {
       if (!mounted) return;

@@ -63,6 +63,9 @@ class FakeSelfTestHarness implements SelfTestHarness {
   }
 
   @override
+  void setVsMode(String modeName) => vsModeName = modeName;
+
+  @override
   void shiftUp() => gear++;
   @override
   void shiftDown() => gear--;

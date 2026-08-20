@@ -162,10 +162,10 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
                 ],
                 LiveMetricsSection(key: const ValueKey('live-metrics'), device: device),
                 SizedBox(height: 20),
-                if (widget.device.fitnessBike != null) ...[
+                if (!screenshotMode && device.fitnessBike != null) ...[
                   SelfTestCard(
                     key: const ValueKey('self-test'),
-                    device: widget.device,
+                    device: device,
                     onShowOverlaySettings: _revealOverlaySection,
                   ),
                   SizedBox(height: 20),

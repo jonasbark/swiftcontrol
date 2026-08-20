@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/pages/support_chat/support_chat_page.dart';
+import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/services/trainer_self_test/self_test_engine.dart';
 import 'package:bike_control/services/trainer_self_test/self_test_harness.dart';
 import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/support/intake_options.dart';
+import 'package:bike_control/widgets/menu.dart' show debugText;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -41,6 +45,11 @@ class _SelfTestCardState extends State<SelfTestCard> {
   SelfTestEngine? _engine;
   _Refusal? _refusal;
 
+  /// True from the "Stop test" tap until the aborted verdict lands — disables
+  /// the button so a second tap can't race the engine's own cancel → restore
+  /// → finish sequence. Reset by [_start] for the next run.
+  bool _stopping = false;
+
   @override
   void dispose() {
     // A run outlives the page unless we stop it: the engine would keep writing
@@ -69,15 +78,12 @@ class _SelfTestCardState extends State<SelfTestCard> {
     setState(() {
       _refusal = null;
       _engine = engine;
+      _stopping = false;
     });
     _wakelock(true);
+    SelfTestResult? result;
     try {
-      final result = await engine.run();
-      // An aborted run measured nothing — persisting it would put "Test
-      // stopped" in the support bundle in place of the last real verdict.
-      if (result.verdict != SelfTestVerdict.aborted) {
-        await core.settings.setSelfTestResultJson(widget.device.trainerKey, result.toJsonString());
-      }
+      result = await engine.run();
     } catch (e, s) {
       recordError(e, s, context: 'self-test card run');
       // Back to idle rather than stranding the rider on a "running" card that
@@ -87,6 +93,20 @@ class _SelfTestCardState extends State<SelfTestCard> {
       }
     } finally {
       _wakelock(false);
+    }
+    // Persisting is its own try/catch, outside the run's: a failing prefs
+    // write must not discard a verdict that already reached the UI through
+    // the engine's own state, and must not reset _engine and strand the rider
+    // back on idle when the run itself actually succeeded.
+    //
+    // An aborted run measured nothing — persisting it would put "Test
+    // stopped" in the support bundle in place of the last real verdict.
+    if (result != null && result.verdict != SelfTestVerdict.aborted) {
+      try {
+        await core.settings.setSelfTestResultJson(widget.device.trainerKey, result.toJsonString());
+      } catch (e, s) {
+        recordError(e, s, context: 'self-test result persist');
+      }
     }
   }
 
@@ -163,6 +183,14 @@ class _SelfTestCardState extends State<SelfTestCard> {
   Widget _idle(BuildContext context, AppLocalizations l10n) {
     final cs = Theme.of(context).colorScheme;
     final last = SelfTestResult.tryParse(core.settings.getSelfTestResultJson(widget.device.trainerKey));
+    // A refusal is sticky until acted on, but its underlying condition can
+    // clear itself without another tap (rider reconnects, closes the trainer
+    // app) — a build that sees this must not go on showing a stale warning.
+    if (_refusal == _Refusal.disconnected && widget.device.isConnected) {
+      _refusal = null;
+    } else if (_refusal == _Refusal.trainerApp && !widget.device.isConnectedListenable.value) {
+      _refusal = null;
+    }
     final refusal = _refusal;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -224,13 +252,24 @@ class _SelfTestCardState extends State<SelfTestCard> {
         ),
         if (state.pausedForCadence)
           _notice(context, icon: LucideIcons.rotateCw, message: l10n.selfTestKeepPedaling, color: cs.destructive),
-        Button.outline(onPressed: engine.cancel, child: Text(l10n.selfTestCancel)),
+        Button.outline(
+          onPressed: _stopping ? null : () => _stopRun(engine),
+          child: Text(l10n.selfTestCancel),
+        ),
       ],
     );
   }
 
-  /// Title + rerun only — the verdict bodies and their CTAs are wired next.
+  /// Disables the Stop button immediately so a second tap can't race the
+  /// engine's own cancel → restore → aborted-verdict sequence; [_start]
+  /// clears it again for the next run.
+  void _stopRun(SelfTestEngine engine) {
+    setState(() => _stopping = true);
+    engine.cancel();
+  }
+
   Widget _verdict(BuildContext context, AppLocalizations l10n, SelfTestResult result) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 10,
@@ -240,9 +279,102 @@ class _SelfTestCardState extends State<SelfTestCard> {
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
+        Text(
+          _verdictBody(l10n, result.verdict),
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: cs.mutedForeground),
+        ),
+        ..._verdictCtas(context, l10n, result),
         Button.primary(onPressed: _start, child: Text(l10n.selfTestRerun)),
       ],
     );
+  }
+
+  /// Verdict-specific calls to action, rendered above the always-present
+  /// "Run again" button. `ergOkVsFail` gets both of its CTAs stacked: try the
+  /// other virtual-shifting mode first, but the report option stays right
+  /// there for a rider who would rather just tell us.
+  List<Widget> _verdictCtas(BuildContext context, AppLocalizations l10n, SelfTestResult result) {
+    return switch (result.verdict) {
+      SelfTestVerdict.pass => [
+        Button.primary(
+          onPressed: () => widget.onShowOverlaySettings?.call(),
+          child: Text(l10n.selfTestCtaOverlay),
+        ),
+      ],
+      SelfTestVerdict.ergOkVsFail => [
+        Button.primary(onPressed: _switchModeAndRerun, child: Text(l10n.selfTestCtaSwitchMode)),
+        Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
+      ],
+      SelfTestVerdict.noControl || SelfTestVerdict.noData => [
+        Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
+      ],
+      SelfTestVerdict.aborted => const [],
+    };
+  }
+
+  /// ERG_OK_VS_FAIL CTA: flip between the two virtual-shifting modes the
+  /// self-test exercises and try again. Reads and writes through the current
+  /// engine's harness — never [widget.device.fitnessBike] directly — so the
+  /// fake-backed tests can drive and observe it without a real trainer
+  /// definition attached.
+  Future<void> _switchModeAndRerun() async {
+    final harness = _engine?.harness;
+    if (harness != null) {
+      final next = _nextVsMode(harness);
+      if (next != null) {
+        harness.setVsMode(next);
+      }
+    }
+    await _start();
+  }
+
+  /// The mode to try next: the other of {targetPower, trackResistance}
+  /// (basicResistance is never proposed — the self-test doesn't distinguish
+  /// it from targetPower). Switching *to* trackResistance is offered
+  /// unconditionally — this CTA only shows once ERG has already proven the
+  /// trainer takes power targets, and simulated-grade support is close to
+  /// universal alongside that. Switching back *to* targetPower is guarded by
+  /// the harness's own support check.
+  static String? _nextVsMode(SelfTestHarness harness) {
+    if (harness.vsModeName == 'targetPower') {
+      return 'trackResistance';
+    }
+    return harness.supportsPowerTarget ? 'targetPower' : null;
+  }
+
+  /// NO_CONTROL / ERG_OK_VS_FAIL / NO_DATA CTA: hands the verdict to support
+  /// pre-filled, mirroring what the smart-trainer intake branch itself would
+  /// have produced for a "no resistance change" report.
+  void _openSupport(BuildContext context, SelfTestResult result) {
+    final debugFuture = debugText();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SupportChatPage(
+          diagnosticPreviewFuture: debugFuture,
+          initialText: 'Resistance self-test: ${result.toBundleString()}',
+          // Matches what the intake form itself produces for this branch
+          // (smart-trainer answers go into subcategoryValue with subcategory
+          // 'issue').
+          initialIntake: const IntakeAnswers(
+            category: IntakeCategory.smartTrainer,
+            subcategory: 'issue',
+            subcategoryValue: 'no_resistance_change',
+          ),
+          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugFuture),
+        ),
+      ),
+    );
+  }
+
+  static String _verdictBody(AppLocalizations l10n, SelfTestVerdict verdict) {
+    return switch (verdict) {
+      SelfTestVerdict.pass => l10n.selfTestVerdictPassBody,
+      SelfTestVerdict.ergOkVsFail => l10n.selfTestVerdictErgOkBody,
+      SelfTestVerdict.noControl => l10n.selfTestVerdictNoControlBody,
+      SelfTestVerdict.noData => l10n.selfTestVerdictNoDataBody,
+      SelfTestVerdict.aborted => l10n.selfTestVerdictAbortedBody,
+    };
   }
 
   Widget _notice(BuildContext context, {required IconData icon, required String message, required Color color}) {

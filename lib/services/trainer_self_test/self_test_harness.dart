@@ -18,6 +18,11 @@ abstract class SelfTestHarness {
   ControlWriteResult? get lastControlWrite;
   void setErgTarget(int watts);
   void exitErg();
+
+  /// Sets the virtual-shifting mode by [VirtualShiftingMode.name] — a string
+  /// rather than the enum itself so the fake-backed tests don't need the prop
+  /// package's definition to observe it.
+  void setVsMode(String modeName);
   void shiftUp();
   void shiftDown();
   void log(String message);
@@ -56,6 +61,8 @@ class FitnessBikeHarness implements SelfTestHarness {
   void setErgTarget(int watts) => _def.setManualErgPower(watts);
   @override
   void exitErg() => _def.exitErgMode();
+  @override
+  void setVsMode(String modeName) => _def.setVirtualShiftingMode(VirtualShiftingMode.values.byName(modeName));
   @override
   void shiftUp() => _def.shiftUp();
   @override
