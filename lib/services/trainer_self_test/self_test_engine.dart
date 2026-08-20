@@ -144,9 +144,6 @@ class SelfTestEngine {
   int _ergTotal = 0;
   int _shiftTotal = 0;
 
-  /// Baseline power, kept for the ERG-restore fallback.
-  int? _p0;
-
   /// Set while our own writes still need undoing.
   bool _ergDirty = false;
   bool _gearDirty = false;
@@ -178,7 +175,7 @@ class SelfTestEngine {
         verdict = SelfTestVerdict.noData;
       } else {
         final p0 = await _baseline();
-        await _ergStaircase(p0, wasErg: wasErg, prevErgTarget: prevErgTarget);
+        await _ergStaircase(p0);
         await _shiftSweep(startGear: startGear);
       }
     } on _AbortedException catch (e) {
@@ -231,13 +228,12 @@ class SelfTestEngine {
       }
     }
     final p0 = _median(samples);
-    _p0 = p0;
     harness.log('baseline: p0=${p0}W from ${samples.length} samples');
     return p0;
   }
 
   /// 4. ERG staircase — command targets and watch whether power follows.
-  Future<void> _ergStaircase(int p0, {required bool wasErg, required int? prevErgTarget}) async {
+  Future<void> _ergStaircase(int p0) async {
     _phase = SelfTestPhase.ergStaircase;
     _emit();
     harness.log('phase: erg staircase');
@@ -261,11 +257,12 @@ class SelfTestEngine {
         _emit();
       }
     } finally {
-      // Undo our own ERG writes as soon as the staircase ends (also on cancel
-      // or abort mid-step): the test must never exit leaving the trainer in an
-      // ERG mode we put it in.
+      // Always leave ERG here — whatever the rider's mode was before the test.
+      // The sweep can only read resistance changes in SIM: manual ERG pins
+      // power flat and would score every transition as "no change". A rider's
+      // own ERG session is put back in _finish, once the sweep is done.
       _currentErgTarget = null;
-      _restoreErg(wasErg: wasErg, prevErgTarget: prevErgTarget);
+      _exitErgForSweep();
       _emit();
     }
   }
@@ -456,18 +453,31 @@ class SelfTestEngine {
     return result;
   }
 
-  /// Restores the ERG state captured at the start of [run]. Idempotent: once
-  /// the staircase has put it back there is nothing left to undo.
+  /// Leaves the ERG mode the staircase commanded, so the sweep runs in SIM.
+  ///
+  /// [_ergDirty] deliberately stays set: the rider's own ERG session (if they
+  /// had one) is put back by [_restoreErg] at the very end.
+  void _exitErgForSweep() {
+    if (!_ergDirty) {
+      return;
+    }
+    harness.exitErg();
+    harness.log('erg: exited for the shift sweep');
+  }
+
+  /// Restores the ERG state captured at the start of [run] — a rider who was
+  /// riding a manual ERG target gets that target back; everyone else is left
+  /// out of ERG. Gated on [_ergDirty], so a run that never commanded a target
+  /// (noData, early abort) writes nothing at all.
   void _restoreErg({required bool wasErg, required int? prevErgTarget}) {
     if (!_ergDirty) {
       return;
     }
     _ergDirty = false;
-    final target = prevErgTarget ?? _p0;
-    if (wasErg && target != null) {
-      harness.setErgTarget(target);
-      harness.log('restore: erg target ${target}W');
-    } else {
+    if (wasErg && prevErgTarget != null) {
+      harness.setErgTarget(prevErgTarget);
+      harness.log('restore: erg target ${prevErgTarget}W');
+    } else if (harness.isErgMode) {
       harness.exitErg();
       harness.log('restore: erg exited');
     }

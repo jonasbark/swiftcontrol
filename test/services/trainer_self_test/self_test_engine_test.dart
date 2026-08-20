@@ -89,6 +89,21 @@ void main() {
     expect(harness.gear, 12);
   });
 
+  test('rider already in manual ERG: sweep still runs in SIM, ERG restored at finish', () async {
+    final (r, h) = await runScenario((h) => h.setErgTarget(210));
+    expect(r.verdict, SelfTestVerdict.pass);
+    expect(r.shiftStepsPassed, 3, reason: 'the sweep must run in SIM, not pinned by manual ERG');
+    expect(h.ergMode, isTrue, reason: 'rider ERG restored');
+    expect(h.ergTarget, 210, reason: 'rider ERG target restored');
+    expect(h.gear, 12, reason: 'gear restored');
+  });
+
+  test('rider who was not in ERG ends out of ERG', () async {
+    final (_, h) = await runScenario((_) {});
+    expect(h.ergMode, isFalse);
+    expect(h.ergTarget, isNull);
+  });
+
   test('gear headroom: sweep from near maxGear shifts down first and restores', () async {
     final (r, h) = await runScenario((h) => h.gear = 24);
     expect(r.verdict, SelfTestVerdict.pass);
