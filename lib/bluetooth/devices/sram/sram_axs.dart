@@ -4,8 +4,11 @@ import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/main.dart';
+import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 // The prop package exports a `SramAxs` constants class with the same name as
 // this file's `SramAxs` device class. Hide it from the wildcard import and
 // pull it back in under a prefix so both symbols stay unambiguous.
@@ -399,6 +402,25 @@ class SramAxs extends BluetoothDevice {
     }
   }
 
+  /// TEMPORARY — drivetrain-import probe. Dumps `d9050025` (drivetrain_config)
+  /// and `d905000b` (drivetrain_status) to the log and the clipboard so the real
+  /// protobuf field numbers can be identified against live hardware. Read-only.
+  /// Delete this, its button, and [SramAxsLogic.probeDrivetrain] once the tags
+  /// are hard-coded.
+  Future<void> probeDrivetrain() async {
+    final logic = _logic;
+    if (logic == null) return;
+    try {
+      final dump = await logic.probeDrivetrain();
+      actionStreamInternal.add(LogNotification('SramAxs drivetrain probe:\n$dump'));
+      await Clipboard.setData(ClipboardData(text: dump));
+      buildToast(title: 'Drivetrain probe copied to clipboard');
+    } catch (e, st) {
+      recordError(e, st, context: 'SramAxs.probeDrivetrain');
+      actionStreamInternal.add(LogNotification('SramAxs drivetrain probe failed: $e'));
+    }
+  }
+
   Future<void> restoreShifting() async {
     final logic = _logic;
     final backup = core.settings.getSramBackup(_serialKey);
@@ -510,6 +532,15 @@ class SramAxs extends BluetoothDevice {
                 ),
               ),
             ],
+          ),
+        ),
+        const Gap(12),
+        SizedBox(
+          width: double.infinity,
+          child: SecondaryButton(
+            leading: const Icon(LucideIcons.bug, size: 16),
+            onPressed: () => unawaited(probeDrivetrain()),
+            child: const Text('Read drivetrain (debug)'),
           ),
         ),
         if (hasBackup) ...[
