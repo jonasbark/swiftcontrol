@@ -359,13 +359,28 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    context.i18n.supportChatIntro,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: cs.foreground,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.i18n.supportChatIntro,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: cs.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        context.i18n.supportChatIntroFatherNote,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                          color: cs.mutedForeground,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

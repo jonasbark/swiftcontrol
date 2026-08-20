@@ -1450,6 +1450,7 @@
   "retry": "Retry",
   "supportChatEmpty": "Send a message to start the conversation.",
   "supportChatIntro": "You'll be talking to Jonas from BikeControl",
+  "supportChatIntroFatherNote": "I'll be a father, soon, so it might take a few hours for me to respond :-)",
   "supportIntakeTitle": "Tell us about the problem",
   "supportIntakeSubtitle": "A couple of dropdowns help us answer faster — and may surface a tutorial that solves it on the spot.",
   "supportIntakeCategoryLabel": "What's going on?",

@@ -906,6 +906,7 @@
   "retry": "Reintentar",
   "supportChatEmpty": "Envía un mensaje para iniciar la conversación.",
   "supportChatIntro": "Vas a hablar con Jonas de BikeControl",
+  "supportChatIntroFatherNote": "Pronto seré padre, así que puede que tarde unas horas en responder :-)",
   "supportIntakeTitle": "Cuéntanos qué pasa",
   "supportIntakeSubtitle": "Dos menús nos ayudan a responder más rápido — y quizá te muestren un tutorial que lo resuelva al momento.",
   "supportIntakeCategoryLabel": "¿Qué está fallando?",
