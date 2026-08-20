@@ -82,8 +82,6 @@ class _LoginPageState extends State<LoginPage> {
               spacing: 16,
               mainAxisSize: MainAxisSize.min,
               children: [
-                EmailLoginForm(onSignedIn: _afterSignIn),
-                Divider(child: Text(context.i18n.orSeparator).small.muted),
                 SignInButton(
                   Buttons.google,
                   onPressed: _nativeGoogleSignIn,
@@ -100,6 +98,8 @@ class _LoginPageState extends State<LoginPage> {
                   Buttons.facebook,
                   onPressed: _signInWithFacebook,
                 ),
+                Divider(child: Text(context.i18n.orSeparator).small.muted),
+                EmailLoginForm(onSignedIn: _afterSignIn),
               ],
             ),
           ),

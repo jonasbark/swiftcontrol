@@ -9,6 +9,7 @@ import 'package:bike_control/pages/subscriptions/login.dart';
 import 'package:bike_control/services/email_otp_auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:sign_in_button/sign_in_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'widget_snapshot.dart';
@@ -186,7 +187,7 @@ Future<void> main() async {
     expect(auth.sentTo, hasLength(2));
   });
 
-  testWidgets('the sign-in page offers email alongside the social buttons', (tester) async {
+  Future<void> pumpLoginPage(WidgetTester tester) async {
     await tester.pumpWidget(
       ShadcnApp(
         debugShowCheckedModeBanner: false,
@@ -201,8 +202,21 @@ Future<void> main() async {
       ),
     );
     await tester.pumpAndSettle();
+  }
+
+  testWidgets('the sign-in page offers email alongside the social buttons', (tester) async {
+    await pumpLoginPage(tester);
 
     expect(find.byType(EmailLoginForm), findsOneWidget);
     expect(find.byKey(EmailLoginForm.emailFieldKey), findsOneWidget);
+  });
+
+  testWidgets('email sign-in sits below the social buttons, not above them', (tester) async {
+    await pumpLoginPage(tester);
+
+    final lastSocialButton = tester.getBottomLeft(find.byType(SignInButton).last).dy;
+    final emailForm = tester.getTopLeft(find.byType(EmailLoginForm)).dy;
+
+    expect(emailForm, greaterThan(lastSocialButton));
   });
 }
