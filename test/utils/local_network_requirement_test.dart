@@ -3,8 +3,14 @@ import 'dart:io';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/services/local_network_access.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
+import 'package:bike_control/utils/core.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:universal_ble/universal_ble.dart';
 import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_network_permission/local_network_permission.dart';
@@ -77,6 +83,36 @@ void main() {
     expect(requirement.description, isNotNull);
     // macOS users need the System Settings path; iOS users need theirs.
     expect(requirement.description, contains('Local Network'));
+  });
+
+  group('getScanRequirements', () {
+    // getScanRequirements also probes Bluetooth and notifications; neither has
+    // a registered plugin under `flutter test`, so give them just enough to
+    // answer instead of throwing and hiding the list we care about.
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      UniversalBle.setInstance(FakeUniversalBlePlatform());
+      FlutterLocalNotificationsPlatform.instance = MacOSFlutterLocalNotificationsPlugin();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('dexterous.com/flutter/local_notifications'),
+        (call) async => null,
+      );
+      await core.settings.init();
+    });
+
+    // Onboarding, app start and every scan all read this one list, so a denial
+    // has to show up here or it is never surfaced outside the network tiles.
+    test('surfaces the requirement when Local Network is denied', () async {
+      outcome = 'denied';
+      final requirements = await core.permissions.getScanRequirements();
+      expect(requirements.whereType<LocalNetworkRequirement>(), hasLength(1));
+    });
+
+    test('omits it once the permission is granted', () async {
+      outcome = 'granted';
+      final requirements = await core.permissions.getScanRequirements();
+      expect(requirements.whereType<LocalNetworkRequirement>(), isEmpty);
+    });
   });
 
   test('is suppressed in screenshot mode', () {

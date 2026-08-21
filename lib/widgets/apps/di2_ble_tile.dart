@@ -16,6 +16,11 @@ class Di2BleTile extends StatefulWidget {
 }
 
 class _Di2BleTileState extends State<Di2BleTile> {
+  /// Built once, not per build: PlatformRequirement carries a mutable
+  /// `status`, so rebuilding the list every frame throws away whatever the
+  /// last probe learned.
+  final _requirements = core.permissions.getRemoteControlRequirements();
+
   @override
   Widget build(BuildContext context) {
     final emulator = core.di2Emulator;
@@ -56,7 +61,7 @@ class _Di2BleTileState extends State<Di2BleTile> {
                   : isConnected
                   ? context.i18n.connected
                   : 'Waiting for the Wahoo ELEMNT to connect…',
-              requirements: core.permissions.getRemoteControlRequirements(),
+              requirements: _requirements,
             );
           },
         );

@@ -21,6 +21,11 @@ class ZwiftMdnsTile extends StatefulWidget {
 }
 
 class _ZwiftTileState extends State<ZwiftMdnsTile> {
+  /// Built once, not per build: PlatformRequirement carries a mutable
+  /// `status`, so rebuilding the list every frame throws away whatever the
+  /// last probe learned.
+  final _requirements = localNetworkRequirements();
+
   @override
   Widget build(BuildContext context) {
     final trainerConnection = core.settings.getTrainerApp() is Rouvy ? core.rouvyMdnsEmulator : core.zwiftMdnsEmulator;
@@ -81,7 +86,7 @@ class _ZwiftTileState extends State<ZwiftMdnsTile> {
                     }
                     setState(() {});
                   },
-                  requirements: localNetworkRequirements(),
+                  requirements: _requirements,
                 );
               },
             );

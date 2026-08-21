@@ -17,6 +17,11 @@ class OpenBikeControlBluetoothTile extends StatefulWidget {
 }
 
 class _OpenBikeProtocolTileState extends State<OpenBikeControlBluetoothTile> {
+  /// Built once, not per build: PlatformRequirement carries a mutable
+  /// `status`, so rebuilding the list every frame throws away whatever the
+  /// last probe learned.
+  final _requirements = core.permissions.getRemoteControlRequirements();
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
@@ -40,7 +45,7 @@ class _OpenBikeProtocolTileState extends State<OpenBikeControlBluetoothTile> {
                   : isStarted
                   ? context.i18n.chooseBikeControlInConnectionScreen
                   : context.i18n.letsAppConnectOverBluetooth(core.settings.getTrainerApp()?.name ?? ''),
-              requirements: core.permissions.getRemoteControlRequirements(),
+              requirements: _requirements,
               onChange: (value) async {
                 if (value) {
                   await core.stopAllBleConnections();
