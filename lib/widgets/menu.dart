@@ -6,6 +6,7 @@ import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/emulation/profiles/all_profiles.dart';
 import 'package:bike_control/pages/markdown.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/subscription.dart';
@@ -320,6 +321,14 @@ class BKMenuButton extends StatelessWidget {
                 await context.push(LogViewer());
               },
             ),
+            if (!kIsWeb)
+              MenuButton(
+                leading: Icon(Icons.wifi_find_outlined),
+                child: Text(context.i18n.networkTroubleshootingTitle),
+                onPressed: (c) async {
+                  await context.push(const NetworkTroubleshootingPage());
+                },
+              ),
             MenuButton(
               leading: Icon(Icons.star_rate),
               child: Text(context.i18n.leaveAReview),

@@ -52,6 +52,7 @@ class ConnectionMethod extends StatefulWidget {
   final List<PlatformRequirement> requirements;
   final List<InGameAction>? supportedActions;
   final Function(bool) onChange;
+  final VoidCallback? onTroubleshoot;
 
   const ConnectionMethod({
     super.key,
@@ -68,6 +69,7 @@ class ConnectionMethod extends StatefulWidget {
     required this.onChange,
     this.supportedActions,
     required this.requirements,
+    this.onTroubleshoot,
   });
 
   @override
@@ -242,31 +244,43 @@ class _ConnectionMethodState extends State<ConnectionMethod> with WidgetsBinding
               Text(widget.description).xSmall.textMuted,
               if (widget.isEnabled && widget.additionalChild != null) widget.additionalChild!,
               if (widget.instructionLink != null || widget.showTroubleshooting) SizedBox(),
-              if (widget.instructionLink != null)
+              if (widget.instructionLink != null || widget.onTroubleshoot != null)
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    Button(
-                      style: widget.isEnabled && Theme.of(context).brightness == Brightness.light
-                          ? ButtonStyle.outline().withBorder(border: Border.all(color: Colors.gray.shade500))
-                          : ButtonStyle.outline(),
-                      leading: Icon(
-                        widget.instructionLink!.contains("youtube") ? Icons.ondemand_video : Icons.help_outline,
+                    if (widget.instructionLink != null) ...[
+                      Button(
+                        style: widget.isEnabled && Theme.of(context).brightness == Brightness.light
+                            ? ButtonStyle.outline().withBorder(border: Border.all(color: Colors.gray.shade500))
+                            : ButtonStyle.outline(),
+                        leading: Icon(
+                          widget.instructionLink!.contains("youtube") ? Icons.ondemand_video : Icons.help_outline,
+                        ),
+                        onPressed: () {
+                          if (widget.instructionLink!.contains("youtube") || widget.instructionLink!.contains("http")) {
+                            launchUrlString(widget.instructionLink!);
+                          } else {
+                            openDrawer(
+                              context: context,
+                              position: OverlayPosition.bottom,
+                              builder: (c) => MarkdownPage(assetPath: widget.instructionLink!),
+                            );
+                          }
+                        },
+                        child: Text(AppLocalizations.of(context).instructions),
                       ),
-                      onPressed: () {
-                        if (widget.instructionLink!.contains("youtube") || widget.instructionLink!.contains("http")) {
-                          launchUrlString(widget.instructionLink!);
-                        } else {
-                          openDrawer(
-                            context: context,
-                            position: OverlayPosition.bottom,
-                            builder: (c) => MarkdownPage(assetPath: widget.instructionLink!),
-                          );
-                        }
-                      },
-                      child: Text(AppLocalizations.of(context).instructions),
-                    ),
+                    ],
+                    if (widget.onTroubleshoot != null)
+                      Button(
+                        key: const ValueKey('connection-troubleshoot'),
+                        style: widget.trainerConnection.isStarted.value && !widget.trainerConnection.isConnected.value
+                            ? ButtonStyle.outline()
+                            : ButtonStyle.ghost(),
+                        leading: const Icon(LucideIcons.wrench, size: 16),
+                        onPressed: widget.onTroubleshoot,
+                        child: Text(AppLocalizations.of(context).networkTroubleshootTroubleshoot),
+                      ),
                     if (widget.supportedActions != null)
                       Button.outline(
                         leading: Container(
