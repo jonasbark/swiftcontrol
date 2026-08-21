@@ -4,13 +4,16 @@ import 'dart:typed_data';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart' show ftmsEmulator;
 import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nsd/nsd.dart' as nsd;
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/emulators/dircon_emulator.dart' show RetrofitMode;
+import 'package:prop/testing.dart' show FakeDirconTrainer;
 import 'package:prop/utils/constants.dart' show BikeControlMdnsMarkers;
 import 'package:prop/utils/self_advertisement_registry.dart';
 import 'package:universal_ble/universal_ble.dart';
@@ -210,6 +213,80 @@ Future<void> main() async {
         () => fitnessBike.currentGear.value == gearBefore + 1,
         description: 'gear shift on the bridge',
       );
+    });
+  });
+
+  group('unexpected upstream drop tears the bridge down', () {
+    // Support bd2f3b55: a KICKR reachable over both BLE and WiFi had its
+    // DirCon socket drop while the bridge was live. The device vanished from
+    // the list, but its FitnessBikeDefinition stayed attached to the shared
+    // emulator — so every MyWhoosh control-point write still hit the dead
+    // socket ("Bad state: DirconClient is not connected", once per write),
+    // and "KICKR CORE - BikeControl" kept advertising with no trainer behind
+    // it.
+    Future<void> expectBridgeFullyTornDown(ProxyDevice device) async {
+      await IntegrationEnv.waitFor(
+        () => !core.connection.devices.contains(device),
+        description: 'dropped trainer removed from the list',
+      );
+      expect(device.fitnessBike, isNull);
+      expect(ftmsEmulator.composite.children.whereType<FitnessBikeDefinition>(), isEmpty);
+      await IntegrationEnv.waitFor(() => !ftmsEmulator.isStarted.value, description: 'shared emulator stopped');
+      await IntegrationEnv.waitFor(() => env.mdns.registrations.isEmpty, description: 'bridge no longer advertised');
+    }
+
+    test('WiFi upstream: a DirCon socket drop detaches the definition and stops advertising', () async {
+      final trainer = FakeDirconTrainer(name: 'KICKR CORE 1A2B');
+      await trainer.start();
+      addTearDown(trainer.stop);
+      await core.settings.setAutoConnect('KICKR CORE 1A2B', true);
+
+      await core.connection.performScanning();
+      env.mdns.addForeignService(trainer.advertisement);
+      await IntegrationEnv.waitFor(
+        () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.isConnected,
+        description: 'WiFi trainer auto-connected',
+      );
+      final device = core.connection.proxyDevices.single;
+      expect(device.isWifiUpstream, isTrue);
+      await IntegrationEnv.waitFor(() => device.isStartedListenable.value, description: 'bridge started');
+      expect(ftmsEmulator.composite.children, contains(device.fitnessBike));
+      // Let the connect-time handshake (subscriptions + FTMS feature read)
+      // finish so the drop isn't racing in-flight requests — the fake trainer
+      // writes its replies unguarded and a reply into a destroyed socket would
+      // fail the test for a reason unrelated to the teardown under test.
+      await IntegrationEnv.waitFor(
+        () => trainer.definition.enabledNotifications.length >= 3 && device.fitnessBike?.trainerFeature.value != null,
+        description: 'connect-time handshake settled',
+      );
+
+      // Take the advertisement away first so rediscovery can't re-add the
+      // trainer and mask whether the drop alone cleaned up.
+      env.mdns.removeForeignService(trainer.advertisement);
+      await trainer.dropClient();
+
+      await expectBridgeFullyTornDown(device);
+    });
+
+    test('BLE upstream: a peripheral-side drop detaches the definition and stops advertising', () async {
+      final trainer = buildFtmsTrainer();
+      env.ble.addPeripheral(trainer);
+      await core.settings.setAutoConnect('KICKR CORE 1234', true);
+
+      await core.connection.performScanning();
+      await IntegrationEnv.waitFor(
+        () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.isConnected,
+        description: 'BLE trainer auto-connected',
+      );
+      final device = core.connection.proxyDevices.single;
+      await IntegrationEnv.waitFor(() => device.isStartedListenable.value, description: 'bridge started');
+      expect(ftmsEmulator.composite.children, contains(device.fitnessBike));
+
+      // Removing the peripheral drops its connection and keeps it out of the
+      // next scan, so the assertions see the drop alone.
+      env.ble.removePeripheral(trainer.deviceId);
+
+      await expectBridgeFullyTornDown(device);
     });
   });
 
