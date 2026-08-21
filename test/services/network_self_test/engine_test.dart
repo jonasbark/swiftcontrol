@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
+import 'package:bike_control/main.dart' show installLoggerErrorListener;
 import 'package:bike_control/services/network_self_test/network_check.dart';
 import 'package:bike_control/services/network_self_test/network_probe_context.dart';
 import 'package:bike_control/services/network_self_test/network_self_test_engine.dart';
@@ -157,6 +158,13 @@ void main() {
   });
 
   test('a thrown probe error is routed through recordError with a per-check context', () async {
+    // recordError() calls the idempotent installLoggerErrorListener(), which
+    // only actually assigns Logger.onRecordError the first time it runs in
+    // this isolate — trip that guard here, before installing the test's own
+    // listener below, so a run of this test in isolation (no earlier test
+    // in the file to trip it first) doesn't get its listener clobbered by
+    // the production one on the very first recordError() call.
+    installLoggerErrorListener();
     final contexts = <String>[];
     Logger.onRecordError = (m, e, s) => contexts.add(m);
 
@@ -208,6 +216,38 @@ void main() {
       expect(observedRunning[i], NetworkCheckId.guidedWatch);
     }
     expect(engine.state.value.watch, isNull, reason: 'watch resets once the probe is done');
+  });
+
+  test('a watch tick that arrives after the run has finished is dropped', () async {
+    void Function(WatchProgress)? capturedOnWatchProgress;
+    final probes = [
+      ProbeSpec(
+        id: NetworkCheckId.guidedWatch,
+        timeout: const Duration(seconds: 1),
+        run: (ctx) async {
+          // Stash the engine-wrapped callback so the test can invoke it
+          // itself, after the run below has already finished — simulating a
+          // guided-watch tick that arrives late (past its own timeout, or
+          // after the whole engine run completed).
+          capturedOnWatchProgress = ctx.onWatchProgress;
+          return _pass(NetworkCheckId.guidedWatch);
+        },
+      ),
+    ];
+    final engine = NetworkSelfTestEngine(contextBuilder: _ctx, probes: probes);
+    await engine.run();
+
+    final stateBefore = engine.state.value;
+    expect(capturedOnWatchProgress, isNotNull);
+    capturedOnWatchProgress!(
+      const WatchProgress(browsed: true, resolved: true, addressAsks: 5, connected: true, remaining: Duration.zero),
+    );
+
+    final stateAfter = engine.state.value;
+    expect(identical(stateAfter, stateBefore), isTrue, reason: 'a late tick must not touch state once the run is done');
+    expect(stateAfter.watch, isNull);
+    expect(stateAfter.running, isNull);
+    expect(stateAfter.result, isNotNull);
   });
 
   test('a throwing contextBuilder still produces a result', () async {

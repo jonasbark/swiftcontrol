@@ -153,6 +153,13 @@ class NetworkSelfTestEngine {
       now: built.now,
       onWatchProgress: (progress) {
         built.onWatchProgress(progress);
+        // A tick that arrives after the guided-watch probe's own timeout
+        // fires, or after the whole run has finished, must not resurrect
+        // dead state — only the probe that is both still running and
+        // actually the guided-watch one gets to push a tick through.
+        if (_result != null || _running != NetworkCheckId.guidedWatch) {
+          return;
+        }
         _watch = progress;
         _emit();
       },
