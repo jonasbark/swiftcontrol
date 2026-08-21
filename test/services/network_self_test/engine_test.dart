@@ -146,6 +146,51 @@ void main() {
     expect(result, isNotNull);
   });
 
+  test('cancelWatch() skips only the guided-watch probe and the run continues', () async {
+    // Phase 1: the engine's own default probe list (no `probes:` override) —
+    // cancelWatch() must reach the guided-watch probe's `isCancelled` seam
+    // and skip it, while — unlike cancel() — leaving the rest of the run
+    // alone: `completed` stays true.
+    final engine = NetworkSelfTestEngine(contextBuilder: _ctx);
+    engine.cancelWatch();
+    final result = await engine.run();
+
+    final guidedWatch = result.checks.singleWhere((c) => c.id == NetworkCheckId.guidedWatch);
+    expect(guidedWatch.verdict, NetworkVerdict.skipped);
+    expect(result.completed, isTrue);
+
+    // Phase 2: on this host, guidedWatch is the last probe in the default
+    // list, so phase 1 alone can't show a *later* probe still running after
+    // a cancelled watch. Windows' spec order does have probes after it —
+    // extract that real, wired guided-watch spec plus its next-door
+    // neighbour and confirm the neighbour still runs.
+    final windowsSpecs = NetworkSelfTestEngine.defaultProbes('windows', watchCancelled: () => true);
+    final guidedWatchIndex = windowsSpecs.indexWhere((s) => s.id == NetworkCheckId.guidedWatch);
+    expect(guidedWatchIndex, lessThan(windowsSpecs.length - 1), reason: 'need a probe after guidedWatch to prove this');
+    final nextId = windowsSpecs[guidedWatchIndex + 1].id;
+
+    var laterRan = false;
+    final chainEngine = NetworkSelfTestEngine(
+      contextBuilder: _ctx,
+      probes: [
+        windowsSpecs[guidedWatchIndex],
+        ProbeSpec(
+          id: nextId,
+          timeout: const Duration(seconds: 1),
+          run: (ctx) async {
+            laterRan = true;
+            return _pass(nextId);
+          },
+        ),
+      ],
+    );
+    final chainResult = await chainEngine.run();
+
+    expect(chainResult.checks[0].verdict, NetworkVerdict.skipped);
+    expect(laterRan, isTrue, reason: 'a cancelled watch must not stop the probes after it');
+    expect(chainResult.completed, isTrue);
+  });
+
   test('run() is idempotent — a second call returns the same future', () async {
     final probes = [
       ProbeSpec(id: NetworkCheckId.methodListening, timeout: const Duration(seconds: 1), run: (ctx) async => _pass(NetworkCheckId.methodListening)),

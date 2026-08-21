@@ -58,12 +58,19 @@ class ProbeSpec {
 class NetworkSelfTestEngine {
   NetworkSelfTestEngine({required NetworkProbeContext Function() contextBuilder, List<ProbeSpec>? probes, DateTime Function()? now})
     : _contextBuilder = contextBuilder,
-      _now = now ?? DateTime.now,
-      _probes = probes ?? defaultProbes(Platform.operatingSystem);
+      _now = now ?? DateTime.now {
+    // Built here, not in the initializer list, because the default probe
+    // list needs a closure over `this` (to read `_watchCancelled` live on
+    // every guided-watch poll) — instance members aren't reachable from an
+    // initializer list. An explicitly supplied `probes` list bypasses this
+    // wiring entirely, which is fine: only the engine's own default
+    // guided-watch probe answers to `cancelWatch()`.
+    _probes = probes ?? defaultProbes(Platform.operatingSystem, watchCancelled: () => _watchCancelled);
+  }
 
   final NetworkProbeContext Function() _contextBuilder;
   final DateTime Function() _now;
-  final List<ProbeSpec> _probes;
+  late final List<ProbeSpec> _probes;
 
   final ValueNotifier<NetworkSelfTestState> _state = ValueNotifier(const NetworkSelfTestState());
 
@@ -71,6 +78,10 @@ class NetworkSelfTestEngine {
 
   Future<NetworkSelfTestResult>? _runFuture;
   bool _cancelled = false;
+
+  /// Set by [cancelWatch]; read by the default guided-watch probe's
+  /// `isCancelled` seam on its next poll tick.
+  bool _watchCancelled = false;
 
   final List<NetworkCheck> _checks = [];
   NetworkCheckId? _running;
@@ -86,6 +97,15 @@ class NetworkSelfTestEngine {
   /// flight is left to finish (or hit its own timeout) on its own.
   void cancel() {
     _cancelled = true;
+  }
+
+  /// Skips only the guided-watch probe (a "press the button" step the rider
+  /// may not want to do right now), leaving the rest of the run untouched —
+  /// unlike [cancel], which abandons everything still to come. Only takes
+  /// effect on the engine's own default probe list (see the constructor);
+  /// an explicitly supplied `probes` list never sees it.
+  void cancelWatch() {
+    _watchCancelled = true;
   }
 
   Future<NetworkSelfTestResult> _run() async {
@@ -209,7 +229,7 @@ class NetworkSelfTestEngine {
   /// Windows-only shell checks (skipped entirely off Windows, rather than
   /// left to self-skip, so the list itself already reflects what actually
   /// ran on this platform).
-  static List<ProbeSpec> defaultProbes(String platform) {
+  static List<ProbeSpec> defaultProbes(String platform, {bool Function()? watchCancelled}) {
     // The paired profile+firewall probe pays for one `powershell.exe`
     // start-up; both ProbeSpecs below share that single call via this
     // memoised future rather than invoking it twice.
@@ -232,7 +252,11 @@ class NetworkSelfTestEngine {
       if (platform != 'ios') ...[
         ProbeSpec(id: NetworkCheckId.resolveOwnHostname, timeout: const Duration(seconds: 4), run: resolveOwnHostnameCheck),
         ProbeSpec(id: NetworkCheckId.tcpSelfConnect, timeout: const Duration(seconds: 6), run: tcpSelfConnectCheck),
-        ProbeSpec(id: NetworkCheckId.guidedWatch, timeout: const Duration(seconds: 65), run: guidedWatchCheck),
+        ProbeSpec(
+          id: NetworkCheckId.guidedWatch,
+          timeout: const Duration(seconds: 65),
+          run: (ctx) => guidedWatchCheck(ctx, isCancelled: watchCancelled),
+        ),
       ],
       if (platform == 'windows') ...[
         ProbeSpec(id: NetworkCheckId.bonjourService, timeout: const Duration(seconds: 10), run: bonjourServiceCheck),
