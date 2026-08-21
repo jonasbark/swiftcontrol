@@ -31,6 +31,14 @@ private let preflightServiceType = "_bikecontrol-preflight._tcp"
 public class LocalNetworkPermissionPlugin: NSObject, FlutterPlugin {
   private static let channelName = "bike_control/local_network_permission"
 
+  /// Keeps the plugin alive for the process's lifetime.
+  ///
+  /// `register(with:)` otherwise hands over the only reference and ARC is free
+  /// to release it, taking the in-flight probe — and its NWListener/NWBrowser —
+  /// down with it. The symptom is brutal: both reach `.ready`, then nothing
+  /// ever arrives, not even the timeout, and the Dart caller waits forever.
+  private static var retained: LocalNetworkPermissionPlugin?
+
   public static func register(with registrar: FlutterPluginRegistrar) {
     #if os(iOS)
       let messenger = registrar.messenger()
@@ -38,7 +46,9 @@ public class LocalNetworkPermissionPlugin: NSObject, FlutterPlugin {
       let messenger = registrar.messenger
     #endif
     let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
-    registrar.addMethodCallDelegate(LocalNetworkPermissionPlugin(), channel: channel)
+    let plugin = LocalNetworkPermissionPlugin()
+    retained = plugin
+    registrar.addMethodCallDelegate(plugin, channel: channel)
   }
 
   /// Guards `probe`. Two concurrent probes would advertise two instances of
@@ -134,6 +144,11 @@ private final class Probe {
   private var completion: ((String) -> Void)?
   private var timeout: DispatchWorkItem?
 
+  /// Held from `start` until `finish`, so a probe always outlives whoever
+  /// asked for it. Every callback below is the only thing that can answer the
+  /// Dart side; being deallocated first means that side waits forever.
+  private var selfRetain: Probe?
+
   init?(timeoutMs: Int) {
     guard
       let listener = try? NWListener(
@@ -149,6 +164,7 @@ private final class Probe {
   func start(completion: @escaping (String) -> Void) {
     queue.async {
       self.completion = completion
+      self.selfRetain = self
 
       let timeout = DispatchWorkItem { [weak self] in
         // Nothing was discovered and nothing was denied. Most likely there is
@@ -215,6 +231,7 @@ private final class Probe {
     listener.cancel()
     browser.cancel()
     completion(outcome)
+    selfRetain = nil
   }
 }
 
