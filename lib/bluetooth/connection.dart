@@ -253,6 +253,13 @@ class Connection {
   /// object the open details page still holds.
   final _inPlaceDisconnects = <BaseDevice>{};
 
+  /// Devices whose [disconnect] is currently running its teardown. The same
+  /// mid-teardown platform event re-enters [disconnect] from the drop listener
+  /// with `dropped: true` — at that point the device still reads as connected
+  /// (BaseDevice.disconnect clears the flag last), so without this guard the
+  /// echo would start a second, concurrent teardown of the same device.
+  final _disconnecting = <BaseDevice>{};
+
   /// BLE ids of controllers disconnected by the inactivity battery saver. They
   /// are deliberately NOT added to the ignore list (so the user can reconnect),
   /// but must not be auto-reconnected when rediscovered (via scan results,
@@ -945,6 +952,10 @@ class Connection {
 
     if (device is BluetoothDevice) {
       final connectionStateSubscription = device.device.connectionStream.listen((state) {
+        // A disconnected event for a device that is still marked connected is
+        // a genuine drop; one arriving after a deliberate disconnect (which
+        // already cleared the flag) is the platform's late echo of it.
+        final wasConnected = device.isConnected;
         device.isConnected = state;
         if (state) _noteConnected(device);
         _connectionStreams.add(device);
@@ -998,7 +1009,7 @@ class Connection {
           );
         }
         if (!device.isConnected && !_inPlaceDisconnects.contains(device)) {
-          disconnect(device, forget: false, persistForget: false);
+          disconnect(device, forget: false, persistForget: false, dropped: wasConnected);
           // try reconnect
           performScanning();
         }
@@ -1059,19 +1070,28 @@ class Connection {
     _connectionStreams.add(baseDevice);
   }
 
+  /// [dropped]: the link already went away on its own (peripheral-side BLE
+  /// drop, DirCon socket closed). The drop listeners flip [BaseDevice.isConnected]
+  /// before calling in, so without this flag the device's own teardown would be
+  /// skipped — and a ProxyDevice would leave its definition attached to the
+  /// shared emulator, still advertising and still being written to.
   Future<void> disconnect(
     BaseDevice device, {
     required bool persistForget,
     required bool forget,
     bool keepInList = false,
+    bool dropped = false,
   }) async {
     if (keepInList) _inPlaceDisconnects.add(device);
+    final tearingDown = _disconnecting.contains(device);
+    if (!tearingDown) _disconnecting.add(device);
     try {
-      if (device.isConnected) {
+      if (!tearingDown && (device.isConnected || dropped)) {
         await device.disconnect();
       }
     } finally {
       if (keepInList) _inPlaceDisconnects.remove(device);
+      if (!tearingDown) _disconnecting.remove(device);
     }
 
     if (device is BluetoothDevice) {

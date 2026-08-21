@@ -883,7 +883,7 @@ class ProxyDevice extends BluetoothDevice {
         '$this ${AppLocalizations.current.disconnected.decapitalize()}',
       ),
     );
-    unawaited(core.connection.disconnect(this, forget: false, persistForget: false));
+    unawaited(core.connection.disconnect(this, forget: false, persistForget: false, dropped: true));
     // Mirrors the BLE connectionStream listener: rediscovery re-adds us.
     core.connection.performScanning();
   }
