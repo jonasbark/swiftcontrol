@@ -133,6 +133,16 @@ void main() {
     expect(await LocalNetworkAccess.status(force: true), LocalNetworkStatus.granted);
   });
 
+  group('usable', () {
+    test('only a positive denial counts against the rider', () {
+      expect(LocalNetworkAccess.usable(LocalNetworkStatus.granted), isTrue);
+      expect(LocalNetworkAccess.usable(LocalNetworkStatus.denied), isFalse);
+      // The probe failing to tell is not evidence of a problem. Treating it as
+      // one paints the home card red and blocks methods that work fine.
+      expect(LocalNetworkAccess.usable(LocalNetworkStatus.unknown), isTrue);
+    });
+  });
+
   group('isUsable', () {
     test('blocks only on a positive denial', () async {
       mockNative(() => 'denied');
