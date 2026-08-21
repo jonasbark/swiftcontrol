@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show screenshotMode;
-import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
+import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';

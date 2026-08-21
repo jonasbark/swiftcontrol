@@ -96,6 +96,35 @@ void main() {
     expect(probes, 1);
   });
 
+  test('a probe in flight when the cache is invalidated does not repopulate it', () async {
+    // The real sequence: a probe starts, the user leaves for System Settings
+    // and flips the toggle, and the pre-Settings answer lands afterwards. It
+    // must not become the cached truth.
+    final gate = Completer<String>();
+    mockNative(() => gate.future);
+
+    final pending = LocalNetworkAccess.status();
+    LocalNetworkAccess.invalidate();
+    gate.complete('denied');
+    expect(await pending, LocalNetworkStatus.denied, reason: 'the caller still gets its answer');
+
+    expect(LocalNetworkAccess.cached, isNull, reason: 'but the stale answer must not come back');
+  });
+
+  test('invalidate makes the next caller start a fresh probe', () async {
+    final gate = Completer<String>();
+    mockNative(() => gate.future);
+    final stale = LocalNetworkAccess.status();
+
+    LocalNetworkAccess.invalidate();
+    mockNative(() => 'granted');
+    expect(await LocalNetworkAccess.status(), LocalNetworkStatus.granted);
+
+    gate.complete('denied');
+    await stale;
+    expect(LocalNetworkAccess.cached, LocalNetworkStatus.granted);
+  });
+
   test('a probe that failed does not wedge later probes', () async {
     mockNative(() => throw PlatformException(code: 'probe_unavailable'));
     expect(await LocalNetworkAccess.status(), LocalNetworkStatus.unknown);
