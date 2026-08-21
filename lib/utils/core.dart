@@ -45,6 +45,9 @@ import '../bluetooth/connection.dart';
 import '../bluetooth/devices/mywhoosh/link.dart';
 import 'keymap/apps/rouvy.dart';
 import 'media_key_handler.dart';
+import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/pages/onboarding/onboarding_trigger.dart';
+import 'requirements/local_network.dart';
 import 'requirements/multi.dart';
 import 'requirements/platform.dart';
 
@@ -342,6 +345,36 @@ class CoreLogic {
       core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
       (showLocalControl || isRemoteControlEnabled);
 
+  /// True when the rider has switched on at least one way of reaching the
+  /// trainer app.
+  ///
+  /// Deliberately not [hasNoConnectionMethod] inverted: that one mixes in
+  /// `show*` visibility predicates, so it answers "should the UI nag" rather
+  /// than "did the rider turn something on".
+  bool get hasAnyConnectionMethodEnabled =>
+      isZwiftBleEnabled ||
+      isZwiftMdnsEnabled ||
+      isObpBleEnabled ||
+      isObpMdnsEnabled ||
+      isDi2BleEnabled ||
+      isMyWhooshLinkEnabled ||
+      isRemoteControlEnabled ||
+      core.settings.getLocalEnabled();
+
+  /// Whether a permission check triggered by app launch should be skipped.
+  ///
+  /// Reuses navigation's own onboarding decision so the two cannot drift.
+  /// Safe to read during `Connection.initialize()`: `setLastSeenVersion` is
+  /// written later (navigation.dart), so the pref still holds the previous
+  /// launch's value here.
+  bool get deferLaunchPermissions => deferLaunchPermissionChecks(
+    onboardingAction: decideOnboardingTrigger(
+      lastSeenVersion: core.settings.getLastSeenVersion(),
+      onboardingState: core.settings.getOnboardingState(),
+    ),
+    anyConnectionMethodEnabled: hasAnyConnectionMethodEnabled,
+  );
+
   bool get hasNoConnectionMethod =>
       !screenshotMode &&
       !isZwiftBleEnabled &&
@@ -488,7 +521,25 @@ class CoreLogic {
         );
       });
     }
-    if (isZwiftMdnsEnabled) {
+    // The BLE branches below already gate on their permissions; the network
+    // ones used to start unconditionally and fail silently when Local Network
+    // was off. Only probe when a network method is actually enabled — probing
+    // is what raises the system prompt, and a rider running BLE only should
+    // never see it.
+    final needsLocalNetwork = isZwiftMdnsEnabled || isObpMdnsEnabled || isMyWhooshLinkEnabled;
+    final localNetworkOk = !needsLocalNetwork || await localNetworkRequirements().allGranted;
+    if (!localNetworkOk) {
+      core.connection.signalNotification(
+        AlertNotification(
+          LogLevel.LOGLEVEL_WARNING,
+          !kIsWeb && Platform.isIOS
+              ? AppLocalizations.current.localNetworkAccessDeniedIos
+              : AppLocalizations.current.localNetworkAccessDeniedMacos,
+        ),
+      );
+    }
+
+    if (isZwiftMdnsEnabled && localNetworkOk) {
       if (core.settings.getTrainerApp() is Rouvy && !core.rouvyMdnsEmulator.isStarted.value) {
         core.rouvyMdnsEmulator.startServer().catchError((e, s) {
           recordError(e, s, context: 'Rouvy mDNS Emulator');
@@ -513,7 +564,7 @@ class CoreLogic {
       core.settings.setMyWhooshLinkEnabled(false);
     }
 
-    if (isObpMdnsEnabled && !core.obpMdnsEmulator.isStarted.value) {
+    if (isObpMdnsEnabled && localNetworkOk && !core.obpMdnsEmulator.isStarted.value) {
       core.obpMdnsEmulator.startServer().catchError((e, s) {
         recordError(e, s, context: 'OBP mDNS Emulator');
         core.settings.setObpMdnsEnabled(false);
@@ -546,7 +597,7 @@ class CoreLogic {
       });
     }
 
-    if (isMyWhooshLinkEnabled && !core.whooshLink.isStarted.value) {
+    if (isMyWhooshLinkEnabled && localNetworkOk && !core.whooshLink.isStarted.value) {
       core.connection.startMyWhooshServer();
     }
 

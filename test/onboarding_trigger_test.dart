@@ -29,4 +29,42 @@ void main() {
       OnboardingTriggerAction.none,
     );
   });
+
+  group('deferLaunchPermissionChecks', () {
+    test('defers on a fresh install with nothing switched on', () {
+      // Nothing is configured and the wizard has not run, so a launch-time
+      // permission dialog would arrive with no context to explain it.
+      expect(
+        deferLaunchPermissionChecks(
+          onboardingAction: OnboardingTriggerAction.show,
+          anyConnectionMethodEnabled: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('still checks when the rider already enabled a connection method', () {
+      // They opted into something that needs permissions — asking is in context
+      // even though the wizard has not finished.
+      expect(
+        deferLaunchPermissionChecks(
+          onboardingAction: OnboardingTriggerAction.show,
+          anyConnectionMethodEnabled: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('never defers once onboarding is settled', () {
+      for (final action in [OnboardingTriggerAction.none, OnboardingTriggerAction.markCompleted]) {
+        for (final enabled in [true, false]) {
+          expect(
+            deferLaunchPermissionChecks(onboardingAction: action, anyConnectionMethodEnabled: enabled),
+            isFalse,
+            reason: '$action with anyConnectionMethodEnabled=$enabled must still check',
+          );
+        }
+      }
+    });
+  });
 }

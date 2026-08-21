@@ -5,6 +5,9 @@ import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
+import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
@@ -115,6 +118,49 @@ void main() {
       calls.clear();
       await core.permissions.getScanRequirements();
       expect(calls, isEmpty, reason: 'probing is what raises the system prompt');
+    });
+  });
+
+  group('startEnabledConnectionMethod', () {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      UniversalBle.setInstance(FakeUniversalBlePlatform());
+      await core.settings.init();
+      screenshotMode = false;
+      addTearDown(() => screenshotMode = false);
+    });
+
+    test('does not probe when only Bluetooth methods are enabled', () async {
+      // Probing is what raises the system prompt; a BLE-only rider must never
+      // see a Local Network dialog at launch.
+      await core.settings.setMyWhooshLinkEnabled(false);
+      await core.settings.setObpMdnsEnabled(false);
+      await core.settings.setZwiftMdnsEmulatorEnabled(false);
+      calls.clear();
+
+      core.logic.startEnabledConnectionMethod();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(calls, isEmpty);
+    });
+
+    test('does not start MyWhoosh Link while Local Network is denied', () async {
+      // It used to start regardless and fail silently — the shape that
+      // generated the support tickets.
+      outcome = 'denied';
+      core.settings.setTrainerApp(SupportedApp.supportedApps.whereType<MyWhoosh>().first);
+      await core.settings.setLastTarget(Target.thisDevice);
+      await core.settings.setMyWhooshLinkEnabled(true);
+      await core.settings.setObpMdnsEnabled(false);
+      await core.settings.setZwiftMdnsEmulatorEnabled(false);
+      expect(core.logic.isMyWhooshLinkEnabled, isTrue, reason: 'precondition: the method must be enabled');
+      calls.clear();
+
+      core.logic.startEnabledConnectionMethod();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(calls, contains('check'), reason: 'an enabled network method must be checked at launch');
+      expect(core.whooshLink.isStarted.value, isFalse);
     });
   });
 

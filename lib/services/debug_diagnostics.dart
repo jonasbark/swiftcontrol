@@ -37,13 +37,20 @@ class PermissionsSnapshot {
     required this.localNetwork,
   });
 
-  static Future<PermissionsSnapshot> gather() async {
+  /// [probe] runs a live check; a support bundle is worthless if it reports
+  /// what the UI happened to cache half an hour ago.
+  ///
+  /// It must stay off for the crash handler, though: probing is what raises
+  /// the system prompt, so a background error would otherwise pop a Local
+  /// Network dialog at an arbitrary moment — including app launch, before
+  /// onboarding has explained anything. Without it, report what is already
+  /// known, or nothing.
+  static Future<PermissionsSnapshot> gather({required bool probe}) async {
+    if (!LocalNetworkPermission.isSupported) {
+      return const PermissionsSnapshot(localNetwork: null);
+    }
     return PermissionsSnapshot(
-      // Force a fresh probe: a support bundle is worthless if it reports what
-      // the UI happened to cache half an hour ago.
-      localNetwork: LocalNetworkPermission.isSupported
-          ? await LocalNetworkAccess.status(force: true)
-          : null,
+      localNetwork: probe ? await LocalNetworkAccess.status(force: true) : LocalNetworkAccess.cached,
     );
   }
 }
@@ -110,7 +117,9 @@ class DebugDiagnostics {
       }
     }
 
-    final permissions = await PermissionsSnapshot.gather();
+    // includeDiscovery is the existing "may do live network work" seam — the
+    // crash handler passes false. The permission probe belongs to it.
+    final permissions = await PermissionsSnapshot.gather(probe: includeDiscovery);
 
     return DebugDiagnostics(
       advertised: AdvertisedServiceRegistry.instance.records,

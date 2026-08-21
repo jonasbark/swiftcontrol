@@ -19,3 +19,17 @@ OnboardingTriggerAction decideOnboardingTrigger({
       ? OnboardingTriggerAction.show
       : OnboardingTriggerAction.markCompleted;
 }
+
+/// Whether a launch-time permission check should be skipped entirely.
+///
+/// Permissions *are* checked at launch — a rider who revoked one in System
+/// Settings should find out then, not from a silently dead connection. The one
+/// exception is a fresh install that hasn't seen the wizard and has nothing
+/// switched on: there is no feature to check for, so the dialog would arrive
+/// with nothing to explain it. Onboarding asks for what it needs, when it
+/// needs it.
+bool deferLaunchPermissionChecks({
+  required OnboardingTriggerAction onboardingAction,
+  required bool anyConnectionMethodEnabled,
+}) =>
+    onboardingAction == OnboardingTriggerAction.show && !anyConnectionMethodEnabled;

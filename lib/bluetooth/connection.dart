@@ -420,7 +420,7 @@ class Connection {
 
     UniversalBle.onAvailabilityChange = (available) {
       _actionStreams.add(BluetoothAvailabilityNotification(available == AvailabilityState.poweredOn));
-      if (available == AvailabilityState.poweredOn && !kIsWeb) {
+      if (available == AvailabilityState.poweredOn && !kIsWeb && !core.logic.deferLaunchPermissions) {
         core.permissions.getScanRequirements().then((perms) {
           if (perms.isEmpty) {
             performScanning();
@@ -552,11 +552,18 @@ class Connection {
     };
 
     if (!kIsWeb && !screenshotMode) {
-      core.permissions.getScanRequirements().then((perms) {
-        if (perms.isEmpty) {
-          performScanning();
-        }
-      });
+      // Checking permissions means *asking* for them on Apple platforms, so a
+      // fresh install with nothing configured must not reach this: the wizard
+      // owns that conversation. Everyone else is checked at launch, so a
+      // permission revoked in System Settings surfaces here rather than as a
+      // silently dead connection.
+      if (!core.logic.deferLaunchPermissions) {
+        core.permissions.getScanRequirements().then((perms) {
+          if (perms.isEmpty) {
+            performScanning();
+          }
+        });
+      }
       if (core.settings.getPhoneSteeringEnabled() && IAPManager.instance.isProEnabledForCurrentDeviceOrDidPurchaseOld) {
         toggleGyroscopeSteering(true);
       }
