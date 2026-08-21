@@ -327,7 +327,10 @@ void initializeActions(ConnectionType connectionType) {
       ConnectionType.unknown => StubActions(),
     };
   }
-  core.actionHandler.init(core.settings.getKeyMap());
+  // The keymap ('app') and the trainer app ('trainer_app') are independent
+  // prefs. If the keymap one is missing we'd otherwise run with a null
+  // supportedApp: no buttons get registered and every press errors out.
+  core.actionHandler.init(core.settings.getKeyMap() ?? core.settings.getTrainerApp());
 }
 
 class BikeControlApp extends StatefulWidget {

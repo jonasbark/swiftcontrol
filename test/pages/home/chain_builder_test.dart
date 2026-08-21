@@ -22,6 +22,7 @@ ControllerInput controller({
   bool unlockUncertain = false,
   bool? sramSetupDone,
   bool needsUnlockModeChoice = false,
+  bool clickV2NeedsLeftSide = false,
 }) {
   return ControllerInput(
     deviceId: deviceId,
@@ -34,6 +35,7 @@ ControllerInput controller({
     unlockUncertain: unlockUncertain,
     sramSetupDone: sramSetupDone,
     needsUnlockModeChoice: needsUnlockModeChoice,
+    clickV2NeedsLeftSide: clickV2NeedsLeftSide,
   );
 }
 
@@ -229,6 +231,52 @@ void main() {
       final chain = buildChain(ChainInputs(controllers: [controller()], app: _readyApp));
       final link = chain.byKey(ChainLinkKey.controller);
       expect(link.steps.any((s) => s.id == SetupStepId.controllerSramSetup), isFalse);
+    });
+
+    test('offers the keep-awake step when a right puck has no left one in range', () {
+      final chain = buildChain(
+        ChainInputs(controllers: [controller(clickV2NeedsLeftSide: true)], app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      final step = link.steps.firstWhere((s) => s.id == SetupStepId.controllerClickV2KeepAwake);
+      expect(step.optional, isTrue, reason: 'the controller works without it; it is an offer, not work');
+      expect(step.done, isFalse);
+    });
+
+    test('the keep-awake offer is absent once it is no longer outstanding', () {
+      // Emitted only while waiting, so it never sits ticked on the card forever.
+      final chain = buildChain(ChainInputs(controllers: [controller()], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerClickV2KeepAwake), isFalse);
+    });
+
+    test('the keep-awake offer never colours the card or blocks riding', () {
+      // The regression this guards: the controller link used to count every
+      // undone step, optional or not, so this offer alone turned a working
+      // controller amber and held back "Ready to ride".
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(clickV2NeedsLeftSide: true)],
+          trainer: trainer(),
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.status, LinkStatus.ready);
+      expect(link.steps.where((s) => !s.done && !s.optional), isEmpty);
+    });
+
+    test('a real outstanding step still outranks the optional offer', () {
+      // The optional step must not mask a genuine one sitting beside it.
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(hasMappedButtons: false, clickV2NeedsLeftSide: true)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.status, LinkStatus.attention);
+      expect(link.activeStep?.id, SetupStepId.controllerButtonsMapped);
     });
 
     test('a controller with no unlock concept has no unlock step at all', () {

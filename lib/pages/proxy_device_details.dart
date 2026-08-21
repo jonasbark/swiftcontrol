@@ -10,6 +10,7 @@ import 'package:bike_control/pages/proxy_device_details/gear_hero_card.dart';
 import 'package:bike_control/pages/proxy_device_details/live_metrics_section.dart';
 import 'package:bike_control/pages/proxy_device_details/mini_workout_card.dart';
 import 'package:bike_control/pages/proxy_device_details/overlay_settings_section.dart';
+import 'package:bike_control/pages/proxy_device_details/self_test_card.dart';
 import 'package:bike_control/pages/proxy_device_details/trainer_settings_section.dart';
 import 'package:bike_control/pages/proxy_device_details/virtual_shifting_pro_notice.dart';
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
@@ -161,6 +162,14 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
                 ],
                 LiveMetricsSection(key: const ValueKey('live-metrics'), device: device),
                 SizedBox(height: 20),
+                if (!screenshotMode && device.fitnessBike != null) ...[
+                  SelfTestCard(
+                    key: const ValueKey('self-test'),
+                    device: device,
+                    onShowOverlaySettings: _revealOverlaySection,
+                  ),
+                  SizedBox(height: 20),
+                ],
                 MiniWorkoutCard(key: const ValueKey('mini-workout'), device: device),
                 SizedBox(height: 20),
                 _settingsSection(),

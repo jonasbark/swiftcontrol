@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:bike_control/main.dart';
 import 'package:bike_control/services/overlay/ios_pip_controller.dart';
@@ -10,11 +9,25 @@ import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:live_activities/live_activities.dart';
+import 'package:live_activities/models/live_activity_state.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 
 class IosOverlayController implements TrainerOverlayController {
+  /// [liveActivities] and [pip] exist so tests can stand in for ActivityKit and
+  /// the PiP channel; production always takes the defaults.
+  IosOverlayController({LiveActivities? liveActivities, IosPipController? pip})
+      : _la = liveActivities ?? LiveActivities(),
+        _pip = pip ?? IosPipController();
+
   static const _appGroupId = 'group.de.jonasbark.swiftcontrol.overlay';
   static const _minPushIntervalMs = 500; // ~2 Hz
+
+  /// Stable name for the one Live Activity BikeControl ever wants — the gear
+  /// readout. The plugin hashes it into the activity's `attributes.id`, which
+  /// doubles as the prefix the widget extension reads its App Group values
+  /// under, so a fixed name also stops every ride from leaking a fresh set of
+  /// never-collected `UserDefaults` keys.
+  static const _activityName = 'bike-control-gear-overlay';
 
   /// Custom MethodChannel that delivers Live Activity button taps from
   /// `AppDelegate.swift` (which observes Darwin notifications posted by the
@@ -23,10 +36,17 @@ class IosOverlayController implements TrainerOverlayController {
       MethodChannel('bike_control/overlay_actions_ios');
 
   final ValueNotifier<bool> _showing = ValueNotifier(false);
-  final LiveActivities _la = LiveActivities();
+  final LiveActivities _la;
   String? _activityId;
-  final IosPipController _pip = IosPipController();
+  final IosPipController _pip;
   bool _pipActive = false;
+
+  /// The `show()` currently talking to ActivityKit, if any. A trainer app that
+  /// flaps its connection re-enters `show()` while the previous attempt is
+  /// still awaiting `Activity.request`; without this every flap would be
+  /// another request against a cap that only the rider rebooting their phone
+  /// can clear.
+  Future<OverlayShowResult>? _showInFlight;
 
   FitnessBikeDefinition? _def;
   LiveDefinitionLookup? _liveDef;
@@ -50,11 +70,26 @@ class IosOverlayController implements TrainerOverlayController {
     FitnessBikeDefinition def,
     Set<OverlayField> fields, {
     LiveDefinitionLookup? liveDef,
+  }) {
+    final inFlight = _showInFlight;
+    if (inFlight != null) return inFlight;
+    final started = _show(def, fields, liveDef: liveDef);
+    _showInFlight = started;
+    return started.whenComplete(() {
+      if (identical(_showInFlight, started)) _showInFlight = null;
+    });
+  }
+
+  Future<OverlayShowResult> _show(
+    FitnessBikeDefinition def,
+    Set<OverlayField> fields, {
+    LiveDefinitionLookup? liveDef,
   }) async {
     try {
       await _la.init(appGroupId: _appGroupId);
     } catch (e, s) {
       recordError(e, s, context: 'overlay.ios.init');
+      _markNotShowing();
       return OverlayShowResult.fail(OverlayShowFailure.systemDisabled, message: 'Live Activities init failed: $e');
     }
     _def = def;
@@ -64,23 +99,32 @@ class IosOverlayController implements TrainerOverlayController {
     _installActionHandler();
 
     final s = _snapshot(def);
-    final activityId = _generateId();
+    final String? activity;
     try {
-      final result = await _la.createActivity(activityId, _toMap(s));
-      if (result == null) {
-        return const OverlayShowResult.fail(
-          OverlayShowFailure.systemDisabled,
-          message: 'Live Activities are disabled (Low Power Mode or system setting).',
-        );
-      }
-      // The package returns ActivityKit's generated activity id (not the
-      // string we passed in). updateActivity / endActivity look up the
-      // activity by THAT id, so we must store the returned value.
-      _activityId = result;
-    } catch (e, s) {
-      recordError(e, s, context: 'overlay.ios.createActivity');
+      activity = await _adoptOrStartActivity(_toMap(s));
+    } catch (e, st) {
+      recordError(e, st, context: 'overlay.ios.createActivity');
+      _markNotShowing();
       return OverlayShowResult.fail(OverlayShowFailure.systemDisabled, message: 'Live Activity create failed: $e');
     }
+    if (activity == null) {
+      _markNotShowing();
+      return const OverlayShowResult.fail(
+        OverlayShowFailure.systemDisabled,
+        message: 'Live Activities are disabled (Low Power Mode or system setting).',
+      );
+    }
+    // hide() may have run during the awaits above and cleared the definition —
+    // don't leave the activity we just adopted or requested on screen with
+    // nothing feeding it, that is one more orphan holding a slot.
+    if (!identical(_def, def)) {
+      await _endActivities([activity]);
+      _markNotShowing();
+      return const OverlayShowResult.fail(OverlayShowFailure.unknown, message: 'Overlay was hidden while starting');
+    }
+    // ActivityKit's own activity id (not the name we passed in) — that is what
+    // updateActivity / endActivity look the activity up by.
+    _activityId = activity;
 
     _showing.value = true;
     try {
@@ -133,6 +177,14 @@ class IosOverlayController implements TrainerOverlayController {
       }
       _pipActive = false;
     }
+  }
+
+  /// Nothing is on screen. Say so, rather than leaving the Overlay switch and
+  /// the auto-show guard insisting on an overlay the rider cannot see — and
+  /// drop the id, which by now points at an activity that is gone.
+  void _markNotShowing() {
+    _activityId = null;
+    _showing.value = false;
   }
 
   @override
@@ -278,12 +330,139 @@ class IosOverlayController implements TrainerOverlayController {
     }
   }
 
-  static String _generateId() {
-    final rng = Random();
-    final buf = StringBuffer('trainer-');
-    for (var i = 0; i < 16; i++) {
-      buf.write(rng.nextInt(16).toRadixString(16));
+  /// Hands back the ActivityKit id of a live gear activity, reusing whatever
+  /// iOS still has rather than asking for another one.
+  ///
+  /// ActivityKit caps how many Live Activities a target may run at once, and
+  /// every one BikeControl abandons — app force-quit mid-ride, Flutter engine
+  /// restarted, activity swiped off the Lock Screen — keeps holding its slot.
+  /// Because [_activityId] only ever lived in this isolate's memory, each
+  /// launch used to mint a brand-new activity and orphan the last one, until
+  /// `Activity.request` started throwing `targetMaximumExceeded` and stayed
+  /// that way until the rider rebooted the phone. On iOS the Live Activity IS
+  /// the gear display, so that silently kills the only readout of the virtual
+  /// gear a trainer app can't show.
+  Future<String?> _adoptOrStartActivity(Map<String, dynamic> data) async {
+    final plan = planLiveActivity(
+      trackedId: _activityId,
+      existing: await _existingActivities(),
+    );
+    await _endActivities(plan.end);
+    // The sweep just left `plan.adopt` as the only survivor, so that — and not
+    // an id we have already ended — is what _push() may write to from here on.
+    _activityId = plan.adopt;
+
+    final adopt = plan.adopt;
+    if (adopt != null) {
+      try {
+        // Writes land under the adopted activity's own attributes prefix, so
+        // an activity started by a previous launch shows fresh gear data.
+        await _la.updateActivity(adopt, data);
+        return adopt;
+      } catch (e, s) {
+        // It went away between the query and the update. Reap it for real and
+        // fall through to a fresh request rather than reporting failure.
+        recordError(e, s, context: 'overlay.ios.adoptActivity');
+        await _endActivities([adopt]);
+        _activityId = null;
+      }
     }
-    return buf.toString();
+
+    try {
+      return await _la.createActivity(_activityName, data, removeWhenAppIsKilled: true);
+    } catch (e, s) {
+      // `Activity.activities` reads empty for a beat after a cold start (the
+      // plugin works around the same race in createOrUpdateActivity), so the
+      // sweep above can miss orphans that are very much still holding slots.
+      // Give iOS that beat, end everything, and ask exactly once more.
+      recordError(e, s, context: 'overlay.ios.createActivity.retry');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await _endAllActivities();
+      return _la.createActivity(_activityName, data, removeWhenAppIsKilled: true);
+    }
   }
+
+  Future<Map<String, LiveActivityState>> _existingActivities() async {
+    try {
+      return await _la.getAllActivities();
+    } catch (e, s) {
+      recordError(e, s, context: 'overlay.ios.getAllActivities');
+      return const {};
+    }
+  }
+
+  Future<void> _endActivities(Iterable<String> ids) async {
+    for (final id in ids) {
+      try {
+        await _la.endActivity(id);
+      } catch (e, s) {
+        recordError(e, s, context: 'overlay.ios.endStaleActivity');
+      }
+    }
+  }
+
+  Future<void> _endAllActivities() async {
+    try {
+      await _la.endAllActivities();
+    } catch (e, s) {
+      recordError(e, s, context: 'overlay.ios.endAllActivities');
+    }
+  }
+}
+
+/// Which Live Activity to reuse, and which ones have to be ended first.
+@immutable
+class LiveActivityPlan {
+  const LiveActivityPlan({required this.adopt, required this.end});
+
+  /// ActivityKit id of the activity to update in place, or null when a new one
+  /// has to be requested.
+  final String? adopt;
+
+  /// ActivityKit ids to end. Each of these holds a slot against the per-target
+  /// cap for as long as it exists.
+  final List<String> end;
+}
+
+/// Decides what to do with the Live Activities iOS reports for this app.
+///
+/// BikeControl only ever wants one, the gear readout. [trackedId] is the
+/// activity this isolate started (null after a restart, or once it was ended)
+/// and [existing] is what ActivityKit still holds. Anything that isn't the one
+/// activity we keep gets ended: an orphan occupies its slot until the device
+/// reboots, and a full target is exactly what makes `Activity.request` throw
+/// `targetMaximumExceeded`.
+@visibleForTesting
+LiveActivityPlan planLiveActivity({
+  required String? trackedId,
+  required Map<String, LiveActivityState> existing,
+}) {
+  // `dismissed` is already gone from the system. `ended` is still on screen —
+  // and still counted — but can no longer be updated, so it is only ever
+  // something to reap. `stale` just means the content is out of date, which is
+  // what the update we are about to push fixes.
+  bool reusable(String id) {
+    final state = existing[id];
+    return state == LiveActivityState.active || state == LiveActivityState.stale;
+  }
+
+  String? adopt;
+  if (trackedId != null && reusable(trackedId)) {
+    adopt = trackedId;
+  } else {
+    for (final id in existing.keys) {
+      if (reusable(id)) {
+        adopt = id;
+        break;
+      }
+    }
+  }
+
+  return LiveActivityPlan(
+    adopt: adopt,
+    end: [
+      for (final id in existing.keys)
+        if (id != adopt) id,
+    ],
+  );
 }

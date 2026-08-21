@@ -9,6 +9,7 @@ import 'package:bike_control/utils/keymap/apps/custom_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:bike_control/utils/keymap/manager.dart';
+import 'package:bike_control/widgets/click_v2/keep_awake_warning.dart';
 import 'package:bike_control/widgets/controller/controller_layout.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:bike_control/widgets/unlock_toggle.dart';
@@ -100,6 +101,14 @@ class ZwiftClickV2RightSide extends ZwiftRide {
   }
 
   @override
+  Future<void> disconnect() async {
+    // Drops the remembered handle and the "connect the left side" prompt with
+    // it — there is no longer a right puck for the rider to fix.
+    ClickLogic.forgetKeepAwake();
+    await super.disconnect();
+  }
+
+  @override
   List<Widget> showAdditionalInformation(BuildContext context) {
     // Connected, not merely discovered: right-side-only mode holds the left
     // side back rather than forgetting it, so it stays in the device list.
@@ -110,6 +119,7 @@ class ZwiftClickV2RightSide extends ZwiftRide {
       // into the explainer belongs on either card — a rider looking at the
       // right side shouldn't have to find the left one to change it.
       const UnlockToggle(children: []),
+      if (isConnected && !screenshotMode) const ClickV2KeepAwakeWarning(),
       if (hasLiveLeftSide) ...[
         Text(context.i18n.unlock_useRightSideOnlyDescription).xSmall.normal,
         SizedBox(

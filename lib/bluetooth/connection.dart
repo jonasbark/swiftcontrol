@@ -9,6 +9,7 @@ import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
 import 'package:bike_control/bluetooth/incline/incline_controller.dart';
 import 'package:bike_control/bluetooth/incline/incline_sink.dart';
@@ -88,6 +89,31 @@ class Connection {
       byserial[info.serial] = info;
     }
     return byserial.values;
+  }
+
+  /// Whether a Zwift Click V2 left puck is switched on within range.
+  ///
+  /// Read from the raw adverts, not from [devices], and deliberately so: the
+  /// right puck only needs its sibling *nearby* to be kept awake, not paired.
+  /// In right-side-only mode the left puck is on the ignored list and so never
+  /// enters [devices] at all, yet it is still advertising and still counts.
+  bool get hasNearbyClickV2LeftSide {
+    if (_lastScanResult.any(isClickV2LeftSideAdvert)) return true;
+    // A left puck that connected before the scan list was last cleared no
+    // longer has an advert to find, but is plainly still there.
+    return devices.whereType<ZwiftClickV2LeftSide>().any((d) => d.isConnected);
+  }
+
+  /// Whether an advert is a Click V2 left puck, by the Zwift manufacturer
+  /// record's device-type byte. Split out from [hasNearbyClickV2LeftSide] so
+  /// the identification can be tested without a radio.
+  @visibleForTesting
+  static bool isClickV2LeftSideAdvert(BleDevice adv) {
+    final payload = adv.manufacturerDataList
+        .firstOrNullWhere((e) => e.companyId == ZwiftConstants.ZWIFT_MANUFACTURER_ID)
+        ?.payload;
+    if (payload == null || payload.isEmpty) return false;
+    return ZwiftDeviceType.fromManufacturerData(payload.first) == ZwiftDeviceType.clickV2Left;
   }
 
   static Uint8List? _sramServiceDataRecord(Map<String, Uint8List> serviceData) {
@@ -381,6 +407,10 @@ class Connection {
       }
     };
 
+    // The right puck's keep-awake needs its sibling in range, and only this
+    // side can see what is in range.
+    ClickLogic.isLeftSideNearby = () => hasNearbyClickV2LeftSide;
+
     UniversalBle.onAvailabilityChange = (available) {
       _actionStreams.add(BluetoothAvailabilityNotification(available == AvailabilityState.poweredOn));
       if (available == AvailabilityState.poweredOn && !kIsWeb) {
@@ -406,6 +436,12 @@ class Connection {
 
       if (_lastScanResult.none((e) => e.deviceId == result.deviceId && e.services.contentEquals(result.services))) {
         _lastScanResult.add(result);
+
+        // A left puck coming into range may be exactly what a right puck has
+        // been waiting for, and an ignored one never gets further than this —
+        // it is discovered and then dropped, so discovery is the only signal.
+        // No-op unless a right puck is actually waiting.
+        ClickLogic.startKeepAwakeIfPending();
 
         if (kDebugMode) {
           debugPrint('Scan result: ${result.name} - ${result.deviceId} - Services: ${result.services}');

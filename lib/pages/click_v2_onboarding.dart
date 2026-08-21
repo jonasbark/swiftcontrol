@@ -144,7 +144,7 @@ class _ClickV2OnboardingPageState extends State<ClickV2OnboardingPage> with Sing
                     fromPage: 0,
                     title: l10n.clickV2Onboarding_rightOnlyTitle,
                     pros: [l10n.clickV2Onboarding_rightOnlyPro1, l10n.clickV2Onboarding_rightOnlyPro2],
-                    cons: [l10n.clickV2Onboarding_rightOnlyCon1, l10n.clickV2Onboarding_rightOnlyCon2],
+                    cons: [l10n.clickV2Onboarding_rightOnlyCon1],
                   ),
                   _option(
                     heroPage: 1,

@@ -43,7 +43,7 @@ import 'package:bike_control/widgets/ui/animated_button_widget.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show enableLocalControl;
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
-import 'package:prop/prop.dart' show LogLevel;
+import 'package:prop/prop.dart' show ClickKeepAwakeStatus, ClickLogic, LogLevel;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// How much the chain card wants to talk about a given trainer. Lower wins.
@@ -142,6 +142,14 @@ class _HomePageState extends State<HomePage> {
 
     _refreshBluetoothState();
     IAPManager.instance.isPurchased.addListener(_onPurchaseChanged);
+    // The keep-awake resolves a few seconds after a left puck turns up, which
+    // is not a connection event — without this the offer would linger on the
+    // card after it had already been taken up.
+    ClickLogic.keepAwakeStatus.addListener(_onKeepAwakeChanged);
+  }
+
+  void _onKeepAwakeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Whether the bridge is running and whether the trainer app holds it are
@@ -174,6 +182,7 @@ class _HomePageState extends State<HomePage> {
     _actionListener.cancel();
     _metricsTicker?.cancel();
     IAPManager.instance.isPurchased.removeListener(_onPurchaseChanged);
+    ClickLogic.keepAwakeStatus.removeListener(_onKeepAwakeChanged);
     super.dispose();
   }
 
@@ -312,6 +321,9 @@ class _HomePageState extends State<HomePage> {
             sramSetupDone: device is SramAxs ? !device.needsGuidedSetup : null,
             needsUnlockModeChoice:
                 (device is ZwiftClickV2 || device is ZwiftClickV2RightSide) && ClickV2Onboarding.isPending,
+            clickV2NeedsLeftSide:
+                device is ZwiftClickV2RightSide &&
+                ClickLogic.keepAwakeStatus.value == ClickKeepAwakeStatus.waitingForLeftSide,
           ),
       ],
       trainer: trainer,

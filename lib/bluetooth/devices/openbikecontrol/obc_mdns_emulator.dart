@@ -185,9 +185,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
   Future<ActionResult> sendAction(KeyPair keyPair, {required bool isKeyDown, required bool isKeyUp}) async {
     final inGameAction = keyPair.inGameAction;
 
-    final mappedButtons = connectedApp.value!.supportedButtons.filter(
-      (supportedButton) => supportedButton.action == inGameAction,
-    );
+    final app = connectedApp.value;
 
     if (inGameAction == null) {
       return Error(
@@ -200,12 +198,18 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
         'No client connected',
         button: keyPair.buttons.firstOrNull,
       );
-    } else if (connectedApp.value == null) {
+    } else if (app == null) {
       return Error(
         'No app info received from central',
         button: keyPair.buttons.firstOrNull,
       );
-    } else if (mappedButtons.isEmpty) {
+    }
+
+    final mappedButtons = app.supportedButtons.filter(
+      (supportedButton) => supportedButton.action == inGameAction,
+    );
+
+    if (mappedButtons.isEmpty) {
       return NotHandled(
         'App does not support: ${inGameAction.title}',
         button: keyPair.buttons.firstOrNull,

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart' show SramAxs;
 import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
+import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
@@ -255,6 +256,43 @@ Future<void> main() async {
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
     expect(stubActions.performedActions.length, countAfterPress, reason: 'the multi-byte echo must be ignored');
+  });
+
+  // The real crash report: SRAM AXS + trainer app selected, but the keymap
+  // pref ('app') never resolved, so `supportedApp` was null. Every press threw
+  // "Null check operator used on a null value" (swallowed into a log line) and
+  // the device surfaced zero buttons, so the edit screen was empty too.
+  test('a paddle press with no keymap set still registers the button and does not error', () async {
+    stubActions.supportedApp = null;
+    core.actionHandler.supportedApp = null;
+
+    final (derailleur, device) = await connectSram();
+    await device.setupControl();
+
+    final logs = <String>[];
+    final sub = device.actionStream.listen((n) {
+      if (n is LogNotification) logs.add(n.message);
+    });
+
+    derailleur.pressPaddle(0x12345678);
+
+    await IntegrationEnv.waitFor(
+      () => device.availableButtons.isNotEmpty,
+      description: 'the decoded paddle button registered on the device',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    await sub.cancel();
+
+    expect(
+      logs.where((m) => m.contains('Error handling button clicks')),
+      isEmpty,
+      reason: 'a missing keymap must not throw out of handleButtonsClicked',
+    );
+    expect(
+      device.availableButtons.any((b) => b.name.contains('Shifter A')),
+      isTrue,
+      reason: 'without a keymap the button must still be exposed for editing',
+    );
   });
 
   // Only button-bearing SRAM controllers surface in `sramShifterAdverts`. A

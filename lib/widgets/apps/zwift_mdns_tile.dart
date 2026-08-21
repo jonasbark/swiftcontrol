@@ -5,6 +5,7 @@ import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart';
 import 'package:flutter/material.dart';
 import 'package:prop/prop.dart';
@@ -80,7 +81,7 @@ class _ZwiftTileState extends State<ZwiftMdnsTile> {
                     }
                     setState(() {});
                   },
-                  requirements: [],
+                  requirements: localNetworkRequirements(),
                 );
               },
             );

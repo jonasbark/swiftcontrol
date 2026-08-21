@@ -16,6 +16,10 @@ Here's a video with a few explanations. Note that it uses an older version, but 
 This is a network/local-discovery problem. BikeControl needs the same kind of local network access as MyWhoosh Link.
 
 Checklist:
+- **iOS / macOS: check the Local Network permission first.** Without it every Link connection fails silently — nothing is logged, the app just never appears.
+  - iOS: Settings → BikeControl → Local Network
+  - macOS: System Settings → Privacy & Security → Local Network
+  - BikeControl checks this itself and offers to open the right page, but the toggle can be revoked later (and on macOS it is sometimes lost across a reboot).
 - Use the MyWhoosh Link app to confirm if "Link" works in general
 - Use MyWhoosh Link app and connect, then close it, then open up BikeControl - this is key for some users
 - Both devices (if you use BikeControl on another device than MyWhoosh) are on the **same Wi‑Fi SSID**

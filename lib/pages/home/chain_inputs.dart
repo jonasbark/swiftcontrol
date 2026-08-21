@@ -46,6 +46,7 @@ class ControllerInput {
     this.unlockUncertain = false,
     this.sramSetupDone,
     this.needsUnlockModeChoice = false,
+    this.clickV2NeedsLeftSide = false,
   });
 
   final String deviceId;
@@ -97,6 +98,11 @@ class ControllerInput {
   /// them; without it the card reported "never paired" and "bring it back in
   /// range" about a controller sitting switched on beside the rider.
   final bool needsUnlockModeChoice;
+
+  /// Whether this is a Click V2 right puck that would stop powering itself off
+  /// if a left puck were switched on nearby. An offer, never a requirement —
+  /// the controller works either way, it just switches off after a minute.
+  final bool clickV2NeedsLeftSide;
 }
 
 class TrainerInput {

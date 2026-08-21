@@ -35,6 +35,10 @@ class TrainingPeaks extends SupportedApp {
     0x14, // Select/Confirm
     0x15, // Back/Cancel
     0x16, // Menu
+    // TPV advertises Steer Left/Right over OBP (seen in a live app-info frame);
+    // without them here the button editor hides steering before a connection.
+    0x18, // Steer Left
+    0x19, // Steer Right
     0x21, // Push to Talk
     0x30, // Increase Difficulty
     0x31, // Decrease Difficulty
@@ -129,32 +133,42 @@ class TrainingPeaks extends SupportedApp {
               buttons: [ZwiftButtons.navigationUp],
               physicalKey: PhysicalKeyboardKey.arrowUp,
               logicalKey: LogicalKeyboardKey.arrowUp,
+              inGameAction: InGameAction.up,
               touchPosition: Offset(42.28406293368177, 92.61854987939971),
             ),
 
-            // Face buttons with touch positions and keyboard fallbacks where sensible
+            // Face buttons with touch positions and keyboard fallbacks where sensible.
+            // Every entry needs its [InGameAction] too: a key/touch-only default is
+            // strictly worse than no entry at all, because it shadows the action the
+            // button would otherwise inherit from [ControllerButton.action] via
+            // [Keymap.addNewButtons] — and only in-game actions reach TPV over OBP
+            // (BLE / DirCon), which is the whole point on a second device.
             KeyPair(
               buttons: [ZwiftButtons.z, EliteSquareButtons.z],
               physicalKey: null,
               logicalKey: null,
+              inGameAction: InGameAction.pause,
               touchPosition: Offset(33.993890038715456, 92.43667306401531),
             ),
             KeyPair(
               buttons: [ZwiftButtons.a, EliteSquareButtons.a],
               physicalKey: null,
               logicalKey: null,
+              inGameAction: InGameAction.select,
               touchPosition: Offset(47.37191097597044, 92.86963594239016),
             ),
             KeyPair(
               buttons: [ZwiftButtons.b, EliteSquareButtons.b],
               physicalKey: null,
               logicalKey: null,
+              inGameAction: InGameAction.back,
               touchPosition: Offset(41.12364102683652, 83.72743323236598),
             ),
             KeyPair(
               buttons: [ZwiftButtons.y, EliteSquareButtons.y],
               physicalKey: null,
               logicalKey: null,
+              inGameAction: InGameAction.menu,
               touchPosition: Offset(58.52936866684111, 84.31131200977018),
             ),
 
@@ -166,6 +180,7 @@ class TrainingPeaks extends SupportedApp {
                     buttons: [b],
                     physicalKey: PhysicalKeyboardKey.keyH,
                     logicalKey: LogicalKeyboardKey.keyH,
+                    inGameAction: InGameAction.toggleUi,
                   ),
                 ),
             ...ControllerButton.values
@@ -175,6 +190,7 @@ class TrainingPeaks extends SupportedApp {
                     buttons: [b],
                     physicalKey: PhysicalKeyboardKey.pageUp,
                     logicalKey: LogicalKeyboardKey.pageUp,
+                    inGameAction: InGameAction.increaseResistance,
                   ),
                 ),
             ...ControllerButton.values
@@ -184,6 +200,7 @@ class TrainingPeaks extends SupportedApp {
                     buttons: [b],
                     physicalKey: PhysicalKeyboardKey.pageDown,
                     logicalKey: LogicalKeyboardKey.pageDown,
+                    inGameAction: InGameAction.decreaseResistance,
                   ),
                 ),
           ],

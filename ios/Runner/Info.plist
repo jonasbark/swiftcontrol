@@ -57,6 +57,7 @@
 	<array>
 		<string>_wahoo-fitness-tnp._tcp</string>
 		<string>_openbikecontrol._tcp</string>
+		<string>_bikecontrol-preflight._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app connects to your trainer app on your local network.</string>

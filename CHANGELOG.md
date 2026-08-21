@@ -1,3 +1,7 @@
+### 6.5.0 (unreleased)
+**Fixes**:
+- iOS & macOS: BikeControl now detects when the system "Local Network" permission is off and says so, instead of leaving the network connection methods (MyWhoosh Link, Zwift and OpenBikeControl over Wi-Fi) silently unable to find anything. Tapping the warning opens the right settings page.
+
 ### 6.4.0 (10-08-2026)
 **Features**:
 - Added a guided setup on first launch

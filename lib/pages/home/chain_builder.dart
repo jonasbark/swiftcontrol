@@ -88,11 +88,21 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
                 hintArg: controller.unlockedUntil,
                 uncertain: controller.unlockUncertain,
               ),
+            // An offer, not work: the right puck functions perfectly without a
+            // left one, it just switches off after a minute idle. Only emitted
+            // while outstanding, so it never sits ticked on a card forever.
+            if (controller.clickV2NeedsLeftSide)
+              const SetupStep(
+                id: SetupStepId.controllerClickV2KeepAwake,
+                done: false,
+                optional: true,
+              ),
           ];
 
     // An unfinished checklist outranks a healthy connection: a connected
     // controller with no buttons mapped does nothing, so it must not be green.
-    final incomplete = steps.any((s) => !s.done);
+    // Optional steps are offers and stay out of it — see [SetupStep.optional].
+    final incomplete = steps.any((s) => !s.done && !s.optional);
     final presenceStatus = _presenceStatus(controller.presence);
     final status = incomplete && presenceStatus == LinkStatus.ready ? LinkStatus.attention : presenceStatus;
 
