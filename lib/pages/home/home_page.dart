@@ -22,6 +22,7 @@ import 'package:bike_control/pages/home/chain_inputs.dart';
 import 'package:bike_control/pages/home/chain_state.dart';
 import 'package:bike_control/pages/home/home_extras.dart';
 import 'package:bike_control/pages/home/home_sheets.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
@@ -68,6 +69,14 @@ int proxyChainRank(ProxyDevice p) {
 /// proxies. See [proxyChainRank].
 @visibleForTesting
 ProxyDevice? chainProxy() => core.connection.proxyDevices.sortedBy(proxyChainRank).firstOrNull;
+
+/// The app card's active step is "waiting for the app to connect" and the
+/// Network method is the enabled path — the moment troubleshooting helps.
+bool appCardOffersTroubleshooting(ChainLink link) =>
+    link.key == ChainLinkKey.app &&
+    link.activeStep?.id == SetupStepId.appConnected &&
+    core.logic.isObpMdnsEnabled &&
+    core.obpMdnsEmulator.isStarted.value;
 
 /// The Main tab: the setup chain.
 ///
@@ -817,6 +826,8 @@ class _HomePageState extends State<HomePage> {
           ? context.i18n.chainStepLocalControlAction
           : appLinkOpensConnectionSettings(link)
           ? context.i18n.chainSetUp
+          : appCardOffersTroubleshooting(link)
+          ? context.i18n.networkTroubleshootTroubleshoot
           : null,
     );
   }
@@ -922,6 +933,11 @@ class _HomePageState extends State<HomePage> {
           // the rider reading pairing instructions for a bridge that isn't
           // running yet.
           await context.push(const TrainerConnectionSettingsPage());
+        } else if (appCardOffersTroubleshooting(link)) {
+          // The app is up and just hasn't been told about this device yet —
+          // that's the network troubleshooter's exact job, not the generic
+          // "how do I pair this app" guide.
+          await context.push(const NetworkTroubleshootingPage());
         } else {
           await openAppGuideSheet(context);
         }

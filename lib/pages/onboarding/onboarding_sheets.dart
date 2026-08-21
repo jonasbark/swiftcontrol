@@ -3,6 +3,7 @@ import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
@@ -95,6 +96,18 @@ Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep st
           }
         },
       ),
+      // Network is the one connection method with its own guided fix-it flow
+      // (mDNS/DirCon discovery) — offer a direct line to it right where the
+      // rider is already asking for help, instead of leaving it buried behind
+      // the generic troubleshooting article.
+      if (core.logic.isObpMdnsEnabled)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Button.outline(
+            onPressed: () => context.push(const NetworkTroubleshootingPage()),
+            child: Text(context.i18n.networkTroubleshootingTitle),
+          ),
+        ),
       _channel(
         context,
         icon: LucideIcons.mail,
