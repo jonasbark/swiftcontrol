@@ -127,4 +127,68 @@ Future<void> main() async {
     // Local Network is an Apple-only permission; localNetworkRequirements()
     // is empty everywhere else, so there is nothing to assert.
   }, skip: !(Platform.isMacOS || Platform.isIOS));
+
+  testWidgets('an already-enabled network method is re-verified on entering step 5', (tester) async {
+    // setOnboardingMethodEnabled only checks on the way *on*. A rider arriving
+    // at the connection step with the method already enabled — or who granted
+    // Local Network once and revoked it since — never crosses that edge.
+    screenshotMode = false;
+    addTearDown(() => screenshotMode = true);
+    LocalNetworkAccess.resetForTest();
+    addTearDown(LocalNetworkAccess.resetForTest);
+    final probes = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      LocalNetworkPermission.channel,
+      (call) async {
+        probes.add(call.method);
+        return call.method == 'check' ? 'denied' : null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(LocalNetworkPermission.channel, null),
+    );
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+    final app = SupportedApp.supportedApps.firstWhere(
+      (a) => onboardingMethodVisible(OnboardingMethod.network, a),
+    );
+    core.settings.setTrainerApp(app);
+    // Switch the method on directly, bypassing the toggle's own check — this is
+    // the state a returning rider arrives in.
+    core.settings.setObpMdnsEnabled(true);
+    core.settings.setZwiftMdnsEmulatorEnabled(true);
+
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      ShadcnApp(
+        localizationsDelegates: [
+          ...ShadcnLocalizations.localizationsDelegates,
+          const OtherLocalizationsDelegate(),
+          AppLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.delegate.supportedLocales,
+        home: Scaffold(child: Builder(builder: (c) {
+          ctx = c;
+          return const SizedBox.shrink();
+        })),
+      ),
+    );
+
+    try {
+      expect(onboardingMethodEnabled(OnboardingMethod.network, app), isTrue,
+          reason: 'precondition: the rider arrives with it already on');
+
+      // Not awaited: the permission sheet waits for a real dismissal.
+      unawaited(verifyEnabledNetworkMethod(ctx, app, onUpdate: () {}));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(probes, contains('check'),
+          reason: 'entering the connection step must re-verify an enabled network method');
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+    // Local Network is Apple-only; localNetworkRequirements() is empty elsewhere.
+  }, skip: !(Platform.isMacOS || Platform.isIOS));
 }

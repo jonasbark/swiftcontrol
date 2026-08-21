@@ -93,6 +93,55 @@ bool onboardingMethodEnabled(OnboardingMethod method, SupportedApp app) => switc
 /// Toggles [method] with exactly the side effects of the corresponding
 /// settings tile's onChange handler. [onUpdate] is invoked when async state
 /// settles so the host can rebuild.
+/// Live permission check: a status check that throws counts as not granted, so
+/// a method is never enabled on a permission state we could not verify.
+Future<bool> _liveStatus(PlatformRequirement r) async {
+  try {
+    return await r.getStatus();
+  } catch (e, s) {
+    recordError(e, s, context: 'onboarding method requirement status');
+    return false;
+  }
+}
+
+/// Prompts for whichever of [requirements] are missing and reports whether they
+/// all ended up granted.
+Future<bool> _satisfy(BuildContext context, List<PlatformRequirement> requirements) async {
+  var states = await Future.wait(requirements.map(_liveStatus));
+  final missing = [
+    for (var i = 0; i < requirements.length; i++)
+      if (!states[i]) requirements[i],
+  ];
+  if (missing.isEmpty) return true;
+  if (context.mounted) {
+    await openPermissionSheet(context, missing);
+  }
+  states = await Future.wait(missing.map(_liveStatus));
+  return states.every((granted) => granted);
+}
+
+/// Re-verifies a network method that is *already* switched on.
+///
+/// [setOnboardingMethodEnabled] only checks on the enable transition, so a
+/// rider arriving at the connection step with the method on from a previous
+/// session — or who granted Local Network once and revoked it since — would
+/// otherwise be told nothing until the connection silently failed. Switches the
+/// method back off if the permission is still missing, so the tile stops
+/// claiming it is on.
+Future<void> verifyEnabledNetworkMethod(
+  BuildContext context,
+  SupportedApp app, {
+  required VoidCallback onUpdate,
+}) async {
+  if (!onboardingMethodVisible(OnboardingMethod.network, app)) return;
+  if (!onboardingMethodEnabled(OnboardingMethod.network, app)) return;
+  final requirements = localNetworkRequirements();
+  if (requirements.isEmpty) return;
+  if (await _satisfy(context, requirements)) return;
+  if (!context.mounted) return;
+  await setOnboardingMethodEnabled(context, OnboardingMethod.network, app, false, onUpdate: onUpdate);
+}
+
 Future<void> setOnboardingMethodEnabled(
   BuildContext context,
   OnboardingMethod method,
@@ -106,40 +155,13 @@ Future<void> setOnboardingMethodEnabled(
     );
   }
 
-  /// Live permission check, mirroring the Local method's gate: a status check
-  /// that throws counts as not granted, so a method is never enabled on a
-  /// permission state we could not verify.
-  Future<bool> liveStatus(PlatformRequirement r) async {
-    try {
-      return await r.getStatus();
-    } catch (e, s) {
-      recordError(e, s, context: 'onboarding method requirement status');
-      return false;
-    }
-  }
-
-  /// Prompts for [requirements] and reports whether they all ended up granted.
-  Future<bool> satisfy(List<PlatformRequirement> requirements) async {
-    var states = await Future.wait(requirements.map(liveStatus));
-    final missing = [
-      for (var i = 0; i < requirements.length; i++)
-        if (!states[i]) requirements[i],
-    ];
-    if (missing.isEmpty) return true;
-    if (context.mounted) {
-      await openPermissionSheet(context, missing);
-    }
-    states = await Future.wait(missing.map(liveStatus));
-    return states.every((granted) => granted);
-  }
-
   switch (method) {
     case OnboardingMethod.network:
       // Local Network lives here rather than in getScanRequirements(): every
       // consumer of that list treats a non-empty result as "don't scan", so a
       // denial there would silently kill Bluetooth scanning, and probing it at
       // app start pops the system dialog before onboarding has even been shown.
-      if (value && !await satisfy(localNetworkRequirements())) {
+      if (value && !await _satisfy(context, localNetworkRequirements())) {
         onUpdate();
         return;
       }

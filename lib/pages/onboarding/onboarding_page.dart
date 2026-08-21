@@ -488,6 +488,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void _goTo(OnboardingStep step) {
     setState(() => _step = step);
     if (step == OnboardingStep.controller) _enterControllerStep();
+    if (step == OnboardingStep.connection) _enterConnectionStep();
+  }
+
+  /// A network method already switched on is only re-verified here: the toggle
+  /// in [setOnboardingMethodEnabled] checks on the way *on*, which a rider who
+  /// arrives with it already enabled never crosses.
+  Future<void> _enterConnectionStep() async {
+    final app = _selectedApp;
+    if (app == null) return;
+    try {
+      await verifyEnabledNetworkMethod(_sheetContext, app, onUpdate: () {
+        if (mounted) setState(() {});
+      });
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding connection step requirements');
+    }
   }
 
   void _next() => _goTo(onboardingNextStep(_step, appIsSelfHosted: _selfHosted));
