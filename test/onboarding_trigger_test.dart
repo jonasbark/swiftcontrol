@@ -31,39 +31,24 @@ void main() {
   });
 
   group('deferLaunchPermissionChecks', () {
-    test('defers on a fresh install with nothing switched on', () {
-      // Nothing is configured and the wizard has not run, so a launch-time
-      // permission dialog would arrive with no context to explain it.
+    test('defers while the wizard is about to take the screen', () {
+      // Checking a permission means asking for it on Apple platforms; a dialog
+      // arriving from behind the wizard explains nothing.
       expect(
-        deferLaunchPermissionChecks(
-          onboardingAction: OnboardingTriggerAction.show,
-          anyConnectionMethodEnabled: false,
-        ),
+        deferLaunchPermissionChecks(onboardingAction: OnboardingTriggerAction.show),
         isTrue,
       );
     });
 
-    test('still checks when the rider already enabled a connection method', () {
-      // They opted into something that needs permissions — asking is in context
-      // even though the wizard has not finished.
-      expect(
-        deferLaunchPermissionChecks(
-          onboardingAction: OnboardingTriggerAction.show,
-          anyConnectionMethodEnabled: true,
-        ),
-        isFalse,
-      );
-    });
-
-    test('never defers once onboarding is settled', () {
+    test('checks once onboarding is settled', () {
+      // A rider who revoked a permission in System Settings should find out at
+      // launch, not from a connection that silently does nothing.
       for (final action in [OnboardingTriggerAction.none, OnboardingTriggerAction.markCompleted]) {
-        for (final enabled in [true, false]) {
-          expect(
-            deferLaunchPermissionChecks(onboardingAction: action, anyConnectionMethodEnabled: enabled),
-            isFalse,
-            reason: '$action with anyConnectionMethodEnabled=$enabled must still check',
-          );
-        }
+        expect(
+          deferLaunchPermissionChecks(onboardingAction: action),
+          isFalse,
+          reason: '$action must still check',
+        );
       }
     });
   });

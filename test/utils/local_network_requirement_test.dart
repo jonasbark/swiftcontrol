@@ -5,6 +5,7 @@ import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
@@ -144,6 +145,24 @@ void main() {
       expect(calls, isEmpty);
     });
 
+    test('holds off entirely while the onboarding wizard is pending', () async {
+      // Regression: the warning toast fired at startup from
+      // _NavigationState.initState and the wizard then opened over it.
+      outcome = 'denied';
+      core.settings.setTrainerApp(SupportedApp.supportedApps.whereType<MyWhoosh>().first);
+      await core.settings.setLastTarget(Target.thisDevice);
+      await core.settings.setMyWhooshLinkEnabled(true);
+      await core.settings.setOnboardingState(Settings.onboardingStatePending);
+      addTearDown(() => core.settings.setOnboardingState(Settings.onboardingStateCompleted));
+      expect(core.logic.isMyWhooshLinkEnabled, isTrue, reason: 'precondition: the method must be enabled');
+      calls.clear();
+
+      core.logic.startEnabledConnectionMethod();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(calls, isEmpty, reason: 'the wizard owns the permission conversation');
+    });
+
     test('does not start MyWhoosh Link while Local Network is denied', () async {
       // It used to start regardless and fail silently — the shape that
       // generated the support tickets.
@@ -151,6 +170,7 @@ void main() {
       core.settings.setTrainerApp(SupportedApp.supportedApps.whereType<MyWhoosh>().first);
       await core.settings.setLastTarget(Target.thisDevice);
       await core.settings.setMyWhooshLinkEnabled(true);
+      await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
       await core.settings.setObpMdnsEnabled(false);
       await core.settings.setZwiftMdnsEmulatorEnabled(false);
       expect(core.logic.isMyWhooshLinkEnabled, isTrue, reason: 'precondition: the method must be enabled');

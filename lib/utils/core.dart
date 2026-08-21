@@ -345,22 +345,6 @@ class CoreLogic {
       core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
       (showLocalControl || isRemoteControlEnabled);
 
-  /// True when the rider has switched on at least one way of reaching the
-  /// trainer app.
-  ///
-  /// Deliberately not [hasNoConnectionMethod] inverted: that one mixes in
-  /// `show*` visibility predicates, so it answers "should the UI nag" rather
-  /// than "did the rider turn something on".
-  bool get hasAnyConnectionMethodEnabled =>
-      isZwiftBleEnabled ||
-      isZwiftMdnsEnabled ||
-      isObpBleEnabled ||
-      isObpMdnsEnabled ||
-      isDi2BleEnabled ||
-      isMyWhooshLinkEnabled ||
-      isRemoteControlEnabled ||
-      core.settings.getLocalEnabled();
-
   /// Whether a permission check triggered by app launch should be skipped.
   ///
   /// Reuses navigation's own onboarding decision so the two cannot drift.
@@ -372,7 +356,6 @@ class CoreLogic {
       lastSeenVersion: core.settings.getLastSeenVersion(),
       onboardingState: core.settings.getOnboardingState(),
     ),
-    anyConnectionMethodEnabled: hasAnyConnectionMethodEnabled,
   );
 
   bool get hasNoConnectionMethod =>
@@ -508,6 +491,13 @@ class CoreLogic {
 
   void startEnabledConnectionMethod() async {
     if (screenshotMode) {
+      return;
+    }
+    // The wizard owns the screen and drives its own methods (see
+    // setOnboardingMethodEnabled, which starts servers directly), so nothing is
+    // lost by holding off — and a permission prompt or warning toast arriving
+    // from behind it explains nothing.
+    if (deferLaunchPermissions) {
       return;
     }
     if (isZwiftBleEnabled &&
