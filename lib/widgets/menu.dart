@@ -9,6 +9,7 @@ import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/subscription.dart';
+import 'package:bike_control/services/network_self_test/network_self_test_store.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/core.dart';
@@ -121,6 +122,7 @@ Future<String> debugText({bool includeDiscovery = true}) async {
     recordError(e, s, context: 'debugText.diagnostics');
     diagnostics = 'Diagnostics: (unavailable)';
   }
+  final networkTest = NetworkSelfTestStore.bundleSection();
   return '''
 
 ---
@@ -135,7 +137,7 @@ Smart Trainers:
   $proxyBlock
 Status: ${IAPManager.instance.getStatusMessage()}${userId != null ? ' (User ID: $userId)' : ''}
 $diagnostics
-Logs:
+${networkTest.isEmpty ? '' : '$networkTest\n'}Logs:
 ${core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}')}
 ''';
 }

@@ -178,7 +178,11 @@ Future<void> defaultTcpProbe(String address, int port) async {
     // The server destroys the probe socket as soon as it accepts it; without
     // an active reader that close is never observed — `socket.done` alone
     // hangs forever, so drain (which subscribes and discards) is required.
-    await socket!.drain<void>().timeout(const Duration(seconds: 3));
+    // The probe has already succeeded by the time we get here (the connect
+    // above is what proves reachability) — a reset on that server-side
+    // destroy, or the drain simply not finishing within the window, is
+    // best-effort observation only and must never fail the probe.
+    await socket!.drain<void>().timeout(const Duration(seconds: 3)).catchError((_) {});
   } finally {
     socket?.destroy();
   }
