@@ -107,7 +107,18 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
   }
 
   /// The hostname the OBC advertisement resolves under, for diagnostics and
-  /// the hostname-resolution probe. Null when unknown (stopped, or web).
+  /// the hostname-resolution probe. Null when unknown: stopped, web, or an
+  /// advertiser whose host record we cannot read back.
+  ///
+  /// Only two advertisers let us know the name for sure: our own responder
+  /// (it *is* the record) and Bonjour on Windows, whose default host record
+  /// is the machine's computer name — which is what [Platform.localHostname]
+  /// returns there. The nsd backend (macOS/Android/Linux) is deliberately
+  /// `null`: the OS publishes under its Bonjour LocalHostName, which is NOT
+  /// gethostname() (macOS: `0891….fritz.box` vs `MacBook-Pro.local`;
+  /// Android: `localhost`), so guessing would make the hostname-resolution
+  /// probe fail on a perfectly healthy switch and put a wrong `host=` in the
+  /// support bundle. The probe skips with 'hostname unknown' instead.
   String? get advertisedHostname {
     if (!isStarted.value) return null;
     final advertiser = _activeAdvertiser;
@@ -115,7 +126,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
       final label = advertiser.hostLabel;
       return label == null ? null : '$label.local';
     }
-    if (_activeBackend == ObpMdnsBackend.osResponder) {
+    if (advertiser is BonjourServiceAdvertiser) {
       if (kIsWeb) return null;
       return '${Platform.localHostname}.local';
     }

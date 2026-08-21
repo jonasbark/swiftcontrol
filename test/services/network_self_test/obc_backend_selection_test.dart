@@ -168,10 +168,14 @@ Future<void> main() async {
       expect(core.obpMdnsEmulator.advertisedHostname, 'bikecontrol-test.local');
     });
 
-    test('osResponder (nsd) reports the machine hostname', () async {
+    test('osResponder (nsd) reports no hostname — the OS picks a name we cannot read', () async {
       await core.settings.setObpMdnsBackend(ObpMdnsBackend.osResponder);
       await core.obpMdnsEmulator.startServer();
-      expect(core.obpMdnsEmulator.advertisedHostname, '${Platform.localHostname}.local');
+      expect(core.obpMdnsEmulator.activeBackend, ObpMdnsBackend.osResponder);
+      expect(core.obpMdnsEmulator.advertisedHostname, isNull,
+          reason: 'Platform.localHostname is gethostname(), not the Bonjour LocalHostName nsd advertises under '
+              '(macOS: "0891….fritz.box" vs "MacBook-Pro.local"; Android: "localhost") — reporting it would make '
+              'resolveOwnHostname fail on a healthy switch and put a wrong host= in the bundle');
     });
 
     test('Windows osResponder degraded to platformDefault reports the fallback advertiser\'s hostname, not the machine name', () async {
