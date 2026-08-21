@@ -86,7 +86,7 @@ void main() {
   });
 
   group('getScanRequirements', () {
-    // getScanRequirements also probes Bluetooth and notifications; neither has
+    // getScanRequirements() also probes Bluetooth and notifications; neither has
     // a registered plugin under `flutter test`, so give them just enough to
     // answer instead of throwing and hiding the list we care about.
     setUp(() async {
@@ -100,18 +100,21 @@ void main() {
       await core.settings.init();
     });
 
-    // Onboarding, app start and every scan all read this one list, so a denial
-    // has to show up here or it is never surfaced outside the network tiles.
-    test('surfaces the requirement when Local Network is denied', () async {
+    test('never carries Local Network, even when it is denied', () async {
+      // This list is the Bluetooth-scan gate: every caller reads a non-empty
+      // result as "don't scan". A denied Local Network permission here would
+      // silently stop the rider finding their shifter, and probing it at app
+      // start pops the system dialog before onboarding has been shown.
       outcome = 'denied';
       final requirements = await core.permissions.getScanRequirements();
-      expect(requirements.whereType<LocalNetworkRequirement>(), hasLength(1));
+      expect(requirements.whereType<LocalNetworkRequirement>(), isEmpty);
     });
 
-    test('omits it once the permission is granted', () async {
-      outcome = 'granted';
-      final requirements = await core.permissions.getScanRequirements();
-      expect(requirements.whereType<LocalNetworkRequirement>(), isEmpty);
+    test('does not probe Local Network at all', () async {
+      outcome = 'denied';
+      calls.clear();
+      await core.permissions.getScanRequirements();
+      expect(calls, isEmpty, reason: 'probing is what raises the system prompt');
     });
   });
 

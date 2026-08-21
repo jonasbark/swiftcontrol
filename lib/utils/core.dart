@@ -45,7 +45,6 @@ import '../bluetooth/connection.dart';
 import '../bluetooth/devices/mywhoosh/link.dart';
 import 'keymap/apps/rouvy.dart';
 import 'media_key_handler.dart';
-import 'requirements/local_network.dart';
 import 'requirements/multi.dart';
 import 'requirements/platform.dart';
 
@@ -128,6 +127,13 @@ class Core {
 }
 
 class Permissions {
+  /// Permissions needed to *scan for Bluetooth devices*.
+  ///
+  /// Every caller treats a non-empty result as "don't scan", so this must stay
+  /// Bluetooth-only. Local Network deliberately isn't here: a denial would
+  /// silently kill BLE scanning, and probing it pops the system dialog at app
+  /// start, before onboarding has been shown. It's gated per connection method
+  /// instead — see [localNetworkRequirements].
   Future<List<PlatformRequirement>> getScanRequirements() async {
     final List<PlatformRequirement> list;
     if (screenshotMode || demoHidePermissions) {
@@ -143,16 +149,11 @@ class Permissions {
       list = [
         BluetoothTurnedOn(),
         NotificationRequirement(),
-        // Denial silently breaks every network bridging method, so surface it
-        // here — at app start, in onboarding and on every scan — rather than
-        // only when the user reaches a network tile.
-        ...localNetworkRequirements(),
       ];
     } else if (Platform.isIOS) {
       list = [
         BluetoothTurnedOn(),
         NotificationRequirement(),
-        ...localNetworkRequirements(),
       ];
     } else if (Platform.isWindows) {
       list = [

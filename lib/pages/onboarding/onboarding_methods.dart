@@ -6,6 +6,7 @@ import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
@@ -105,8 +106,43 @@ Future<void> setOnboardingMethodEnabled(
     );
   }
 
+  /// Live permission check, mirroring the Local method's gate: a status check
+  /// that throws counts as not granted, so a method is never enabled on a
+  /// permission state we could not verify.
+  Future<bool> liveStatus(PlatformRequirement r) async {
+    try {
+      return await r.getStatus();
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding method requirement status');
+      return false;
+    }
+  }
+
+  /// Prompts for [requirements] and reports whether they all ended up granted.
+  Future<bool> satisfy(List<PlatformRequirement> requirements) async {
+    var states = await Future.wait(requirements.map(liveStatus));
+    final missing = [
+      for (var i = 0; i < requirements.length; i++)
+        if (!states[i]) requirements[i],
+    ];
+    if (missing.isEmpty) return true;
+    if (context.mounted) {
+      await openPermissionSheet(context, missing);
+    }
+    states = await Future.wait(missing.map(liveStatus));
+    return states.every((granted) => granted);
+  }
+
   switch (method) {
     case OnboardingMethod.network:
+      // Local Network lives here rather than in getScanRequirements(): every
+      // consumer of that list treats a non-empty result as "don't scan", so a
+      // denial there would silently kill Bluetooth scanning, and probing it at
+      // app start pops the system dialog before onboarding has even been shown.
+      if (value && !await satisfy(localNetworkRequirements())) {
+        onUpdate();
+        return;
+      }
       if (_supportsObpNetwork(app)) {
         // Mirrors openbikecontrol_mdns_tile.dart onChange.
         core.settings.setObpMdnsEnabled(value);
