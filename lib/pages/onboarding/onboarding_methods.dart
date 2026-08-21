@@ -137,7 +137,14 @@ Future<void> verifyEnabledNetworkMethod(
   if (!onboardingMethodEnabled(OnboardingMethod.network, app)) return;
   final requirements = localNetworkRequirements();
   if (requirements.isEmpty) return;
-  if (await _satisfy(context, requirements)) return;
+  if (await _satisfy(context, requirements)) {
+    // Granted — actually bring the method up. The launch-time start was skipped
+    // while the wizard held the screen, so without this the method reads as
+    // enabled but advertises nothing.
+    core.logic.startEnabledConnectionMethod(userInitiated: true);
+    onUpdate();
+    return;
+  }
   if (!context.mounted) return;
   await setOnboardingMethodEnabled(context, OnboardingMethod.network, app, false, onUpdate: onUpdate);
 }

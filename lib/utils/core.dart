@@ -489,7 +489,11 @@ class CoreLogic {
     }
   }
 
-  void startEnabledConnectionMethod() async {
+  /// [userInitiated] opts out of the onboarding deferral below. Use it when the
+  /// rider just did something that should visibly take effect — granting a
+  /// permission, finishing the wizard — as opposed to the unsolicited call at
+  /// app launch.
+  void startEnabledConnectionMethod({bool userInitiated = false}) async {
     if (screenshotMode) {
       return;
     }
@@ -497,7 +501,7 @@ class CoreLogic {
     // setOnboardingMethodEnabled, which starts servers directly), so nothing is
     // lost by holding off — and a permission prompt or warning toast arriving
     // from behind it explains nothing.
-    if (deferLaunchPermissions) {
+    if (!userInitiated && deferLaunchPermissions) {
       return;
     }
     if (isZwiftBleEnabled &&

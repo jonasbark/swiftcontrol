@@ -9,9 +9,11 @@ import 'package:bike_control/main.dart' show OtherLocalizationsDelegate, screens
 import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
 import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_network_permission/local_network_permission.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -190,5 +192,76 @@ Future<void> main() async {
       debugDefaultTargetPlatformOverride = null;
     }
     // Local Network is Apple-only; localNetworkRequirements() is empty elsewhere.
+  }, skip: !(Platform.isMacOS || Platform.isIOS));
+
+  testWidgets('granting Local Network brings the network method up', (tester) async {
+    // Regression: the permission was granted and the method stayed enabled, but
+    // nothing advertised — the launch-time start had been skipped while the
+    // wizard held the screen, and the grant path never started it.
+    screenshotMode = false;
+    addTearDown(() => screenshotMode = true);
+    LocalNetworkAccess.resetForTest();
+    addTearDown(LocalNetworkAccess.resetForTest);
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      LocalNetworkPermission.channel,
+      (call) async => call.method == 'check' ? 'granted' : null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(LocalNetworkPermission.channel, null),
+    );
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+    // There is no nsd plugin under `flutter test`; record the advertise attempt
+    // rather than let the emulator's catchError undo the setting.
+    final mdns = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('com.haberey/nsd'),
+      (call) async {
+        mdns.add(call.method);
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('com.haberey/nsd'), null));
+
+    // The wizard is still on screen, so the launch-time start is deferred.
+    await core.settings.setOnboardingState(Settings.onboardingStatePending);
+    addTearDown(() => core.settings.setOnboardingState(Settings.onboardingStateCompleted));
+
+    final app = SupportedApp.supportedApps.firstWhere(
+      (a) => onboardingMethodVisible(OnboardingMethod.network, a),
+    );
+    core.settings.setTrainerApp(app);
+    core.settings.setObpMdnsEnabled(true);
+    core.settings.setZwiftMdnsEmulatorEnabled(true);
+
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      ShadcnApp(
+        localizationsDelegates: [
+          ...ShadcnLocalizations.localizationsDelegates,
+          const OtherLocalizationsDelegate(),
+          AppLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.delegate.supportedLocales,
+        home: Scaffold(child: Builder(builder: (c) {
+          ctx = c;
+          return const SizedBox.shrink();
+        })),
+      ),
+    );
+
+    try {
+      var updates = 0;
+      await verifyEnabledNetworkMethod(ctx, app, onUpdate: () => updates++);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(mdns, isNotEmpty,
+          reason: 'granting the permission must bring the method up and advertise over mDNS');
+      expect(updates, greaterThan(0), reason: 'the tile has to be told to redraw');
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   }, skip: !(Platform.isMacOS || Platform.isIOS));
 }

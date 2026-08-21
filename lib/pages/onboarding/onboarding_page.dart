@@ -779,6 +779,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onPressed: () async {
                   try {
                     await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+                    core.logic.startEnabledConnectionMethod(userInitiated: true);
                     if (!mounted || !context.mounted) return;
                     // Platform-correct paywall: RevenueCat's hosted sheet on
                     // iOS/Android, the in-app Paywall drawer on desktop. Going
@@ -801,6 +802,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
               onPressed: () async {
                 try {
                   await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+                  // The launch-time start was skipped while the wizard held the
+                  // screen; leaving it is when the enabled methods must come up.
+                  core.logic.startEnabledConnectionMethod(userInitiated: true);
                   if (context.mounted) Navigator.of(context).pop();
                 } catch (e, s) {
                   recordError(e, s, context: 'onboarding done start riding');
@@ -816,6 +820,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Future<void> _onWelcomeLater() async {
     try {
       await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+      core.logic.startEnabledConnectionMethod(userInitiated: true);
     } catch (e, s) {
       recordError(e, s, context: 'onboarding welcome later');
     }
