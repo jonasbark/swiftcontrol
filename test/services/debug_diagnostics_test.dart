@@ -43,7 +43,7 @@ void main() {
         TcpServerInfo(label: 'OpenBikeControl', port: 36867, listening: true, hasClient: true),
       ],
       permissions: const PermissionsSnapshot(
-        localNetworkInferred: true,
+        localNetwork: LocalNetworkStatus.granted,
       ),
     );
 
@@ -59,7 +59,7 @@ void main() {
     expect(text, contains('en0/192.168.1.9 = 40 (advertised)'));
     expect(text, contains('utun0/10.2.0.2 = -60 (virtual)'));
     expect(text, contains('OpenBikeControl :36867 listening · 1 client'));
-    expect(text, contains('ios-local-network=inferred-ok'));
+    expect(text, contains('local-network=granted'));
   });
 
   test('toText marks discovery as skipped when it did not run', () {
@@ -72,7 +72,7 @@ void main() {
       discoveryRan: false,
       addressReport: const AddressPickReport(chosen: null, candidates: []),
       servers: const [],
-      permissions: const PermissionsSnapshot(localNetworkInferred: null),
+      permissions: const PermissionsSnapshot(localNetwork: null),
     );
 
     expect(diag.toText(), contains('Discovered on network:'));
@@ -89,7 +89,7 @@ void main() {
       discoveryRan: true,
       addressReport: AddressPickReport(chosen: InternetAddress('192.168.1.9'), candidates: candidates),
       servers: const [],
-      permissions: const PermissionsSnapshot(localNetworkInferred: null),
+      permissions: const PermissionsSnapshot(localNetwork: null),
     );
 
     test('names the tunnel interface when a VPN carries a routable IPv4', () {

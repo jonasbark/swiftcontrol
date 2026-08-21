@@ -1,12 +1,16 @@
-import 'dart:io' show Platform;
-
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/services/mdns_discovery_scan.dart';
 import 'package:flutter/foundation.dart';
+import 'package:local_network_permission/local_network_permission.dart';
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:prop/utils/advertised_service_registry.dart';
 import 'package:prop/utils/network_address.dart';
 import 'package:prop/utils/resilient_tcp_server.dart';
+
+// Part of PermissionsSnapshot's surface — callers shouldn't need a second
+// import to name the value they just read.
+export 'package:local_network_permission/local_network_permission.dart' show LocalNetworkStatus;
 
 /// A running TCP bridge server, for diagnostics.
 class TcpServerInfo {
@@ -25,17 +29,21 @@ class TcpServerInfo {
 
 /// Status of the permissions whose denial silently breaks WiFi/BLE bridging.
 class PermissionsSnapshot {
-  /// iOS Local Network can't be queried directly; inferred from whether a
-  /// discovery scan returned anything. Null when no scan ran.
-  final bool? localNetworkInferred;
+  /// Apple's Local Network permission, measured with a Bonjour round trip.
+  /// Null on the platforms that have no such permission.
+  final LocalNetworkStatus? localNetwork;
 
   const PermissionsSnapshot({
-    required this.localNetworkInferred,
+    required this.localNetwork,
   });
 
-  static Future<PermissionsSnapshot> gather({bool? localNetworkInferred}) async {
+  static Future<PermissionsSnapshot> gather() async {
     return PermissionsSnapshot(
-      localNetworkInferred: localNetworkInferred,
+      // Force a fresh probe: a support bundle is worthless if it reports what
+      // the UI happened to cache half an hour ago.
+      localNetwork: LocalNetworkPermission.isSupported
+          ? await LocalNetworkAccess.status(force: true)
+          : null,
     );
   }
 }
@@ -102,12 +110,7 @@ class DebugDiagnostics {
       }
     }
 
-    final permissions = await PermissionsSnapshot.gather(
-      // iOS is the only platform with a (non-queryable) "Local Network"
-      // permission; infer it from whether discovery saw anything. Elsewhere an
-      // empty scan just means no peers, so leave it unset.
-      localNetworkInferred: (discoveryRan && !kIsWeb && Platform.isIOS) ? discovered.isNotEmpty : null,
-    );
+    final permissions = await PermissionsSnapshot.gather();
 
     return DebugDiagnostics(
       advertised: AdvertisedServiceRegistry.instance.records,
@@ -234,11 +237,9 @@ class DebugDiagnostics {
       }
     }
 
-    if (permissions.localNetworkInferred != null) {
-      b.writeln(
-        '  Permissions: ios-local-network='
-        '${permissions.localNetworkInferred! ? 'inferred-ok' : 'inferred-blocked'}',
-      );
+    final localNetwork = permissions.localNetwork;
+    if (localNetwork != null) {
+      b.writeln('  Permissions: local-network=${localNetwork.name}');
     }
 
     return b.toString().trimRight();

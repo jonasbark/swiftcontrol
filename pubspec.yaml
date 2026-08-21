@@ -60,6 +60,8 @@ dependencies:
   window_manager: ^0.5.1
   multi_window_native:
     path: packages/multi_window_native
+  local_network_permission:
+    path: packages/local_network_permission
   flutter_overlay_window: ^0.5.0
   live_activities: ^2.4.9
   device_info_plus: ^12.1.0

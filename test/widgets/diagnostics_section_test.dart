@@ -13,7 +13,7 @@ DebugDiagnostics _fixture() => const DebugDiagnostics(
   discoveryRan: true,
   addressReport: AddressPickReport(chosen: null, candidates: []),
   servers: [],
-  permissions: PermissionsSnapshot(localNetworkInferred: true),
+  permissions: PermissionsSnapshot(localNetwork: LocalNetworkStatus.granted),
 );
 
 void main() {
