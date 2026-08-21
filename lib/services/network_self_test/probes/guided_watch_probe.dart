@@ -25,17 +25,38 @@ Future<NetworkCheck> guidedWatchCheck(
   // Under the OS responder, OBC's own advertisement never touches our
   // responder's query log (the OS answers it), so there is nothing to browse
   // for there — skip reading it and classify on `connected` alone below.
-  var seenLength = 0;
-  var lastCounts = <int>[];
+  //
+  // Correlate entries by OBJECT IDENTITY, not list position: the responder
+  // (MdnsResponder._recordQuery) folds an exact repeat by REMOVING the
+  // existing MdnsQueryLogEntry and RE-APPENDING the SAME instance at the end
+  // of the log (count++, at updated) — so an unrelated entry folding shifts
+  // every later index, and position-based correlation both false-positives
+  // (an untouched entry slides into a just-vacated slot and compares against
+  // a stale count) and false-negatives (a baseline entry that keeps folding
+  // never looks "new" by list growth alone). `Map.identity()` sidesteps both:
+  // it tracks the exact entry instance regardless of where it moves.
+  final seenCounts = Map<MdnsQueryLogEntry, int>.identity();
   if (!osResponder) {
-    final baseline = ctx.queryLog();
-    seenLength = baseline.length;
-    lastCounts = [for (final entry in baseline) entry.count];
+    for (final entry in ctx.queryLog()) {
+      seenCounts[entry] = entry.count;
+    }
   }
 
   var browsed = false;
   var resolved = false;
   var addressAsks = 0;
+
+  void classify(MdnsQueryLogEntry entry) {
+    for (final question in entry.questions) {
+      if (question.startsWith('PTR _openbikecontrol') || question.startsWith('PTR _wahoo-fitness-tnp')) {
+        browsed = true;
+      } else if ((question.startsWith('SRV ') || question.startsWith('TXT ')) && question.contains('BikeControl')) {
+        resolved = true;
+      } else if (_isAddressQuestion(question, ctx.advertisedHostname)) {
+        addressAsks++;
+      }
+    }
+  }
 
   while (true) {
     if (isCancelled != null && isCancelled()) {
@@ -47,37 +68,20 @@ Future<NetworkCheck> guidedWatchCheck(
     }
 
     if (!osResponder) {
-      final log = ctx.queryLog();
-
-      // Genuinely new entries appended since the last read.
-      final newEntries = <MdnsQueryLogEntry>[if (log.length > seenLength) ...log.sublist(seenLength)];
-
-      // The responder folds repeated identical queries into one entry and
-      // just bumps its `count` instead of appending — a count increase on an
-      // already-seen address entry is just as real an ask as a new entry.
-      for (var i = 0; i < seenLength && i < log.length; i++) {
-        final entry = log[i];
-        final previousCount = i < lastCounts.length ? lastCounts[i] : entry.count;
-        if (entry.count > previousCount && _isAddressEntry(entry, ctx.advertisedHostname)) {
-          newEntries.add(entry);
+      for (final entry in ctx.queryLog()) {
+        final previousCount = seenCounts[entry];
+        if (previousCount == null) {
+          // Brand-new entry instance since the watch started.
+          classify(entry);
+          seenCounts[entry] = entry.count;
+        } else if (entry.count > previousCount) {
+          // A fold happened during the watch — same instance, higher count
+          // (whether it was new-since-baseline or already present at
+          // baseline and kept folding; either way this is fresh activity).
+          classify(entry);
+          seenCounts[entry] = entry.count;
         }
       }
-
-      for (final entry in newEntries) {
-        for (final question in entry.questions) {
-          if (question.startsWith('PTR _openbikecontrol') || question.startsWith('PTR _wahoo-fitness-tnp')) {
-            browsed = true;
-          } else if ((question.startsWith('SRV ') || question.startsWith('TXT ')) &&
-              question.contains('BikeControl')) {
-            resolved = true;
-          } else if (_isAddressQuestion(question, ctx.advertisedHostname)) {
-            addressAsks++;
-          }
-        }
-      }
-
-      seenLength = log.length;
-      lastCounts = [for (final entry in log) entry.count];
     }
 
     final connected = ctx.trainerAppConnectedNow();
@@ -156,9 +160,6 @@ bool _isAddressQuestion(String question, String? hostname) {
   }
   return _stripLocal(name) == _stripLocal(hostname);
 }
-
-bool _isAddressEntry(MdnsQueryLogEntry entry, String? hostname) =>
-    entry.questions.any((question) => _isAddressQuestion(question, hostname));
 
 String _stripLocal(String value) {
   final lower = value.trim().toLowerCase();
