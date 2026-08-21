@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/openbikecontrol/obc_bike_definition.dart';
+import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/openbikecontrol_device.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -32,6 +34,49 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
   final ValueNotifier<AppInfo?> connectedApp = ValueNotifier(null);
 
   NetworkTransporter? _dirCon;
+
+  /// The nsd-backed advertiser for [ObpMdnsBackend.osResponder]; lazy so the
+  /// nsd plugin is only touched when the rider opted in.
+  NsdServiceAdvertiser? _osAdvertiser;
+  BonjourServiceAdvertiser? _bonjourAdvertiser;
+
+  /// The backend the RUNNING registration was made with.
+  ObpMdnsBackend _activeBackend = ObpMdnsBackend.platformDefault;
+  ObpMdnsBackend get activeBackend => _activeBackend;
+
+  @visibleForTesting
+  ServiceAdvertiser? debugAdvertiserOverride;
+
+  ServiceAdvertiser _advertiserFor(ObpMdnsBackend backend) {
+    final override = debugAdvertiserOverride;
+    if (override != null) return override;
+    if (backend == ObpMdnsBackend.platformDefault) return ServiceAdvertiser.instance;
+    // Windows: Bonjour owns the record (spec §12) — the daemon MyWhoosh's
+    // getaddrinfo actually asks. Elsewhere the OS responder is nsd. When
+    // Bonjour is not installed the switch degrades to the platform default:
+    // the MyWhoosh button cannot work without Bonjour anyway.
+    if (!kIsWeb && Platform.isWindows) {
+      final bonjour = _bonjourAdvertiser ??= BonjourServiceAdvertiser();
+      return bonjour.isAvailable ? bonjour : ServiceAdvertiser.instance;
+    }
+    return _osAdvertiser ??= NsdServiceAdvertiser();
+  }
+
+  /// The hostname the OBC advertisement resolves under, for diagnostics and
+  /// the hostname-resolution probe. Null when unknown (stopped, or web).
+  String? get advertisedHostname {
+    if (!isStarted.value) return null;
+    if (_activeBackend == ObpMdnsBackend.osResponder) {
+      if (kIsWeb) return null;
+      return '${Platform.localHostname}.local';
+    }
+    final advertiser = debugAdvertiserOverride ?? ServiceAdvertiser.instance;
+    if (advertiser is ResponderServiceAdvertiser) {
+      final label = advertiser.hostLabel;
+      return label == null ? null : '$label.local';
+    }
+    return null;
+  }
 
   OpenBikeControlMdnsEmulator()
     : super(
@@ -64,7 +109,10 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
 
     try {
       // Create service
-      _mdnsRegistration = await ServiceAdvertiser.instance.register(
+      final backend = core.settings.isInitialized
+          ? core.settings.getObpMdnsBackend()
+          : ObpMdnsBackend.platformDefault;
+      _mdnsRegistration = await _advertiserFor(backend).register(
         AdvertisedService(
           name: 'BikeControl',
           type: _useDirCon ? '_wahoo-fitness-tnp._tcp' : '_openbikecontrol._tcp',
@@ -89,6 +137,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
                 },
         ),
       );
+      _activeBackend = backend;
       _registeredEntry = (name: 'BikeControl', port: boundPort);
       SelfAdvertisementRegistry.instance.add(name: 'BikeControl', port: boundPort);
       print('Server started - advertising service at ${localIP.address}:$boundPort!');
@@ -124,6 +173,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
     await _server?.stop();
     _server = null;
     connectedApp.value = null;
+    _activeBackend = ObpMdnsBackend.platformDefault;
   }
 
   /// Binds the OpenBikeControl TCP server. The preferred port is 36867 but it
