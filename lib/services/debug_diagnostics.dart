@@ -3,6 +3,7 @@ import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/services/mdns_discovery_scan.dart';
 import 'package:flutter/foundation.dart';
 import 'package:local_network_permission/local_network_permission.dart';
+import 'package:prop/mdns/mdns_responder.dart' show MdnsQueryLogEntry;
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:prop/utils/advertised_service_registry.dart';
 import 'package:prop/utils/network_address.dart';
@@ -68,6 +69,10 @@ class DebugDiagnostics {
   final List<TcpServerInfo> servers;
   final PermissionsSnapshot permissions;
 
+  /// mDNS queries our responder saw. Empty on the nsd backend (iOS), where the
+  /// OS responder handles queries and never tells us about them.
+  final List<MdnsQueryLogEntry> recentQueries;
+
   const DebugDiagnostics({
     required this.advertised,
     required this.backend,
@@ -78,6 +83,7 @@ class DebugDiagnostics {
     required this.addressReport,
     required this.servers,
     required this.permissions,
+    this.recentQueries = const [],
   });
 
   static Future<DebugDiagnostics> gather({
@@ -131,6 +137,7 @@ class DebugDiagnostics {
       addressReport: addressReport,
       servers: servers,
       permissions: permissions,
+      recentQueries: isResponder ? advertiser.recentQueries : const [],
     );
   }
 
@@ -232,6 +239,28 @@ class DebugDiagnostics {
         '  VPN: likely active — ${tunnels.map((c) => '${c.interfaceName}/${c.address}').join(', ')}'
         '${meshOnly ? ' (mesh/CGNAT range — usually harmless)' : ' (a full-tunnel VPN blocks inbound LAN connections — try turning it off)'}',
       );
+    }
+
+    // "Did the trainer app on this machine ask us anything, and did we answer?"
+    // A same-host querier shows up with one of this host's addresses as its
+    // source. No entries at all means the failure is upstream of this
+    // responder (the app never browsed — Bonjour missing, firewall, VPN DNS);
+    // a browse and resolve answered followed by `A <host>.local` asked over
+    // and over is the Windows same-host resolution failure.
+    b.writeln('  mDNS queries received:');
+    if (recentQueries.isEmpty) {
+      b.writeln('    (none)');
+    } else {
+      for (final q in recentQueries) {
+        final at = q.at.toIso8601String().split('T').last.split('.').first;
+        // Repeats are folded; the count keeps a continuous poller visible as
+        // one line instead of hiding that it fired hundreds of times.
+        final repeats = q.count > 1 ? ' ×${q.count}' : '';
+        b.writeln(
+          '    $at ${q.source}:${q.sourcePort} ${q.wantsUnicast ? 'QU' : 'QM'} '
+          '${q.questions.join(', ')} → ${q.reply}$repeats',
+        );
+      }
     }
 
     b.writeln('  TCP servers:');

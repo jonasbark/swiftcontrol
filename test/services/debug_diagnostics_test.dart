@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:bike_control/services/debug_diagnostics.dart';
 import 'package:bike_control/services/mdns_discovery_scan.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/mdns/mdns_responder.dart' show MdnsQueryLogEntry;
 import 'package:prop/utils/advertised_service_registry.dart';
 import 'package:prop/utils/network_address.dart';
 
@@ -143,6 +144,89 @@ void main() {
       ]).toText();
 
       expect(text, contains('VPN: none detected'));
+    });
+  });
+  group('mDNS queries received', () {
+    DebugDiagnostics withQueries(List<MdnsQueryLogEntry> queries) => DebugDiagnostics(
+      advertised: const [],
+      backend: 'responder',
+      hostLabel: 'BikeControl',
+      holdsMulticastLock: false,
+      discovered: const [],
+      discoveryRan: false,
+      addressReport: const AddressPickReport(chosen: null, candidates: []),
+      servers: const [],
+      permissions: const PermissionsSnapshot(localNetwork: null),
+      recentQueries: queries,
+    );
+
+    test('renders each query with its source, QU bit and how it was answered', () {
+      final text = withQueries([
+        MdnsQueryLogEntry(
+          at: DateTime(2026, 7, 30, 9, 41, 12),
+          source: '192.168.178.92',
+          sourcePort: 5353,
+          wantsUnicast: true,
+          questions: const ['PTR _wahoo-fitness-tnp._tcp.local'],
+          answeredUnicast: true,
+          answeredMulticast: true,
+        ),
+      ]).toText();
+
+      expect(text, contains('mDNS queries received:'));
+      expect(text, contains('192.168.178.92:5353'));
+      expect(text, contains('QU'));
+      expect(text, contains('PTR _wahoo-fitness-tnp._tcp.local'));
+      expect(text, contains('unicast+multicast'));
+    });
+
+    test('marks a folded entry with its repeat count', () {
+      final text = withQueries([
+        MdnsQueryLogEntry(
+          at: DateTime(2026, 7, 30, 20, 32, 33),
+          source: '172.20.176.1',
+          sourcePort: 5353,
+          wantsUnicast: false,
+          questions: const ['PTR _oculusal_sp._tcp.local'],
+          answeredUnicast: false,
+          answeredMulticast: false,
+          count: 17,
+        ),
+      ]).toText();
+
+      expect(text, contains('×17'));
+      expect(text, contains('no answer'));
+    });
+
+    test('a single occurrence carries no count marker', () {
+      final text = withQueries([
+        MdnsQueryLogEntry(
+          at: DateTime(2026, 7, 30, 20, 32, 38),
+          source: '192.168.0.87',
+          sourcePort: 5353,
+          wantsUnicast: true,
+          questions: const ['PTR _openbikecontrol._tcp.local'],
+          answeredUnicast: true,
+          answeredMulticast: false,
+        ),
+      ]).toText();
+
+      expect(text, isNot(contains('×')));
+    });
+
+    test('says so when nothing has queried us', () {
+      // The decisive line for "the trainer app on this machine cannot see
+      // BikeControl": if no query ever arrived, the problem is upstream of our
+      // responder, not in how we answer.
+      expect(withQueries(const []).toText(), contains('(none)'));
+    });
+
+    test('the block sits between the VPN line and the TCP servers', () {
+      // Support reads top-down: "did it ask, did we answer" belongs right
+      // before "did it connect".
+      final text = withQueries(const []).toText();
+      expect(text.indexOf('VPN:'), lessThan(text.indexOf('mDNS queries received:')));
+      expect(text.indexOf('mDNS queries received:'), lessThan(text.indexOf('TCP servers:')));
     });
   });
 }
