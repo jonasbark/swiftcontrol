@@ -193,6 +193,51 @@ Future<void> main() async {
     expect(local.onPressed, isNotNull);
   });
 
+  testWidgets('a second Run again while the engine is still being built does not start a second engine', (tester) async {
+    // The production factory awaits DebugDiagnostics.gather() before an
+    // engine exists; modelled here by a Completer the second call returns.
+    var factoryCalls = 0;
+    final gather = Completer<NetworkSelfTestEngine>();
+    NetworkSelfTestEngine quickEngine() => NetworkSelfTestEngine(
+      contextBuilder: _ctx,
+      probes: [
+        ProbeSpec(
+          id: NetworkCheckId.methodListening,
+          timeout: const Duration(seconds: 1),
+          run: (ctx) async => const NetworkCheck(id: NetworkCheckId.methodListening, verdict: NetworkVerdict.pass),
+        ),
+      ],
+    );
+    await _pump(
+      tester,
+      NetworkTroubleshootingPage(
+        engineFactory: () {
+          factoryCalls++;
+          return factoryCalls == 1 ? quickEngine() : gather.future;
+        },
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(factoryCalls, 1);
+
+    final runAgain = find.byKey(const ValueKey('network-run-again'));
+    await tester.tap(runAgain);
+    await tester.pump();
+    expect(factoryCalls, 2);
+    expect(tester.widget<Button>(runAgain).onPressed, isNull, reason: 'disabled while the gather is in flight');
+
+    await tester.tap(runAgain, warnIfMissed: false);
+    await tester.pump();
+    expect(factoryCalls, 2, reason: 'the second tap during the gather must not build another engine');
+
+    gather.complete(quickEngine());
+    await tester.pump();
+    await tester.pump();
+    expect(factoryCalls, 2);
+    expect(tester.widget<Button>(runAgain).onPressed, isNotNull, reason: 're-enabled once the new engine is running');
+  });
+
   testWidgets('copy button copies the bundle and toasts, without throwing', (tester) async {
     final probes = [
       ProbeSpec(

@@ -119,4 +119,50 @@ Future<void> main() async {
 
     expect(skipped, isTrue);
   });
+
+  testWidgets('isFixDisabled greys out just the fixes it names', (tester) async {
+    NetworkFixId? tapped;
+    await _pump(
+      tester,
+      NetworkCheckRow(
+        check: const NetworkCheck(
+          id: NetworkCheckId.tcpSelfConnect,
+          verdict: NetworkVerdict.fail,
+          fixes: [NetworkFixId.restartMethod, NetworkFixId.openFirewallSettings],
+        ),
+        onFix: (fix) => tapped = fix,
+        isFixDisabled: (fix) => fix == NetworkFixId.restartMethod,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final buttons = tester.widgetList<Button>(find.byType(Button)).toList();
+    expect(buttons, hasLength(2));
+    expect(buttons[0].onPressed, isNull, reason: 'restartMethod is disabled by the predicate');
+    expect(buttons[1].onPressed, isNotNull);
+
+    await tester.tap(find.byType(Button).first, warnIfMissed: false);
+    await tester.pump();
+    expect(tapped, isNull, reason: 'a disabled fix button must not fire onFix');
+
+    await tester.tap(find.byType(Button).last);
+    await tester.pump();
+    expect(tapped, NetworkFixId.openFirewallSettings);
+  });
+
+  testWidgets('watch mode shows the localized remaining countdown', (tester) async {
+    await _pump(
+      tester,
+      NetworkCheckRow(
+        check: const NetworkCheck(id: NetworkCheckId.guidedWatch, verdict: NetworkVerdict.unknown),
+        running: true,
+        watch: const WatchProgress(browsed: false, resolved: false, addressAsks: 0, connected: false, remaining: Duration(seconds: 42)),
+        onSkipWatch: () {},
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final l10n = AppLocalizations.of(tester.element(find.byType(NetworkCheckRow)));
+    expect(find.text(l10n.networkWatchRemaining(42)), findsOneWidget);
+  });
 }

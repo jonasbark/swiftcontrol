@@ -91,7 +91,20 @@ class NetworkCheckRow extends StatefulWidget {
   final void Function(NetworkFixId fix)? onFix;
   final VoidCallback? onSkipWatch;
 
-  const NetworkCheckRow({super.key, required this.check, this.running = false, this.watch, this.onFix, this.onSkipWatch});
+  /// Greys out individual fix buttons (e.g. the server-stopping fixes while a
+  /// trainer app is connected) — the page passes the same predicate it uses
+  /// for its header buttons, so row and header never disagree.
+  final bool Function(NetworkFixId fix)? isFixDisabled;
+
+  const NetworkCheckRow({
+    super.key,
+    required this.check,
+    this.running = false,
+    this.watch,
+    this.onFix,
+    this.onSkipWatch,
+    this.isFixDisabled,
+  });
 
   @override
   State<NetworkCheckRow> createState() => _NetworkCheckRowState();
@@ -144,7 +157,9 @@ class _NetworkCheckRowState extends State<NetworkCheckRow> {
                   for (final fix in check.fixes.take(2))
                     Button.outline(
                       style: ButtonStyle.outline(size: ButtonSize.small),
-                      onPressed: widget.onFix == null ? null : () => widget.onFix!(fix),
+                      onPressed: widget.onFix == null || (widget.isFixDisabled?.call(fix) ?? false)
+                          ? null
+                          : () => widget.onFix!(fix),
                       child: Text(networkFixLabel(context, fix)),
                     ),
                 ],
@@ -191,7 +206,7 @@ class _NetworkCheckRowState extends State<NetworkCheckRow> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('${watch.remaining.inSeconds}s').xSmall.textMuted,
+            Text(l10n.networkWatchRemaining(watch.remaining.inSeconds)).xSmall.textMuted,
             Button.ghost(
               style: ButtonStyle.ghost(size: ButtonSize.small),
               onPressed: widget.onSkipWatch,

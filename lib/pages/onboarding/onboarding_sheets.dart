@@ -104,7 +104,13 @@ Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep st
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Button.outline(
-            onPressed: () => context.push(const NetworkTroubleshootingPage()),
+            onPressed: () {
+              // Dismiss the sheet first, as _openSupportChat does — the page
+              // must not open underneath a still-visible sheet. Synchronous,
+              // so `context` is still mounted for the push.
+              onClose();
+              context.push(const NetworkTroubleshootingPage());
+            },
             child: Text(context.i18n.networkTroubleshootingTitle),
           ),
         ),

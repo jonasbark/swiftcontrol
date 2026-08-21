@@ -70,8 +70,10 @@ NetworkProbeContext buildProductionContext({DebugDiagnostics? snapshot, Object? 
 class NetworkTroubleshootingPage extends StatefulWidget {
   /// Test seam: builds the engine the page drives. Defaults to a real
   /// [NetworkSelfTestEngine] over [buildProductionContext] and the
-  /// platform's default probes.
-  final NetworkSelfTestEngine Function()? engineFactory;
+  /// platform's default probes. May be async, like the default is (it
+  /// awaits [DebugDiagnostics.gather] before an engine exists) — tests use
+  /// that to hold the page in its "starting" state.
+  final FutureOr<NetworkSelfTestEngine> Function()? engineFactory;
 
   const NetworkTroubleshootingPage({super.key, this.engineFactory});
 
@@ -81,6 +83,13 @@ class NetworkTroubleshootingPage extends StatefulWidget {
 
 class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage> {
   NetworkSelfTestEngine? _engine;
+
+  /// True while [_start] is between "tapped" and "engine exists" — the
+  /// production gather is async, so a second Run again / fix tap in that
+  /// window would otherwise build a second engine whose stale result could
+  /// overwrite the newer one in the store. Every button that leads to
+  /// [_start] is disabled while this is set, and [_start] itself bails.
+  bool _starting = false;
 
   /// True from [initState] when the trainer app is already connected — shown
   /// instead of auto-starting, since a working connection has nothing to
@@ -105,38 +114,57 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
   }
 
   Future<void> _start() async {
-    if (kIsWeb) return;
-    final factory = widget.engineFactory;
+    if (kIsWeb || _starting) return;
+    // Whatever is still running belongs to the previous run: stop it before
+    // its next probe so it cannot keep emitting into a page that has moved on.
+    _engine?.cancel();
+    _starting = true;
+    // Nothing on screen reads _starting before the first engine or the
+    // refusal card exists (the initState auto-start), so no rebuild then.
+    if (_engine != null || _showConnectedRefusal) setState(() {});
+
     final NetworkSelfTestEngine engine;
-    if (factory != null) {
-      engine = factory();
-    } else {
-      DebugDiagnostics? snapshot;
-      Object? snapshotError;
-      try {
-        snapshot = await DebugDiagnostics.gather(includeDiscovery: true);
-      } catch (e, s) {
-        recordError(e, s, context: 'NetworkTroubleshootingPage.snapshot');
-        snapshotError = e;
-      }
-      // No explicit `probes:` here — the engine's own default construction
-      // (see NetworkSelfTestEngine's constructor) is what wires
-      // `engine.cancelWatch()` into the guided-watch probe's `isCancelled`
-      // seam; a probe list built ahead of time and handed in wouldn't see
-      // cancellation at all.
-      engine = NetworkSelfTestEngine(contextBuilder: () => buildProductionContext(snapshot: snapshot, snapshotError: snapshotError));
+    try {
+      engine = await _buildEngine();
+    } catch (e, s) {
+      recordError(e, s, context: 'NetworkTroubleshootingPage.engine');
+      if (mounted) setState(() => _starting = false);
+      return;
     }
     if (!mounted) return;
     setState(() {
+      _starting = false;
       _showConnectedRefusal = false;
       _engine = engine;
     });
     engine.run().then((result) {
+      // Superseded by a later _start() (which cancelled this engine): its
+      // result is stale and must not overwrite the newer one in the store.
+      if (!identical(_engine, engine)) return;
       NetworkSelfTestStore.save(result);
       if (mounted) setState(() {});
     }).catchError((e, s) {
       recordError(e, s, context: 'NetworkSelfTest.page');
     });
+  }
+
+  Future<NetworkSelfTestEngine> _buildEngine() async {
+    final factory = widget.engineFactory;
+    if (factory != null) return factory();
+    DebugDiagnostics? snapshot;
+    Object? snapshotError;
+    try {
+      snapshot = await DebugDiagnostics.gather(includeDiscovery: true);
+    } catch (e, s) {
+      recordError(e, s, context: 'NetworkTroubleshootingPage.snapshot');
+      snapshotError = e;
+    }
+    // No explicit `probes:` here — the engine's own default construction
+    // (see NetworkSelfTestEngine's constructor) is what wires
+    // `engine.cancelWatch()` into the guided-watch probe's `isCancelled`
+    // seam; a probe list built ahead of time and handed in wouldn't see
+    // cancellation at all.
+    return NetworkSelfTestEngine(contextBuilder: () => buildProductionContext(snapshot: snapshot, snapshotError: snapshotError));
   }
 
   Future<void> _runFix(NetworkFixId fix) async {
@@ -172,7 +200,7 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
   /// slip through; this is just the visual half of that.
   static const _stopsServer = {NetworkFixId.restartMethod, NetworkFixId.useOsResponderForObc, NetworkFixId.useResponderForObc};
 
-  bool _fixDisabled(NetworkFixId fix) => _stopsServer.contains(fix) && core.obpMdnsEmulator.isConnected.value;
+  bool _fixDisabled(NetworkFixId fix) => _starting || (_stopsServer.contains(fix) && core.obpMdnsEmulator.isConnected.value);
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +244,7 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
         spacing: 10,
         children: [
           Text(l10n.networkTroubleshootConnectedRefusal(app)),
-          Button.outline(onPressed: _start, child: Text(l10n.networkTroubleshootRun)),
+          Button.outline(onPressed: _starting ? null : _start, child: Text(l10n.networkTroubleshootRun)),
         ],
       ),
     );
@@ -271,7 +299,7 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
           ..._recommendedFix(context, l10n, result),
           Button.outline(
             key: const ValueKey('network-run-again'),
-            onPressed: _start,
+            onPressed: _starting ? null : _start,
             child: Text(l10n.networkTroubleshootRunAgain),
           ),
         ],
@@ -328,7 +356,8 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
   List<Widget> _checkRows(NetworkSelfTestState state) {
     final rows = <Widget>[
       for (final check in state.checks)
-        if (check.verdict != NetworkVerdict.skipped) NetworkCheckRow(key: ValueKey('check-${check.id.name}'), check: check, onFix: _runFix),
+        if (check.verdict != NetworkVerdict.skipped)
+          NetworkCheckRow(key: ValueKey('check-${check.id.name}'), check: check, onFix: _runFix, isFixDisabled: _fixDisabled),
     ];
     final running = state.running;
     if (running != null) {
