@@ -101,8 +101,16 @@ class LocalNetworkAccess {
   /// not tell (no usable network, no plugin in this build), and treating it as
   /// a denial would block setups that work fine.
   static Future<bool> isUsable({bool force = false}) async {
-    return await status(force: force) != LocalNetworkStatus.denied;
+    return usable(await status(force: force));
   }
+
+  /// The single rule: only a positive denial counts against the rider.
+  ///
+  /// [LocalNetworkStatus.unknown] reads as usable. The probe not being able to
+  /// tell is not evidence of a problem — and the failure it would otherwise
+  /// invent (a red step, a blocked method) is far worse than the one it would
+  /// catch, because a genuine denial shows up the moment anything is tried.
+  static bool usable(LocalNetworkStatus status) => status != LocalNetworkStatus.denied;
 
   @visibleForTesting
   static void resetForTest() {

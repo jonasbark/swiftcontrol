@@ -124,7 +124,9 @@ class _HomePageState extends State<HomePage> {
   bool? get _localNetworkGranted {
     if (!core.logic.needsLocalNetwork || localNetworkRequirements().isEmpty) return null;
     final status = _localNetwork;
-    return status == null ? null : status == LocalNetworkStatus.granted;
+    // Same rule as everywhere else: unknown is not a denial, so the step must
+    // not sit there red because the probe could not tell.
+    return status == null ? null : LocalNetworkAccess.usable(status);
   }
 
   Future<void> _refreshLocalNetwork() async {

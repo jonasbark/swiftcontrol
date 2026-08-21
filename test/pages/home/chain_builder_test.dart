@@ -640,6 +640,23 @@ void main() {
         expect(link.status, LinkStatus.ready);
       });
 
+      test('an unmeasurable permission is not an outstanding step', () {
+        // localNetworkGranted carries LocalNetworkAccess.usable(), so unknown
+        // arrives here as true — the rider must not be handed work on the
+        // strength of a probe that could not tell.
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            isConnected: true,
+            localNetworkGranted: true,
+          )),
+        );
+        final link = chain.byKey(ChainLinkKey.app);
+        expect(_stepDone(link, SetupStepId.appLocalNetwork), isTrue);
+        expect(link.status, LinkStatus.ready);
+      });
+
       test('is the outstanding step when denied, and holds the card back', () {
         // Required, not optional: a denied permission means the bridge cannot
         // be reached, so the card must not read as ready.
