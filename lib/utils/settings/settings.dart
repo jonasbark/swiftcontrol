@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
+import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/services/overlay/overlay_state.dart';
@@ -223,6 +224,14 @@ class Settings {
     await prefs.setString(_selfTestKey(trainerKey), json);
   }
 
+  String? getNetworkSelfTestResultJson() {
+    return prefs.getString('network_self_test');
+  }
+
+  Future<void> setNetworkSelfTestResultJson(String json) async {
+    await prefs.setString('network_self_test', json);
+  }
+
   static const String _virtualShiftingIntroSeenKey = 'virtual_shifting_intro_seen';
 
   /// Whether the user has seen the one-time Virtual Shifting beta intro shown
@@ -411,6 +420,19 @@ class Settings {
 
   Future<void> setObpMdnsEnabled(bool enabled) async {
     await prefs.setBool('openbikeprotocol_mdns_enabled', enabled);
+  }
+
+  ObpMdnsBackend getObpMdnsBackend() {
+    final raw = prefs.getString('openbikeprotocol_mdns_backend');
+    if (raw == null) return ObpMdnsBackend.platformDefault;
+    return ObpMdnsBackend.values.firstWhere(
+      (b) => b.name == raw,
+      orElse: () => ObpMdnsBackend.platformDefault,
+    );
+  }
+
+  Future<void> setObpMdnsBackend(ObpMdnsBackend backend) async {
+    await prefs.setString('openbikeprotocol_mdns_backend', backend.name);
   }
 
   bool getObpBleEnabled() {
