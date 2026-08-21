@@ -27,25 +27,45 @@ Future<void> showTriggerAssignmentPopup({
   showDropdown<void>(
     context: context,
     consumeOutsideTaps: true,
-    builder: (c) => DropdownMenu(
-      children: [
-        MenuLabel(child: ButtonWidget(button: button, size: 42)),
-        for (final trigger in ButtonTrigger.values)
-          MenuButton(
-            onPressed: (ctx) async {
-              await _openEditorForTrigger(
-                context: context,
-                device: device,
-                button: button,
-                keymap: keymap,
-                trigger: trigger,
-                onUpdate: onUpdate,
-              );
-            },
-            child: _TriggerLabel(trigger: trigger, keymap: keymap, button: button),
-          ),
-      ],
+    builder: (c) => buildTriggerAssignmentMenu(
+      context: context,
+      device: device,
+      button: button,
+      keymap: keymap,
+      onUpdate: onUpdate,
     ),
+  );
+}
+
+/// The menu [showTriggerAssignmentPopup] drops down: the button itself, then one
+/// row per [ButtonTrigger] carrying that trigger's current assignment. Split out
+/// so it can be rendered on its own — the documentation snapshots shoot this
+/// widget rather than a hand-built copy of it.
+Widget buildTriggerAssignmentMenu({
+  required BuildContext context,
+  required BaseDevice device,
+  required ControllerButton button,
+  required Keymap keymap,
+  required VoidCallback onUpdate,
+}) {
+  return DropdownMenu(
+    children: [
+      MenuLabel(child: ButtonWidget(button: button, size: 42)),
+      for (final trigger in ButtonTrigger.values)
+        MenuButton(
+          onPressed: (ctx) async {
+            await _openEditorForTrigger(
+              context: context,
+              device: device,
+              button: button,
+              keymap: keymap,
+              trigger: trigger,
+              onUpdate: onUpdate,
+            );
+          },
+          child: _TriggerLabel(trigger: trigger, keymap: keymap, button: button),
+        ),
+    ],
   );
 }
 
