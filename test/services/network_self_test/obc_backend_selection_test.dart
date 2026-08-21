@@ -12,24 +12,7 @@ import 'package:prop/mdns/service_advertiser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../integration/harness/test_env.dart';
-
-/// Records register() calls without any real sockets.
-class _RecordingAdvertiser implements ServiceAdvertiser {
-  final services = <AdvertisedService>[];
-  @override
-  Future<ServiceAdvertisement> register(AdvertisedService service) async {
-    services.add(service);
-    return _Registration(this, service);
-  }
-}
-
-class _Registration implements ServiceAdvertisement {
-  _Registration(this.owner, this.service);
-  final _RecordingAdvertiser owner;
-  final AdvertisedService service;
-  @override
-  Future<void> unregister() async => owner.services.remove(service);
-}
+import 'recording_advertiser.dart';
 
 /// Records register()/deallocate() calls instead of touching dnssd.dll, so
 /// [BonjourServiceAdvertiser] can report "available" off Windows.
@@ -78,13 +61,13 @@ class _FakeMdnsSocket implements MdnsSocket {
 
 Future<void> main() async {
   final env = await IntegrationEnv.setUp();
-  late _RecordingAdvertiser instanceAdvertiser;
+  late RecordingAdvertiser instanceAdvertiser;
 
   setUp(() async {
     env.mdns.reset();
     SharedPreferences.setMockInitialValues({});
     core.settings.prefs = await SharedPreferences.getInstance();
-    instanceAdvertiser = _RecordingAdvertiser();
+    instanceAdvertiser = RecordingAdvertiser();
     ServiceAdvertiser.instance = instanceAdvertiser;
   });
 
@@ -141,7 +124,7 @@ Future<void> main() async {
     });
 
     test('debugAdvertiserOverride wins and resolves to the requested backend verbatim', () {
-      final override = _RecordingAdvertiser();
+      final override = RecordingAdvertiser();
       core.obpMdnsEmulator.debugAdvertiserOverride = override;
       final result = core.obpMdnsEmulator.resolveAdvertiser(ObpMdnsBackend.osResponder);
       expect(result.advertiser, same(override));
