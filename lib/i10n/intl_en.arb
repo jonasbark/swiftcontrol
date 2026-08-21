@@ -1813,6 +1813,9 @@
   "chainStepAppConnectionMethod": "Connection method enabled",
   "chainStepAppConnectionMethodPending": "Enable a connection method",
   "chainStepAppConnectionMethodHint": "Choose how BikeControl reaches your app.",
+  "chainStepAppLocalNetwork": "Local Network allowed",
+  "chainStepAppLocalNetworkPending": "Allow Local Network access",
+  "chainStepAppLocalNetworkHint": "Without it BikeControl can't be seen on your network, and nothing it sends leaves this device.",
   "chainStepAppConnected": "Connected to {app}",
   "@chainStepAppConnected": {
     "placeholders": {

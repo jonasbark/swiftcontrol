@@ -204,6 +204,12 @@ ChainLink _appLink(ChainInputs inputs) {
   final steps = <SetupStep>[
     SetupStep(id: SetupStepId.appSelected, done: selected),
     SetupStep(id: SetupStepId.appConnectionMethod, done: selected && hasMethod),
+    // Between the method and the wire, because that is where it bites: the
+    // bridge is switched on and looks fine, but without the permission nothing
+    // it advertises ever leaves the device. Required, not optional — a rider
+    // cannot ride past this one.
+    if (selected && app.localNetworkGranted != null)
+      SetupStep(id: SetupStepId.appLocalNetwork, done: app.localNetworkGranted!),
     SetupStep(id: SetupStepId.appConnected, done: selected && connected),
     // Last, and optional: Local is not a way to reach the app, it is a way to
     // do *more* to it — keystrokes and clicks the button editor only offers

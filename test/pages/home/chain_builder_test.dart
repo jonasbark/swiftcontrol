@@ -618,6 +618,62 @@ void main() {
       expect(_stepDone(link, SetupStepId.appConnected), isFalse);
     });
 
+    group('Local Network step', () {
+      test('is absent when the permission does not apply', () {
+        // Bluetooth-only, or a platform without the permission: there is
+        // nothing to grant, so the rider must not be shown a step.
+        final chain = buildChain(const ChainInputs(app: _readyApp));
+        expect(_hasStep(chain.byKey(ChainLinkKey.app), SetupStepId.appLocalNetwork), isFalse);
+      });
+
+      test('ticks green once granted, rather than vanishing', () {
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            isConnected: true,
+            localNetworkGranted: true,
+          )),
+        );
+        final link = chain.byKey(ChainLinkKey.app);
+        expect(_stepDone(link, SetupStepId.appLocalNetwork), isTrue);
+        expect(link.status, LinkStatus.ready);
+      });
+
+      test('is the outstanding step when denied, and holds the card back', () {
+        // Required, not optional: a denied permission means the bridge cannot
+        // be reached, so the card must not read as ready.
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            localNetworkGranted: false,
+          )),
+        );
+        final link = chain.byKey(ChainLinkKey.app);
+        expect(_stepDone(link, SetupStepId.appLocalNetwork), isFalse);
+        expect(link.activeStep!.id, SetupStepId.appLocalNetwork);
+        expect(link.status, isNot(LinkStatus.ready));
+      });
+
+      test('comes after the connection method and before the connection', () {
+        // The permission gates the wire, so it cannot be the rider's first or
+        // last piece of work on this card.
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            localNetworkGranted: false,
+          )),
+        );
+        final ids = chain.byKey(ChainLinkKey.app).steps.map((s) => s.id).toList();
+        expect(ids.indexOf(SetupStepId.appLocalNetwork),
+            greaterThan(ids.indexOf(SetupStepId.appConnectionMethod)));
+        expect(ids.indexOf(SetupStepId.appLocalNetwork),
+            lessThan(ids.indexOf(SetupStepId.appConnected)));
+      });
+    });
+
     test('selected but with no connection method is amber', () {
       final chain = buildChain(const ChainInputs(app: AppInput(name: 'MyWhoosh')));
       final link = chain.byKey(ChainLinkKey.app);

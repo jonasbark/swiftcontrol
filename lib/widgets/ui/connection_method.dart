@@ -6,6 +6,7 @@ import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
 import 'package:bike_control/widgets/status_icon.dart';
 import 'package:bike_control/widgets/ui/beta_pill.dart';
@@ -347,6 +348,49 @@ Future openPermissionSheet(BuildContext context, List<PlatformRequirement> notDo
     ),
     position: OverlayPosition.bottom,
   );
+}
+
+/// Reports whether [requirements] are satisfied, prompting for whichever are
+/// missing.
+///
+/// A status check that throws counts as not granted: a permission state we
+/// could not read is not one to act on.
+Future<bool> satisfyRequirements(BuildContext context, List<PlatformRequirement> requirements) async {
+  Future<bool> liveStatus(PlatformRequirement r) async {
+    try {
+      return await r.getStatus();
+    } catch (e, s) {
+      recordError(e, s, context: 'requirement status');
+      return false;
+    }
+  }
+
+  var states = await Future.wait(requirements.map(liveStatus));
+  final missing = [
+    for (var i = 0; i < requirements.length; i++)
+      if (!states[i]) requirements[i],
+  ];
+  if (missing.isEmpty) return true;
+  if (context.mounted) {
+    await openPermissionSheet(context, missing);
+  }
+  states = await Future.wait(missing.map(liveStatus));
+  return states.every((granted) => granted);
+}
+
+/// Prompts for Local Network when it is missing, and brings the enabled network
+/// methods up once it is granted.
+///
+/// The network-side mirror of [enableLocalControl]. Starting on success is the
+/// point: the launch-time start is skipped while onboarding holds the screen,
+/// and a rider who grants the permission later would otherwise be left with a
+/// method that reads as enabled while advertising nothing.
+Future<bool> ensureLocalNetworkAccess(BuildContext context) async {
+  final requirements = localNetworkRequirements();
+  if (requirements.isEmpty) return true;
+  if (!await satisfyRequirements(context, requirements)) return false;
+  core.logic.startEnabledConnectionMethod(userInitiated: true);
+  return true;
 }
 
 /// Prompts for any missing local-control permissions, enables the Local

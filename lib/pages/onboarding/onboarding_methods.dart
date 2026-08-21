@@ -9,7 +9,7 @@ import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
-import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
+import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet, satisfyRequirements;
 import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart' show LogLevel;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -93,33 +93,6 @@ bool onboardingMethodEnabled(OnboardingMethod method, SupportedApp app) => switc
 /// Toggles [method] with exactly the side effects of the corresponding
 /// settings tile's onChange handler. [onUpdate] is invoked when async state
 /// settles so the host can rebuild.
-/// Live permission check: a status check that throws counts as not granted, so
-/// a method is never enabled on a permission state we could not verify.
-Future<bool> _liveStatus(PlatformRequirement r) async {
-  try {
-    return await r.getStatus();
-  } catch (e, s) {
-    recordError(e, s, context: 'onboarding method requirement status');
-    return false;
-  }
-}
-
-/// Prompts for whichever of [requirements] are missing and reports whether they
-/// all ended up granted.
-Future<bool> _satisfy(BuildContext context, List<PlatformRequirement> requirements) async {
-  var states = await Future.wait(requirements.map(_liveStatus));
-  final missing = [
-    for (var i = 0; i < requirements.length; i++)
-      if (!states[i]) requirements[i],
-  ];
-  if (missing.isEmpty) return true;
-  if (context.mounted) {
-    await openPermissionSheet(context, missing);
-  }
-  states = await Future.wait(missing.map(_liveStatus));
-  return states.every((granted) => granted);
-}
-
 /// Re-verifies a network method that is *already* switched on.
 ///
 /// [setOnboardingMethodEnabled] only checks on the enable transition, so a
@@ -137,7 +110,7 @@ Future<void> verifyEnabledNetworkMethod(
   if (!onboardingMethodEnabled(OnboardingMethod.network, app)) return;
   final requirements = localNetworkRequirements();
   if (requirements.isEmpty) return;
-  if (await _satisfy(context, requirements)) {
+  if (await satisfyRequirements(context, requirements)) {
     // Granted — actually bring the method up. The launch-time start was skipped
     // while the wizard held the screen, so without this the method reads as
     // enabled but advertises nothing.
@@ -168,7 +141,7 @@ Future<void> setOnboardingMethodEnabled(
       // consumer of that list treats a non-empty result as "don't scan", so a
       // denial there would silently kill Bluetooth scanning, and probing it at
       // app start pops the system dialog before onboarding has even been shown.
-      if (value && !await _satisfy(context, localNetworkRequirements())) {
+      if (value && !await satisfyRequirements(context, localNetworkRequirements())) {
         onUpdate();
         return;
       }

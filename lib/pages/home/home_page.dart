@@ -30,6 +30,8 @@ import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/services/local_network_access.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
@@ -40,7 +42,7 @@ import 'package:bike_control/widgets/home/chain_labels.dart';
 import 'package:bike_control/widgets/home/ready_banner.dart';
 import 'package:bike_control/widgets/home/trial_card.dart';
 import 'package:bike_control/widgets/ui/animated_button_widget.dart';
-import 'package:bike_control/widgets/ui/connection_method.dart' show enableLocalControl;
+import 'package:bike_control/widgets/ui/connection_method.dart' show enableLocalControl, ensureLocalNetworkAccess;
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
 import 'package:prop/prop.dart' show ClickKeepAwakeStatus, ClickLogic, LogLevel;
@@ -110,9 +112,36 @@ class _HomePageState extends State<HomePage> {
   final Map<String, ControllerButton> _pressedButton = {};
   final Map<String, int> _pressGeneration = {};
 
+  /// Last measured Local Network status, kept here rather than read off
+  /// [LocalNetworkAccess.cached]: that cache expires after 30s, and a step that
+  /// silently disappeared half a minute after the rider looked at it would be
+  /// worse than no step at all.
+  LocalNetworkStatus? _localNetwork;
+
+  /// Null when the permission is not the rider's problem: nothing that rides on
+  /// the LAN is switched on, this platform has no such permission, or it has
+  /// never been measured.
+  bool? get _localNetworkGranted {
+    if (!core.logic.needsLocalNetwork || localNetworkRequirements().isEmpty) return null;
+    final status = _localNetwork;
+    return status == null ? null : status == LocalNetworkStatus.granted;
+  }
+
+  Future<void> _refreshLocalNetwork() async {
+    if (!core.logic.needsLocalNetwork || localNetworkRequirements().isEmpty) return;
+    try {
+      final status = await LocalNetworkAccess.status();
+      if (mounted && status != _localNetwork) setState(() => _localNetwork = status);
+    } catch (e, s) {
+      recordError(e, s, context: 'home local network status');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+
+    unawaited(_refreshLocalNetwork());
 
     _connectionListener = core.connection.connectionStream.listen((_) {
       _syncProxyListeners();
@@ -338,6 +367,7 @@ class _HomePageState extends State<HomePage> {
         // this platform can drive it" — see CoreLogic.
         localControlOffered: core.logic.showLocalControl,
         localControlEnabled: core.settings.getLocalEnabled(),
+        localNetworkGranted: _localNetworkGranted,
       ),
     );
   }
@@ -433,6 +463,7 @@ class _HomePageState extends State<HomePage> {
 
   void _update() {
     widget.onUpdate();
+    unawaited(_refreshLocalNetwork());
     if (mounted) setState(() {});
   }
 
@@ -867,7 +898,13 @@ class _HomePageState extends State<HomePage> {
           await openTrainerConnectSheet(context);
         }
       case ChainLinkKey.app:
-        if (link.activeStep?.id == SetupStepId.appLocalControl) {
+        if (link.activeStep?.id == SetupStepId.appLocalNetwork) {
+          // Runs the permission sheet and, on a grant, brings the enabled
+          // network methods up — the bridge has to actually start, not just
+          // stop complaining.
+          await ensureLocalNetworkAccess(context);
+          await _refreshLocalNetwork();
+        } else if (link.activeStep?.id == SetupStepId.appLocalControl) {
           // enableLocalControl runs the permission sheet itself when the
           // accessibility service or the keyboard grant is still missing, and
           // only reports success once the grant actually landed.

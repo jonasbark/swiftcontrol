@@ -345,6 +345,10 @@ class CoreLogic {
       core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
       (showLocalControl || isRemoteControlEnabled);
 
+  /// Whether any method that rides on the LAN is switched on — i.e. whether
+  /// Apple's Local Network permission is the rider's problem at all.
+  bool get needsLocalNetwork => isZwiftMdnsEnabled || isObpMdnsEnabled || isMyWhooshLinkEnabled;
+
   /// Whether a permission check triggered by app launch should be skipped.
   ///
   /// Reuses navigation's own onboarding decision so the two cannot drift.
@@ -520,7 +524,6 @@ class CoreLogic {
     // was off. Only probe when a network method is actually enabled — probing
     // is what raises the system prompt, and a rider running BLE only should
     // never see it.
-    final needsLocalNetwork = isZwiftMdnsEnabled || isObpMdnsEnabled || isMyWhooshLinkEnabled;
     final localNetworkOk = !needsLocalNetwork || await localNetworkRequirements().allGranted;
     if (!localNetworkOk) {
       core.connection.signalNotification(

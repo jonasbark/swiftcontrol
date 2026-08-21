@@ -50,6 +50,7 @@ enum SetupStepId {
   trainerGearOverlay,
   appSelected,
   appConnectionMethod,
+  appLocalNetwork,
   appConnected,
   appLocalControl,
 }

@@ -166,6 +166,7 @@ class AppInput {
     this.connectionSummary,
     this.localControlOffered = false,
     this.localControlEnabled = false,
+    this.localNetworkGranted,
   });
 
   /// The selected trainer app, or null when the rider hasn't picked one.
@@ -197,6 +198,12 @@ class AppInput {
 
   /// Whether Local is already on, which is what ticks the optional step off.
   final bool localControlEnabled;
+
+  /// Apple's Local Network permission, or null when it does not apply: no
+  /// network method is switched on, the platform has no such permission, or it
+  /// has never been measured. Null keeps the step out of the checklist
+  /// entirely, so a rider is never shown work that isn't theirs to do.
+  final bool? localNetworkGranted;
 }
 
 class ChainInputs {
