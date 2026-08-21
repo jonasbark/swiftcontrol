@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
@@ -236,6 +237,32 @@ void main() {
       expect(result.firewall.verdict, NetworkVerdict.warn);
       expect(result.firewall.detail['rules'], 'none found');
       expect(result.firewall.fixes, contains(NetworkFixId.openFirewallSettings));
+    });
+  });
+
+  // The catches are typed: a process that cannot be started or that hangs is
+  // a legitimate `unknown`, but anything else is a bug in the probe and must
+  // reach the engine wrapper (which recordErrors it under the check's id)
+  // instead of being filed away as `unknown` with no trace.
+  group('exception handling', () {
+    Future<ProcessResult> hang(String executable, List<String> arguments) async =>
+        throw TimeoutException('runProcess', const Duration(seconds: 8));
+    Future<ProcessResult> bug(String executable, List<String> arguments) async => throw StateError('probe bug');
+
+    test('a TimeoutException from runProcess is unknown', () async {
+      expect((await bonjourServiceCheck(ctx(runProcess: hang))).verdict, NetworkVerdict.unknown);
+      expect((await bonjourNspCheck(ctx(runProcess: hang))).verdict, NetworkVerdict.unknown);
+      expect((await windowsMdnsResolverCheck(ctx(runProcess: hang))).verdict, NetworkVerdict.unknown);
+      final both = await windowsNetworkProfileAndFirewallChecks(ctx(runProcess: hang));
+      expect(both.profile.verdict, NetworkVerdict.unknown);
+      expect(both.firewall.verdict, NetworkVerdict.unknown);
+    });
+
+    test('an unexpected exception type propagates out of every check', () async {
+      await expectLater(bonjourServiceCheck(ctx(runProcess: bug)), throwsStateError);
+      await expectLater(bonjourNspCheck(ctx(runProcess: bug)), throwsStateError);
+      await expectLater(windowsMdnsResolverCheck(ctx(runProcess: bug)), throwsStateError);
+      await expectLater(windowsNetworkProfileAndFirewallChecks(ctx(runProcess: bug)), throwsStateError);
     });
   });
 }

@@ -205,4 +205,33 @@ void main() {
       expect(check.fixes, contains(NetworkFixId.openFirewallSettings));
     });
   });
+
+  group('tcpSelfConnectCheck exception handling', () {
+    DebugDiagnostics listening() => _diag(
+      addressReport: const AddressPickReport(chosen: null, candidates: []),
+      servers: const [TcpServerInfo(label: 'OpenBikeControl', port: 36867, listening: true, hasClient: false)],
+    );
+
+    test('fail: a TimeoutException from the probe', () async {
+      final check = await tcpSelfConnectCheck(
+        ctx(snapshot: listening(), tcpProbe: (address, port) async => throw TimeoutException('connect')),
+      );
+      expect(check.verdict, NetworkVerdict.fail);
+      expect(check.fixes, contains(NetworkFixId.restartMethod));
+    });
+
+    test('fail: a StateError from the probe (no active OpenBikeControl server)', () async {
+      final check = await tcpSelfConnectCheck(
+        ctx(snapshot: listening(), tcpProbe: (address, port) async => throw StateError('OpenBikeControl server not running')),
+      );
+      expect(check.verdict, NetworkVerdict.fail);
+    });
+
+    test('an unexpected exception type propagates', () async {
+      await expectLater(
+        tcpSelfConnectCheck(ctx(snapshot: listening(), tcpProbe: (address, port) async => throw ArgumentError('probe bug'))),
+        throwsArgumentError,
+      );
+    });
+  });
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dartx/dartx.dart';
@@ -8,10 +9,15 @@ import '../network_probe_context.dart';
 /// The four Windows-only OS-level checks (spec checks 10-13, §12-adjusted):
 /// shell out to `sc`, `netsh`, `reg` and `powershell` through
 /// [NetworkProbeContext.runProcess] and interpret their output. Every check
-/// here skips outright off-Windows; a process that throws is `unknown` with
-/// the error captured, and stdout is capped to 4 KB before it is parsed or
-/// stored in a check's detail map — except where a rule below specifically
-/// interprets a non-zero exit code (documented per check).
+/// here skips outright off-Windows; a process that cannot be started
+/// ([ProcessException]) or hangs past the context's cap ([TimeoutException])
+/// is `unknown` with the error captured. Those are the only two expected
+/// failure shapes — anything else is a bug in the probe and deliberately
+/// propagates to the engine wrapper, which recordErrors it under the
+/// check's id instead of filing it away as `unknown` with no trace. stdout
+/// is capped to 4 KB before it is parsed or stored in a check's detail map
+/// — except where a rule below specifically interprets a non-zero exit code
+/// (documented per check).
 const _stdoutCap = 4096;
 
 String _capStdout(Object? stdout) {
@@ -30,7 +36,9 @@ Future<NetworkCheck> bonjourServiceCheck(NetworkProbeContext ctx) async {
   final ProcessResult result;
   try {
     result = await ctx.runProcess('sc', ['query', 'Bonjour Service']);
-  } catch (e) {
+  } on ProcessException catch (e) {
+    return NetworkCheck(id: NetworkCheckId.bonjourService, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
+  } on TimeoutException catch (e) {
     return NetworkCheck(id: NetworkCheckId.bonjourService, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
   }
   final exitCode = result.exitCode;
@@ -68,7 +76,9 @@ Future<NetworkCheck> bonjourNspCheck(NetworkProbeContext ctx) async {
   final ProcessResult result;
   try {
     result = await ctx.runProcess('netsh', ['winsock', 'show', 'catalog']);
-  } catch (e) {
+  } on ProcessException catch (e) {
+    return NetworkCheck(id: NetworkCheckId.bonjourNsp, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
+  } on TimeoutException catch (e) {
     return NetworkCheck(id: NetworkCheckId.bonjourNsp, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
   }
   if (result.exitCode != 0) {
@@ -108,12 +118,10 @@ Future<NetworkCheck> windowsMdnsResolverCheck(NetworkProbeContext ctx) async {
       '/v',
       'EnableMDNS',
     ]);
-  } catch (e) {
-    return NetworkCheck(
-      id: NetworkCheckId.windowsMdnsResolver,
-      verdict: NetworkVerdict.unknown,
-      detail: {'error': '$e'},
-    );
+  } on ProcessException catch (e) {
+    return NetworkCheck(id: NetworkCheckId.windowsMdnsResolver, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
+  } on TimeoutException catch (e) {
+    return NetworkCheck(id: NetworkCheckId.windowsMdnsResolver, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
   }
   if (result.exitCode != 0) {
     // reg query fails when the value doesn't exist at all — that's the
@@ -167,19 +175,13 @@ Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeContro
   final ProcessResult result;
   try {
     result = await ctx.runProcess('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
-  } catch (e) {
-    final detail = {'error': '$e'};
-    return (
-      profile: NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.unknown, detail: detail),
-      firewall: NetworkCheck(id: NetworkCheckId.firewallRule, verdict: NetworkVerdict.unknown, detail: detail),
-    );
+  } on ProcessException catch (e) {
+    return _bothUnknown('$e');
+  } on TimeoutException catch (e) {
+    return _bothUnknown('$e');
   }
   if (result.exitCode != 0) {
-    final detail = {'error': 'exit ${result.exitCode}'};
-    return (
-      profile: NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.unknown, detail: detail),
-      firewall: NetworkCheck(id: NetworkCheckId.firewallRule, verdict: NetworkVerdict.unknown, detail: detail),
-    );
+    return _bothUnknown('exit ${result.exitCode}');
   }
 
   final stdout = _capStdout(result.stdout);
@@ -202,6 +204,14 @@ Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeContro
   }
 
   return (profile: _parseProfile(ctx, profileLines), firewall: _parseFirewall(firewallLines));
+}
+
+({NetworkCheck profile, NetworkCheck firewall}) _bothUnknown(String error) {
+  final detail = {'error': error};
+  return (
+    profile: NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.unknown, detail: detail),
+    firewall: NetworkCheck(id: NetworkCheckId.firewallRule, verdict: NetworkVerdict.unknown, detail: detail),
+  );
 }
 
 NetworkCheck _parseProfile(NetworkProbeContext ctx, List<String> lines) {

@@ -103,15 +103,18 @@ Future<NetworkCheck> tcpSelfConnectCheck(NetworkProbeContext ctx) async {
   final address = snapshot!.addressReport.chosen?.address ?? '127.0.0.1';
   final port = server.port!;
   final start = ctx.now();
+  // Refused / timed out / no server to probe ([defaultTcpProbe]'s StateError)
+  // are the three ways a reachability probe legitimately fails. Anything
+  // else is a bug and propagates to the engine wrapper (recordError under
+  // this check's id) rather than being reported as a network failure.
   try {
     await ctx.tcpProbe(address, port);
-  } catch (e) {
-    return NetworkCheck(
-      id: NetworkCheckId.tcpSelfConnect,
-      verdict: NetworkVerdict.fail,
-      detail: {'error': e.toString()},
-      fixes: [NetworkFixId.restartMethod, if (ctx.platform == 'windows') NetworkFixId.openFirewallSettings],
-    );
+  } on SocketException catch (e) {
+    return _tcpFailure(ctx, e);
+  } on TimeoutException catch (e) {
+    return _tcpFailure(ctx, e);
+  } on StateError catch (e) {
+    return _tcpFailure(ctx, e);
   }
 
   final latencyMs = ctx.now().difference(start).inMilliseconds;
@@ -121,6 +124,13 @@ Future<NetworkCheck> tcpSelfConnectCheck(NetworkProbeContext ctx) async {
     detail: {'latencyMs': '$latencyMs'},
   );
 }
+
+NetworkCheck _tcpFailure(NetworkProbeContext ctx, Object error) => NetworkCheck(
+  id: NetworkCheckId.tcpSelfConnect,
+  verdict: NetworkVerdict.fail,
+  detail: {'error': error.toString()},
+  fixes: [NetworkFixId.restartMethod, if (ctx.platform == 'windows') NetworkFixId.openFirewallSettings],
+);
 
 /// Default resolver: IPv4 lookup with its own 3 s cap.
 Future<List<InternetAddress>> defaultResolve(String host) =>
