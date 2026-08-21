@@ -22,14 +22,17 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'network_check.dart';
 
 /// Executes one fix. Returns true when the action completed (not necessarily
-/// that it helped). Failures toast + recordError and return false.
+/// that it helped). Failures toast + recordError and return false; a refusal
+/// (restart / backend switch while the trainer app is connected) toasts the
+/// reason and returns false without recordError — nothing went wrong.
 Future<bool> runNetworkFix(BuildContext context, NetworkFixId fix) async {
   switch (fix) {
     case NetworkFixId.restartMethod:
-      // The caller (the troubleshooting page) disables this button while
-      // connected, so reaching here with a live connection is defensive —
-      // refuse silently rather than restarting a connection that works.
+      // The page greys this button out while connected, so reaching here
+      // with a live connection is defensive — but say why rather than
+      // appearing to do nothing.
       if (core.obpMdnsEmulator.isConnected.value) {
+        _toastRefusedWhileConnected();
         return false;
       }
       try {
@@ -53,30 +56,23 @@ Future<bool> runNetworkFix(BuildContext context, NetworkFixId fix) async {
 
     case NetworkFixId.switchToLocal:
       try {
+        // A false here is the rider declining a permission sheet, not a
+        // failure — no toast for that.
         return await enableLocalControl(context);
       } catch (e, s) {
         recordError(e, s, context: 'runNetworkFix.switchToLocal');
+        _toastFailed();
         return false;
       }
 
     case NetworkFixId.openFirewallSettings:
-      try {
-        return await launchUrlString('ms-settings:windowsdefender', mode: LaunchMode.externalApplication);
-      } catch (e, s) {
-        recordError(e, s, context: 'runNetworkFix.openFirewallSettings');
-        return false;
-      }
+      return _launch('ms-settings:windowsdefender', context: 'runNetworkFix.openFirewallSettings');
 
     case NetworkFixId.openBonjourDownload:
-      try {
-        return await launchUrlString(
-          'https://octoclip.app/learn/how-to-install-bonjour-on-windows/',
-          mode: LaunchMode.externalApplication,
-        );
-      } catch (e, s) {
-        recordError(e, s, context: 'runNetworkFix.openBonjourDownload');
-        return false;
-      }
+      return _launch(
+        'https://octoclip.app/learn/how-to-install-bonjour-on-windows/',
+        context: 'runNetworkFix.openBonjourDownload',
+      );
 
     case NetworkFixId.openLocalNetworkSettings:
       try {
@@ -85,6 +81,7 @@ Future<bool> runNetworkFix(BuildContext context, NetworkFixId fix) async {
         return true;
       } catch (e, s) {
         recordError(e, s, context: 'runNetworkFix.openLocalNetworkSettings');
+        _toastFailed();
         return false;
       }
 
@@ -97,25 +94,84 @@ Future<bool> runNetworkFix(BuildContext context, NetworkFixId fix) async {
   }
 }
 
+/// Opens [url] externally; a launcher that throws OR reports it could not
+/// open the URL is a failed arm either way (toast + false).
+Future<bool> _launch(String url, {required String context}) async {
+  try {
+    final ok = await launchUrlString(url, mode: LaunchMode.externalApplication);
+    if (!ok) _toastFailed();
+    return ok;
+  } catch (e, s) {
+    recordError(e, s, context: context);
+    _toastFailed();
+    return false;
+  }
+}
+
+void _toastFailed() {
+  buildToast(level: LogLevel.LOGLEVEL_ERROR, title: AppLocalizations.current.networkFixFailed);
+}
+
+void _toastRefusedWhileConnected() {
+  final app = core.settings.getTrainerApp()?.name;
+  buildToast(
+    level: LogLevel.LOGLEVEL_WARNING,
+    title: app == null
+        ? AppLocalizations.current.networkFixRefusedConnectedNoApp
+        : AppLocalizations.current.networkFixRefusedConnected(app),
+  );
+}
+
 /// Testable core of the backend switch (no BuildContext): set pref →
-/// stopServer → startServer; on start failure: recordError, restore the
-/// previous pref, restart on it (best effort), rethrow-free return false.
+/// stopServer → startServer → verify the registration actually landed on
+/// [target]. Any other outcome restores the previous pref, restarts on it
+/// (best effort), toasts, and returns false:
+///
+/// * `startServer()` threw — recordError + the generic failure toast.
+/// * it came up, but `activeBackend != target` — the Windows-without-Bonjour
+///   degrade in `resolveAdvertiser` (the only path that resolves to a
+///   different backend than requested). Before this was checked, "Register
+///   through Bonjour" on such a machine silently succeeded: the pref stayed
+///   at osResponder, the page re-ran with the identical result, and row 6
+///   (keyed on activeBackend) offered no way back. It is the recommended
+///   fix there, so it says exactly what is missing.
+///
+/// Refuses outright while the trainer app is connected: stopServer() would
+/// drop a connection that works.
 @visibleForTesting
 Future<bool> switchObpBackend(ObpMdnsBackend target) async {
+  final emulator = core.obpMdnsEmulator;
+  if (emulator.isConnected.value) {
+    _toastRefusedWhileConnected();
+    return false;
+  }
   final previous = core.settings.getObpMdnsBackend();
   await core.settings.setObpMdnsBackend(target);
-  await core.obpMdnsEmulator.stopServer();
+  await emulator.stopServer();
   try {
-    await core.obpMdnsEmulator.startServer();
-    return true;
+    await emulator.startServer();
   } catch (e, s) {
     recordError(e, s, context: 'switchObpBackend');
-    await core.settings.setObpMdnsBackend(previous);
-    try {
-      await core.obpMdnsEmulator.startServer();
-    } catch (e2, s2) {
-      recordError(e2, s2, context: 'switchObpBackend');
-    }
+    _toastFailed();
+    await _restoreObpBackend(previous);
     return false;
+  }
+  if (emulator.activeBackend != target) {
+    buildToast(level: LogLevel.LOGLEVEL_ERROR, title: AppLocalizations.current.networkFixBonjourMissing);
+    await _restoreObpBackend(previous);
+    return false;
+  }
+  return true;
+}
+
+Future<void> _restoreObpBackend(ObpMdnsBackend previous) async {
+  await core.settings.setObpMdnsBackend(previous);
+  try {
+    // stopServer() is idempotent; it also clears a TCP server left bound by
+    // a start that failed after binding, so the restart does not walk ports.
+    await core.obpMdnsEmulator.stopServer();
+    await core.obpMdnsEmulator.startServer();
+  } catch (e, s) {
+    recordError(e, s, context: 'switchObpBackend.restore');
   }
 }

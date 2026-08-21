@@ -1,4 +1,5 @@
 import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
+import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/services/network_self_test/network_fixes.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../integration/harness/fake_nsd_platform.dart';
 import '../../integration/harness/test_env.dart';
+import 'fake_bonjour_api.dart';
 import 'recording_advertiser.dart';
 
 /// Throws once from register(), then behaves like the real fake — models a
@@ -41,9 +43,12 @@ Future<void> main() async {
   });
 
   tearDown(() async {
+    core.obpMdnsEmulator.isConnected.value = false;
     await core.obpMdnsEmulator.stopServer();
     ServiceAdvertiser.instance = NsdServiceAdvertiser();
     NsdPlatformInterface.instance = env.mdns;
+    core.obpMdnsEmulator.debugBonjourFactory = null;
+    core.obpMdnsEmulator.debugIsWindows = null;
   });
 
   group('switchObpBackend', () {
@@ -74,6 +79,41 @@ Future<void> main() async {
 
       expect(core.obpMdnsEmulator.isStarted.value, isTrue);
       expect(core.obpMdnsEmulator.activeBackend, ObpMdnsBackend.platformDefault);
+    });
+
+    // "Register through Bonjour" on a Windows box without Bonjour: the start
+    // itself succeeds (resolveAdvertiser degrades to platformDefault), so the
+    // old "did startServer throw?" test was blind to it — the pref was left
+    // at osResponder, the page re-ran with the identical result, and row 6
+    // (keyed on activeBackend) offered no way back.
+    test('a degraded switch (Windows without Bonjour) is a failed switch: pref restored, returns false', () async {
+      await core.obpMdnsEmulator.startServer(); // running on platformDefault
+      core.obpMdnsEmulator.debugIsWindows = () => true;
+      core.obpMdnsEmulator.debugBonjourFactory = () => BonjourServiceAdvertiser(api: FakeBonjourApi(isAvailable: false));
+
+      final ok = await switchObpBackend(ObpMdnsBackend.osResponder);
+
+      expect(ok, isFalse);
+      expect(core.settings.getObpMdnsBackend(), ObpMdnsBackend.platformDefault, reason: 'the previous pref is restored');
+      expect(core.obpMdnsEmulator.isStarted.value, isTrue, reason: 'restarted on the restored pref');
+      expect(core.obpMdnsEmulator.activeBackend, ObpMdnsBackend.platformDefault);
+      expect(env.mdns.registrations, isEmpty, reason: 'nsd is never the Windows OS backend');
+      expect(instanceAdvertiser.services, hasLength(1));
+    });
+
+    test('refuses while the trainer app is connected: no restart, pref untouched', () async {
+      await core.obpMdnsEmulator.startServer(); // running on platformDefault
+      core.obpMdnsEmulator.isConnected.value = true;
+      final registeredBefore = instanceAdvertiser.services.toList();
+
+      final ok = await switchObpBackend(ObpMdnsBackend.osResponder);
+
+      expect(ok, isFalse);
+      expect(core.settings.getObpMdnsBackend(), ObpMdnsBackend.platformDefault);
+      expect(core.obpMdnsEmulator.isConnected.value, isTrue, reason: 'the live connection was not dropped');
+      expect(core.obpMdnsEmulator.activeBackend, ObpMdnsBackend.platformDefault);
+      expect(instanceAdvertiser.services, equals(registeredBefore), reason: 'the running registration was not touched');
+      expect(env.mdns.registrations, isEmpty);
     });
   });
 }

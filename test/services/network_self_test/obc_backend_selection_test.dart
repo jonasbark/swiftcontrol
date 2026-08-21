@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
-import 'package:bike_control/services/bonjour/bonjour_api.dart';
 import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,25 +11,8 @@ import 'package:prop/mdns/service_advertiser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../integration/harness/test_env.dart';
+import 'fake_bonjour_api.dart';
 import 'recording_advertiser.dart';
-
-/// Records register()/deallocate() calls instead of touching dnssd.dll, so
-/// [BonjourServiceAdvertiser] can report "available" off Windows.
-class _FakeBonjourApi implements BonjourApi {
-  @override
-  bool isAvailable = true;
-
-  int registerCallCount = 0;
-
-  @override
-  Object register({required String name, required String type, required int port, required Uint8List txtRecord}) {
-    registerCallCount++;
-    return Object();
-  }
-
-  @override
-  void deallocate(Object handle) {}
-}
 
 /// No-op transport for [ResponderServiceAdvertiser] — records nothing, binds
 /// no real socket, so [OpenBikeControlMdnsEmulator.startServer] can run
@@ -144,7 +126,7 @@ Future<void> main() async {
     });
 
     test('Windows with Bonjour available resolves osResponder to the Bonjour advertiser', () {
-      final fakeBonjour = BonjourServiceAdvertiser(api: _FakeBonjourApi());
+      final fakeBonjour = BonjourServiceAdvertiser(api: FakeBonjourApi());
       core.obpMdnsEmulator.debugIsWindows = () => true;
       core.obpMdnsEmulator.debugBonjourFactory = () => fakeBonjour;
       final result = core.obpMdnsEmulator.resolveAdvertiser(ObpMdnsBackend.osResponder);
@@ -194,7 +176,7 @@ Future<void> main() async {
     });
 
     test('Windows osResponder with Bonjour available reports the machine hostname', () async {
-      final fakeBonjour = BonjourServiceAdvertiser(api: _FakeBonjourApi());
+      final fakeBonjour = BonjourServiceAdvertiser(api: FakeBonjourApi());
       core.obpMdnsEmulator.debugIsWindows = () => true;
       core.obpMdnsEmulator.debugBonjourFactory = () => fakeBonjour;
       await core.settings.setObpMdnsBackend(ObpMdnsBackend.osResponder);

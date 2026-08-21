@@ -5,14 +5,19 @@ import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show OtherLocalizationsDelegate, navigatorKey;
 import 'package:bike_control/pages/network_troubleshooting_page.dart';
+import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/services/network_self_test/network_check.dart';
+import 'package:bike_control/services/network_self_test/network_fixes.dart';
 import 'package:bike_control/services/network_self_test/network_probe_context.dart';
 import 'package:bike_control/services/network_self_test/network_self_test_engine.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/widgets/network_check_row.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/mdns/service_advertiser.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import '../services/network_self_test/fake_bonjour_api.dart';
+import '../services/network_self_test/recording_advertiser.dart';
 import '../widget_snapshot.dart';
 
 /// Pumps [child] inside a real [ShadcnApp], wired to the app's global
@@ -155,6 +160,39 @@ Future<void> main() async {
     expect(find.byKey(const ValueKey('network-recommended-fix')), findsOneWidget);
   });
 
+  testWidgets('while connected, a recommended backend-switch fix is disabled like restart is', (tester) async {
+    core.obpMdnsEmulator.isConnected.value = true;
+    final probes = [
+      ProbeSpec(
+        id: NetworkCheckId.resolveOwnHostname,
+        timeout: const Duration(seconds: 1),
+        run: (ctx) async => const NetworkCheck(
+          id: NetworkCheckId.resolveOwnHostname,
+          verdict: NetworkVerdict.fail,
+          fixes: [NetworkFixId.useOsResponderForObc, NetworkFixId.switchToLocal],
+        ),
+      ),
+    ];
+    await _pump(
+      tester,
+      NetworkTroubleshootingPage(engineFactory: () => NetworkSelfTestEngine(contextBuilder: _ctx, probes: probes)),
+    );
+    await tester.pump();
+
+    // Tap through the "already connected" refusal card to run anyway.
+    await tester.tap(find.text(_l10n(tester).networkTroubleshootRun));
+    await tester.pump();
+    await tester.pump();
+
+    final switchButton = tester.widget<Button>(find.byKey(const ValueKey('network-recommended-fix')));
+    expect(switchButton.onPressed, isNull, reason: 'switching the backend stops the server and would drop the live connection');
+
+    // The second fix (switchToLocal) does not touch the running server, so it stays tappable.
+    final buttons = tester.widgetList<Button>(find.descendant(of: find.byType(Wrap), matching: find.byType(Button))).toList();
+    final local = buttons.firstWhere((b) => b.key != const ValueKey('network-recommended-fix'));
+    expect(local.onPressed, isNotNull);
+  });
+
   testWidgets('copy button copies the bundle and toasts, without throwing', (tester) async {
     final probes = [
       ProbeSpec(
@@ -205,5 +243,71 @@ Future<void> main() async {
 
     expect(engine.state.value.result, isNotNull);
     expect(engine.state.value.result!.completed, isFalse);
+  });
+
+  group('runNetworkFix toasts', () {
+    /// A bare page inside the navigatorKey-wired app, so `buildToast()` has
+    /// a tree to mount into and `runNetworkFix` gets a real BuildContext.
+    Future<BuildContext> pumpHost(WidgetTester tester) async {
+      await _pump(tester, const Scaffold(child: SizedBox(key: ValueKey('host'))));
+      await tester.pump();
+      return tester.element(find.byKey(const ValueKey('host')));
+    }
+
+    AppLocalizations l10nOf(BuildContext context) => AppLocalizations.of(context);
+
+    testWidgets('restartMethod while connected refuses with a toast instead of silently', (tester) async {
+      core.obpMdnsEmulator.isConnected.value = true;
+      final context = await pumpHost(tester);
+      final l10n = l10nOf(context);
+      final app = core.settings.getTrainerApp()?.name;
+      final expected = app == null ? l10n.networkFixRefusedConnectedNoApp : l10n.networkFixRefusedConnected(app);
+
+      final ok = await runNetworkFix(context, NetworkFixId.restartMethod);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(ok, isFalse);
+      expect(core.obpMdnsEmulator.isConnected.value, isTrue, reason: 'the live connection was left alone');
+      expect(find.text(expected), findsOneWidget);
+    });
+
+    testWidgets('a failing non-restart arm toasts the generic failure', (tester) async {
+      // url_launcher has no platform implementation under `flutter test`, so
+      // openFirewallSettings is a real failing arm here, not a stub.
+      final context = await pumpHost(tester);
+      final l10n = l10nOf(context);
+
+      final ok = await runNetworkFix(context, NetworkFixId.openFirewallSettings);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(ok, isFalse);
+      expect(find.text(l10n.networkFixFailed), findsOneWidget);
+    });
+
+    testWidgets('a degraded Bonjour switch toasts the Bonjour-missing message', (tester) async {
+      final advertiser = RecordingAdvertiser();
+      final previousInstance = ServiceAdvertiser.instance;
+      ServiceAdvertiser.instance = advertiser;
+      core.obpMdnsEmulator.debugIsWindows = () => true;
+      core.obpMdnsEmulator.debugBonjourFactory = () => BonjourServiceAdvertiser(api: FakeBonjourApi(isAvailable: false));
+      addTearDown(() async {
+        core.obpMdnsEmulator.debugIsWindows = null;
+        core.obpMdnsEmulator.debugBonjourFactory = null;
+        await core.obpMdnsEmulator.stopServer();
+        ServiceAdvertiser.instance = previousInstance;
+      });
+      final context = await pumpHost(tester);
+      final l10n = l10nOf(context);
+
+      final ok = await runNetworkFix(context, NetworkFixId.useOsResponderForObc);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(ok, isFalse);
+      expect(core.settings.getObpMdnsBackend(), ObpMdnsBackend.platformDefault);
+      expect(find.text(l10n.networkFixBonjourMissing), findsOneWidget);
+    });
   });
 }

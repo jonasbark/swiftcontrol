@@ -166,7 +166,13 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
     );
   }
 
-  bool _fixDisabled(NetworkFixId fix) => fix == NetworkFixId.restartMethod && core.obpMdnsEmulator.isConnected.value;
+  /// Fixes that stop the OpenBikeControl server are greyed out while a
+  /// trainer app is connected through it — they would drop a connection
+  /// that works. `runNetworkFix` refuses them too (with a toast) should one
+  /// slip through; this is just the visual half of that.
+  static const _stopsServer = {NetworkFixId.restartMethod, NetworkFixId.useOsResponderForObc, NetworkFixId.useResponderForObc};
+
+  bool _fixDisabled(NetworkFixId fix) => _stopsServer.contains(fix) && core.obpMdnsEmulator.isConnected.value;
 
   @override
   Widget build(BuildContext context) {
