@@ -33,6 +33,11 @@ class LocalNetworkAccess {
   static DateTime? _cachedAt;
   static Future<LocalNetworkStatus>? _inFlight;
 
+  /// Bumped by [invalidate]. A probe that started in an earlier generation
+  /// describes the world before whatever prompted the invalidation, so it must
+  /// not write its answer back into the cache.
+  static int _generation = 0;
+
   /// The last known status without probing, or null if nothing is cached.
   static LocalNetworkStatus? get cached => _isFresh ? _cached : null;
 
@@ -58,6 +63,7 @@ class LocalNetworkAccess {
   }
 
   static Future<LocalNetworkStatus> _probe() async {
+    final generation = _generation;
     LocalNetworkStatus result;
     try {
       result = await LocalNetworkPermission.check(timeout: probeTimeout);
@@ -66,8 +72,13 @@ class LocalNetworkAccess {
       // A broken probe must not lock the user out of their trainer app.
       result = LocalNetworkStatus.unknown;
     }
-    _cached = result;
-    _cachedAt = now();
+    // Still answer whoever is awaiting this probe, but a stale generation must
+    // not repopulate the cache: the user has been to System Settings since it
+    // started, so this result describes the permission as it was beforehand.
+    if (generation == _generation) {
+      _cached = result;
+      _cachedAt = now();
+    }
     return result;
   }
 
@@ -76,8 +87,12 @@ class LocalNetworkAccess {
   /// Call this whenever the user has been somewhere they could have changed
   /// the answer — the System Settings trip in particular.
   static void invalidate() {
+    _generation++;
     _cached = null;
     _cachedAt = null;
+    // Drop the in-flight probe too, so the next caller starts a fresh one
+    // rather than being handed the pre-invalidation answer.
+    _inFlight = null;
   }
 
   /// Whether local-network features should be allowed to run.
@@ -92,7 +107,6 @@ class LocalNetworkAccess {
   @visibleForTesting
   static void resetForTest() {
     invalidate();
-    _inFlight = null;
     now = DateTime.now;
   }
 }

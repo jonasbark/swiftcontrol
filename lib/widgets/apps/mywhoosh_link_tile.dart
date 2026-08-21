@@ -21,6 +21,11 @@ class MyWhooshLinkTile extends StatefulWidget {
 }
 
 class _MywhooshLinkTileState extends State<MyWhooshLinkTile> {
+  /// Built once, not per build: PlatformRequirement carries a mutable
+  /// `status`, so rebuilding the list every frame throws away whatever the
+  /// last probe learned.
+  final _requirements = localNetworkRequirements();
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
@@ -42,7 +47,7 @@ class _MywhooshLinkTileState extends State<MyWhooshLinkTile> {
                   : isStarted
                   ? context.i18n.checkMyWhooshConnectionScreen
                   : context.i18n.myWhooshLinkDescriptionLocal,
-              requirements: localNetworkRequirements(),
+              requirements: _requirements,
               showTroubleshooting: true,
               onChange: (value) {
                 core.settings.setMyWhooshLinkEnabled(value);

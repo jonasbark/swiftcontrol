@@ -45,6 +45,7 @@ import '../bluetooth/connection.dart';
 import '../bluetooth/devices/mywhoosh/link.dart';
 import 'keymap/apps/rouvy.dart';
 import 'media_key_handler.dart';
+import 'requirements/local_network.dart';
 import 'requirements/multi.dart';
 import 'requirements/platform.dart';
 
@@ -142,11 +143,16 @@ class Permissions {
       list = [
         BluetoothTurnedOn(),
         NotificationRequirement(),
+        // Denial silently breaks every network bridging method, so surface it
+        // here — at app start, in onboarding and on every scan — rather than
+        // only when the user reaches a network tile.
+        ...localNetworkRequirements(),
       ];
     } else if (Platform.isIOS) {
       list = [
         BluetoothTurnedOn(),
         NotificationRequirement(),
+        ...localNetworkRequirements(),
       ];
     } else if (Platform.isWindows) {
       list = [

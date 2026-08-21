@@ -18,6 +18,11 @@ class OpenBikeControlMdnsTile extends StatefulWidget {
 }
 
 class _OpenBikeProtocolTileState extends State<OpenBikeControlMdnsTile> {
+  /// Built once, not per build: PlatformRequirement carries a mutable
+  /// `status`, so rebuilding the list every frame throws away whatever the
+  /// last probe learned.
+  final _requirements = localNetworkRequirements();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -45,7 +50,7 @@ class _OpenBikeProtocolTileState extends State<OpenBikeControlMdnsTile> {
                       : isStarted
                       ? context.i18n.chooseBikeControlInConnectionScreen
                       : context.i18n.letsAppConnectOverNetwork(core.settings.getTrainerApp()?.name ?? ''),
-                  requirements: localNetworkRequirements(),
+                  requirements: _requirements,
                   onChange: (value) {
                     core.settings.setObpMdnsEnabled(value);
                     if (!value) {

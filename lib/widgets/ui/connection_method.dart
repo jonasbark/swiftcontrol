@@ -113,12 +113,18 @@ class _ConnectionMethodState extends State<ConnectionMethod> with WidgetsBinding
       } else if (widget.requirements.isEmpty) {
         widget.onChange(!widget.isEnabled);
       } else {
-        Future.wait(widget.requirements.map((e) => e.getStatus())).then((_) async {
+        // Captured, not re-read after the await: `requirements` is rebuilt from
+        // scratch on every build (see the tiles), so `widget.requirements` on
+        // the far side of the gap can be a different, never-probed list whose
+        // `status` is all false — which used to open the permission sheet for a
+        // permission that was actually granted.
+        final requirements = widget.requirements;
+        Future.wait(requirements.map((e) => e.getStatus())).then((_) async {
           // The widget can be disposed across these async gaps; using a defunct
           // context (openPermissionSheet) or setState then throws "Null check
           // operator used on a null value".
           if (!context.mounted) return;
-          final notDone = widget.requirements.filter((e) => !e.status).toList();
+          final notDone = requirements.filter((e) => !e.status).toList();
           if (notDone.isEmpty) {
             widget.onChange(!widget.isEnabled);
           } else {
