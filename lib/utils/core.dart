@@ -45,7 +45,6 @@ import '../bluetooth/connection.dart';
 import '../bluetooth/devices/mywhoosh/link.dart';
 import 'keymap/apps/rouvy.dart';
 import 'media_key_handler.dart';
-import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/onboarding/onboarding_trigger.dart';
 import 'requirements/local_network.dart';
 import 'requirements/multi.dart';
@@ -524,17 +523,9 @@ class CoreLogic {
     // was off. Only probe when a network method is actually enabled — probing
     // is what raises the system prompt, and a rider running BLE only should
     // never see it.
+    // No toast on failure: the app card carries this as a required step now,
+    // which stays put instead of scrolling away.
     final localNetworkOk = !needsLocalNetwork || await localNetworkRequirements().allGranted;
-    if (!localNetworkOk) {
-      core.connection.signalNotification(
-        AlertNotification(
-          LogLevel.LOGLEVEL_WARNING,
-          !kIsWeb && Platform.isIOS
-              ? AppLocalizations.current.localNetworkAccessDeniedIos
-              : AppLocalizations.current.localNetworkAccessDeniedMacos,
-        ),
-      );
-    }
 
     if (isZwiftMdnsEnabled && localNetworkOk) {
       if (core.settings.getTrainerApp() is Rouvy && !core.rouvyMdnsEmulator.isStarted.value) {

@@ -248,4 +248,44 @@ void main() {
       expect(appLinkOpensConnectionSettings(appLink(const [])), isFalse);
     });
   });
+
+  group('appStatusFollowsActiveStep', () {
+    ChainLink link(List<SetupStep> steps) =>
+        ChainLink(key: ChainLinkKey.app, id: 'app', status: LinkStatus.attention, title: 'MyWhoosh', steps: steps);
+
+    test('names the outstanding step while one is in the way', () {
+      // "Waiting for MyWhoosh" while Local Network is denied points the rider
+      // at the trainer app to hunt for a problem that is on this device.
+      final l = link(const [
+        SetupStep(id: SetupStepId.appSelected, done: true),
+        SetupStep(id: SetupStepId.appConnectionMethod, done: true),
+        SetupStep(id: SetupStepId.appLocalNetwork, done: false),
+        SetupStep(id: SetupStepId.appConnected, done: false),
+      ]);
+      expect(l.activeStep!.id, SetupStepId.appLocalNetwork);
+      expect(appStatusFollowsActiveStep(l), isTrue);
+    });
+
+    test('says it is waiting once everything on this side is done', () {
+      final l = link(const [
+        SetupStep(id: SetupStepId.appSelected, done: true),
+        SetupStep(id: SetupStepId.appConnectionMethod, done: true),
+        SetupStep(id: SetupStepId.appLocalNetwork, done: true),
+        SetupStep(id: SetupStepId.appConnected, done: false),
+      ]);
+      expect(appStatusFollowsActiveStep(l), isFalse);
+    });
+
+    test('an optional step never rewrites the status line', () {
+      // Local control is an offer, not a blocker — it must not make the card
+      // claim the rider has work to do.
+      final l = link(const [
+        SetupStep(id: SetupStepId.appSelected, done: true),
+        SetupStep(id: SetupStepId.appConnectionMethod, done: true),
+        SetupStep(id: SetupStepId.appConnected, done: true),
+        SetupStep(id: SetupStepId.appLocalControl, done: false, optional: true),
+      ]);
+      expect(appStatusFollowsActiveStep(l), isFalse);
+    });
+  });
 }

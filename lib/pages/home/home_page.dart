@@ -786,7 +786,11 @@ class _HomePageState extends State<HomePage> {
     } else if (link.status == LinkStatus.problem) {
       statusLabel = context.i18n.notConnected;
     } else if (app != null) {
-      statusLabel = context.i18n.chainStatusWaitingForApp(app.name);
+      // Name what is actually outstanding. Reporting "waiting for the app"
+      // while a permission is missing points the rider at the wrong device.
+      statusLabel = appStatusFollowsActiveStep(link)
+          ? chainStepText(context, link.activeStep!, appName: app.name).label
+          : context.i18n.chainStatusWaitingForApp(app.name);
     } else {
       statusLabel = context.i18n.chainStatusNotSetUp;
     }

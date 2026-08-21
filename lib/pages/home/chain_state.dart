@@ -127,6 +127,18 @@ class SetupStep {
 /// The button label follows the same rule, so the two cannot drift.
 bool appLinkOpensConnectionSettings(ChainLink link) => link.activeStep?.id == SetupStepId.appConnectionMethod;
 
+/// Whether the app card's status line should name the outstanding step instead
+/// of saying it is waiting for the app.
+///
+/// "Waiting for MyWhoosh" is only true once everything on this side is done.
+/// While a permission is missing or no method is switched on, the app is never
+/// going to connect however long the rider waits — and saying otherwise sends
+/// them into the trainer app hunting for a problem that is over here.
+bool appStatusFollowsActiveStep(ChainLink link) {
+  final active = link.activeStep;
+  return active != null && !active.optional && active.id != SetupStepId.appConnected;
+}
+
 class ChainLink {
   const ChainLink({
     required this.key,
