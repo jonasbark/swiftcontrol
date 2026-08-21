@@ -39,6 +39,7 @@ NetworkProbeContext ctx({
   snapshotError: null,
   emulatorStarted: true,
   trainerAppConnected: trainerAppConnected,
+  trainerAppConnectedNow: () => trainerAppConnected,
   trainerAppName: null,
   backend: backend,
   advertisedHostname: advertisedHostname,

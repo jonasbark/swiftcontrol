@@ -50,6 +50,12 @@ class NetworkProbeContext {
   /// `core.obpMdnsEmulator.isConnected.value`.
   final bool trainerAppConnected;
 
+  /// Live read of the same connected state as [trainerAppConnected], sampled
+  /// fresh on every guided-watch tick instead of once at context build time
+  /// — the watch polls for minutes, so a snapshot taken before the user even
+  /// opens the trainer app would never observe the connect.
+  final bool Function() trainerAppConnectedNow;
+
   /// `core.settings.getTrainerApp()?.name`.
   final String? trainerAppName;
 
@@ -90,6 +96,7 @@ class NetworkProbeContext {
     required this.snapshotError,
     required this.emulatorStarted,
     required this.trainerAppConnected,
+    required this.trainerAppConnectedNow,
     required this.trainerAppName,
     required this.backend,
     required this.advertisedHostname,

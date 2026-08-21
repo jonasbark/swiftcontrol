@@ -1,0 +1,241 @@
+import 'dart:io';
+
+import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
+import 'package:bike_control/services/debug_diagnostics.dart';
+import 'package:bike_control/services/network_self_test/network_check.dart';
+import 'package:bike_control/services/network_self_test/network_probe_context.dart';
+import 'package:bike_control/services/network_self_test/probes/windows_probes.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/utils/network_address.dart';
+
+DebugDiagnostics _diag({AddressPickReport addressReport = const AddressPickReport(chosen: null, candidates: [])}) =>
+    DebugDiagnostics(
+      advertised: const [],
+      backend: 'nsd',
+      hostLabel: null,
+      holdsMulticastLock: false,
+      discovered: const [],
+      discoveryRan: true,
+      addressReport: addressReport,
+      servers: const [],
+      permissions: const PermissionsSnapshot(localNetwork: null),
+    );
+
+/// A context with no-op seams; every field can be overridden per test.
+NetworkProbeContext ctx({
+  String platform = 'windows',
+  Future<ProcessResult> Function(String executable, List<String> arguments)? runProcess,
+  DebugDiagnostics? snapshot,
+}) => NetworkProbeContext(
+  snapshot: snapshot,
+  snapshotError: null,
+  emulatorStarted: true,
+  trainerAppConnected: false,
+  trainerAppConnectedNow: () => false,
+  trainerAppName: null,
+  backend: ObpMdnsBackend.platformDefault,
+  advertisedHostname: null,
+  platform: platform,
+  resolve: (host) async => const [],
+  tcpProbe: (address, port) async {},
+  runProcess: runProcess ?? (executable, arguments) async => ProcessResult(0, 0, '', ''),
+  queryLog: () => const [],
+  sleep: (d) async {},
+  now: () => DateTime(2026, 8, 21),
+  onWatchProgress: (progress) {},
+);
+
+Future<ProcessResult> Function(String, List<String>) _stub(String stdout, {int exitCode = 0}) =>
+    (executable, arguments) async => ProcessResult(0, exitCode, stdout, '');
+
+void main() {
+  group('bonjourServiceCheck', () {
+    test('skipped: non-windows platform', () async {
+      final check = await bonjourServiceCheck(ctx(platform: 'macos'));
+      expect(check.id, NetworkCheckId.bonjourService);
+      expect(check.verdict, NetworkVerdict.skipped);
+    });
+
+    test('unknown: runProcess throws', () async {
+      final check = await bonjourServiceCheck(
+        ctx(runProcess: (executable, arguments) async => throw ProcessException('sc', arguments)),
+      );
+      expect(check.verdict, NetworkVerdict.unknown);
+      expect(check.detail.containsKey('error'), isTrue);
+    });
+
+    test('pass: service is RUNNING', () async {
+      final check = await bonjourServiceCheck(
+        ctx(runProcess: _stub('SERVICE_NAME: Bonjour Service\n        STATE : 4  RUNNING')),
+      );
+      expect(check.verdict, NetworkVerdict.pass);
+    });
+
+    test('fail(missing): sc query fails with 1060 (service does not exist)', () async {
+      final check = await bonjourServiceCheck(
+        ctx(runProcess: _stub('The specified service does not exist as an installed service.\n1060', exitCode: 1060)),
+      );
+      expect(check.verdict, NetworkVerdict.fail);
+      expect(check.detail['state'], 'missing');
+      expect(check.fixes, containsAll([NetworkFixId.openBonjourDownload, NetworkFixId.switchToLocal]));
+    });
+
+    test('fail(missing): non-zero exit without RUNNING', () async {
+      final check = await bonjourServiceCheck(ctx(runProcess: _stub('unexpected failure', exitCode: 5)));
+      expect(check.verdict, NetworkVerdict.fail);
+      expect(check.detail['state'], 'missing');
+    });
+
+    test('fail(stopped): installed but not running', () async {
+      final check = await bonjourServiceCheck(
+        ctx(runProcess: _stub('SERVICE_NAME: Bonjour Service\n        STATE : 1  STOPPED')),
+      );
+      expect(check.verdict, NetworkVerdict.fail);
+      expect(check.detail['state'], 'stopped');
+      expect(check.fixes, [NetworkFixId.openBonjourDownload]);
+      expect(check.detail['note'], contains('restart the trainer app'));
+    });
+  });
+
+  group('bonjourNspCheck', () {
+    test('skipped: non-windows platform', () async {
+      final check = await bonjourNspCheck(ctx(platform: 'linux'));
+      expect(check.id, NetworkCheckId.bonjourNsp);
+      expect(check.verdict, NetworkVerdict.skipped);
+    });
+
+    test('pass: mdnsNSP is present in the Winsock catalog (case-insensitive)', () async {
+      final check = await bonjourNspCheck(ctx(runProcess: _stub('001  MDNSNSP.DLL   Bonjour mDNS NSP')));
+      expect(check.verdict, NetworkVerdict.pass);
+    });
+
+    test('fail: mdnsNSP is absent from the Winsock catalog', () async {
+      final check = await bonjourNspCheck(ctx(runProcess: _stub('001  RSVP UDP Service Provider')));
+      expect(check.verdict, NetworkVerdict.fail);
+      expect(check.fixes, containsAll([NetworkFixId.openBonjourDownload, NetworkFixId.switchToLocal]));
+      expect(check.detail['note'], contains('MyWhoosh button'));
+    });
+
+    test('unknown: runProcess throws', () async {
+      final check = await bonjourNspCheck(
+        ctx(runProcess: (executable, arguments) async => throw ProcessException('netsh', arguments)),
+      );
+      expect(check.verdict, NetworkVerdict.unknown);
+    });
+  });
+
+  group('windowsMdnsResolverCheck', () {
+    test('skipped: non-windows platform', () async {
+      final check = await windowsMdnsResolverCheck(ctx(platform: 'ios'));
+      expect(check.id, NetworkCheckId.windowsMdnsResolver);
+      expect(check.verdict, NetworkVerdict.skipped);
+    });
+
+    test('pass: value absent (reg query fails), advisory only', () async {
+      final check = await windowsMdnsResolverCheck(
+        ctx(runProcess: _stub('ERROR: The system was unable to find the specified registry key.', exitCode: 1)),
+      );
+      expect(check.verdict, NetworkVerdict.pass);
+      expect(check.detail['EnableMDNS'], 'absent (default)');
+    });
+
+    test('pass: EnableMDNS is 0x1', () async {
+      final check = await windowsMdnsResolverCheck(ctx(runProcess: _stub('    EnableMDNS    REG_DWORD    0x1')));
+      expect(check.verdict, NetworkVerdict.pass);
+    });
+
+    test('warn with NO fixes: EnableMDNS is 0x0', () async {
+      final check = await windowsMdnsResolverCheck(ctx(runProcess: _stub('    EnableMDNS    REG_DWORD    0x0')));
+      expect(check.verdict, NetworkVerdict.warn);
+      expect(check.fixes, isEmpty);
+      expect(check.detail['note'], isNotNull);
+    });
+  });
+
+  group('windowsNetworkProfileAndFirewallChecks', () {
+    test('skipped: non-windows platform (both rows)', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(ctx(platform: 'macos'));
+      expect(result.profile.id, NetworkCheckId.networkProfile);
+      expect(result.profile.verdict, NetworkVerdict.skipped);
+      expect(result.firewall.id, NetworkCheckId.firewallRule);
+      expect(result.firewall.verdict, NetworkVerdict.skipped);
+    });
+
+    test('unknown (both rows): runProcess throws', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(runProcess: (executable, arguments) async => throw ProcessException('powershell', arguments)),
+      );
+      expect(result.profile.verdict, NetworkVerdict.unknown);
+      expect(result.firewall.verdict, NetworkVerdict.unknown);
+    });
+
+    test('profile pass: alias matches the advertised interface, category Private', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(
+          snapshot: _diag(
+            addressReport: AddressPickReport(
+              chosen: InternetAddress('192.168.1.5'),
+              candidates: const [
+                AddressCandidate(interfaceName: 'Ethernet', address: '192.168.1.5', score: 100, isVirtual: false),
+                AddressCandidate(interfaceName: 'Wi-Fi', address: '10.0.0.5', score: 50, isVirtual: false),
+              ],
+            ),
+          ),
+          runProcess: _stub('#PROFILE\nEthernet=Private\nWi-Fi=Public\n#FIREWALL\n'),
+        ),
+      );
+      expect(result.profile.verdict, NetworkVerdict.pass);
+    });
+
+    test('profile warn: alias matches the advertised interface, category Public', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(
+          snapshot: _diag(
+            addressReport: AddressPickReport(
+              chosen: InternetAddress('10.0.0.5'),
+              candidates: const [
+                AddressCandidate(interfaceName: 'Ethernet', address: '192.168.1.5', score: 100, isVirtual: false),
+                AddressCandidate(interfaceName: 'Wi-Fi', address: '10.0.0.5', score: 50, isVirtual: false),
+              ],
+            ),
+          ),
+          runProcess: _stub('#PROFILE\nEthernet=Private\nWi-Fi=Public\n#FIREWALL\n'),
+        ),
+      );
+      expect(result.profile.verdict, NetworkVerdict.warn);
+      expect(result.profile.fixes, contains(NetworkFixId.openFirewallSettings));
+    });
+
+    test('profile warn: alias not found, falls back to the worst category present', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(
+          snapshot: _diag(), // no addressReport candidates at all -> alias never resolves
+          runProcess: _stub('#PROFILE\nEthernet=Private\nWi-Fi=Public\n#FIREWALL\n'),
+        ),
+      );
+      expect(result.profile.verdict, NetworkVerdict.warn);
+    });
+
+    test('firewall pass: an enabled Allow rule exists', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(runProcess: _stub('#PROFILE\n#FIREWALL\nTrue=Allow\n')),
+      );
+      expect(result.firewall.verdict, NetworkVerdict.pass);
+    });
+
+    test('firewall warn: an enabled Block rule exists', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(runProcess: _stub('#PROFILE\n#FIREWALL\nTrue=Block\n')),
+      );
+      expect(result.firewall.verdict, NetworkVerdict.warn);
+      expect(result.firewall.fixes, contains(NetworkFixId.openFirewallSettings));
+    });
+
+    test('firewall warn: no rules found at all', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(ctx(runProcess: _stub('#PROFILE\n#FIREWALL\n')));
+      expect(result.firewall.verdict, NetworkVerdict.warn);
+      expect(result.firewall.detail['rules'], 'none found');
+      expect(result.firewall.fixes, contains(NetworkFixId.openFirewallSettings));
+    });
+  });
+}

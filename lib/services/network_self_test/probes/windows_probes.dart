@@ -1,0 +1,268 @@
+import 'dart:io';
+
+import 'package:dartx/dartx.dart';
+
+import '../network_check.dart';
+import '../network_probe_context.dart';
+
+/// The four Windows-only OS-level checks (spec checks 10-13, §12-adjusted):
+/// shell out to `sc`, `netsh`, `reg` and `powershell` through
+/// [NetworkProbeContext.runProcess] and interpret their output. Every check
+/// here skips outright off-Windows; a process that throws is `unknown` with
+/// the error captured, and stdout is capped to 4 KB before it is parsed or
+/// stored in a check's detail map — except where a rule below specifically
+/// interprets a non-zero exit code (documented per check).
+const _stdoutCap = 4096;
+
+String _capStdout(Object? stdout) {
+  final text = stdout?.toString() ?? '';
+  return text.length > _stdoutCap ? text.substring(0, _stdoutCap) : text;
+}
+
+/// Check 10: is Apple's "Bonjour Service" installed and running? MyWhoosh
+/// only checks this once, at its own startup — a service started after
+/// MyWhoosh launched still shows as broken there until MyWhoosh restarts.
+Future<NetworkCheck> bonjourServiceCheck(NetworkProbeContext ctx) async {
+  if (ctx.platform != 'windows') {
+    return const NetworkCheck(id: NetworkCheckId.bonjourService, verdict: NetworkVerdict.skipped);
+  }
+
+  final ProcessResult result;
+  try {
+    result = await ctx.runProcess('sc', ['query', 'Bonjour Service']);
+  } catch (e) {
+    return NetworkCheck(id: NetworkCheckId.bonjourService, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
+  }
+  final exitCode = result.exitCode;
+  final stdout = _capStdout(result.stdout);
+
+  if (stdout.contains('RUNNING')) {
+    return const NetworkCheck(id: NetworkCheckId.bonjourService, verdict: NetworkVerdict.pass);
+  }
+  if (stdout.contains('1060') || exitCode != 0) {
+    return const NetworkCheck(
+      id: NetworkCheckId.bonjourService,
+      verdict: NetworkVerdict.fail,
+      detail: {'state': 'missing'},
+      fixes: [NetworkFixId.openBonjourDownload, NetworkFixId.switchToLocal],
+    );
+  }
+  return const NetworkCheck(
+    id: NetworkCheckId.bonjourService,
+    verdict: NetworkVerdict.fail,
+    detail: {'state': 'stopped', 'note': 'start it, then restart the trainer app — MyWhoosh checks once at startup'},
+    fixes: [NetworkFixId.openBonjourDownload],
+  );
+}
+
+/// Check 11 (NEW, §12): does the Winsock catalog list Bonjour's `mdnsNSP`
+/// name-service provider? Without it `getaddrinfo("<host>.local")` — the
+/// exact call MyWhoosh makes — has no way to reach Bonjour's cache, so the
+/// "Register through Bonjour" button cannot work regardless of what
+/// [bonjourServiceCheck] says.
+Future<NetworkCheck> bonjourNspCheck(NetworkProbeContext ctx) async {
+  if (ctx.platform != 'windows') {
+    return const NetworkCheck(id: NetworkCheckId.bonjourNsp, verdict: NetworkVerdict.skipped);
+  }
+
+  final ProcessResult result;
+  try {
+    result = await ctx.runProcess('netsh', ['winsock', 'show', 'catalog']);
+  } catch (e) {
+    return NetworkCheck(id: NetworkCheckId.bonjourNsp, verdict: NetworkVerdict.unknown, detail: {'error': '$e'});
+  }
+  if (result.exitCode != 0) {
+    return NetworkCheck(
+      id: NetworkCheckId.bonjourNsp,
+      verdict: NetworkVerdict.unknown,
+      detail: {'error': 'exit ${result.exitCode}'},
+    );
+  }
+
+  final stdout = _capStdout(result.stdout);
+  if (stdout.toLowerCase().contains('mdnsnsp')) {
+    return const NetworkCheck(id: NetworkCheckId.bonjourNsp, verdict: NetworkVerdict.pass);
+  }
+  return const NetworkCheck(
+    id: NetworkCheckId.bonjourNsp,
+    verdict: NetworkVerdict.fail,
+    detail: {'note': 'Bonjour resolver hook missing — the MyWhoosh button cannot work without it'},
+    fixes: [NetworkFixId.openBonjourDownload, NetworkFixId.switchToLocal],
+  );
+}
+
+/// Check 12 (§12: demoted to advisory-only): Windows' own Dnscache mDNS
+/// resolver. Field-verified to fail on a machine where everything else
+/// works — MyWhoosh's resolution path goes through Bonjour, not Dnscache —
+/// so this never carries a fix, it's purely informational.
+Future<NetworkCheck> windowsMdnsResolverCheck(NetworkProbeContext ctx) async {
+  if (ctx.platform != 'windows') {
+    return const NetworkCheck(id: NetworkCheckId.windowsMdnsResolver, verdict: NetworkVerdict.skipped);
+  }
+
+  final ProcessResult result;
+  try {
+    result = await ctx.runProcess('reg', [
+      'query',
+      r'HKLM\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters',
+      '/v',
+      'EnableMDNS',
+    ]);
+  } catch (e) {
+    return NetworkCheck(
+      id: NetworkCheckId.windowsMdnsResolver,
+      verdict: NetworkVerdict.unknown,
+      detail: {'error': '$e'},
+    );
+  }
+  if (result.exitCode != 0) {
+    // reg query fails when the value doesn't exist at all — that's the
+    // default state, not a problem.
+    return const NetworkCheck(
+      id: NetworkCheckId.windowsMdnsResolver,
+      verdict: NetworkVerdict.pass,
+      detail: {'EnableMDNS': 'absent (default)'},
+    );
+  }
+
+  final stdout = _capStdout(result.stdout);
+  if (stdout.contains('0x1')) {
+    return const NetworkCheck(id: NetworkCheckId.windowsMdnsResolver, verdict: NetworkVerdict.pass);
+  }
+  if (stdout.contains('0x0')) {
+    return const NetworkCheck(
+      id: NetworkCheckId.windowsMdnsResolver,
+      verdict: NetworkVerdict.warn,
+      detail: {
+        'note': 'Windows mDNS resolution is off; not needed for MyWhoosh (Bonjour handles it), may affect other apps',
+      },
+    );
+  }
+  return NetworkCheck(
+    id: NetworkCheckId.windowsMdnsResolver,
+    verdict: NetworkVerdict.unknown,
+    detail: {'error': stdout},
+  );
+}
+
+/// Checks 12+13 combined: the advertised interface's network category
+/// (Private/Public/Domain) and any inbound firewall rule for BikeControl.
+/// Both come out of a single PowerShell invocation (starting `powershell.exe`
+/// is the slow part of this whole probe set, so it's only paid once).
+Future<({NetworkCheck profile, NetworkCheck firewall})> windowsNetworkProfileAndFirewallChecks(
+  NetworkProbeContext ctx,
+) async {
+  if (ctx.platform != 'windows') {
+    return (
+      profile: const NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.skipped),
+      firewall: const NetworkCheck(id: NetworkCheckId.firewallRule, verdict: NetworkVerdict.skipped),
+    );
+  }
+
+  const script = '''
+Write-Output '#PROFILE'; Get-NetConnectionProfile | ForEach-Object { Write-Output (\$_.InterfaceAlias + '=' + \$_.NetworkCategory) };
+Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeControl*' -ErrorAction SilentlyContinue | Get-NetFirewallRule | Where-Object { \$_.Direction -eq 'Inbound' } | ForEach-Object { Write-Output (\$_.Enabled.ToString() + '=' + \$_.Action.ToString()) }
+''';
+
+  final ProcessResult result;
+  try {
+    result = await ctx.runProcess('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
+  } catch (e) {
+    final detail = {'error': '$e'};
+    return (
+      profile: NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.unknown, detail: detail),
+      firewall: NetworkCheck(id: NetworkCheckId.firewallRule, verdict: NetworkVerdict.unknown, detail: detail),
+    );
+  }
+  if (result.exitCode != 0) {
+    final detail = {'error': 'exit ${result.exitCode}'};
+    return (
+      profile: NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.unknown, detail: detail),
+      firewall: NetworkCheck(id: NetworkCheckId.firewallRule, verdict: NetworkVerdict.unknown, detail: detail),
+    );
+  }
+
+  final stdout = _capStdout(result.stdout);
+  final profileLines = <String>[];
+  final firewallLines = <String>[];
+  var section = 0; // 0 = before any marker, 1 = #PROFILE, 2 = #FIREWALL
+  for (final rawLine in stdout.split('\n')) {
+    final line = rawLine.trim();
+    if (line.isEmpty) continue;
+    if (line == '#PROFILE') {
+      section = 1;
+      continue;
+    }
+    if (line == '#FIREWALL') {
+      section = 2;
+      continue;
+    }
+    if (section == 1) profileLines.add(line);
+    if (section == 2) firewallLines.add(line);
+  }
+
+  return (profile: _parseProfile(ctx, profileLines), firewall: _parseFirewall(firewallLines));
+}
+
+NetworkCheck _parseProfile(NetworkProbeContext ctx, List<String> lines) {
+  final categories = <String, String>{};
+  for (final line in lines) {
+    final split = line.indexOf('=');
+    if (split <= 0) continue;
+    categories[line.substring(0, split)] = line.substring(split + 1);
+  }
+
+  String? alias;
+  final chosen = ctx.snapshot?.addressReport.chosen;
+  if (chosen != null) {
+    alias = ctx.snapshot?.addressReport.candidates
+        .firstOrNullWhere((candidate) => candidate.address == chosen.address)
+        ?.interfaceName;
+  }
+
+  final String category;
+  if (alias != null && categories.containsKey(alias)) {
+    category = categories[alias]!;
+  } else if (categories.values.contains('Public')) {
+    // Alias not found (or not advertising yet) — fail safe to the worst
+    // category actually present rather than guessing.
+    category = 'Public';
+  } else if (categories.isNotEmpty) {
+    category = categories.values.first;
+  } else {
+    return const NetworkCheck(
+      id: NetworkCheckId.networkProfile,
+      verdict: NetworkVerdict.unknown,
+      detail: {'error': 'no network profile reported'},
+    );
+  }
+
+  if (category == 'Public') {
+    return NetworkCheck(
+      id: NetworkCheckId.networkProfile,
+      verdict: NetworkVerdict.warn,
+      detail: {'category': category},
+      fixes: const [NetworkFixId.openFirewallSettings],
+    );
+  }
+  return NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.pass, detail: {'category': category});
+}
+
+NetworkCheck _parseFirewall(List<String> lines) {
+  if (lines.isEmpty) {
+    return const NetworkCheck(
+      id: NetworkCheckId.firewallRule,
+      verdict: NetworkVerdict.warn,
+      detail: {'rules': 'none found'},
+      fixes: [NetworkFixId.openFirewallSettings],
+    );
+  }
+  if (lines.contains('True=Allow')) {
+    return const NetworkCheck(id: NetworkCheckId.firewallRule, verdict: NetworkVerdict.pass);
+  }
+  return const NetworkCheck(
+    id: NetworkCheckId.firewallRule,
+    verdict: NetworkVerdict.warn,
+    fixes: [NetworkFixId.openFirewallSettings],
+  );
+}
