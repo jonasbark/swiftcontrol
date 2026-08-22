@@ -246,6 +246,21 @@ Future<void> main() async {
       expect(line, contains('protoAvail=ftms+zwiftHub'));
     });
 
+    test('a Zwift-Sync trainer reports its RideOn handshake state', () {
+      // `lastCtl=ok` says the BLE write was accepted, not that the trainer
+      // acted on it. Without this field a trainer that never opened its
+      // command interface is indistinguishable from one that ignores us.
+      final device = trainerWithFitnessBike(services: dualProtocolServices());
+
+      final line = describeProxyDevice(device);
+      expect(line, contains('zwiftHandshake=not-started'));
+    });
+
+    test('a plain FTMS trainer carries no handshake field', () {
+      // Noise on every bundle from a trainer that has no Zwift service.
+      expect(describeProxyDevice(trainerWithFitnessBike()), isNot(contains('zwiftHandshake=')));
+    });
+
     test('an auto-picked single-protocol trainer carries neither marker', () {
       final line = describeProxyDevice(trainerWithFitnessBike());
 

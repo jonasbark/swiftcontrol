@@ -337,6 +337,14 @@ class _SelfTestCardState extends State<SelfTestCard> {
         if (otherProtocol != null) _protocolCta(l10n, otherProtocol, primary: false),
         Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
       ],
+      // Shifting already works, so the overlay is worth offering here too —
+      // the rider's setup is usable today. The protocol swap is what buys
+      // them ERG on top, and stays secondary for that reason.
+      SelfTestVerdict.vsOkErgFail => [
+        Button.primary(onPressed: () => widget.onShowOverlaySettings?.call(), child: Text(l10n.selfTestCtaOverlay)),
+        if (otherProtocol != null) _protocolCta(l10n, otherProtocol, primary: false),
+        Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
+      ],
       SelfTestVerdict.noControl => [
         if (otherProtocol != null) _protocolCta(l10n, otherProtocol, primary: true),
         Button.outline(onPressed: () => _openSupport(context, result), child: Text(l10n.selfTestCtaReport)),
@@ -481,6 +489,7 @@ class _SelfTestCardState extends State<SelfTestCard> {
     return switch (verdict) {
       SelfTestVerdict.pass => l10n.selfTestVerdictPassBody,
       SelfTestVerdict.ergOkVsFail => l10n.selfTestVerdictErgOkBody,
+      SelfTestVerdict.vsOkErgFail => l10n.selfTestVerdictVsOkErgFailBody,
       SelfTestVerdict.noControl => l10n.selfTestVerdictNoControlBody,
       SelfTestVerdict.noData => l10n.selfTestVerdictNoDataBody,
       SelfTestVerdict.aborted => l10n.selfTestVerdictAbortedBody,
@@ -524,6 +533,7 @@ class _SelfTestCardState extends State<SelfTestCard> {
     return switch (verdict) {
       SelfTestVerdict.pass => l10n.selfTestVerdictPassTitle,
       SelfTestVerdict.ergOkVsFail => l10n.selfTestVerdictErgOkTitle,
+      SelfTestVerdict.vsOkErgFail => l10n.selfTestVerdictVsOkErgFailTitle,
       SelfTestVerdict.noControl => l10n.selfTestVerdictNoControlTitle,
       SelfTestVerdict.noData => l10n.selfTestVerdictNoDataTitle,
       SelfTestVerdict.aborted => l10n.selfTestVerdictAbortedTitle,

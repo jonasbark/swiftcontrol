@@ -41,6 +41,14 @@ void main() {
     expect(r.verdict, SelfTestVerdict.ergOkVsFail);
   });
 
+  test('shift-only trainer yields vsOkErgFail, not noControl', () async {
+    // The Van Rysel HT RCR shape: virtual shifting lands over Zwift Sync but
+    // ERG does not. Reporting "no control" here sends a rider off to change a
+    // protocol that was already driving the thing they came for.
+    final (r, _) = await runScenario((h) => h.obeysErg = false);
+    expect(r.verdict, SelfTestVerdict.vsOkErgFail);
+  });
+
   test('no power samples yields noData within precheck window', () async {
     final harness = FakeSelfTestHarness();
     final engine = SelfTestEngine(harness: harness, sleep: (_) async {}, now: () => DateTime(2026, 8, 20));

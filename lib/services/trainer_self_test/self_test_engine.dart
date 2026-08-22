@@ -599,6 +599,11 @@ class SelfTestEngine {
     if (ergPass == true && !shiftPass) {
       return SelfTestVerdict.ergOkVsFail;
     }
+    // Shifting landed and only ERG didn't: the rider's virtual shifting is
+    // working, so this is not "no control" and must not be reported as such.
+    if (shiftPass) {
+      return SelfTestVerdict.vsOkErgFail;
+    }
     return SelfTestVerdict.noControl;
   }
 

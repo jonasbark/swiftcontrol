@@ -1974,6 +1974,8 @@
   "selfTestVerdictPassBody": "BikeControl can control this trainer. If shifting feels dead during rides, your trainer app isn't riding through BikeControl — or you just can't see the gear. The gear overlay fixes the visibility part.",
   "selfTestVerdictErgOkTitle": "Power targets work, shifting doesn't",
   "selfTestVerdictErgOkBody": "The trainer obeys direct power targets but ignored the virtual-shifting mode. Switching the shifting mode often fixes this.",
+  "selfTestVerdictVsOkErgFailTitle": "Shifting works, power targets don't",
+  "selfTestVerdictVsOkErgFailBody": "Your virtual shifting is working — the trainer followed every gear change. It ignored direct power targets, so ERG workouts need a different control protocol.",
   "selfTestVerdictNoControlTitle": "Trainer isn't responding to BikeControl",
   "selfTestVerdictNoControlBody": "The trainer ignored all commands. Check for a firmware update in the manufacturer's app, then send us the result — it pinpoints the problem.",
   "selfTestVerdictNoDataTitle": "No data from the trainer",

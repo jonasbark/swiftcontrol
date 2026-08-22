@@ -197,6 +197,12 @@ String describeProxyDevice(ProxyDevice device) {
     }
     parts.add('vsMode=${def.virtualShiftingMode.value.name}');
     parts.add('ftms=${def.ftmsCapabilitySummary}');
+    // Only for trainers that actually speak Zwift Sync; 'n/a' everywhere else
+    // would be noise. `timeout` here is what separates "the trainer ignores
+    // our commands" from "the trainer never opened its command interface" —
+    // lastCtl=ok reads identically in both cases.
+    final handshake = def.zwiftHandshakeSummary;
+    if (handshake != 'n/a') parts.add('zwiftHandshake=$handshake');
     final ctl = def.lastControlWrite;
     if (ctl != null) {
       final age = DateTime.now().difference(ctl.at).inSeconds;
