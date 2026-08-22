@@ -86,6 +86,35 @@ void main() {
     expect(prefs.getBool(InstallReferrerReporter.reportedKey), isTrue);
   });
 
+  test('persists the raw referrer so RevenueCat attributes can be re-sent later', () async {
+    // The Play referrer is readable only once, early. RevenueCat attributes
+    // must be re-sent on later launches, so the raw value has to outlive the
+    // one-shot read.
+    await build(_FakeSource('utm_source=facebook&utm_campaign=di2-launch-2026-08')).reportOnce();
+
+    expect(
+      prefs.getString(InstallReferrerReporter.referrerKey),
+      'utm_source=facebook&utm_campaign=di2-launch-2026-08',
+    );
+  });
+
+  test('persists nothing when there is no referrer to persist', () async {
+    await build(_FakeSource(null)).reportOnce();
+
+    expect(prefs.getString(InstallReferrerReporter.referrerKey), isNull);
+  });
+
+  test('does not persist the referrer when sending fails', () async {
+    final reporter = InstallReferrerReporter(
+      source: _FakeSource('utm_source=facebook'),
+      prefs: prefs,
+      send: (_) async => throw StateError('network down'),
+    );
+
+    await expectLater(reporter.reportOnce(), throwsA(isA<StateError>()));
+    expect(prefs.getString(InstallReferrerReporter.referrerKey), isNull);
+  });
+
   test('does not mark itself done when sending fails, so it retries', () async {
     final reporter = InstallReferrerReporter(
       source: _FakeSource('utm_source=facebook'),

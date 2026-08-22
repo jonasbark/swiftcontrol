@@ -43,6 +43,12 @@ class InstallReferrerReporter {
 
   static const String reportedKey = 'install_referrer_reported';
 
+  /// Where the raw referrer is kept after it has been reported. The Play
+  /// Install Referrer API is only readable once, early in an install's life,
+  /// but RevenueCat subscriber attributes have to be re-sent on every launch —
+  /// so the value has to survive past the one-shot read.
+  static const String referrerKey = 'install_referrer';
+
   Future<void> reportOnce() async {
     if (prefs.getBool(reportedKey) ?? false) return;
 
@@ -58,6 +64,9 @@ class InstallReferrerReporter {
 
     // Only after a successful send, so a failed report is retried next launch
     // rather than being lost.
+    if (referrer != null && referrer.isNotEmpty) {
+      await prefs.setString(referrerKey, referrer);
+    }
     await prefs.setBool(reportedKey, true);
   }
 }

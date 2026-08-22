@@ -13,8 +13,9 @@ const int _maxValueLength = 200;
 /// value (`utm_source=google-play&utm_medium=organic`), which is worth keeping
 /// — it is how paid and organic installs are told apart.
 ///
-/// Throws [FormatException] if the referrer contains malformed percent-encoding.
-/// Callers must catch and route that through `recordError`.
+/// Throws [ArgumentError] if the referrer contains malformed percent-encoding
+/// (that is what `Uri.splitQueryString` raises). Callers must catch and route
+/// that through `recordError`.
 Map<String, String> parseInstallReferrer(String? referrer) {
   if (referrer == null || referrer.trim().isEmpty) return const <String, String>{};
 
