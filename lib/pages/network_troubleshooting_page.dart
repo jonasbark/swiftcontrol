@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform, Process;
 
+import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
@@ -21,7 +22,7 @@ import 'package:bike_control/widgets/network_check_row.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -202,6 +203,60 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
 
   bool _fixDisabled(NetworkFixId fix) => _starting || (_stopsServer.contains(fix) && core.obpMdnsEmulator.isConnected.value);
 
+  /// Debug-only override of the OpenBikeControl mDNS backend.
+  ///
+  /// The page otherwise offers [NetworkFixId.useOsResponderForObc] only out of
+  /// a failing check, so on a healthy machine there is no way to reach the
+  /// Bonjour backend at all — which is exactly the machine you want when the
+  /// point is to exercise that path rather than to repair something. Debug
+  /// builds only: riders get the backend picked for them, and a wrong manual
+  /// choice is a support case rather than a setting.
+  Widget _debugBackendCard(BuildContext context) {
+    final current = core.settings.getObpMdnsBackend();
+    // Same rule as [_stopsServer]: switching restarts the server, so it would
+    // drop a trainer app that is currently connected through it.
+    final connected = core.obpMdnsEmulator.isConnected.value;
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: [
+          const Text('Debug: mDNS backend', style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(switch (current) {
+            ObpMdnsBackend.platformDefault => 'current: built-in responder',
+            ObpMdnsBackend.osResponder => 'current: Bonjour (OS responder)',
+          }).muted,
+          Row(
+            spacing: 8,
+            children: [
+              for (final target in ObpMdnsBackend.values)
+                Expanded(
+                  child: Button.outline(
+                    key: ValueKey('debug-backend-${target.name}'),
+                    onPressed: (_starting || connected || target == current) ? null : () => _switchBackend(target),
+                    child: Text(switch (target) {
+                      ObpMdnsBackend.platformDefault => 'Built-in',
+                      ObpMdnsBackend.osResponder => 'Bonjour',
+                    }),
+                  ),
+                ),
+            ],
+          ),
+          if (connected) const Text('disconnect the trainer app first').muted,
+        ],
+      ),
+    );
+  }
+
+  /// Routed through [_runFix] rather than `switchObpBackend` directly, so the
+  /// debug buttons take the same path as the real fix rows: the same refusal
+  /// toast while connected, the same restore-on-failure, and the same re-run
+  /// afterwards.
+  Future<void> _switchBackend(ObpMdnsBackend target) => _runFix(switch (target) {
+    ObpMdnsBackend.osResponder => NetworkFixId.useOsResponderForObc,
+    ObpMdnsBackend.platformDefault => NetworkFixId.useResponderForObc,
+  });
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.i18n;
@@ -228,7 +283,16 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
             constraints: const BoxConstraints(maxWidth: 520),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: _showConnectedRefusal && _engine == null ? _refusalCard(context, l10n) : _engineSection(context, l10n),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 12,
+                children: [
+                  if (kDebugMode) _debugBackendCard(context),
+                  _showConnectedRefusal && _engine == null
+                      ? _refusalCard(context, l10n)
+                      : _engineSection(context, l10n),
+                ],
+              ),
             ),
           ),
         ),

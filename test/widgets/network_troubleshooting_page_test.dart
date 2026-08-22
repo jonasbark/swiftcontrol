@@ -193,6 +193,40 @@ Future<void> main() async {
     expect(local.onPressed, isNotNull);
   });
 
+  testWidgets('debug backend override: the live backend is shown and its own button disabled', (tester) async {
+    // The page otherwise only offers the Bonjour backend out of a failing
+    // check, so on a healthy machine there is no way to reach that path at
+    // all. Debug builds get an unconditional override; `flutter test` runs in
+    // debug mode, so the card is present here.
+    await core.settings.setObpMdnsBackend(ObpMdnsBackend.platformDefault);
+    await _pump(
+      tester,
+      NetworkTroubleshootingPage(engineFactory: () => NetworkSelfTestEngine(contextBuilder: _ctx, probes: const [])),
+    );
+    await tester.pump();
+
+    final builtIn = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-platformDefault')));
+    final bonjour = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-osResponder')));
+
+    expect(builtIn.onPressed, isNull, reason: 'already on the built-in responder');
+    expect(bonjour.onPressed, isNotNull, reason: 'switching to Bonjour must be reachable without a failing check');
+  });
+
+  testWidgets('debug backend override is disabled while a trainer app is connected', (tester) async {
+    // Switching restarts the server, which would drop the live connection —
+    // the same rule the real fix rows follow.
+    core.obpMdnsEmulator.isConnected.value = true;
+    await core.settings.setObpMdnsBackend(ObpMdnsBackend.platformDefault);
+    await _pump(
+      tester,
+      NetworkTroubleshootingPage(engineFactory: () => NetworkSelfTestEngine(contextBuilder: _ctx, probes: const [])),
+    );
+    await tester.pump();
+
+    final bonjour = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-osResponder')));
+    expect(bonjour.onPressed, isNull);
+  });
+
   testWidgets('a second Run again while the engine is still being built does not start a second engine', (tester) async {
     // The production factory awaits DebugDiagnostics.gather() before an
     // engine exists; modelled here by a Completer the second call returns.
