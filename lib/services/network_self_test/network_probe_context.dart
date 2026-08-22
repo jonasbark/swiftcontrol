@@ -19,12 +19,18 @@ class WatchProgress {
   final bool connected;
   final Duration remaining;
 
+  /// How long the watch runs in total. Carried here so the UI can show
+  /// progress without knowing the probe's window — the two would drift the
+  /// moment either changed.
+  final Duration window;
+
   const WatchProgress({
     required this.browsed,
     required this.resolved,
     required this.addressAsks,
     required this.connected,
     required this.remaining,
+    this.window = const Duration(seconds: 60),
   });
 }
 

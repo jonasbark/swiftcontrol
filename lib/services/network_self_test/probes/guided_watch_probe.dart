@@ -94,6 +94,7 @@ Future<NetworkCheck> guidedWatchCheck(
         addressAsks: addressAsks,
         connected: connected,
         remaining: remaining.isNegative ? Duration.zero : remaining,
+        window: window,
       ),
     );
 

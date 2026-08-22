@@ -20,6 +20,7 @@ import 'package:bike_control/widgets/logviewer.dart';
 import 'package:bike_control/widgets/menu.dart' show debugText;
 import 'package:bike_control/widgets/network_check_row.dart';
 import 'package:bike_control/widgets/network_test/network_gauge.dart';
+import 'package:bike_control/widgets/network_test/network_live_test_card.dart';
 import 'package:bike_control/widgets/network_test/network_tokens.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
@@ -408,6 +409,26 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
 
     final sections = <Widget>[];
     for (final group in NetworkCheckGroup.values) {
+      // The guided watch is the one check the rider participates in, and the
+      // only one with a duration. While it runs it takes over its section as a
+      // card of its own rather than a row, so the ask and the countdown are
+      // the thing on screen.
+      final watch = state.watch;
+      if (group == NetworkCheckGroup.liveTest && watch != null && running == NetworkCheckId.guidedWatch) {
+        sections
+          ..add(const Gap(18))
+          ..add(_GroupLabel(text: _groupLabel(l10n, group)))
+          ..add(const Gap(8))
+          ..add(
+            NetworkLiveTestCard(
+              key: const ValueKey('check-guidedWatch-running'),
+              watch: watch,
+              appName: core.settings.getTrainerApp()?.name,
+              onSkip: _engine?.cancelWatch,
+            ),
+          );
+        continue;
+      }
       final rows = <Widget>[
         for (final check in done)
           if (_groupOf(check.id) == group)
@@ -556,21 +577,22 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
     return _Panel(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+        // Deliberately two arrangements rather than one Flex that flips axis:
+        // a Flexible keeps flex:1 whichever fit it is given, and a vertical
+        // Flex with a flexed child inside this page's SingleChildScrollView is
+        // an unbounded-height constraint error, not a layout.
         child: Flex(
           direction: MediaQuery.sizeOf(context).width < 640 ? Axis.vertical : Axis.horizontal,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              fit: MediaQuery.sizeOf(context).width < 640 ? FlexFit.loose : FlexFit.tight,
-              child: Column(
+            Flexible(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(l10n.networkFooterTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   const Gap(2),
                   Text(l10n.networkFooterBody, style: TextStyle(fontSize: 13, color: cs.mutedForeground)),
                 ],
-              ),
-            ),
+              )),
             const Gap(12),
             Wrap(
               spacing: 8,
@@ -707,6 +729,36 @@ class _GroupLabel extends StatelessWidget {
         const Gap(10),
         Expanded(child: Container(height: 1, color: tokens.hairline)),
       ],
+    );
+  }
+}
+
+
+/// Side by side when there is room, stacked when there is not.
+///
+/// Not a `Flex` with a flipped axis: the wide arrangement needs the leading
+/// child to take the slack, and the only way to express that is a flexed
+/// child — which is exactly what a vertical Flex inside a scroll view cannot
+/// have.
+class _RowOrColumn extends StatelessWidget {
+  const _RowOrColumn({required this.narrow, required this.leading, required this.trailing});
+
+  final bool narrow;
+  final Widget leading;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (narrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [leading, const Gap(12), trailing],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [Expanded(child: leading), const Gap(12), trailing],
     );
   }
 }
