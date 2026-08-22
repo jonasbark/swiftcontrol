@@ -123,6 +123,19 @@ void main() {
       );
       expect(check.verdict, NetworkVerdict.unknown);
     });
+
+    test('pass: mdnsNSP past the stdout cap (real catalogs are ~25 KB)', () async {
+      // A real `netsh winsock show catalog` runs ~25 KB and lists namespace
+      // providers last — on this machine mdnsNSP starts at byte 22617. Reading
+      // only the first 4 KB reported "resolver hook missing" on every machine,
+      // healthy Bonjour installs included.
+      final catalog = '${'Protocol Entry padding line\n' * 900}0001  mdnsNSP  Bonjour mDNS NSP\n';
+      expect(catalog.length, greaterThan(20000));
+
+      final check = await bonjourNspCheck(ctx(runProcess: _stub(catalog)));
+
+      expect(check.verdict, NetworkVerdict.pass);
+    });
   });
 
   group('windowsMdnsResolverCheck', () {
@@ -167,6 +180,38 @@ void main() {
         ctx(runProcess: (executable, arguments) async => throw ProcessException('powershell', arguments)),
       );
       expect(result.profile.verdict, NetworkVerdict.unknown);
+      expect(result.firewall.verdict, NetworkVerdict.unknown);
+    });
+
+    test('exit 1 with usable output is still judged (no firewall rule case)', () async {
+      // powershell.exe exits 1 when the last pipeline yields nothing, which is
+      // what a machine with no BikeControl firewall rule produces — stderr
+      // empty, #PROFILE complete and correct above it. Verbatim output from a
+      // real run that previously reported both rows as "could not check".
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(runProcess: _stub('#PROFILE\nWLAN=Private\n#FIREWALL\n', exitCode: 1)),
+      );
+
+      expect(result.profile.verdict, NetworkVerdict.pass);
+      expect(result.profile.detail['category'], 'Private');
+      expect(result.firewall.verdict, NetworkVerdict.warn);
+      expect(result.firewall.detail['rules'], 'none found');
+    });
+
+    test('unknown (both rows): no markers means the script never ran', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(ctx(runProcess: _stub('', exitCode: 1)));
+
+      expect(result.profile.verdict, NetworkVerdict.unknown);
+      expect(result.firewall.verdict, NetworkVerdict.unknown);
+      expect(result.profile.detail['error'], 'exit 1');
+    });
+
+    test('firewall unknown when its section is missing but the profile arrived', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(runProcess: _stub('#PROFILE\nWLAN=Private\n', exitCode: 1)),
+      );
+
+      expect(result.profile.verdict, NetworkVerdict.pass);
       expect(result.firewall.verdict, NetworkVerdict.unknown);
     });
 

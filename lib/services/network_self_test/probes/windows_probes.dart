@@ -16,8 +16,9 @@ import '../network_probe_context.dart';
 /// propagates to the engine wrapper, which recordErrors it under the
 /// check's id instead of filing it away as `unknown` with no trace. stdout
 /// is capped to 4 KB before it is parsed or stored in a check's detail map
-/// — except where a rule below specifically interprets a non-zero exit code
-/// (documented per check).
+/// — except where a rule below specifically interprets a non-zero exit code,
+/// or searches the uncapped output because the marker it looks for legitimately
+/// sits past the cap (both documented per check).
 const _stdoutCap = 4096;
 
 String _capStdout(Object? stdout) {
@@ -89,8 +90,13 @@ Future<NetworkCheck> bonjourNspCheck(NetworkProbeContext ctx) async {
     );
   }
 
-  final stdout = _capStdout(result.stdout);
-  if (stdout.toLowerCase().contains('mdnsnsp')) {
+  // Searched over the FULL output, not [_capStdout]: the Winsock catalog runs
+  // ~25 KB and lists namespace providers after every protocol entry, so
+  // mdnsNSP sits past 22 KB on a stock machine. Capping first made this check
+  // answer "missing" on every machine, including ones with a healthy Bonjour
+  // — inverting the one verdict that decides whether MyWhoosh can work at all.
+  final catalog = result.stdout?.toString() ?? '';
+  if (catalog.toLowerCase().contains('mdnsnsp')) {
     return const NetworkCheck(id: NetworkCheckId.bonjourNsp, verdict: NetworkVerdict.pass);
   }
   return const NetworkCheck(
@@ -180,13 +186,18 @@ Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeContro
   } on TimeoutException catch (e) {
     return _bothUnknown('$e');
   }
-  if (result.exitCode != 0) {
-    return _bothUnknown('exit ${result.exitCode}');
-  }
-
+  // Deliberately NOT gated on the exit code. `powershell.exe -Command` exits 1
+  // when the last pipeline yields nothing, and "no BikeControl firewall rule"
+  // is exactly that — `Get-NetFirewallApplicationFilter` matches nothing, the
+  // `-ErrorAction SilentlyContinue` hides the output but not the failure
+  // state, and stderr stays empty. Bailing there threw away a complete and
+  // correct `#PROFILE` section and reported both checks as "could not check".
+  // The markers below say whether the script actually ran; the exit code does
+  // not.
   final stdout = _capStdout(result.stdout);
   final profileLines = <String>[];
   final firewallLines = <String>[];
+  var sawFirewallMarker = false;
   var section = 0; // 0 = before any marker, 1 = #PROFILE, 2 = #FIREWALL
   for (final rawLine in stdout.split('\n')) {
     final line = rawLine.trim();
@@ -197,13 +208,29 @@ Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeContro
     }
     if (line == '#FIREWALL') {
       section = 2;
+      sawFirewallMarker = true;
       continue;
     }
     if (section == 1) profileLines.add(line);
     if (section == 2) firewallLines.add(line);
   }
 
-  return (profile: _parseProfile(ctx, profileLines), firewall: _parseFirewall(firewallLines));
+  // No marker at all means the script never ran (bad execution policy, missing
+  // powershell) rather than "nothing to report" — that is the real unknown.
+  if (section == 0) {
+    return _bothUnknown('exit ${result.exitCode}');
+  }
+
+  return (
+    profile: _parseProfile(ctx, profileLines),
+    firewall: sawFirewallMarker
+        ? _parseFirewall(firewallLines)
+        : NetworkCheck(
+            id: NetworkCheckId.firewallRule,
+            verdict: NetworkVerdict.unknown,
+            detail: {'error': 'exit ${result.exitCode}'},
+          ),
+  );
 }
 
 ({NetworkCheck profile, NetworkCheck firewall}) _bothUnknown(String error) {
