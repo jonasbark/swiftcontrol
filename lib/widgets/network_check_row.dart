@@ -6,6 +6,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../gen/l10n.dart';
 import '../services/network_self_test/network_check.dart';
 import '../services/network_self_test/network_probe_context.dart';
+import 'network_test/network_tokens.dart';
 import 'ui/small_progress_indicator.dart';
 
 /// id → row title (exhaustive switch, l10n keys from Task 9).
@@ -76,9 +77,54 @@ String _verdictWord(AppLocalizations l10n, NetworkVerdict verdict) {
   };
 }
 
-/// One row of the network self-test: a glyph + title + verdict, with an
-/// optional hint, one-tap fixes, an expandable detail block, and — while the
-/// guided-watch check is running — a live "what have we seen so far" list.
+/// The one-line summary under a check's name: what this check actually looked
+/// at, in the rider's terms rather than the protocol's.
+///
+/// Falls back to the bare verdict word when a check has nothing more useful to
+/// say than whether it passed.
+String? networkCheckSummary(BuildContext context, NetworkCheck check) {
+  final l10n = AppLocalizations.of(context);
+  return switch (check.id) {
+    NetworkCheckId.methodListening => l10n.networkSummaryMethodListening,
+    NetworkCheckId.advertisedAddress => l10n.networkSummaryAdvertisedAddress,
+    NetworkCheckId.vpn => l10n.networkSummaryVpn,
+    NetworkCheckId.advertisementVisible => l10n.networkSummaryAdvertisementVisible,
+    NetworkCheckId.localNetworkPermission => l10n.networkSummaryLocalNetworkPermission,
+    NetworkCheckId.backend => l10n.networkSummaryBackend,
+    NetworkCheckId.resolveOwnHostname => l10n.networkSummaryResolveOwnHostname,
+    NetworkCheckId.tcpSelfConnect => l10n.networkSummaryTcpSelfConnect,
+    NetworkCheckId.guidedWatch => l10n.networkSummaryGuidedWatch,
+    NetworkCheckId.bonjourService => l10n.networkSummaryBonjourService,
+    NetworkCheckId.bonjourNsp => l10n.networkSummaryBonjourNsp,
+    NetworkCheckId.windowsMdnsResolver => l10n.networkSummaryWindowsMdnsResolver,
+    NetworkCheckId.networkProfile => l10n.networkSummaryNetworkProfile,
+    NetworkCheckId.firewallRule => l10n.networkSummaryFirewallRule,
+    NetworkCheckId.multicastLock => l10n.networkSummaryMulticastLock,
+  };
+}
+
+/// The single fact worth showing in the row's mono column.
+///
+/// Probes emit a bag of detail keys; this picks the one a rider (or the
+/// support person reading a screenshot) would actually scan for, in order of
+/// usefulness. Everything else stays in the expandable block.
+String? networkCheckHeadlineValue(NetworkCheck check) {
+  const preferred = ['address', 'resolvedTo', 'hostname', 'backend', 'state', 'latencyMs', 'port', 'held', 'category', 'reason', 'error'];
+  for (final key in preferred) {
+    final value = check.detail[key];
+    if (value == null || value.isEmpty) continue;
+    return key == 'latencyMs' ? '$value ms' : value;
+  }
+  return null;
+}
+
+/// One row of the network self-test, in the design's three-column grid:
+/// a tinted status mark, the check's name over a one-line summary, and its
+/// measured value set in mono on the right.
+///
+/// Rows live inside a card and are separated by a hairline rather than each
+/// being its own bordered box — colour marks the status, it does not ring the
+/// row.
 class NetworkCheckRow extends StatefulWidget {
   final NetworkCheck check;
 
@@ -96,6 +142,9 @@ class NetworkCheckRow extends StatefulWidget {
   /// for its header buttons, so row and header never disagree.
   final bool Function(NetworkFixId fix)? isFixDisabled;
 
+  /// Draws the hairline under the row. False on the last row of a card.
+  final bool showDivider;
+
   const NetworkCheckRow({
     super.key,
     required this.check,
@@ -104,6 +153,7 @@ class NetworkCheckRow extends StatefulWidget {
     this.onFix,
     this.onSkipWatch,
     this.isFixDisabled,
+    this.showDivider = true,
   });
 
   @override
@@ -117,78 +167,161 @@ class _NetworkCheckRowState extends State<NetworkCheckRow> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final cs = Theme.of(context).colorScheme;
+    final tokens = NetworkTokens.of(context);
     final check = widget.check;
+    final expandable = check.detail.isNotEmpty;
 
-    final (icon, color) = switch (check.verdict) {
-      NetworkVerdict.pass => (LucideIcons.check, const Color(0xFF22C55E)),
-      NetworkVerdict.warn => (LucideIcons.circleAlert, const Color(0xFFF59E0B)),
-      NetworkVerdict.fail => (LucideIcons.circleX, const Color(0xFFEF4444)),
-      NetworkVerdict.unknown => (LucideIcons.circleHelp, cs.mutedForeground),
-      NetworkVerdict.skipped => (LucideIcons.minus, cs.mutedForeground),
-    };
-
-    final leading = widget.running
-        ? const RepaintBoundary(child: SmallProgressIndicator())
-        : Icon(icon, size: 18, color: color);
-
-    final hint = networkCheckHint(context, check);
-    final watch = widget.watch;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-      decoration: BoxDecoration(
-        color: cs.muted,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: widget.running ? cs.mutedForeground : color),
-      ),
-      child: Basic(
-        leading: leading,
-        title: Text(networkCheckTitle(context, check.id)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 6,
-          children: [
-            Text(_verdictWord(l10n, check.verdict)).xSmall.textMuted,
-            if (hint != null) Text(hint).xSmall.textMuted,
-            if (check.fixes.isNotEmpty)
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final fix in check.fixes.take(2))
-                    Button.outline(
-                      style: ButtonStyle.outline(size: ButtonSize.small),
-                      onPressed: widget.onFix == null || (widget.isFixDisabled?.call(fix) ?? false)
-                          ? null
-                          : () => widget.onFix!(fix),
-                      child: Text(networkFixLabel(context, fix)),
-                    ),
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _mark(context, tokens),
+          const Gap(14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  networkCheckTitle(context, check.id),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                Builder(
+                  builder: (context) {
+                    final summary = networkCheckSummary(context, check) ?? _verdictWord(l10n, check.verdict);
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(summary, style: TextStyle(fontSize: 12, color: cs.mutedForeground)),
+                    );
+                  },
+                ),
+                if (check.fixes.isNotEmpty) ...[
+                  const Gap(8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final fix in check.fixes.take(2))
+                        Button.outline(
+                          style: ButtonStyle.outline(size: ButtonSize.small),
+                          onPressed: widget.onFix == null || (widget.isFixDisabled?.call(fix) ?? false)
+                              ? null
+                              : () => widget.onFix!(fix),
+                          child: Text(networkFixLabel(context, fix)),
+                        ),
+                    ],
+                  ),
                 ],
-              ),
-            if (check.detail.isNotEmpty) _detailSection(context, check),
-            if (watch != null) _watchSection(context, l10n, watch),
-          ],
-        ),
+              ],
+            ),
+          ),
+          const Gap(14),
+          _value(context, cs, expandable),
+        ],
       ),
+    );
+
+    final watch = widget.watch;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (expandable)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _detailExpanded = !_detailExpanded),
+            child: row,
+          )
+        else
+          row,
+        if (expandable && _detailExpanded) _detailBlock(context, cs, tokens, check),
+        if (watch != null) _watchSection(context, l10n, watch),
+        if (widget.showDivider) Container(height: 1, color: tokens.hairline),
+      ],
     );
   }
 
-  Widget _detailSection(BuildContext context, NetworkCheck check) {
-    final entries = check.detail.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 4,
+  /// The design's 22px tinted disc. A spinner replaces it while the check runs.
+  Widget _mark(BuildContext context, NetworkTokens tokens) {
+    if (widget.running) {
+      return const SizedBox(
+        width: 22,
+        height: 22,
+        child: Center(child: RepaintBoundary(child: SmallProgressIndicator())),
+      );
+    }
+    final cs = Theme.of(context).colorScheme;
+    final (icon, fg, bg) = switch (widget.check.verdict) {
+      NetworkVerdict.pass => (LucideIcons.check, tokens.ok, tokens.okBg),
+      NetworkVerdict.warn => (LucideIcons.circleAlert, tokens.warn, tokens.warnBg),
+      NetworkVerdict.fail => (LucideIcons.x, tokens.danger, tokens.dangerBg),
+      NetworkVerdict.unknown => (LucideIcons.minus, cs.mutedForeground, cs.muted),
+      NetworkVerdict.skipped => (LucideIcons.minus, cs.mutedForeground, cs.muted),
+    };
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+      child: Icon(icon, size: 13, color: fg),
+    );
+  }
+
+  /// The mono right-hand column: the one measured fact this check produced,
+  /// plus the disclosure chevron when there is more underneath.
+  Widget _value(BuildContext context, ColorScheme cs, bool expandable) {
+    final headline = networkCheckHeadlineValue(widget.check);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Button.ghost(
-          style: ButtonStyle.ghost(size: ButtonSize.xSmall).withPadding(padding: EdgeInsets.zero),
-          onPressed: () => setState(() => _detailExpanded = !_detailExpanded),
-          child: Icon(_detailExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown, size: 14),
-        ),
-        if (_detailExpanded)
-          Text(
-            entries.map((e) => '${e.key}: ${e.value}').join('\n'),
-            style: const TextStyle(fontFamily: 'monospace', fontFamilyFallback: ['Courier'], fontSize: 11),
+        if (headline != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              headline,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).typography.mono.copyWith(fontSize: 11.5, color: cs.mutedForeground),
+            ),
           ),
+        if (expandable) ...[
+          const Gap(10),
+          Icon(
+            _detailExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
+            size: 13,
+            color: cs.mutedForeground,
+          ),
+        ],
       ],
+    );
+  }
+
+  /// The design's `<pre>` block: every fact the check gathered, aligned in
+  /// mono on a recessed panel, indented to clear the status mark.
+  Widget _detailBlock(BuildContext context, ColorScheme cs, NetworkTokens tokens, NetworkCheck check) {
+    final entries = check.detail.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final width = entries.map((e) => e.key.length).fold(0, (a, b) => a > b ? a : b);
+    final hint = networkCheckHint(context, check);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(54, 0, 18, 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (hint != null) ...[
+            Text(hint, style: TextStyle(fontSize: 12, color: cs.mutedForeground)),
+            const Gap(8),
+          ],
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 13),
+            decoration: BoxDecoration(
+              color: tokens.pageBg,
+              border: Border.all(color: tokens.hairline),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              [for (final e in entries) '${e.key.padRight(width)}  ${e.value}'].join('\n'),
+              style: Theme.of(context).typography.mono.copyWith(fontSize: 11, height: 1.75, color: cs.mutedForeground),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

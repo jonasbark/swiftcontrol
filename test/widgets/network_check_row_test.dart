@@ -79,7 +79,11 @@ Future<void> main() async {
 
     expect(find.textContaining('latencyMs'), findsNothing);
 
-    await tester.tap(find.byType(Button));
+    // The whole row is the disclosure now, not a separate chevron button.
+    await tester.tap(find.text(networkCheckTitle(
+      tester.element(find.byType(NetworkCheckRow)),
+      NetworkCheckId.tcpSelfConnect,
+    )));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('latencyMs'), findsOneWidget);

@@ -187,65 +187,18 @@ Future<void> main() async {
     final switchButton = tester.widget<Button>(find.byKey(const ValueKey('network-recommended-fix')));
     expect(switchButton.onPressed, isNull, reason: 'switching the backend stops the server and would drop the live connection');
 
-    // The second fix (switchToLocal) does not touch the running server, so it stays tappable.
-    final buttons = tester.widgetList<Button>(find.descendant(of: find.byType(Wrap), matching: find.byType(Button))).toList();
-    final local = buttons.firstWhere((b) => b.key != const ValueKey('network-recommended-fix'));
+    // The second fix (switchToLocal) does not touch the running server, so it
+    // stays tappable. Found by its label rather than by position in the widget
+    // tree: which container the fixes sit in is a layout decision, and this
+    // test is about which fixes are allowed to run.
+    final localLabel = networkFixLabel(
+      tester.element(find.byType(NetworkTroubleshootingPage)),
+      NetworkFixId.switchToLocal,
+    );
+    final local = tester
+        .widgetList<Button>(find.byType(Button))
+        .firstWhere((b) => b.child is Text && (b.child as Text).data == localLabel);
     expect(local.onPressed, isNotNull);
-  });
-
-  testWidgets('debug backend override: the live backend is shown and its own button disabled', (tester) async {
-    // The page otherwise only offers the Bonjour backend out of a failing
-    // check, so on a healthy machine there is no way to reach that path at
-    // all. Debug builds get an unconditional override; `flutter test` runs in
-    // debug mode, so the card is present here.
-    await core.settings.setObpMdnsBackend(ObpMdnsBackend.platformDefault);
-    await _pump(
-      tester,
-      NetworkTroubleshootingPage(engineFactory: () => NetworkSelfTestEngine(contextBuilder: _ctx, probes: const [])),
-    );
-    await tester.pump();
-
-    final builtIn = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-platformDefault')));
-    final bonjour = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-osResponder')));
-
-    expect(builtIn.onPressed, isNull, reason: 'already on the built-in responder');
-    expect(bonjour.onPressed, isNotNull, reason: 'switching to Bonjour must be reachable without a failing check');
-  });
-
-  testWidgets('debug backend override shows what is SERVING, not the preference', (tester) async {
-    // The two diverge exactly when a switch to Bonjour degrades: the pref is
-    // written, the registration falls back, and switchObpBackend restores it.
-    // Showing the preference rendered "built-in" for a rider who had just
-    // asked for Bonjour, with nothing to say the request had been refused.
-    await core.settings.setObpMdnsBackend(ObpMdnsBackend.osResponder);
-    await _pump(
-      tester,
-      NetworkTroubleshootingPage(engineFactory: () => NetworkSelfTestEngine(contextBuilder: _ctx, probes: const [])),
-    );
-    await tester.pump();
-
-    // activeBackend is still the default: nothing started an osResponder.
-    expect(find.textContaining('serving: built-in responder'), findsOneWidget);
-    expect(find.textContaining('asked for Bonjour'), findsOneWidget);
-
-    // ...and Bonjour stays offerable, since it is not what is running.
-    final bonjour = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-osResponder')));
-    expect(bonjour.onPressed, isNotNull);
-  });
-
-  testWidgets('debug backend override is disabled while a trainer app is connected', (tester) async {
-    // Switching restarts the server, which would drop the live connection —
-    // the same rule the real fix rows follow.
-    core.obpMdnsEmulator.isConnected.value = true;
-    await core.settings.setObpMdnsBackend(ObpMdnsBackend.platformDefault);
-    await _pump(
-      tester,
-      NetworkTroubleshootingPage(engineFactory: () => NetworkSelfTestEngine(contextBuilder: _ctx, probes: const [])),
-    );
-    await tester.pump();
-
-    final bonjour = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-osResponder')));
-    expect(bonjour.onPressed, isNull);
   });
 
   testWidgets('a second Run again while the engine is still being built does not start a second engine', (tester) async {

@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:io' show Platform, Process;
 
-import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
-import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/services/debug_diagnostics.dart';
 import 'package:bike_control/services/network_self_test/network_check.dart';
 import 'package:bike_control/services/network_self_test/network_fixes.dart';
@@ -15,15 +13,18 @@ import 'package:bike_control/services/network_self_test/network_self_test_result
 import 'package:bike_control/services/network_self_test/network_self_test_store.dart';
 import 'package:bike_control/services/network_self_test/probes/active_probes.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/logviewer.dart';
 import 'package:bike_control/widgets/menu.dart' show debugText;
 import 'package:bike_control/widgets/network_check_row.dart';
+import 'package:bike_control/widgets/network_test/network_gauge.dart';
+import 'package:bike_control/widgets/network_test/network_tokens.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -98,6 +99,11 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
   /// troubleshoot. Cleared once the rider taps through anyway.
   bool _showConnectedRefusal = false;
 
+  /// Stamped when a run starts, shown in the header so a screenshot carries
+  /// when it was taken.
+  DateTime? _startedAt;
+  String? _version;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +127,14 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
     // its next probe so it cannot keep emitting into a page that has moved on.
     _engine?.cancel();
     _starting = true;
+    _startedAt = DateTime.now();
+    unawaited(
+      PackageInfo.fromPlatform().then((info) {
+        if (mounted) setState(() => _version = info.version);
+      }).catchError((Object e, StackTrace s) {
+        recordError(e, s, context: 'NetworkTroubleshootingPage.version');
+      }),
+    );
     // Nothing on screen reads _starting before the first engine or the
     // refusal card exists (the initState auto-start), so no rebuild then.
     if (_engine != null || _showConnectedRefusal) setState(() {});
@@ -204,120 +218,59 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
 
   bool _fixDisabled(NetworkFixId fix) => _starting || (_stopsServer.contains(fix) && core.obpMdnsEmulator.isConnected.value);
 
-  /// Debug-only override of the OpenBikeControl mDNS backend.
-  ///
-  /// The page otherwise offers [NetworkFixId.useOsResponderForObc] only out of
-  /// a failing check, so on a healthy machine there is no way to reach the
-  /// Bonjour backend at all — which is exactly the machine you want when the
-  /// point is to exercise that path rather than to repair something. Debug
-  /// builds only: riders get the backend picked for them, and a wrong manual
-  /// choice is a support case rather than a setting.
-  /// Whether dnssd.dll can be loaded — i.e. whether asking for the Bonjour
-  /// backend can succeed at all, or will silently degrade back.
-  ///
-  /// Resolved once: [RealBonjourApi] memoises the load per *instance*, so a
-  /// fresh advertiser built inside [_debugBackendCard] would re-open the
-  /// library on every frame.
-  late final bool _bonjourAvailable =
-      !kIsWeb && Platform.isWindows && BonjourServiceAdvertiser().isAvailable;
-
-  Widget _debugBackendCard(BuildContext context) {
-    // The RUNNING backend, not `settings.getObpMdnsBackend()`. The two are
-    // different things and the preference is the misleading one to show here:
-    // when a switch to Bonjour degrades (dnssd.dll missing), switchObpBackend
-    // restores the preference, so reading it renders "built-in" with nothing
-    // to say the request was refused — it looks like the button did nothing.
-    final current = core.obpMdnsEmulator.activeBackend;
-    final preference = core.settings.getObpMdnsBackend();
-    // Same rule as [_stopsServer]: switching restarts the server, so it would
-    // drop a trainer app that is currently connected through it.
-    final connected = core.obpMdnsEmulator.isConnected.value;
-    return Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 8,
-        children: [
-          const Text('Debug: mDNS backend', style: TextStyle(fontWeight: FontWeight.w600)),
-          Text('serving: ${_backendLabel(current)}').muted,
-          if (preference != current) Text('(asked for ${_backendLabel(preference)})').muted,
-          // Says up front whether asking for Bonjour can stick: without
-          // dnssd.dll the switch degrades and reverts, which otherwise looks
-          // like the button doing nothing.
-          if (!kIsWeb && Platform.isWindows)
-            Text('dnssd.dll: ${_bonjourAvailable ? 'available' : 'NOT available'}').muted,
-          Row(
-            spacing: 8,
-            children: [
-              for (final target in ObpMdnsBackend.values)
-                Expanded(
-                  child: Button.outline(
-                    key: ValueKey('debug-backend-${target.name}'),
-                    onPressed: (_starting || connected || target == current) ? null : () => _switchBackend(target),
-                    child: Text(switch (target) {
-                      ObpMdnsBackend.platformDefault => 'Built-in',
-                      ObpMdnsBackend.osResponder => 'Bonjour',
-                    }),
-                  ),
-                ),
-            ],
-          ),
-          if (connected) const Text('disconnect the trainer app first').muted,
-          if (!connected && !core.obpMdnsEmulator.isStarted.value)
-            const Text('server is stopped — the backend applies on the next start').muted,
-        ],
-      ),
-    );
-  }
-
-  static String _backendLabel(ObpMdnsBackend backend) => switch (backend) {
-    ObpMdnsBackend.platformDefault => 'built-in responder',
-    ObpMdnsBackend.osResponder => 'Bonjour (OS responder)',
+  /// Which section of the page a check belongs to. The design groups by where
+  /// the problem would be, because that is what tells a rider whether to look
+  /// at this machine, their router, or their trainer app.
+  static NetworkCheckGroup _groupOf(NetworkCheckId id) => switch (id) {
+    NetworkCheckId.methodListening ||
+    NetworkCheckId.backend ||
+    NetworkCheckId.localNetworkPermission ||
+    NetworkCheckId.bonjourService ||
+    NetworkCheckId.bonjourNsp ||
+    NetworkCheckId.windowsMdnsResolver ||
+    NetworkCheckId.networkProfile ||
+    NetworkCheckId.firewallRule ||
+    NetworkCheckId.multicastLock => NetworkCheckGroup.thisDevice,
+    NetworkCheckId.advertisedAddress ||
+    NetworkCheckId.vpn ||
+    NetworkCheckId.advertisementVisible => NetworkCheckGroup.onTheNetwork,
+    NetworkCheckId.resolveOwnHostname || NetworkCheckId.tcpSelfConnect => NetworkCheckGroup.reaching,
+    NetworkCheckId.guidedWatch => NetworkCheckGroup.liveTest,
   };
-
-  /// Routed through [_runFix] rather than `switchObpBackend` directly, so the
-  /// debug buttons take the same path as the real fix rows: the same refusal
-  /// toast while connected, the same restore-on-failure, and the same re-run
-  /// afterwards.
-  Future<void> _switchBackend(ObpMdnsBackend target) => _runFix(switch (target) {
-    ObpMdnsBackend.osResponder => NetworkFixId.useOsResponderForObc,
-    ObpMdnsBackend.platformDefault => NetworkFixId.useResponderForObc,
-  });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.i18n;
+    final tokens = NetworkTokens.of(context);
     return Scaffold(
       headers: [
         AppBar(
           leading: [
             IconButton.ghost(
-              icon: const Icon(LucideIcons.arrowLeft, size: 24),
+              icon: const Icon(LucideIcons.arrowLeft, size: 20),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ],
           title: Text(
             l10n.networkTroubleshootingTitle,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3),
           ),
+          trailing: [_runStamp(context)],
           backgroundColor: Theme.of(context).colorScheme.background,
         ),
         const Divider(),
       ],
-      child: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: 12,
-                children: [
-                  if (kDebugMode) _debugBackendCard(context),
-                  _showConnectedRefusal && _engine == null
-                      ? _refusalCard(context, l10n)
-                      : _engineSection(context, l10n),
-                ],
+      child: Container(
+        color: tokens.pageBg,
+        child: SingleChildScrollView(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 880),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(26, 22, 26, 26),
+                child: _showConnectedRefusal && _engine == null
+                    ? _refusalCard(context, l10n)
+                    : _engineSection(context, l10n),
               ),
             ),
           ),
@@ -326,16 +279,54 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
     );
   }
 
+  /// When the run happened, on what — a mono stamp, because its only job is to
+  /// be read back to support off a screenshot.
+  Widget _runStamp(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final parts = [
+      if (_startedAt != null) _clock(_startedAt!),
+      if (!kIsWeb) _osName(),
+      if (_version != null) 'v$_version',
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Text(
+        parts.join(' · '),
+        style: Theme.of(context).typography.mono.copyWith(fontSize: 11, color: cs.mutedForeground),
+      ),
+    );
+  }
+
+  /// The name a rider would recognise, not the Dart identifier.
+  static String _osName() => switch (Platform.operatingSystem) {
+    'macos' => 'macOS',
+    'ios' => 'iOS',
+    'windows' => 'Windows',
+    'android' => 'Android',
+    'linux' => 'Linux',
+    final other => other,
+  };
+
+  static String _clock(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
+
   Widget _refusalCard(BuildContext context, AppLocalizations l10n) {
     final app = core.settings.getTrainerApp()?.name ?? '';
-    return Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 10,
-        children: [
-          Text(l10n.networkTroubleshootConnectedRefusal(app)),
-          Button.outline(onPressed: _starting ? null : _start, child: Text(l10n.networkTroubleshootRun)),
-        ],
+    return _Panel(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l10n.networkTroubleshootConnectedRefusal(app)),
+            const Gap(12),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Button.outline(onPressed: _starting ? null : _start, child: Text(l10n.networkTroubleshootRun)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -343,7 +334,11 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
   Widget _engineSection(BuildContext context, AppLocalizations l10n) {
     final engine = _engine;
     if (engine == null) {
-      return const SizedBox.shrink();
+      // The production engine cannot exist until DebugDiagnostics.gather() has
+      // finished — several seconds of mDNS discovery. Rendering nothing for
+      // that long reads as a broken page, so the structure appears first and
+      // fills in.
+      return _skeleton(context, l10n);
     }
     return ValueListenableBuilder<NetworkSelfTestState>(
       valueListenable: engine.state,
@@ -351,48 +346,256 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
         final result = state.result;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 12,
           children: [
-            _headerCard(context, l10n, state),
-            ..._checkRows(state),
-            if (result != null) _footer(context, l10n, result),
+            _verdictCard(context, l10n, state),
+            ..._groupedSections(context, l10n, state),
+            if (result != null) ...[const Gap(18), _footer(context, l10n, result)],
           ],
         );
       },
     );
   }
 
-  Widget _headerCard(BuildContext context, AppLocalizations l10n, NetworkSelfTestState state) {
-    final result = state.result;
-    if (result == null) {
-      return Card(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const RepaintBoundary(child: SmallProgressIndicator()),
-            Button.ghost(
-              key: const ValueKey('network-cancel'),
-              onPressed: () => _engine?.cancel(),
-              child: Text(l10n.networkTroubleshootCancel),
+  /// Shown from the first frame until the engine exists: the same shape the
+  /// results will take, with the checks named and waiting.
+  Widget _skeleton(BuildContext context, AppLocalizations l10n) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Panel(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: Center(child: RepaintBoundary(child: SmallProgressIndicator())),
+                ),
+                const Gap(20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.networkTroubleshootingTitle,
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                      ),
+                      const Gap(3),
+                      Text(
+                        l10n.networkOverallUnknownBody,
+                        style: TextStyle(fontSize: 13, color: cs.mutedForeground),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// One card per group, each under a mono rule-label.
+  List<Widget> _groupedSections(BuildContext context, AppLocalizations l10n, NetworkSelfTestState state) {
+    final done = [
+      for (final check in state.checks)
+        if (check.verdict != NetworkVerdict.skipped) check,
+    ];
+    final running = state.running;
+
+    final sections = <Widget>[];
+    for (final group in NetworkCheckGroup.values) {
+      final rows = <Widget>[
+        for (final check in done)
+          if (_groupOf(check.id) == group)
+            NetworkCheckRow(
+              key: ValueKey('check-${check.id.name}'),
+              check: check,
+              onFix: _runFix,
+              isFixDisabled: _fixDisabled,
+              watch: check.id == NetworkCheckId.guidedWatch ? state.watch : null,
+              onSkipWatch: _engine?.cancelWatch,
+            ),
+        if (running != null && _groupOf(running) == group)
+          NetworkCheckRow(
+            key: ValueKey('check-${running.name}-running'),
+            check: NetworkCheck(id: running, verdict: NetworkVerdict.unknown),
+            running: true,
+            watch: running == NetworkCheckId.guidedWatch ? state.watch : null,
+            onSkipWatch: _engine?.cancelWatch,
+          ),
+      ];
+      if (rows.isEmpty) continue;
+      sections
+        ..add(const Gap(18))
+        ..add(_GroupLabel(text: _groupLabel(l10n, group)))
+        ..add(const Gap(8))
+        ..add(_Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _lastWithoutDivider(rows))));
+    }
+    return sections;
+  }
+
+  /// The card draws its own bottom edge, so the final row must not.
+  static List<Widget> _lastWithoutDivider(List<Widget> rows) {
+    if (rows.isEmpty) return rows;
+    final last = rows.removeLast();
+    if (last is NetworkCheckRow) {
+      rows.add(
+        NetworkCheckRow(
+          key: last.key,
+          check: last.check,
+          running: last.running,
+          watch: last.watch,
+          onFix: last.onFix,
+          onSkipWatch: last.onSkipWatch,
+          isFixDisabled: last.isFixDisabled,
+          showDivider: false,
         ),
       );
+    } else {
+      rows.add(last);
     }
+    return rows;
+  }
 
-    return Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 10,
-        children: [
-          Text(_overallSentence(l10n, result.verdict), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          ..._recommendedFix(context, l10n, result),
+  static String _groupLabel(AppLocalizations l10n, NetworkCheckGroup group) => switch (group) {
+    NetworkCheckGroup.thisDevice => l10n.networkGroupThisDevice,
+    NetworkCheckGroup.onTheNetwork => l10n.networkGroupOnTheNetwork,
+    NetworkCheckGroup.reaching => l10n.networkGroupReaching,
+    NetworkCheckGroup.liveTest => l10n.networkGroupLiveTest,
+  };
+
+  /// The design's verdict card: a ring counting what passed, the finding in one
+  /// sentence, and the single action that follows from it.
+  Widget _verdictCard(BuildContext context, AppLocalizations l10n, NetworkSelfTestState state) {
+    final cs = Theme.of(context).colorScheme;
+    final tokens = NetworkTokens.of(context);
+    final result = state.result;
+    final scored = [
+      for (final c in state.checks)
+        if (c.verdict != NetworkVerdict.skipped) c,
+    ];
+    final passed = scored.where((c) => c.verdict == NetworkVerdict.pass).length;
+
+    final verdict = result?.verdict;
+    final arcColor = switch (verdict) {
+      NetworkVerdict.fail => tokens.danger,
+      NetworkVerdict.warn => tokens.warn,
+      NetworkVerdict.unknown => cs.mutedForeground,
+      _ => tokens.ok,
+    };
+
+    final narrow = MediaQuery.sizeOf(context).width < 640;
+    final actions = Column(
+      crossAxisAlignment: narrow ? CrossAxisAlignment.stretch : CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (result != null) ..._recommendedFix(context, l10n, result),
+        if (result == null)
+          Button.outline(
+            key: const ValueKey('network-cancel'),
+            onPressed: () => _engine?.cancel(),
+            child: Text(l10n.networkTroubleshootCancel),
+          )
+        else
           Button.outline(
             key: const ValueKey('network-run-again'),
             onPressed: _starting ? null : _start,
             child: Text(l10n.networkTroubleshootRunAgain),
           ),
-        ],
+      ],
+    );
+
+    return _Panel(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            NetworkGauge(passed: passed, total: scored.length, color: arcColor),
+            const Gap(20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    result == null ? l10n.networkWatchTitle : _overallSentence(l10n, result.verdict),
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.01),
+                  ),
+                  const Gap(3),
+                  Text(
+                    result == null ? l10n.networkWatchEndsItself : _overallBody(l10n, result.verdict),
+                    style: TextStyle(fontSize: 13, color: cs.mutedForeground),
+                  ),
+                ],
+              ),
+            ),
+            // Beside the sentence when there is room; underneath when there is
+            // not. The page is reachable on a phone, where a fixed row of
+            // buttons would simply be clipped off the edge.
+            if (!narrow) ...[const Gap(16), actions],
+          ],
+        ),
+            if (narrow) ...[const Gap(14), actions],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The design's closing card: one line naming the way out when the checks
+  /// have not settled it, and the two things support actually needs.
+  Widget _footer(BuildContext context, AppLocalizations l10n, NetworkSelfTestResult result) {
+    final cs = Theme.of(context).colorScheme;
+    return _Panel(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+        child: Flex(
+          direction: MediaQuery.sizeOf(context).width < 640 ? Axis.vertical : Axis.horizontal,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              fit: MediaQuery.sizeOf(context).width < 640 ? FlexFit.loose : FlexFit.tight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.networkFooterTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Gap(2),
+                  Text(l10n.networkFooterBody, style: TextStyle(fontSize: 13, color: cs.mutedForeground)),
+                ],
+              ),
+            ),
+            const Gap(12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Button.outline(
+                  key: const ValueKey('network-copy'),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: result.toBundleString()));
+                    buildToast(title: l10n.networkTroubleshootResultsCopied);
+                  },
+                  child: Text(l10n.networkTroubleshootCopyResults),
+                ),
+                Button.primary(
+                  onPressed: () => _openSupport(context, result),
+                  child: Text(l10n.networkTroubleshootSendToSupport),
+                ),
+                Button.ghost(
+                  onPressed: () => context.push(const LogViewer()),
+                  child: Text(l10n.logs),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -410,6 +613,15 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
     };
   }
 
+  String _overallBody(AppLocalizations l10n, NetworkVerdict verdict) {
+    return switch (verdict) {
+      NetworkVerdict.pass || NetworkVerdict.skipped => l10n.networkOverallPassBody,
+      NetworkVerdict.warn => l10n.networkOverallWarnBody,
+      NetworkVerdict.fail => l10n.networkOverallFailBody,
+      NetworkVerdict.unknown => l10n.networkOverallUnknownBody,
+    };
+  }
+
   /// The fixes of the first `fail` check (else the first `warn` check), as
   /// up to two buttons — the first `Button.primary`, the rest
   /// `Button.outline`. Empty when nothing failed or warned, or the row that
@@ -423,67 +635,77 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
       return const [];
     }
     return [
-      Text(l10n.networkTroubleshootRecommendedFix, style: const TextStyle(fontWeight: FontWeight.w600)),
-      Wrap(
-        spacing: 8,
-        children: [
-          for (var i = 0; i < fixes.length; i++)
-            i == 0
-                ? Button.primary(
-                    key: const ValueKey('network-recommended-fix'),
-                    onPressed: _fixDisabled(fixes[i]) ? null : () => _runFix(fixes[i]),
-                    child: Text(networkFixLabel(context, fixes[i])),
-                  )
-                : Button.outline(
-                    onPressed: _fixDisabled(fixes[i]) ? null : () => _runFix(fixes[i]),
-                    child: Text(networkFixLabel(context, fixes[i])),
-                  ),
+      for (var i = 0; i < fixes.length; i++) ...[
+        i == 0
+            ? Button.primary(
+                key: const ValueKey('network-recommended-fix'),
+                onPressed: _fixDisabled(fixes[i]) ? null : () => _runFix(fixes[i]),
+                child: Text(networkFixLabel(context, fixes[i])),
+              )
+            : Button.outline(
+                onPressed: _fixDisabled(fixes[i]) ? null : () => _runFix(fixes[i]),
+                child: Text(networkFixLabel(context, fixes[i])),
+              ),
+        const Gap(8),
+      ],
+    ];
+  }
+
+}
+
+
+/// Where a check would point a rider: at this machine, at their network, or at
+/// the hop between BikeControl and the trainer app.
+enum NetworkCheckGroup { thisDevice, onTheNetwork, reaching, liveTest }
+
+/// A white card with the design's border, radius and one-step shadow.
+class _Panel extends StatelessWidget {
+  const _Panel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.card,
+        border: Border.all(color: cs.border),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: const Color(0x0F0F1520), blurRadius: 2, offset: const Offset(0, 1)),
         ],
       ),
-    ];
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
   }
+}
 
-  List<Widget> _checkRows(NetworkSelfTestState state) {
-    final rows = <Widget>[
-      for (final check in state.checks)
-        if (check.verdict != NetworkVerdict.skipped)
-          NetworkCheckRow(key: ValueKey('check-${check.id.name}'), check: check, onFix: _runFix, isFixDisabled: _fixDisabled),
-    ];
-    final running = state.running;
-    if (running != null) {
-      rows.add(
-        NetworkCheckRow(
-          key: ValueKey('check-${running.name}-running'),
-          check: NetworkCheck(id: running, verdict: NetworkVerdict.unknown, detail: {'app': core.settings.getTrainerApp()?.name ?? ''}),
-          running: true,
-          watch: state.watch,
-          onSkipWatch: _engine?.cancelWatch,
-        ),
-      );
-    }
-    return rows;
-  }
+/// A mono, letterspaced section heading with a rule running to the right edge —
+/// the design's device for separating groups without boxing them.
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel({required this.text});
 
-  Widget _footer(BuildContext context, AppLocalizations l10n, NetworkSelfTestResult result) {
-    return Wrap(
-      spacing: 8,
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tokens = NetworkTokens.of(context);
+    return Row(
       children: [
-        Button.outline(
-          key: const ValueKey('network-copy'),
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: result.toBundleString()));
-            buildToast(title: l10n.networkTroubleshootResultsCopied);
-          },
-          child: Text(l10n.networkTroubleshootCopyResults),
+        Text(
+          text.toUpperCase(),
+          style: Theme.of(context).typography.mono.copyWith(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.4,
+            color: cs.mutedForeground,
+          ),
         ),
-        Button.outline(
-          onPressed: () => _openSupport(context, result),
-          child: Text(l10n.networkTroubleshootSendToSupport),
-        ),
-        Button.ghost(
-          onPressed: () => context.push(const LogViewer()),
-          child: Text(l10n.logs),
-        ),
+        const Gap(10),
+        Expanded(child: Container(height: 1, color: tokens.hairline)),
       ],
     );
   }
