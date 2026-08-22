@@ -5,6 +5,7 @@ import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
+import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/services/debug_diagnostics.dart';
 import 'package:bike_control/services/network_self_test/network_check.dart';
 import 'package:bike_control/services/network_self_test/network_fixes.dart';
@@ -211,8 +212,23 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
   /// point is to exercise that path rather than to repair something. Debug
   /// builds only: riders get the backend picked for them, and a wrong manual
   /// choice is a support case rather than a setting.
+  /// Whether dnssd.dll can be loaded — i.e. whether asking for the Bonjour
+  /// backend can succeed at all, or will silently degrade back.
+  ///
+  /// Resolved once: [RealBonjourApi] memoises the load per *instance*, so a
+  /// fresh advertiser built inside [_debugBackendCard] would re-open the
+  /// library on every frame.
+  late final bool _bonjourAvailable =
+      !kIsWeb && Platform.isWindows && BonjourServiceAdvertiser().isAvailable;
+
   Widget _debugBackendCard(BuildContext context) {
-    final current = core.settings.getObpMdnsBackend();
+    // The RUNNING backend, not `settings.getObpMdnsBackend()`. The two are
+    // different things and the preference is the misleading one to show here:
+    // when a switch to Bonjour degrades (dnssd.dll missing), switchObpBackend
+    // restores the preference, so reading it renders "built-in" with nothing
+    // to say the request was refused — it looks like the button did nothing.
+    final current = core.obpMdnsEmulator.activeBackend;
+    final preference = core.settings.getObpMdnsBackend();
     // Same rule as [_stopsServer]: switching restarts the server, so it would
     // drop a trainer app that is currently connected through it.
     final connected = core.obpMdnsEmulator.isConnected.value;
@@ -222,10 +238,13 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
         spacing: 8,
         children: [
           const Text('Debug: mDNS backend', style: TextStyle(fontWeight: FontWeight.w600)),
-          Text(switch (current) {
-            ObpMdnsBackend.platformDefault => 'current: built-in responder',
-            ObpMdnsBackend.osResponder => 'current: Bonjour (OS responder)',
-          }).muted,
+          Text('serving: ${_backendLabel(current)}').muted,
+          if (preference != current) Text('(asked for ${_backendLabel(preference)})').muted,
+          // Says up front whether asking for Bonjour can stick: without
+          // dnssd.dll the switch degrades and reverts, which otherwise looks
+          // like the button doing nothing.
+          if (!kIsWeb && Platform.isWindows)
+            Text('dnssd.dll: ${_bonjourAvailable ? 'available' : 'NOT available'}').muted,
           Row(
             spacing: 8,
             children: [
@@ -243,10 +262,17 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
             ],
           ),
           if (connected) const Text('disconnect the trainer app first').muted,
+          if (!connected && !core.obpMdnsEmulator.isStarted.value)
+            const Text('server is stopped — the backend applies on the next start').muted,
         ],
       ),
     );
   }
+
+  static String _backendLabel(ObpMdnsBackend backend) => switch (backend) {
+    ObpMdnsBackend.platformDefault => 'built-in responder',
+    ObpMdnsBackend.osResponder => 'Bonjour (OS responder)',
+  };
 
   /// Routed through [_runFix] rather than `switchObpBackend` directly, so the
   /// debug buttons take the same path as the real fix rows: the same refusal

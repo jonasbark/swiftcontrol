@@ -212,6 +212,27 @@ Future<void> main() async {
     expect(bonjour.onPressed, isNotNull, reason: 'switching to Bonjour must be reachable without a failing check');
   });
 
+  testWidgets('debug backend override shows what is SERVING, not the preference', (tester) async {
+    // The two diverge exactly when a switch to Bonjour degrades: the pref is
+    // written, the registration falls back, and switchObpBackend restores it.
+    // Showing the preference rendered "built-in" for a rider who had just
+    // asked for Bonjour, with nothing to say the request had been refused.
+    await core.settings.setObpMdnsBackend(ObpMdnsBackend.osResponder);
+    await _pump(
+      tester,
+      NetworkTroubleshootingPage(engineFactory: () => NetworkSelfTestEngine(contextBuilder: _ctx, probes: const [])),
+    );
+    await tester.pump();
+
+    // activeBackend is still the default: nothing started an osResponder.
+    expect(find.textContaining('serving: built-in responder'), findsOneWidget);
+    expect(find.textContaining('asked for Bonjour'), findsOneWidget);
+
+    // ...and Bonjour stays offerable, since it is not what is running.
+    final bonjour = tester.widget<Button>(find.byKey(const ValueKey('debug-backend-osResponder')));
+    expect(bonjour.onPressed, isNotNull);
+  });
+
   testWidgets('debug backend override is disabled while a trainer app is connected', (tester) async {
     // Switching restarts the server, which would drop the live connection —
     // the same rule the real fix rows follow.
