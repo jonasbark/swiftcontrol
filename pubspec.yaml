@@ -12,6 +12,7 @@ dependencies:
 
   url_launcher: ^6.3.1
   android_intent_plus: ^6.0.0
+  android_play_install_referrer: ^0.4.0
   flutter_local_notifications: ^19.5.0
 
   # fork to allow iOS background BLE connections
