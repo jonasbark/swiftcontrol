@@ -1,13 +1,11 @@
-### 6.5.0 (unreleased)
+### 6.5.0 (22-08-2026)
 **Features**:
-- Zwift Click V2: when you use the right side only, the puck no longer falls asleep after a minute of inactivity — and the LEDs stay on. Still no Zwift unlock needed.
+- Zwift Click V2: when you use the right side only, the puck no longer falls asleep after a minute of inactivity — and the LEDs stay on.
+- Network issues: you can now troubleshoot network related issues, e.g. connection to MyWhoosh
 - Virtual Shifting:
   - shifting on Zwift Ready trainers now feels instant
   - more FTMS trainers are supported
   - a new resistance test lets you confirm your trainer really responds
-
-**Fixes**:
-- iOS & macOS: BikeControl now detects when the system "Local Network" permission is off and says so, instead of leaving the network connection methods (MyWhoosh Link, Zwift and OpenBikeControl over Wi-Fi) silently unable to find anything. Tapping the warning opens the right settings page.
 
 ### 6.4.0 (10-08-2026)
 **Features**:
