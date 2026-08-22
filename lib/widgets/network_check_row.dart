@@ -268,7 +268,11 @@ class _NetworkCheckRowState extends State<NetworkCheckRow> {
   /// The mono right-hand column: the one measured fact this check produced,
   /// plus the disclosure chevron when there is more underneath.
   Widget _value(BuildContext context, ColorScheme cs, bool expandable) {
-    final headline = networkCheckHeadlineValue(widget.check);
+    // The design's value column assumes a desktop window. On a phone it takes
+    // width the check's own name needs, and both end up wrapping mid-word — so
+    // below the breakpoint the fact stays in the expandable block, where it
+    // already lives, and only the chevron remains.
+    final headline = MediaQuery.sizeOf(context).width < 640 ? null : networkCheckHeadlineValue(widget.check);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

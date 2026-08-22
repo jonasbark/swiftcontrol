@@ -344,9 +344,12 @@ class CoreLogic {
       core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
       (showLocalControl || isRemoteControlEnabled);
 
-  /// Whether any method that rides on the LAN is switched on — i.e. whether
-  /// Apple's Local Network permission is the rider's problem at all.
-  bool get needsLocalNetwork => isZwiftMdnsEnabled || isObpMdnsEnabled || isMyWhooshLinkEnabled;
+  /// Whether any method that rides on the LAN is switched on.
+  ///
+  /// Answers both "is Apple's Local Network permission this rider's problem"
+  /// and "is the network troubleshooter worth offering" — the two have the
+  /// same precondition.
+  bool get hasNetworkMethodEnabled => isZwiftMdnsEnabled || isObpMdnsEnabled || isMyWhooshLinkEnabled;
 
   /// Whether a permission check triggered by app launch should be skipped.
   ///
@@ -525,7 +528,7 @@ class CoreLogic {
     // never see it.
     // No toast on failure: the app card carries this as a required step now,
     // which stays put instead of scrolling away.
-    final localNetworkOk = !needsLocalNetwork || await localNetworkRequirements().allGranted;
+    final localNetworkOk = !hasNetworkMethodEnabled || await localNetworkRequirements().allGranted;
 
     if (isZwiftMdnsEnabled && localNetworkOk) {
       if (core.settings.getTrainerApp() is Rouvy && !core.rouvyMdnsEmulator.isStarted.value) {

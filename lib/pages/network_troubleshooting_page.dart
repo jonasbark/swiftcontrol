@@ -256,7 +256,10 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
             l10n.networkTroubleshootingTitle,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.3),
           ),
-          trailing: [_runStamp(context)],
+          // Only beside the title where there is room for both: on a narrow
+          // window the stamp wins the space and the title wraps a character at
+          // a time. It moves into the body instead.
+          trailing: [if (!_narrow(context)) _runStamp(context)],
           backgroundColor: Theme.of(context).colorScheme.background,
         ),
         const Divider(),
@@ -269,9 +272,18 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
               constraints: const BoxConstraints(maxWidth: 880),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(26, 22, 26, 26),
-                child: _showConnectedRefusal && _engine == null
-                    ? _refusalCard(context, l10n)
-                    : _engineSection(context, l10n),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_narrow(context)) ...[
+                      Align(alignment: AlignmentDirectional.centerStart, child: _runStamp(context)),
+                      const Gap(12),
+                    ],
+                    _showConnectedRefusal && _engine == null
+                        ? _refusalCard(context, l10n)
+                        : _engineSection(context, l10n),
+                  ],
+                ),
               ),
             ),
           ),
@@ -279,6 +291,11 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
       ),
     );
   }
+
+  /// One breakpoint for the whole page: below it the design's side-by-side
+  /// arrangements stack, because a desktop window's worth of width is exactly
+  /// what they assume.
+  static bool _narrow(BuildContext context) => MediaQuery.sizeOf(context).width < 640;
 
   /// When the run happened, on what — a mono stamp, because its only job is to
   /// be read back to support off a screenshot.
@@ -509,7 +526,7 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
       _ => tokens.ok,
     };
 
-    final narrow = MediaQuery.sizeOf(context).width < 640;
+    final narrow = _narrow(context);
     final actions = Column(
       crossAxisAlignment: narrow ? CrossAxisAlignment.stretch : CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
@@ -581,20 +598,17 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
         // a Flexible keeps flex:1 whichever fit it is given, and a vertical
         // Flex with a flexed child inside this page's SingleChildScrollView is
         // an unbounded-height constraint error, not a layout.
-        child: Flex(
-          direction: MediaQuery.sizeOf(context).width < 640 ? Axis.vertical : Axis.horizontal,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(child: Column(
+        child: _RowOrColumn(
+          narrow: _narrow(context),
+          leading: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(l10n.networkFooterTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   const Gap(2),
                   Text(l10n.networkFooterBody, style: TextStyle(fontSize: 13, color: cs.mutedForeground)),
                 ],
-              )),
-            const Gap(12),
-            Wrap(
+              ),
+          trailing: Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
@@ -616,7 +630,6 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
                 ),
               ],
             ),
-          ],
         ),
       ),
     );

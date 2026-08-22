@@ -131,7 +131,7 @@ class _HomePageState extends State<HomePage> {
   /// the LAN is switched on, this platform has no such permission, or it has
   /// never been measured.
   bool? get _localNetworkGranted {
-    if (!core.logic.needsLocalNetwork || localNetworkRequirements().isEmpty) return null;
+    if (!core.logic.hasNetworkMethodEnabled || localNetworkRequirements().isEmpty) return null;
     final status = _localNetwork;
     // Same rule as everywhere else: unknown is not a denial, so the step must
     // not sit there red because the probe could not tell.
@@ -139,7 +139,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _refreshLocalNetwork() async {
-    if (!core.logic.needsLocalNetwork || localNetworkRequirements().isEmpty) return;
+    if (!core.logic.hasNetworkMethodEnabled || localNetworkRequirements().isEmpty) return;
     try {
       final status = await LocalNetworkAccess.status();
       if (mounted && status != _localNetwork) setState(() => _localNetwork = status);

@@ -100,7 +100,11 @@ Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep st
       // (mDNS/DirCon discovery) — offer a direct line to it right where the
       // rider is already asking for help, instead of leaving it buried behind
       // the generic troubleshooting article.
-      if (core.logic.isObpMdnsEnabled)
+      //
+      // Gated on any LAN method, not just OpenBikeControl mDNS: MyWhoosh Link
+      // and Zwift/Rouvy mDNS fail to be discovered in exactly the same ways,
+      // and a rider on one of those was previously offered nothing.
+      if (core.logic.hasNetworkMethodEnabled)
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Button.outline(

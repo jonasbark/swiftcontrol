@@ -35,6 +35,7 @@ Future<void> main() async {
     (const Size(320, 700), 1.0),
     (const Size(390, 844), 1.3),
     (const Size(360, 780), 1.6),
+    (const Size(330, 700), 1.0),
   ]) {
     testWidgets('overflow sweep ${size.width.toInt()} @${scale}x', (tester) async {
       final errors = <String>[];
@@ -64,11 +65,22 @@ Future<void> main() async {
                 fixes: [NetworkFixId.useOsResponderForObc, NetworkFixId.useResponderForObc],
                 detail: const {'hostname': 'bikecontrol-3f2a.local'}),
             _s(NetworkCheckId.advertisedAddress, NetworkVerdict.pass, detail: const {'address': '192.168.178.197'}),
+            _s(NetworkCheckId.backend, NetworkVerdict.pass, detail: const {'backend': 'BikeControl.local'}),
+            _s(NetworkCheckId.vpn, NetworkVerdict.warn, detail: const {'address': '100.76.35.113'}),
+            _s(NetworkCheckId.advertisementVisible, NetworkVerdict.pass),
+            _s(NetworkCheckId.tcpSelfConnect, NetworkVerdict.pass, detail: const {'latencyMs': '4'}),
+            _s(NetworkCheckId.multicastLock, NetworkVerdict.unknown),
           ]),
         ),
       )));
       await tester.pump();
       await tester.pump();
+      // ignore: avoid_print
+      print('OVF ${size.width.toInt()}@${scale}x: ${errors.length}');
+      for (final e in errors.take(4)) {
+        // ignore: avoid_print
+        print('OVF   ${e.split('\n').first}');
+      }
       expect(
         errors,
         isEmpty,
