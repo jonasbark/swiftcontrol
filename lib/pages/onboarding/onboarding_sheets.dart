@@ -3,6 +3,7 @@ import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/pages/onboarding/onboarding_app_guides.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
@@ -95,6 +96,28 @@ Widget onboardingHelpSheetBody(BuildContext context, {required OnboardingStep st
           }
         },
       ),
+      // Network is the one connection method with its own guided fix-it flow
+      // (mDNS/DirCon discovery) — offer a direct line to it right where the
+      // rider is already asking for help, instead of leaving it buried behind
+      // the generic troubleshooting article.
+      //
+      // Gated on any LAN method, not just OpenBikeControl mDNS: MyWhoosh Link
+      // and Zwift/Rouvy mDNS fail to be discovered in exactly the same ways,
+      // and a rider on one of those was previously offered nothing.
+      if (core.logic.hasNetworkMethodEnabled)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Button.outline(
+            onPressed: () {
+              // Dismiss the sheet first, as _openSupportChat does — the page
+              // must not open underneath a still-visible sheet. Synchronous,
+              // so `context` is still mounted for the push.
+              onClose();
+              context.push(const NetworkTroubleshootingPage());
+            },
+            child: Text(context.i18n.networkTroubleshootingTitle),
+          ),
+        ),
       _channel(
         context,
         icon: LucideIcons.mail,

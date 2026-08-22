@@ -53,6 +53,7 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
 
   return inputs.controllers.map((controller) {
     final inRange = _isPresent(controller.presence);
+    final guidedSetupDone = controller.sramSetupDone;
     // A Click V2 waiting for its unlock-mode choice gets that one step and
     // nothing else. It is discovered and in range; the app is choosing not to
     // connect it, so "pair it" and "bring it back in range" would both be
@@ -75,9 +76,19 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
             // Ahead of mapping, because it is what produces the buttons to map: a
             // derailleur whose own shifting is still enabled sends nothing at all, so
             // "assign an action to a button" is advice the rider cannot act on yet.
-            if (controller.sramSetupDone != null)
-              SetupStep(id: SetupStepId.controllerSramSetup, done: controller.sramSetupDone!),
-            SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
+            //
+            // Emitted when it is ticked — history, like pairing, and it survives the
+            // device walking away — or when the device is here to run it. Listing it
+            // for one out of range would offer a sheet that writes over a connection
+            // there isn't, and bury the only thing that helps, "bring it back in
+            // range", underneath it.
+            if (guidedSetupDone != null && (guidedSetupDone || inRange))
+              SetupStep(id: SetupStepId.controllerSramSetup, done: guidedSetupDone),
+            // Only once there are buttons to map. A derailleur declares none
+            // until its paddles have been heard from, so the line would name
+            // work with nothing to work on — see [ControllerInput.hasKnownButtons].
+            if (controller.hasKnownButtons || controller.hasMappedButtons)
+              SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
             SetupStep(id: SetupStepId.controllerInRange, done: inRange),
             // Last, because unlocking needs the controller present. Omitted entirely
             // for anything that has no such concept — see [ControllerInput.unlocked].
@@ -88,11 +99,21 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
                 hintArg: controller.unlockedUntil,
                 uncertain: controller.unlockUncertain,
               ),
+            // An offer, not work: the right puck functions perfectly without a
+            // left one, it just switches off after a minute idle. Only emitted
+            // while outstanding, so it never sits ticked on a card forever.
+            if (controller.clickV2NeedsLeftSide)
+              const SetupStep(
+                id: SetupStepId.controllerClickV2KeepAwake,
+                done: false,
+                optional: true,
+              ),
           ];
 
     // An unfinished checklist outranks a healthy connection: a connected
     // controller with no buttons mapped does nothing, so it must not be green.
-    final incomplete = steps.any((s) => !s.done);
+    // Optional steps are offers and stay out of it — see [SetupStep.optional].
+    final incomplete = steps.any((s) => !s.done && !s.optional);
     final presenceStatus = _presenceStatus(controller.presence);
     final status = incomplete && presenceStatus == LinkStatus.ready ? LinkStatus.attention : presenceStatus;
 
@@ -194,6 +215,12 @@ ChainLink _appLink(ChainInputs inputs) {
   final steps = <SetupStep>[
     SetupStep(id: SetupStepId.appSelected, done: selected),
     SetupStep(id: SetupStepId.appConnectionMethod, done: selected && hasMethod),
+    // Between the method and the wire, because that is where it bites: the
+    // bridge is switched on and looks fine, but without the permission nothing
+    // it advertises ever leaves the device. Required, not optional — a rider
+    // cannot ride past this one.
+    if (selected && app.localNetworkGranted != null)
+      SetupStep(id: SetupStepId.appLocalNetwork, done: app.localNetworkGranted!),
     SetupStep(id: SetupStepId.appConnected, done: selected && connected),
     // Last, and optional: Local is not a way to reach the app, it is a way to
     // do *more* to it — keystrokes and clicks the button editor only offers

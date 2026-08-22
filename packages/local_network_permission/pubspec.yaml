@@ -1,0 +1,28 @@
+name: local_network_permission
+description: "Probes Apple's Local Network privacy permission on iOS and macOS, which has no authorization-status API."
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: '>=3.8.1 <4.0.0'
+  # sharedDarwinSource needs Flutter 3.7+.
+  flutter: '>=3.7.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        sharedDarwinSource: true
+        pluginClass: LocalNetworkPermissionPlugin
+      macos:
+        sharedDarwinSource: true
+        pluginClass: LocalNetworkPermissionPlugin

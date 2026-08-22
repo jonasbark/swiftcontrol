@@ -40,12 +40,14 @@ class ControllerInput {
     required this.name,
     required this.presence,
     required this.hasMappedButtons,
+    this.hasKnownButtons = true,
     this.requiresBluetooth = true,
     this.unlocked,
     this.unlockedUntil,
     this.unlockUncertain = false,
     this.sramSetupDone,
     this.needsUnlockModeChoice = false,
+    this.clickV2NeedsLeftSide = false,
   });
 
   final String deviceId;
@@ -55,6 +57,16 @@ class ControllerInput {
   /// Whether the active keymap assigns at least one action to one of this
   /// device's buttons.
   final bool hasMappedButtons;
+
+  /// Whether BikeControl knows which buttons this controller even has.
+  ///
+  /// Almost every controller declares its buttons the moment it is known, so
+  /// mapping them is a keymap edit the rider can make from the sofa. A SRAM
+  /// derailleur declares none: its paddles are learned from the presses they
+  /// send, and those only start once the guided setup has run on a connected
+  /// device. Until then "map your buttons" names work with nothing to work
+  /// on — the keymap has no entry to assign an action to.
+  final bool hasKnownButtons;
 
   /// False for controllers that don't ride on BLE (USB/OS gamepads, the
   /// phone's gyroscope). Their card omits the Bluetooth step, which would
@@ -97,6 +109,11 @@ class ControllerInput {
   /// them; without it the card reported "never paired" and "bring it back in
   /// range" about a controller sitting switched on beside the rider.
   final bool needsUnlockModeChoice;
+
+  /// Whether this is a Click V2 right puck that would stop powering itself off
+  /// if a left puck were switched on nearby. An offer, never a requirement —
+  /// the controller works either way, it just switches off after a minute.
+  final bool clickV2NeedsLeftSide;
 }
 
 class TrainerInput {
@@ -160,6 +177,7 @@ class AppInput {
     this.connectionSummary,
     this.localControlOffered = false,
     this.localControlEnabled = false,
+    this.localNetworkGranted,
   });
 
   /// The selected trainer app, or null when the rider hasn't picked one.
@@ -191,6 +209,12 @@ class AppInput {
 
   /// Whether Local is already on, which is what ticks the optional step off.
   final bool localControlEnabled;
+
+  /// Apple's Local Network permission, or null when it does not apply: no
+  /// network method is switched on, the platform has no such permission, or it
+  /// has never been measured. Null keeps the step out of the checklist
+  /// entirely, so a rider is never shown work that isn't theirs to do.
+  final bool? localNetworkGranted;
 }
 
 class ChainInputs {

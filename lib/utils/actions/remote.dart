@@ -22,7 +22,18 @@ class RemoteActions extends BaseActions {
     required bool isKeyUp,
     ButtonTrigger trigger = ButtonTrigger.singleClick,
   }) async {
-    final keyPair = supportedApp!.keymap.getKeyPair(button, trigger: trigger);
+    final app = supportedApp;
+    if (app == null) {
+      // The keymap pref ('app') can be missing while a trainer app ('trainer_app')
+      // is selected — never dereference it, report it like BaseActions does.
+      return Error(
+        AppLocalizations.current.couldNotPerformButtonnamesplitbyuppercaseNoKeymapSet(button.name.splitByUpperCase()),
+        type: ErrorType.noKeymapSet,
+        button: button,
+      );
+    }
+
+    final keyPair = app.keymap.getKeyPair(button, trigger: trigger);
 
     if (keyPair == null || keyPair.hasNoAction) {
       return Error(

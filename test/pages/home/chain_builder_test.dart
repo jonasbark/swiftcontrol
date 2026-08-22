@@ -16,24 +16,28 @@ ControllerInput controller({
   String name = 'Zwift Click V2',
   DevicePresence presence = DevicePresence.connected,
   bool hasMappedButtons = true,
+  bool hasKnownButtons = true,
   bool requiresBluetooth = true,
   bool? unlocked,
   String? unlockedUntil,
   bool unlockUncertain = false,
   bool? sramSetupDone,
   bool needsUnlockModeChoice = false,
+  bool clickV2NeedsLeftSide = false,
 }) {
   return ControllerInput(
     deviceId: deviceId,
     name: name,
     presence: presence,
     hasMappedButtons: hasMappedButtons,
+    hasKnownButtons: hasKnownButtons,
     requiresBluetooth: requiresBluetooth,
     unlocked: unlocked,
     unlockedUntil: unlockedUntil,
     unlockUncertain: unlockUncertain,
     sramSetupDone: sramSetupDone,
     needsUnlockModeChoice: needsUnlockModeChoice,
+    clickV2NeedsLeftSide: clickV2NeedsLeftSide,
   );
 }
 
@@ -190,6 +194,58 @@ void main() {
       expect(link.activeStep?.id, SetupStepId.controllerSramSetup);
     });
 
+    // Reported: an out-of-range derailleur listed "Set up SRAM control" and
+    // "Map your buttons" above "Bring it back in range", and the card's
+    // instructions button opened the guided sheet — which writes to a
+    // derailleur BikeControl has no connection to.
+    test('an absent derailleur is asked to come back, not to run its setup', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [
+            controller(
+              presence: DevicePresence.remembered,
+              sramSetupDone: false,
+              hasKnownButtons: false,
+              hasMappedButtons: false,
+            ),
+          ],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerSramSetup), isFalse);
+      expect(_hasStep(link, SetupStepId.controllerButtonsMapped), isFalse);
+      expect(link.activeStep?.id, SetupStepId.controllerInRange);
+      expect(link.remainingSteps, 1);
+    });
+
+    test('a finished guided setup stays ticked while the derailleur is away', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(presence: DevicePresence.remembered, sramSetupDone: true)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_stepDone(link, SetupStepId.controllerSramSetup), isTrue);
+      expect(link.activeStep?.id, SetupStepId.controllerInRange);
+    });
+
+    // A derailleur declares no buttons of its own: they are learned from the
+    // presses it sends, which only start once the guided setup has run. Until
+    // then the keymap has nothing to assign an action to.
+    test('a controller with no buttons discovered yet is not asked to map them', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(sramSetupDone: false, hasKnownButtons: false, hasMappedButtons: false)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerButtonsMapped), isFalse);
+      expect(link.activeStep?.id, SetupStepId.controllerSramSetup);
+    });
+
     // Reported edge case: a brand-new install where the wizard was skipped or
     // finished on another controller, then a Click V2 is switched on. It is
     // discovered and in range, and BikeControl is deliberately not connecting
@@ -229,6 +285,52 @@ void main() {
       final chain = buildChain(ChainInputs(controllers: [controller()], app: _readyApp));
       final link = chain.byKey(ChainLinkKey.controller);
       expect(link.steps.any((s) => s.id == SetupStepId.controllerSramSetup), isFalse);
+    });
+
+    test('offers the keep-awake step when a right puck has no left one in range', () {
+      final chain = buildChain(
+        ChainInputs(controllers: [controller(clickV2NeedsLeftSide: true)], app: _readyApp),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      final step = link.steps.firstWhere((s) => s.id == SetupStepId.controllerClickV2KeepAwake);
+      expect(step.optional, isTrue, reason: 'the controller works without it; it is an offer, not work');
+      expect(step.done, isFalse);
+    });
+
+    test('the keep-awake offer is absent once it is no longer outstanding', () {
+      // Emitted only while waiting, so it never sits ticked on the card forever.
+      final chain = buildChain(ChainInputs(controllers: [controller()], app: _readyApp));
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerClickV2KeepAwake), isFalse);
+    });
+
+    test('the keep-awake offer never colours the card or blocks riding', () {
+      // The regression this guards: the controller link used to count every
+      // undone step, optional or not, so this offer alone turned a working
+      // controller amber and held back "Ready to ride".
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(clickV2NeedsLeftSide: true)],
+          trainer: trainer(),
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.status, LinkStatus.ready);
+      expect(link.steps.where((s) => !s.done && !s.optional), isEmpty);
+    });
+
+    test('a real outstanding step still outranks the optional offer', () {
+      // The optional step must not mask a genuine one sitting beside it.
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(hasMappedButtons: false, clickV2NeedsLeftSide: true)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.status, LinkStatus.attention);
+      expect(link.activeStep?.id, SetupStepId.controllerButtonsMapped);
     });
 
     test('a controller with no unlock concept has no unlock step at all', () {
@@ -568,6 +670,79 @@ void main() {
       final link = chain.byKey(ChainLinkKey.app);
       expect(_stepDone(link, SetupStepId.appConnectionMethod), isFalse);
       expect(_stepDone(link, SetupStepId.appConnected), isFalse);
+    });
+
+    group('Local Network step', () {
+      test('is absent when the permission does not apply', () {
+        // Bluetooth-only, or a platform without the permission: there is
+        // nothing to grant, so the rider must not be shown a step.
+        final chain = buildChain(const ChainInputs(app: _readyApp));
+        expect(_hasStep(chain.byKey(ChainLinkKey.app), SetupStepId.appLocalNetwork), isFalse);
+      });
+
+      test('ticks green once granted, rather than vanishing', () {
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            isConnected: true,
+            localNetworkGranted: true,
+          )),
+        );
+        final link = chain.byKey(ChainLinkKey.app);
+        expect(_stepDone(link, SetupStepId.appLocalNetwork), isTrue);
+        expect(link.status, LinkStatus.ready);
+      });
+
+      test('an unmeasurable permission is not an outstanding step', () {
+        // localNetworkGranted carries LocalNetworkAccess.usable(), so unknown
+        // arrives here as true — the rider must not be handed work on the
+        // strength of a probe that could not tell.
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            isConnected: true,
+            localNetworkGranted: true,
+          )),
+        );
+        final link = chain.byKey(ChainLinkKey.app);
+        expect(_stepDone(link, SetupStepId.appLocalNetwork), isTrue);
+        expect(link.status, LinkStatus.ready);
+      });
+
+      test('is the outstanding step when denied, and holds the card back', () {
+        // Required, not optional: a denied permission means the bridge cannot
+        // be reached, so the card must not read as ready.
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            localNetworkGranted: false,
+          )),
+        );
+        final link = chain.byKey(ChainLinkKey.app);
+        expect(_stepDone(link, SetupStepId.appLocalNetwork), isFalse);
+        expect(link.activeStep!.id, SetupStepId.appLocalNetwork);
+        expect(link.status, isNot(LinkStatus.ready));
+      });
+
+      test('comes after the connection method and before the connection', () {
+        // The permission gates the wire, so it cannot be the rider's first or
+        // last piece of work on this card.
+        final chain = buildChain(
+          const ChainInputs(app: AppInput(
+            name: 'MyWhoosh',
+            hasEnabledConnection: true,
+            localNetworkGranted: false,
+          )),
+        );
+        final ids = chain.byKey(ChainLinkKey.app).steps.map((s) => s.id).toList();
+        expect(ids.indexOf(SetupStepId.appLocalNetwork),
+            greaterThan(ids.indexOf(SetupStepId.appConnectionMethod)));
+        expect(ids.indexOf(SetupStepId.appLocalNetwork),
+            lessThan(ids.indexOf(SetupStepId.appConnected)));
+      });
     });
 
     test('selected but with no connection method is amber', () {

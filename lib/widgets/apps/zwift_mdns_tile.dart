@@ -5,6 +5,7 @@ import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart';
 import 'package:flutter/material.dart';
 import 'package:prop/prop.dart';
@@ -20,6 +21,11 @@ class ZwiftMdnsTile extends StatefulWidget {
 }
 
 class _ZwiftTileState extends State<ZwiftMdnsTile> {
+  /// Built once, not per build: PlatformRequirement carries a mutable
+  /// `status`, so rebuilding the list every frame throws away whatever the
+  /// last probe learned.
+  final _requirements = localNetworkRequirements();
+
   @override
   Widget build(BuildContext context) {
     final trainerConnection = core.settings.getTrainerApp() is Rouvy ? core.rouvyMdnsEmulator : core.zwiftMdnsEmulator;
@@ -80,7 +86,7 @@ class _ZwiftTileState extends State<ZwiftMdnsTile> {
                     }
                     setState(() {});
                   },
-                  requirements: [],
+                  requirements: _requirements,
                 );
               },
             );

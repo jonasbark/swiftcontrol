@@ -488,6 +488,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void _goTo(OnboardingStep step) {
     setState(() => _step = step);
     if (step == OnboardingStep.controller) _enterControllerStep();
+    if (step == OnboardingStep.connection) _enterConnectionStep();
+  }
+
+  /// A network method already switched on is only re-verified here: the toggle
+  /// in [setOnboardingMethodEnabled] checks on the way *on*, which a rider who
+  /// arrives with it already enabled never crosses.
+  Future<void> _enterConnectionStep() async {
+    final app = _selectedApp;
+    if (app == null) return;
+    try {
+      await verifyEnabledNetworkMethod(_sheetContext, app, onUpdate: () {
+        if (mounted) setState(() {});
+      });
+    } catch (e, s) {
+      recordError(e, s, context: 'onboarding connection step requirements');
+    }
   }
 
   void _next() => _goTo(onboardingNextStep(_step, appIsSelfHosted: _selfHosted));
@@ -579,7 +595,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   /// of ConnectionCard._onSelect (proxy_device_details/connection_card.dart);
   /// the details page stays reachable from the home screen for mode changes.
   Future<void> _onPickTrainer(ProxyDevice device) async {
-    await connectTrainerFromPicker(context, device);
+    // _sheetContext, not context: the trial gate in connectTrainerFromPicker
+    // opens the Go Pro dialog, whose purchase action opens the paywall drawer.
+    // The State's own context sits above the Scaffold's DrawerOverlay, so that
+    // drawer died on a null check — see the note on [_sheetContext].
+    await connectTrainerFromPicker(_sheetContext, device);
     if (mounted) setState(() {});
   }
 
@@ -759,6 +779,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onPressed: () async {
                   try {
                     await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+                    core.logic.startEnabledConnectionMethod(userInitiated: true);
                     if (!mounted || !context.mounted) return;
                     // Platform-correct paywall: RevenueCat's hosted sheet on
                     // iOS/Android, the in-app Paywall drawer on desktop. Going
@@ -781,6 +802,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
               onPressed: () async {
                 try {
                   await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+                  // The launch-time start was skipped while the wizard held the
+                  // screen; leaving it is when the enabled methods must come up.
+                  core.logic.startEnabledConnectionMethod(userInitiated: true);
                   if (context.mounted) Navigator.of(context).pop();
                 } catch (e, s) {
                   recordError(e, s, context: 'onboarding done start riding');
@@ -796,6 +820,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Future<void> _onWelcomeLater() async {
     try {
       await core.settings.setOnboardingState(Settings.onboardingStateCompleted);
+      core.logic.startEnabledConnectionMethod(userInitiated: true);
     } catch (e, s) {
       recordError(e, s, context: 'onboarding welcome later');
     }

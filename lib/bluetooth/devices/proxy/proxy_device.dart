@@ -409,6 +409,19 @@ class ProxyDevice extends BluetoothDevice {
     if (cfg.gearRatios != null) {
       def.setGearRatios(cfg.gearRatios!);
     }
+    // The control-protocol override lives on the definition, and every
+    // connect (and every proxy→VS switch) builds a fresh one — so re-applying
+    // it belongs here, in the single funnel all three rebuild paths share,
+    // rather than in [applyTrainerSettings] alone: switchRetrofitMode rebuilds
+    // the FBD without ever calling that. Without this the rider's choice
+    // silently reverts to auto on the next reconnect, on the very trainer they
+    // had to override because auto talks to it over the wrong wire.
+    //
+    // An unrecognised stored name parses to null (auto), and
+    // setControlProtocolOverride ignores anything this trainer can't carry, so
+    // a stale pref can never strand the trainer on a dead write path.
+    final storedProtocol = core.settings.getControlProtocolOverride(trainerKey);
+    def.setControlProtocolOverride(TrainerControlProtocol.values.asNameMap()[storedProtocol]);
   }
 
   /// Is the connected trainer reporting any sign of riding right now? Used to
@@ -534,7 +547,13 @@ class ProxyDevice extends BluetoothDevice {
   }
 
   void applyTrainerSettings() {
-    final def = emulator.fitnessBike;
+    // This device's own FBD first, for the same reason describeProxyDevice
+    // prefers it: [emulator] is contextual (proxy vs. the *shared* global
+    // ftmsEmulator) so `emulator.fitnessBike` is `firstOfType` across every
+    // VS trainer in the composite — with two trainers bridged it can hand back
+    // the other one's definition and seed it with this trainer's settings.
+    // [fitnessBike] is null in proxy mode, which keeps the documented no-op.
+    final def = fitnessBike ?? emulator.fitnessBike;
     if (def == null) return;
     _seedFitnessBikeDefinition(def);
   }
@@ -836,6 +855,25 @@ class ProxyDevice extends BluetoothDevice {
   @override
   Future<void> disconnectUpstream() => transport.disconnect();
 
+  /// Tears the upstream trainer connection down and brings it back up — the
+  /// programmatic twin of picking "No connection" and then the bridge mode
+  /// again in the ConnectionCard. A control-protocol change only takes real
+  /// effect on a fresh connection: trainers latch their control session to
+  /// the protocol that was live at connect time, so the cycle re-runs
+  /// discovery, reseeds the definition (re-applying the persisted override)
+  /// and performs the new protocol's handshakes from scratch.
+  Future<void> reconnectUpstream() async {
+    if (!isConnected && !isStartedListenable.value) return;
+    await core.connection.disconnect(this, forget: false, persistForget: false, keepInList: true);
+    await core.connection.connectDevice(this);
+    // connectDevice resolves before discovery finishes on some transports —
+    // wait for the rebuilt definition so callers can start using it.
+    final deadline = DateTime.now().add(const Duration(seconds: 15));
+    while ((!isConnected || fitnessBike == null) && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+  }
+
   void _onWifiDisconnected() {
     if (!isConnected) return;
     isConnected = false;
@@ -845,7 +883,7 @@ class ProxyDevice extends BluetoothDevice {
         '$this ${AppLocalizations.current.disconnected.decapitalize()}',
       ),
     );
-    unawaited(core.connection.disconnect(this, forget: false, persistForget: false));
+    unawaited(core.connection.disconnect(this, forget: false, persistForget: false, dropped: true));
     // Mirrors the BLE connectionStream listener: rediscovery re-adds us.
     core.connection.performScanning();
   }

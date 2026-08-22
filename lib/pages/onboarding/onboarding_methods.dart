@@ -6,9 +6,10 @@ import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
-import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet;
+import 'package:bike_control/widgets/ui/connection_method.dart' show openPermissionSheet, satisfyRequirements;
 import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart' show LogLevel;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -92,6 +93,35 @@ bool onboardingMethodEnabled(OnboardingMethod method, SupportedApp app) => switc
 /// Toggles [method] with exactly the side effects of the corresponding
 /// settings tile's onChange handler. [onUpdate] is invoked when async state
 /// settles so the host can rebuild.
+/// Re-verifies a network method that is *already* switched on.
+///
+/// [setOnboardingMethodEnabled] only checks on the enable transition, so a
+/// rider arriving at the connection step with the method on from a previous
+/// session — or who granted Local Network once and revoked it since — would
+/// otherwise be told nothing until the connection silently failed. Switches the
+/// method back off if the permission is still missing, so the tile stops
+/// claiming it is on.
+Future<void> verifyEnabledNetworkMethod(
+  BuildContext context,
+  SupportedApp app, {
+  required VoidCallback onUpdate,
+}) async {
+  if (!onboardingMethodVisible(OnboardingMethod.network, app)) return;
+  if (!onboardingMethodEnabled(OnboardingMethod.network, app)) return;
+  final requirements = localNetworkRequirements();
+  if (requirements.isEmpty) return;
+  if (await satisfyRequirements(context, requirements)) {
+    // Granted — actually bring the method up. The launch-time start was skipped
+    // while the wizard held the screen, so without this the method reads as
+    // enabled but advertises nothing.
+    core.logic.startEnabledConnectionMethod(userInitiated: true);
+    onUpdate();
+    return;
+  }
+  if (!context.mounted) return;
+  await setOnboardingMethodEnabled(context, OnboardingMethod.network, app, false, onUpdate: onUpdate);
+}
+
 Future<void> setOnboardingMethodEnabled(
   BuildContext context,
   OnboardingMethod method,
@@ -107,6 +137,14 @@ Future<void> setOnboardingMethodEnabled(
 
   switch (method) {
     case OnboardingMethod.network:
+      // Local Network lives here rather than in getScanRequirements(): every
+      // consumer of that list treats a non-empty result as "don't scan", so a
+      // denial there would silently kill Bluetooth scanning, and probing it at
+      // app start pops the system dialog before onboarding has even been shown.
+      if (value && !await satisfyRequirements(context, localNetworkRequirements())) {
+        onUpdate();
+        return;
+      }
       if (_supportsObpNetwork(app)) {
         // Mirrors openbikecontrol_mdns_tile.dart onChange.
         core.settings.setObpMdnsEnabled(value);

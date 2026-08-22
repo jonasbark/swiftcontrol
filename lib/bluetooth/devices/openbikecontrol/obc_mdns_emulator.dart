@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/openbikecontrol/obc_bike_definition.dart';
+import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/openbikecontrol_device.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -32,6 +34,104 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
   final ValueNotifier<AppInfo?> connectedApp = ValueNotifier(null);
 
   NetworkTransporter? _dirCon;
+
+  /// The nsd-backed advertiser for [ObpMdnsBackend.osResponder]; lazy so the
+  /// nsd plugin is only touched when the rider opted in.
+  NsdServiceAdvertiser? _osAdvertiser;
+  BonjourServiceAdvertiser? _bonjourAdvertiser;
+
+  /// The backend the RUNNING registration actually resolved to. May differ
+  /// from the rider's *preference* (`core.settings.getObpMdnsBackend()`):
+  /// on Windows without Bonjour installed, [ObpMdnsBackend.osResponder]
+  /// degrades to [ObpMdnsBackend.platformDefault] because the record ends up
+  /// served by [ServiceAdvertiser.instance], not by any OS responder. Callers
+  /// that want to know what is actually running (diagnostics, the
+  /// hostname-resolution probe) must read this, not the raw preference.
+  ObpMdnsBackend _activeBackend = ObpMdnsBackend.platformDefault;
+  ObpMdnsBackend get activeBackend => _activeBackend;
+
+  /// The concrete advertiser the RUNNING registration was made through.
+  /// [advertisedHostname] reads the hostname off of this instance directly
+  /// rather than re-deriving it from [_activeBackend], so the two can never
+  /// disagree about which advertiser is actually serving.
+  ServiceAdvertiser? _activeAdvertiser;
+
+  @visibleForTesting
+  ServiceAdvertiser? debugAdvertiserOverride;
+
+  /// Test seam for the Windows branch: swaps in a fake in place of a real
+  /// `BonjourServiceAdvertiser()`, so "Bonjour available" can be exercised
+  /// off Windows. Always called fresh (never cached) so tests can change it
+  /// between calls without stale state leaking across them.
+  @visibleForTesting
+  BonjourServiceAdvertiser Function()? debugBonjourFactory;
+
+  /// Test seam: overrides the effective [Platform.isWindows] check so the
+  /// Windows branch of [resolveAdvertiser] can run on any host.
+  @visibleForTesting
+  bool Function()? debugIsWindows;
+
+  bool get _isWindows => (debugIsWindows ?? (() => !kIsWeb && Platform.isWindows))();
+
+  /// Resolves [requested] to the concrete advertiser that will serve the
+  /// registration AND the backend that advertiser actually represents.
+  ///
+  /// [debugAdvertiserOverride], when set, always wins and resolves to
+  /// [requested] verbatim — tests control both sides directly. Otherwise the
+  /// Windows-without-Bonjour fallback resolves to
+  /// [ObpMdnsBackend.platformDefault] even though [requested] was
+  /// [ObpMdnsBackend.osResponder]: the MyWhoosh button cannot work without
+  /// Bonjour anyway, and the record ends up served by whatever
+  /// [ServiceAdvertiser.instance] is, not by an OS responder.
+  @visibleForTesting
+  ({ServiceAdvertiser advertiser, ObpMdnsBackend resolved}) resolveAdvertiser(ObpMdnsBackend requested) {
+    final override = debugAdvertiserOverride;
+    if (override != null) return (advertiser: override, resolved: requested);
+    if (requested == ObpMdnsBackend.platformDefault) {
+      return (advertiser: ServiceAdvertiser.instance, resolved: ObpMdnsBackend.platformDefault);
+    }
+    // Windows: Bonjour owns the record (spec §12) — the daemon MyWhoosh's
+    // getaddrinfo actually asks. Elsewhere the OS responder is nsd. When
+    // Bonjour is not installed the switch degrades to the platform default:
+    // the MyWhoosh button cannot work without Bonjour anyway.
+    if (_isWindows) {
+      final bonjour = debugBonjourFactory != null
+          ? debugBonjourFactory!()
+          : (_bonjourAdvertiser ??= BonjourServiceAdvertiser());
+      if (bonjour.isAvailable) {
+        return (advertiser: bonjour, resolved: ObpMdnsBackend.osResponder);
+      }
+      return (advertiser: ServiceAdvertiser.instance, resolved: ObpMdnsBackend.platformDefault);
+    }
+    return (advertiser: _osAdvertiser ??= NsdServiceAdvertiser(), resolved: ObpMdnsBackend.osResponder);
+  }
+
+  /// The hostname the OBC advertisement resolves under, for diagnostics and
+  /// the hostname-resolution probe. Null when unknown: stopped, web, or an
+  /// advertiser whose host record we cannot read back.
+  ///
+  /// Only two advertisers let us know the name for sure: our own responder
+  /// (it *is* the record) and Bonjour on Windows, whose default host record
+  /// is the machine's computer name — which is what [Platform.localHostname]
+  /// returns there. The nsd backend (macOS/Android/Linux) is deliberately
+  /// `null`: the OS publishes under its Bonjour LocalHostName, which is NOT
+  /// gethostname() (macOS: `0891….fritz.box` vs `MacBook-Pro.local`;
+  /// Android: `localhost`), so guessing would make the hostname-resolution
+  /// probe fail on a perfectly healthy switch and put a wrong `host=` in the
+  /// support bundle. The probe skips with 'hostname unknown' instead.
+  String? get advertisedHostname {
+    if (!isStarted.value) return null;
+    final advertiser = _activeAdvertiser;
+    if (advertiser is ResponderServiceAdvertiser) {
+      final label = advertiser.hostLabel;
+      return label == null ? null : '$label.local';
+    }
+    if (advertiser is BonjourServiceAdvertiser) {
+      if (kIsWeb) return null;
+      return '${Platform.localHostname}.local';
+    }
+    return null;
+  }
 
   OpenBikeControlMdnsEmulator()
     : super(
@@ -64,7 +164,11 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
 
     try {
       // Create service
-      _mdnsRegistration = await ServiceAdvertiser.instance.register(
+      final requestedBackend = core.settings.isInitialized
+          ? core.settings.getObpMdnsBackend()
+          : ObpMdnsBackend.platformDefault;
+      final selection = resolveAdvertiser(requestedBackend);
+      _mdnsRegistration = await selection.advertiser.register(
         AdvertisedService(
           name: 'BikeControl',
           type: _useDirCon ? '_wahoo-fitness-tnp._tcp' : '_openbikecontrol._tcp',
@@ -89,6 +193,8 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
                 },
         ),
       );
+      _activeBackend = selection.resolved;
+      _activeAdvertiser = selection.advertiser;
       _registeredEntry = (name: 'BikeControl', port: boundPort);
       SelfAdvertisementRegistry.instance.add(name: 'BikeControl', port: boundPort);
       print('Server started - advertising service at ${localIP.address}:$boundPort!');
@@ -124,6 +230,8 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
     await _server?.stop();
     _server = null;
     connectedApp.value = null;
+    _activeBackend = ObpMdnsBackend.platformDefault;
+    _activeAdvertiser = null;
   }
 
   /// Binds the OpenBikeControl TCP server. The preferred port is 36867 but it
@@ -185,9 +293,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
   Future<ActionResult> sendAction(KeyPair keyPair, {required bool isKeyDown, required bool isKeyUp}) async {
     final inGameAction = keyPair.inGameAction;
 
-    final mappedButtons = connectedApp.value!.supportedButtons.filter(
-      (supportedButton) => supportedButton.action == inGameAction,
-    );
+    final app = connectedApp.value;
 
     if (inGameAction == null) {
       return Error(
@@ -200,12 +306,18 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
         'No client connected',
         button: keyPair.buttons.firstOrNull,
       );
-    } else if (connectedApp.value == null) {
+    } else if (app == null) {
       return Error(
         'No app info received from central',
         button: keyPair.buttons.firstOrNull,
       );
-    } else if (mappedButtons.isEmpty) {
+    }
+
+    final mappedButtons = app.supportedButtons.filter(
+      (supportedButton) => supportedButton.action == inGameAction,
+    );
+
+    if (mappedButtons.isEmpty) {
       return NotHandled(
         'App does not support: ${inGameAction.title}',
         button: keyPair.buttons.firstOrNull,

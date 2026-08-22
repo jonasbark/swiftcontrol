@@ -9,6 +9,7 @@ import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
 import 'package:bike_control/bluetooth/incline/incline_controller.dart';
 import 'package:bike_control/bluetooth/incline/incline_sink.dart';
@@ -88,6 +89,31 @@ class Connection {
       byserial[info.serial] = info;
     }
     return byserial.values;
+  }
+
+  /// Whether a Zwift Click V2 left puck is switched on within range.
+  ///
+  /// Read from the raw adverts, not from [devices], and deliberately so: the
+  /// right puck only needs its sibling *nearby* to be kept awake, not paired.
+  /// In right-side-only mode the left puck is on the ignored list and so never
+  /// enters [devices] at all, yet it is still advertising and still counts.
+  bool get hasNearbyClickV2LeftSide {
+    if (_lastScanResult.any(isClickV2LeftSideAdvert)) return true;
+    // A left puck that connected before the scan list was last cleared no
+    // longer has an advert to find, but is plainly still there.
+    return devices.whereType<ZwiftClickV2LeftSide>().any((d) => d.isConnected);
+  }
+
+  /// Whether an advert is a Click V2 left puck, by the Zwift manufacturer
+  /// record's device-type byte. Split out from [hasNearbyClickV2LeftSide] so
+  /// the identification can be tested without a radio.
+  @visibleForTesting
+  static bool isClickV2LeftSideAdvert(BleDevice adv) {
+    final payload = adv.manufacturerDataList
+        .firstOrNullWhere((e) => e.companyId == ZwiftConstants.ZWIFT_MANUFACTURER_ID)
+        ?.payload;
+    if (payload == null || payload.isEmpty) return false;
+    return ZwiftDeviceType.fromManufacturerData(payload.first) == ZwiftDeviceType.clickV2Left;
   }
 
   static Uint8List? _sramServiceDataRecord(Map<String, Uint8List> serviceData) {
@@ -226,6 +252,13 @@ class Connection {
   /// WITHOUT keepInList and drops the device from the registry, orphaning the
   /// object the open details page still holds.
   final _inPlaceDisconnects = <BaseDevice>{};
+
+  /// Devices whose [disconnect] is currently running its teardown. The same
+  /// mid-teardown platform event re-enters [disconnect] from the drop listener
+  /// with `dropped: true` — at that point the device still reads as connected
+  /// (BaseDevice.disconnect clears the flag last), so without this guard the
+  /// echo would start a second, concurrent teardown of the same device.
+  final _disconnecting = <BaseDevice>{};
 
   /// BLE ids of controllers disconnected by the inactivity battery saver. They
   /// are deliberately NOT added to the ignore list (so the user can reconnect),
@@ -381,9 +414,13 @@ class Connection {
       }
     };
 
+    // The right puck's keep-awake needs its sibling in range, and only this
+    // side can see what is in range.
+    ClickLogic.isLeftSideNearby = () => hasNearbyClickV2LeftSide;
+
     UniversalBle.onAvailabilityChange = (available) {
       _actionStreams.add(BluetoothAvailabilityNotification(available == AvailabilityState.poweredOn));
-      if (available == AvailabilityState.poweredOn && !kIsWeb) {
+      if (available == AvailabilityState.poweredOn && !kIsWeb && !core.logic.deferLaunchPermissions) {
         core.permissions.getScanRequirements().then((perms) {
           if (perms.isEmpty) {
             performScanning();
@@ -406,6 +443,12 @@ class Connection {
 
       if (_lastScanResult.none((e) => e.deviceId == result.deviceId && e.services.contentEquals(result.services))) {
         _lastScanResult.add(result);
+
+        // A left puck coming into range may be exactly what a right puck has
+        // been waiting for, and an ignored one never gets further than this —
+        // it is discovered and then dropped, so discovery is the only signal.
+        // No-op unless a right puck is actually waiting.
+        ClickLogic.startKeepAwakeIfPending();
 
         if (kDebugMode) {
           debugPrint('Scan result: ${result.name} - ${result.deviceId} - Services: ${result.services}');
@@ -509,11 +552,18 @@ class Connection {
     };
 
     if (!kIsWeb && !screenshotMode) {
-      core.permissions.getScanRequirements().then((perms) {
-        if (perms.isEmpty) {
-          performScanning();
-        }
-      });
+      // Checking permissions means *asking* for them on Apple platforms, so a
+      // fresh install with nothing configured must not reach this: the wizard
+      // owns that conversation. Everyone else is checked at launch, so a
+      // permission revoked in System Settings surfaces here rather than as a
+      // silently dead connection.
+      if (!core.logic.deferLaunchPermissions) {
+        core.permissions.getScanRequirements().then((perms) {
+          if (perms.isEmpty) {
+            performScanning();
+          }
+        });
+      }
       if (core.settings.getPhoneSteeringEnabled() && IAPManager.instance.isProEnabledForCurrentDeviceOrDidPurchaseOld) {
         toggleGyroscopeSteering(true);
       }
@@ -909,6 +959,10 @@ class Connection {
 
     if (device is BluetoothDevice) {
       final connectionStateSubscription = device.device.connectionStream.listen((state) {
+        // A disconnected event for a device that is still marked connected is
+        // a genuine drop; one arriving after a deliberate disconnect (which
+        // already cleared the flag) is the platform's late echo of it.
+        final wasConnected = device.isConnected;
         device.isConnected = state;
         if (state) _noteConnected(device);
         _connectionStreams.add(device);
@@ -962,7 +1016,7 @@ class Connection {
           );
         }
         if (!device.isConnected && !_inPlaceDisconnects.contains(device)) {
-          disconnect(device, forget: false, persistForget: false);
+          disconnect(device, forget: false, persistForget: false, dropped: wasConnected);
           // try reconnect
           performScanning();
         }
@@ -1023,19 +1077,28 @@ class Connection {
     _connectionStreams.add(baseDevice);
   }
 
+  /// [dropped]: the link already went away on its own (peripheral-side BLE
+  /// drop, DirCon socket closed). The drop listeners flip [BaseDevice.isConnected]
+  /// before calling in, so without this flag the device's own teardown would be
+  /// skipped — and a ProxyDevice would leave its definition attached to the
+  /// shared emulator, still advertising and still being written to.
   Future<void> disconnect(
     BaseDevice device, {
     required bool persistForget,
     required bool forget,
     bool keepInList = false,
+    bool dropped = false,
   }) async {
     if (keepInList) _inPlaceDisconnects.add(device);
+    final tearingDown = _disconnecting.contains(device);
+    if (!tearingDown) _disconnecting.add(device);
     try {
-      if (device.isConnected) {
+      if (!tearingDown && (device.isConnected || dropped)) {
         await device.disconnect();
       }
     } finally {
       if (keepInList) _inPlaceDisconnects.remove(device);
+      if (!tearingDown) _disconnecting.remove(device);
     }
 
     if (device is BluetoothDevice) {

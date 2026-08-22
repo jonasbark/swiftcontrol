@@ -13,6 +13,7 @@ import 'package:bike_control/services/overlay/overlay_entry_point.dart' as overl
 import 'package:bike_control/utils/actions/android.dart';
 import 'package:bike_control/utils/actions/desktop.dart';
 import 'package:bike_control/utils/actions/remote.dart';
+import 'package:bike_control/utils/analytics/install_referrer_reporter.dart';
 import 'package:bike_control/utils/demo_mode.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/requirements/windows.dart';
@@ -143,6 +144,23 @@ Future<void> main(List<String> args) async {
         } catch (e, s) {
           recordError(e, s, context: 'MultiWindowNative.init(main)');
         }
+      }
+
+      // Attribute this install back to the ad that produced it. Android only:
+      // no other store passes a referrer through to the app. Fire-and-forget,
+      // because nothing here should ever delay startup.
+      if (!kIsWeb && Platform.isAndroid && core.settings.isInitialized) {
+        unawaited(
+          InstallReferrerReporter(
+            source: PlayInstallReferrerSource(),
+            prefs: core.settings.prefs,
+            send: (body) async {
+              await core.supabase.functions.invoke('track-analytics', body: body);
+            },
+          ).reportOnce().catchError((Object e, StackTrace s) {
+            recordError(e, s, context: 'InstallReferrerReporter.reportOnce');
+          }),
+        );
       }
 
       runApp(BikeControlApp(error: error));
@@ -309,7 +327,10 @@ void initializeActions(ConnectionType connectionType) {
       ConnectionType.unknown => StubActions(),
     };
   }
-  core.actionHandler.init(core.settings.getKeyMap());
+  // The keymap ('app') and the trainer app ('trainer_app') are independent
+  // prefs. If the keymap one is missing we'd otherwise run with a null
+  // supportedApp: no buttons get registered and every press errors out.
+  core.actionHandler.init(core.settings.getKeyMap() ?? core.settings.getTrainerApp());
 }
 
 class BikeControlApp extends StatefulWidget {

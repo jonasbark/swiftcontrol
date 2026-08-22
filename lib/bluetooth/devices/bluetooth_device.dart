@@ -19,6 +19,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_play.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_play_fw2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
+import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -29,10 +30,11 @@ import 'package:flutter/foundation.dart';
 // `SramAdvertisement` clashes with nothing here, but the prop package also
 // exports a `SramAxs` constants class that collides with this file's `SramAxs`
 // app device import above — pull in only what's needed to avoid the clash.
-import 'package:prop/prop.dart' show SramAdvertisement;
+import 'package:prop/prop.dart' show LogLevel, SramAdvertisement;
 import 'package:prop/utils/wahoo_climb.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 import 'cycplus/cycplus_bc2.dart';
 import 'elite/elite_rizer.dart';
@@ -230,9 +232,14 @@ abstract class BluetoothDevice extends BaseDevice {
     if (scanResult.name == 'Zwift Ride' &&
         device == null &&
         core.connection.controllerDevices.none((d) => d is ZwiftRide)) {
-      // Fallback for Zwift Ride if nothing else matched => old firmware
+      // Fallback for Zwift Ride if nothing else matched => old firmware.
+      // Naming the Companion app isn't enough — riders don't know firmware
+      // updates live there, so the toast's action opens it directly.
       buildToast(
-        title: 'You may need to update your Zwift Ride firmware.',
+        level: LogLevel.LOGLEVEL_WARNING,
+        title: AppLocalizations.current.firmwareUpdateRequired(scanResult.name!),
+        closeTitle: AppLocalizations.current.zwiftCompanionApp,
+        onClose: () => launchUrlString(ZwiftConstants.ZWIFT_COMPANION_URL, mode: LaunchMode.externalApplication),
         duration: Duration(seconds: 6),
       );
     }

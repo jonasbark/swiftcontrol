@@ -14,7 +14,12 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 class TrainerSettingsSection extends StatefulWidget {
   final FitnessBikeDefinition definition;
   final ProxyDevice device;
-  const TrainerSettingsSection({super.key, required this.definition, required this.device});
+
+  /// Test seam: the connection cycle a protocol change triggers; defaults to
+  /// [ProxyDevice.reconnectUpstream].
+  final Future<void> Function()? reconnectDevice;
+
+  const TrainerSettingsSection({super.key, required this.definition, required this.device, this.reconnectDevice});
 
   @override
   State<TrainerSettingsSection> createState() => _TrainerSettingsSectionState();
@@ -67,9 +72,74 @@ class _TrainerSettingsSectionState extends State<TrainerSettingsSection> {
         _gearSettingsCard(),
         _bikeWeightCard(),
         _riderWeightCard(),
+        if (def.supportedControlProtocols.length > 1) _controlProtocolCard(),
       ],
     );
   }
+
+  /// Escape hatch for trainers auto-detection talks to over the wrong wire.
+  /// Only rendered when the trainer advertises more than one delivery it can
+  /// actually carry — with a single option there is nothing to choose, and
+  /// offering the others would hand the rider a path where every write dies.
+  ///
+  /// On a Zwift-Sync trainer, explicitly picking "Zwift protocol" resolves to
+  /// the same delivery as Auto. That inert choice is deliberate: the list is
+  /// the supported set, unfiltered, so the rider can always see and re-pick
+  /// what they are on.
+  Widget _controlProtocolCard() {
+    return SettingTile(
+      icon: LucideIcons.radio,
+      title: context.i18n.controlProtocolLabel,
+      subtitle: context.i18n.controlProtocolHint,
+      // Full width in the child slot rather than the trailing slot the
+      // switches and steppers use: "Auto (recommended)" is ~23 characters in
+      // German and would overflow the row on a narrow phone.
+      child: Select<TrainerControlProtocol?>(
+        value: def.controlProtocolOverride,
+        popup: SelectPopup(
+          items: SelectItemList(
+            children: [
+              SelectItemButton<TrainerControlProtocol?>(
+                value: null,
+                child: Text(context.i18n.controlProtocolAuto),
+              ),
+              for (final protocol in def.supportedControlProtocols)
+                SelectItemButton<TrainerControlProtocol?>(
+                  value: protocol,
+                  child: Text(_protocolLabel(protocol)),
+                ),
+            ],
+          ),
+        ).call,
+        itemBuilder: (c, protocol) =>
+            Text(protocol == null ? context.i18n.controlProtocolAuto : _protocolLabel(protocol)),
+        placeholder: Text(context.i18n.controlProtocolAuto),
+        onChanged: (protocol) async {
+          final before = def.controlProtocol;
+          def.setControlProtocolOverride(protocol);
+          await core.settings.setControlProtocolOverride(widget.device.trainerKey, protocol?.name);
+          // The override is plain state on the definition, not a listenable —
+          // nothing else would repaint the select with the new value.
+          if (mounted) setState(() {});
+          // The trainer latches its control session to the protocol that was
+          // live at connect time, so an effective change only takes hold on a
+          // fresh connection — cycle the bridge like the ConnectionCard's
+          // manual disconnect/reconnect would. Inert picks (same effective
+          // delivery, e.g. forcing zwiftHub on an auto-zwiftHub trainer)
+          // skip the cycle.
+          if (def.controlProtocol != before) {
+            await (widget.reconnectDevice ?? widget.device.reconnectUpstream)();
+          }
+        },
+      ),
+    );
+  }
+
+  String _protocolLabel(TrainerControlProtocol protocol) => switch (protocol) {
+    TrainerControlProtocol.ftms => context.i18n.controlProtocolFtms,
+    TrainerControlProtocol.fec => context.i18n.controlProtocolFec,
+    TrainerControlProtocol.zwiftHub => context.i18n.controlProtocolZwift,
+  };
 
   Widget _bikeWeightCard() {
     return ValueListenableBuilder<double>(

@@ -1,13 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/emulation/profiles/all_profiles.dart';
 import 'package:bike_control/pages/markdown.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/pages/onboarding/onboarding_page.dart';
 import 'package:bike_control/pages/paywall.dart';
 import 'package:bike_control/pages/subscription.dart';
+import 'package:bike_control/services/network_self_test/network_self_test_store.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
+import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -26,38 +31,45 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 import '../utils/iap/iap_manager.dart';
 import 'package:bike_control/services/debug_diagnostics.dart';
-import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/main.dart' show recordError, screenshotMode;
 
 List<Widget> buildMenuButtons(BuildContext context) {
   final iap = IAPManager.instance;
   return [
-    // Pro/Subscription Button
-    Builder(
-      builder: (context) {
-        return Button(
-          style: ButtonStyle.primary()
-              .withBackgroundColor(color: iap.isProEnabled && false ? BKColor.mainEnd : null)
-              .withBorderRadius(
-                borderRadius: BorderRadius.circular(16),
-              ),
-          onPressed: () {
-            openDrawer(
-              context: context,
-              builder: (c) => SubscriptionPage(),
-              position: OverlayPosition.end,
-            );
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.workspace_premium, size: 14),
-              const SizedBox(width: 4),
-              Text('Pro'),
-            ],
-          ),
-        );
-      },
-    ),
+    // Pro/Subscription Button.
+    //
+    // Not in [screenshotMode]: the marketing renders lay the app bar out
+    // narrower than a real window, and this button takes enough of the trailing
+    // side that the wordmark wraps mid-word — "BikeContr / ol". Dropping it
+    // gives the title its line back, and a Pro upsell is not what the store
+    // boards are selling anyway.
+    if (!screenshotMode)
+      Builder(
+        builder: (context) {
+          return Button(
+            style: ButtonStyle.primary()
+                .withBackgroundColor(color: iap.isProEnabled && false ? BKColor.mainEnd : null)
+                .withBorderRadius(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+            onPressed: () {
+              openDrawer(
+                context: context,
+                builder: (c) => SubscriptionPage(),
+                position: OverlayPosition.end,
+              );
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.workspace_premium, size: 14),
+                const SizedBox(width: 4),
+                Text('Pro'),
+              ],
+            ),
+          );
+        },
+      ),
 
     if (IAPManager.instance.isPurchased.value || IAPManager.instance.isProEnabled) ...[
       Gap(8),
@@ -111,6 +123,7 @@ Future<String> debugText({bool includeDiscovery = true}) async {
     recordError(e, s, context: 'debugText.diagnostics');
     diagnostics = 'Diagnostics: (unavailable)';
   }
+  final networkTest = NetworkSelfTestStore.bundleSection();
   return '''
 
 ---
@@ -119,13 +132,13 @@ Update Track: ${IAPManager.instance.isBetaTester ? 'beta' : 'stable'}
 Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}
 Target: ${core.settings.getLastTarget()?.name ?? '-'}
 Trainer App: ${core.settings.getTrainerApp()?.name ?? '-'}
-Connected Controllers: ${core.connection.devices.map((e) => e.toString()).join(', ')}
+Connected Controllers: ${describeControllers(core.connection.devices)}
 Connected Trainers: ${core.logic.connectedTrainerConnections.map((e) => e.title).join(', ')}
 Smart Trainers:
   $proxyBlock
 Status: ${IAPManager.instance.getStatusMessage()}${userId != null ? ' (User ID: $userId)' : ''}
 $diagnostics
-Logs:
+${networkTest.isEmpty ? '' : '$networkTest\n'}Logs:
 ${core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}')}
 ''';
 }
@@ -147,7 +160,12 @@ String describeProxyDevice(ProxyDevice device) {
       ? 'bridged'
       : 'started';
   final mode = device.retrofitMode.value.name;
-  final def = emulator.fitnessBike;
+  // Not emulator.fitnessBike: [emulator] is contextual (proxy vs. the shared
+  // ftmsEmulator) and swaps with retrofit mode, while [ProxyDevice.fitnessBike]
+  // always tracks the current FBD regardless — see the identical reasoning at
+  // navigation.dart's `_tryAutoShowOverlayFor`. It's also what makes the
+  // `debugAttachFitnessBike` test hook (and the self-test harness) reach this.
+  final def = device.fitnessBike;
   final defKind = def == null ? 'none' : def.runtimeType.toString();
 
   final parts = <String>[
@@ -168,6 +186,24 @@ String describeProxyDevice(ProxyDevice device) {
       'gear=${formatGearReadout(currentGear: def.currentGear.value, maxGear: def.maxGear, frontShiftEnabled: def.frontShiftEnabled, largeRing: def.frontRing.value == FrontRing.large)}',
     );
     parts.add('trainerMode=${def.trainerMode.value.name}');
+    // `(manual)` separates a rider-forced delivery from an auto-picked one —
+    // otherwise the two read identically, and "did you change the protocol?"
+    // is support's first question on any "trainer ignores BikeControl" report.
+    parts.add('proto=${def.controlProtocol.name}${def.controlProtocolOverride != null ? '(manual)' : ''}');
+    // Only worth a field when there was actually something to choose between;
+    // on a plain FTMS trainer it would be noise in every bundle.
+    if (def.supportedControlProtocols.length > 1) {
+      parts.add('protoAvail=${def.supportedControlProtocols.map((p) => p.name).join('+')}');
+    }
+    parts.add('vsMode=${def.virtualShiftingMode.value.name}');
+    parts.add('ftms=${def.ftmsCapabilitySummary}');
+    final ctl = def.lastControlWrite;
+    if (ctl != null) {
+      final age = DateTime.now().difference(ctl.at).inSeconds;
+      parts.add('lastCtl=${ctl.ok ? 'ok' : 'fail'}·${age}s');
+    }
+    final selfTest = SelfTestResult.tryParse(core.settings.getSelfTestResultJson(device.trainerKey));
+    if (selfTest != null) parts.add('selfTest=${selfTest.toBundleString()}');
   }
 
   final summary = parts.join(' · ');
@@ -177,6 +213,20 @@ String describeProxyDevice(ProxyDevice device) {
   final indented = services.split('\n').map((l) => '    $l').join('\n');
   return '$summary\n$indented';
 }
+
+/// Compact `Connected Controllers:` rendering for the support bundle — plain
+/// `toString()` per device, plus `(fw <version>)` when a firmware read
+/// succeeded.
+///
+/// Takes [BaseDevice], not [BluetoothDevice]: `core.connection.devices` also
+/// holds gamepad / HID / gyroscope-steering controllers, which carry no
+/// firmware field, and dropping them from this line would be a real support
+/// regression, not just a formatting change.
+@visibleForTesting
+String describeControllers(Iterable<BaseDevice> devices) => devices.map((e) {
+  final fw = e is BluetoothDevice ? e.firmwareVersion : null;
+  return fw != null ? '$e (fw $fw)' : e.toString();
+}).join(', ');
 
 class BKMenuButton extends StatelessWidget {
   const BKMenuButton({super.key});
@@ -271,6 +321,14 @@ class BKMenuButton extends StatelessWidget {
                 await context.push(LogViewer());
               },
             ),
+            if (!kIsWeb)
+              MenuButton(
+                leading: Icon(Icons.wifi_find_outlined),
+                child: Text(context.i18n.networkTroubleshootingTitle),
+                onPressed: (c) async {
+                  await context.push(const NetworkTroubleshootingPage());
+                },
+              ),
             MenuButton(
               leading: Icon(Icons.star_rate),
               child: Text(context.i18n.leaveAReview),

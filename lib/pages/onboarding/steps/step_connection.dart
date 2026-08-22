@@ -6,6 +6,7 @@ import 'package:bike_control/pages/onboarding/onboarding_methods.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_group_label.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -29,6 +30,7 @@ class _MethodTile extends StatelessWidget {
     this.features = const [],
     this.disabled = false,
     this.footNote,
+    this.onTroubleshoot,
   });
 
   final IconData icon;
@@ -43,6 +45,13 @@ class _MethodTile extends StatelessWidget {
   final List<String> features;
   final bool disabled;
   final String? footNote;
+
+  /// Offered while this method is switched on but the trainer app has not
+  /// arrived. That wait is exactly when a rider needs the network self-test,
+  /// and step 5 was previously silent about it — the only route in was the
+  /// wizard's help button, which nobody presses while they still believe it is
+  /// working.
+  final VoidCallback? onTroubleshoot;
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +139,21 @@ class _MethodTile extends StatelessWidget {
                       );
                     },
                   ),
+                if (on && connection != null && onTroubleshoot != null)
+                  AnimatedBuilder(
+                    animation: connection!.isConnected,
+                    builder: (context, _) {
+                      if (connection!.isConnected.value) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Button.outline(
+                          style: ButtonStyle.outline(size: ButtonSize.small),
+                          onPressed: onTroubleshoot,
+                          child: Text(context.i18n.networkTroubleshootTroubleshoot),
+                        ),
+                      );
+                    },
+                  ),
               ]),
             ),
             Gap(10),
@@ -167,6 +191,7 @@ Widget onboardingConnectionBody(
     void toggle() => setOnboardingMethodEnabled(context, method, app, !enabled, onUpdate: onUpdate);
     return switch (method) {
       OnboardingMethod.network => _MethodTile(
+          onTroubleshoot: () => context.push(const NetworkTroubleshootingPage()),
           icon: LucideIcons.wifi,
           title: context.i18n.onboardingMethodNetwork,
           badge: context.i18n.recommended,

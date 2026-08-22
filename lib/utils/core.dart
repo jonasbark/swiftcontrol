@@ -45,6 +45,8 @@ import '../bluetooth/connection.dart';
 import '../bluetooth/devices/mywhoosh/link.dart';
 import 'keymap/apps/rouvy.dart';
 import 'media_key_handler.dart';
+import 'package:bike_control/pages/onboarding/onboarding_trigger.dart';
+import 'requirements/local_network.dart';
 import 'requirements/multi.dart';
 import 'requirements/platform.dart';
 
@@ -127,6 +129,13 @@ class Core {
 }
 
 class Permissions {
+  /// Permissions needed to *scan for Bluetooth devices*.
+  ///
+  /// Every caller treats a non-empty result as "don't scan", so this must stay
+  /// Bluetooth-only. Local Network deliberately isn't here: a denial would
+  /// silently kill BLE scanning, and probing it pops the system dialog at app
+  /// start, before onboarding has been shown. It's gated per connection method
+  /// instead — see [localNetworkRequirements].
   Future<List<PlatformRequirement>> getScanRequirements() async {
     final List<PlatformRequirement> list;
     if (screenshotMode || demoHidePermissions) {
@@ -335,6 +344,26 @@ class CoreLogic {
       core.actionHandler.supportedModes.contains(SupportedMode.touch) &&
       (showLocalControl || isRemoteControlEnabled);
 
+  /// Whether any method that rides on the LAN is switched on.
+  ///
+  /// Answers both "is Apple's Local Network permission this rider's problem"
+  /// and "is the network troubleshooter worth offering" — the two have the
+  /// same precondition.
+  bool get hasNetworkMethodEnabled => isZwiftMdnsEnabled || isObpMdnsEnabled || isMyWhooshLinkEnabled;
+
+  /// Whether a permission check triggered by app launch should be skipped.
+  ///
+  /// Reuses navigation's own onboarding decision so the two cannot drift.
+  /// Safe to read during `Connection.initialize()`: `setLastSeenVersion` is
+  /// written later (navigation.dart), so the pref still holds the previous
+  /// launch's value here.
+  bool get deferLaunchPermissions => deferLaunchPermissionChecks(
+    onboardingAction: decideOnboardingTrigger(
+      lastSeenVersion: core.settings.getLastSeenVersion(),
+      onboardingState: core.settings.getOnboardingState(),
+    ),
+  );
+
   bool get hasNoConnectionMethod =>
       !screenshotMode &&
       !isZwiftBleEnabled &&
@@ -466,8 +495,19 @@ class CoreLogic {
     }
   }
 
-  void startEnabledConnectionMethod() async {
+  /// [userInitiated] opts out of the onboarding deferral below. Use it when the
+  /// rider just did something that should visibly take effect — granting a
+  /// permission, finishing the wizard — as opposed to the unsolicited call at
+  /// app launch.
+  void startEnabledConnectionMethod({bool userInitiated = false}) async {
     if (screenshotMode) {
+      return;
+    }
+    // The wizard owns the screen and drives its own methods (see
+    // setOnboardingMethodEnabled, which starts servers directly), so nothing is
+    // lost by holding off — and a permission prompt or warning toast arriving
+    // from behind it explains nothing.
+    if (!userInitiated && deferLaunchPermissions) {
       return;
     }
     if (isZwiftBleEnabled &&
@@ -481,7 +521,16 @@ class CoreLogic {
         );
       });
     }
-    if (isZwiftMdnsEnabled) {
+    // The BLE branches below already gate on their permissions; the network
+    // ones used to start unconditionally and fail silently when Local Network
+    // was off. Only probe when a network method is actually enabled — probing
+    // is what raises the system prompt, and a rider running BLE only should
+    // never see it.
+    // No toast on failure: the app card carries this as a required step now,
+    // which stays put instead of scrolling away.
+    final localNetworkOk = !hasNetworkMethodEnabled || await localNetworkRequirements().allGranted;
+
+    if (isZwiftMdnsEnabled && localNetworkOk) {
       if (core.settings.getTrainerApp() is Rouvy && !core.rouvyMdnsEmulator.isStarted.value) {
         core.rouvyMdnsEmulator.startServer().catchError((e, s) {
           recordError(e, s, context: 'Rouvy mDNS Emulator');
@@ -506,7 +555,7 @@ class CoreLogic {
       core.settings.setMyWhooshLinkEnabled(false);
     }
 
-    if (isObpMdnsEnabled && !core.obpMdnsEmulator.isStarted.value) {
+    if (isObpMdnsEnabled && localNetworkOk && !core.obpMdnsEmulator.isStarted.value) {
       core.obpMdnsEmulator.startServer().catchError((e, s) {
         recordError(e, s, context: 'OBP mDNS Emulator');
         core.settings.setObpMdnsEnabled(false);
@@ -539,7 +588,7 @@ class CoreLogic {
       });
     }
 
-    if (isMyWhooshLinkEnabled && !core.whooshLink.isStarted.value) {
+    if (isMyWhooshLinkEnabled && localNetworkOk && !core.whooshLink.isStarted.value) {
       core.connection.startMyWhooshServer();
     }
 

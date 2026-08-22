@@ -74,3 +74,4 @@ ios/fastlane/screenshots/
 ios/fastlane/screenshots_macos/
 .superpowers/
 android/build/reports/problems/problems-report.html
+assets/generated

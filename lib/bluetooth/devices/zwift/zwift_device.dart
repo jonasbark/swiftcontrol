@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
+import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
@@ -13,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'package:prop/prop.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 import 'package:version/version.dart';
 
 abstract class ZwiftDevice extends BluetoothDevice {
@@ -42,7 +44,9 @@ abstract class ZwiftDevice extends BluetoothDevice {
       actionStreamInternal.add(
         AlertNotification(
           LogLevel.LOGLEVEL_ERROR,
-          'You may need to update the firmware of ${scanResult.name} in Zwift Companion app',
+          AppLocalizations.current.firmwareUpdateRequired(name),
+          buttonTitle: AppLocalizations.current.zwiftCompanionApp,
+          onTap: () => launchUrlString(ZwiftConstants.ZWIFT_COMPANION_URL, mode: LaunchMode.externalApplication),
         ),
       );
       throw Exception(
@@ -73,7 +77,13 @@ abstract class ZwiftDevice extends BluetoothDevice {
       actionStreamInternal.add(
         AlertNotification(
           LogLevel.LOGLEVEL_WARNING,
-          'A new firmware version is available for ${device.name ?? device.rawName}: $latestFirmwareVersion (current: $firmwareVersion). Please update it in Zwift Companion app.',
+          AppLocalizations.current.firmwareUpdateAvailable(
+            name,
+            latestFirmwareVersion!,
+            firmwareVersion!,
+          ),
+          buttonTitle: AppLocalizations.current.zwiftCompanionApp,
+          onTap: () => launchUrlString(ZwiftConstants.ZWIFT_COMPANION_URL, mode: LaunchMode.externalApplication),
         ),
       );
     }

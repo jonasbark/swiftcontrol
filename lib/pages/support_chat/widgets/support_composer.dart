@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io' show File;
 
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -165,12 +166,16 @@ class _SupportComposerState extends State<SupportComposer> {
     try {
       await widget.onSend(body, attachment);
     } catch (_) {
+      // Terminal on purpose: the page-level handlers already reported and
+      // toasted this failure; their rethrow only exists so we know to restore
+      // the composer. Rethrowing again would escape into the zone as an
+      // unhandled error (the button drops the returned Future) and get logged
+      // as an app crash.
       if (!mounted) return;
       setState(() {
         _controller.text = preservedText;
         _attachment = preservedAttachment;
       });
-      rethrow;
     }
   }
 
@@ -216,7 +221,7 @@ class _SupportComposerState extends State<SupportComposer> {
               ],
               IconButton.primary(
                 icon: widget.sending ? const SmallProgressIndicator() : const Icon(LucideIcons.send, size: 18),
-                onPressed: _canSend ? _submit : null,
+                onPressed: _canSend ? () => unawaited(_submit()) : null,
               ),
             ],
           ),

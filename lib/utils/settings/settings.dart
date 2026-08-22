@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
+import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/protocol_parser.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/services/overlay/overlay_state.dart';
@@ -68,7 +69,10 @@ class Settings {
         await windowManager.ensureInitialized();
       }
 
-      final app = getKeyMap();
+      // Fall back to the selected trainer app when the keymap pref ('app') is
+      // missing — they are independent prefs and a null keymap leaves every
+      // button unregistered and every press erroring out.
+      final app = getKeyMap() ?? getTrainerApp();
       core.actionHandler.init(app);
 
       try {
@@ -190,6 +194,44 @@ class Settings {
     await prefs.setBool(_autoConnectKey(trainerKey), autoConnect);
   }
 
+  static String _controlProtocolKey(String trainerKey) => 'control_protocol_$trainerKey';
+
+  /// The rider's forced trainer control protocol for this trainer as a
+  /// [TrainerControlProtocol] name, or null for auto-detection (the default).
+  ///
+  /// Stored as the raw name rather than the enum so an unknown value — an
+  /// older/newer build, or a protocol this trainer no longer advertises —
+  /// degrades to "auto" at the parse site instead of throwing on read.
+  String? getControlProtocolOverride(String trainerKey) {
+    return prefs.getString(_controlProtocolKey(trainerKey));
+  }
+
+  Future<void> setControlProtocolOverride(String trainerKey, String? name) async {
+    if (name == null) {
+      await prefs.remove(_controlProtocolKey(trainerKey));
+      return;
+    }
+    await prefs.setString(_controlProtocolKey(trainerKey), name);
+  }
+
+  static String _selfTestKey(String trainerKey) => 'self_test_$trainerKey';
+
+  String? getSelfTestResultJson(String trainerKey) {
+    return prefs.getString(_selfTestKey(trainerKey));
+  }
+
+  Future<void> setSelfTestResultJson(String trainerKey, String json) async {
+    await prefs.setString(_selfTestKey(trainerKey), json);
+  }
+
+  String? getNetworkSelfTestResultJson() {
+    return prefs.getString('network_self_test');
+  }
+
+  Future<void> setNetworkSelfTestResultJson(String json) async {
+    await prefs.setString('network_self_test', json);
+  }
+
   static const String _virtualShiftingIntroSeenKey = 'virtual_shifting_intro_seen';
 
   /// Whether the user has seen the one-time Virtual Shifting beta intro shown
@@ -290,7 +332,7 @@ class Settings {
     await prefs.remove('customapp_$profileName');
     // If the current app is the one being deleted, reset
     if (prefs.getString('app') == profileName) {
-      core.actionHandler.init(null);
+      core.actionHandler.init(getTrainerApp());
       await prefs.remove('app');
     }
     _triggerAutoSync();
@@ -378,6 +420,19 @@ class Settings {
 
   Future<void> setObpMdnsEnabled(bool enabled) async {
     await prefs.setBool('openbikeprotocol_mdns_enabled', enabled);
+  }
+
+  ObpMdnsBackend getObpMdnsBackend() {
+    final raw = prefs.getString('openbikeprotocol_mdns_backend');
+    if (raw == null) return ObpMdnsBackend.platformDefault;
+    return ObpMdnsBackend.values.firstWhere(
+      (b) => b.name == raw,
+      orElse: () => ObpMdnsBackend.platformDefault,
+    );
+  }
+
+  Future<void> setObpMdnsBackend(ObpMdnsBackend backend) async {
+    await prefs.setString('openbikeprotocol_mdns_backend', backend.name);
   }
 
   bool getObpBleEnabled() {

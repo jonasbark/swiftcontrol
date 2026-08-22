@@ -6,6 +6,7 @@ import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/home/home_page.dart';
 import 'package:bike_control/pages/onboarding/steps/step_trainer.dart';
+import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -13,6 +14,7 @@ import 'package:bike_control/widgets/menu.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/emulators/dircon_emulator.dart' show RetrofitMode;
+import 'package:prop/utils/constants.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
@@ -39,6 +41,46 @@ Future<void> main() async {
 
   ProxyDevice wifiTrainer({String id = 'dircon://KICKR CORE 1EB7'}) =>
       ProxyDevice.wifi(scan(id), host: '192.168.1.20', port: 36866);
+
+  // Mirrors reveal_overlay_section_test.dart's makeVsDevice(): a trainer with
+  // an attached (unprobed) FitnessBikeDefinition, which is what makes the
+  // proto=/vsMode=/ftms= diagnostics fields appear in describeProxyDevice at
+  // all. Named 'KICKR CORE' by default so device.trainerKey lines up with the
+  // 'self_test_KICKR CORE' settings key the self-test group below seeds.
+  ProxyDevice trainerWithFitnessBike({
+    String id = 'kickr',
+    String name = 'KICKR CORE',
+    List<BleService>? services,
+  }) {
+    final device = ProxyDevice(scan(id, name: name))
+      ..services = services ?? [BleService(FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID, [])];
+    device.debugAttachFitnessBike(
+      FitnessBikeDefinition(
+        connectedDevice: device.scanResult,
+        connectedDeviceServices: device.services!,
+        data: ValueNotifier(''),
+      ),
+    );
+    return device;
+  }
+
+  /// Mirrors prop's `makeDualProtocol()`: FTMS *with* its Control Point (the
+  /// ftms entry in supportedControlProtocols is Control-Point-gated) plus the
+  /// Zwift custom service — the only shape where `protoAvail=` has anything to
+  /// say.
+  List<BleService> dualProtocolServices() => [
+    BleService(FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID, [
+      BleCharacteristic(FitnessBikeDefinition.FITNESS_MACHINE_CONTROL_POINT_UUID, [
+        CharacteristicProperty.write,
+        CharacteristicProperty.indicate,
+      ], []),
+    ]),
+    BleService(FtmsMdnsConstants.ZWIFT_PLAY_SERVICE_UUID, [
+      BleCharacteristic(FtmsMdnsConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID, [
+        CharacteristicProperty.write,
+      ], []),
+    ]),
+  ];
 
   Future<void> pump(WidgetTester tester, Widget Function(BuildContext) builder) async {
     await tester.pumpWidget(
@@ -165,6 +207,65 @@ Future<void> main() async {
       final line = describeProxyDevice(device);
       expect(line, contains('upstream=ble'));
       expect(line, contains('mode=wifi'));
+    });
+
+    test('trainer line carries proto, vsMode, ftms capability and selfTest', () async {
+      SharedPreferences.setMockInitialValues({
+        'self_test_KICKR CORE': SelfTestResult(
+          at: DateTime(2026, 8, 20),
+          verdict: SelfTestVerdict.pass,
+          ergStepsPassed: 3,
+          ergStepsTotal: 3,
+          shiftStepsPassed: 3,
+          shiftStepsTotal: 3,
+          vsMode: 'targetPower',
+          protocol: 'ftms',
+        ).toJsonString(),
+      });
+      core.settings.prefs = await SharedPreferences.getInstance();
+
+      final device = trainerWithFitnessBike();
+
+      final line = describeProxyDevice(device);
+      expect(line, contains('proto=ftms'));
+      expect(line, contains('vsMode=targetPower'));
+      expect(line, contains('ftms=unknown')); // unprobed definition
+      expect(line, contains('selfTest=PASS,2026-08-20,a:3/3,b:3/3,targetPower'));
+      expect(line, isNot(contains('lastCtl='))); // no control write happened
+    });
+
+    test('a forced protocol is marked manual and lists what else was available', () {
+      // Support's first question on a "my trainer ignores BikeControl" report
+      // is whether the rider forced a delivery — auto-picked and rider-picked
+      // read identically without the marker.
+      final device = trainerWithFitnessBike(services: dualProtocolServices());
+      device.fitnessBike!.setControlProtocolOverride(TrainerControlProtocol.zwiftHub);
+
+      final line = describeProxyDevice(device);
+      expect(line, contains('proto=zwiftHub(manual)'));
+      expect(line, contains('protoAvail=ftms+zwiftHub'));
+    });
+
+    test('an auto-picked single-protocol trainer carries neither marker', () {
+      final line = describeProxyDevice(trainerWithFitnessBike());
+
+      expect(line, contains('proto=ftms'));
+      expect(line, isNot(contains('(manual)')));
+      // Nothing to switch to — the field would be noise on every plain FTMS
+      // trainer in every bundle.
+      expect(line, isNot(contains('protoAvail=')));
+    });
+  });
+
+  group('describeControllers', () {
+    test('renders firmware when known, plain toString otherwise', () {
+      final withFw = bleTrainer(id: 'ctrl-with-fw')..firmwareVersion = '1.5.0';
+      final withoutFw = bleTrainer(id: 'ctrl-without-fw');
+
+      final s = describeControllers([withFw, withoutFw]);
+
+      expect(s, contains('(fw 1.5.0)'));
+      expect(s.split(', ').last, isNot(contains('fw')));
     });
   });
 

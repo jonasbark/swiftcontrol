@@ -22,6 +22,7 @@ import 'package:bike_control/pages/home/chain_inputs.dart';
 import 'package:bike_control/pages/home/chain_state.dart';
 import 'package:bike_control/pages/home/home_extras.dart';
 import 'package:bike_control/pages/home/home_sheets.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
@@ -30,6 +31,8 @@ import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/services/local_network_access.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
@@ -40,10 +43,10 @@ import 'package:bike_control/widgets/home/chain_labels.dart';
 import 'package:bike_control/widgets/home/ready_banner.dart';
 import 'package:bike_control/widgets/home/trial_card.dart';
 import 'package:bike_control/widgets/ui/animated_button_widget.dart';
-import 'package:bike_control/widgets/ui/connection_method.dart' show enableLocalControl;
+import 'package:bike_control/widgets/ui/connection_method.dart' show enableLocalControl, ensureLocalNetworkAccess;
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
-import 'package:prop/prop.dart' show LogLevel;
+import 'package:prop/prop.dart' show ClickKeepAwakeStatus, ClickLogic, LogLevel;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// How much the chain card wants to talk about a given trainer. Lower wins.
@@ -66,6 +69,14 @@ int proxyChainRank(ProxyDevice p) {
 /// proxies. See [proxyChainRank].
 @visibleForTesting
 ProxyDevice? chainProxy() => core.connection.proxyDevices.sortedBy(proxyChainRank).firstOrNull;
+
+/// The app card's active step is "waiting for the app to connect" and the
+/// Network method is the enabled path — the moment troubleshooting helps.
+bool appCardOffersTroubleshooting(ChainLink link) =>
+    link.key == ChainLinkKey.app &&
+    link.activeStep?.id == SetupStepId.appConnected &&
+    core.logic.isObpMdnsEnabled &&
+    core.obpMdnsEmulator.isStarted.value;
 
 /// The Main tab: the setup chain.
 ///
@@ -110,9 +121,38 @@ class _HomePageState extends State<HomePage> {
   final Map<String, ControllerButton> _pressedButton = {};
   final Map<String, int> _pressGeneration = {};
 
+  /// Last measured Local Network status, kept here rather than read off
+  /// [LocalNetworkAccess.cached]: that cache expires after 30s, and a step that
+  /// silently disappeared half a minute after the rider looked at it would be
+  /// worse than no step at all.
+  LocalNetworkStatus? _localNetwork;
+
+  /// Null when the permission is not the rider's problem: nothing that rides on
+  /// the LAN is switched on, this platform has no such permission, or it has
+  /// never been measured.
+  bool? get _localNetworkGranted {
+    if (!core.logic.hasNetworkMethodEnabled || localNetworkRequirements().isEmpty) return null;
+    final status = _localNetwork;
+    // Same rule as everywhere else: unknown is not a denial, so the step must
+    // not sit there red because the probe could not tell.
+    return status == null ? null : LocalNetworkAccess.usable(status);
+  }
+
+  Future<void> _refreshLocalNetwork() async {
+    if (!core.logic.hasNetworkMethodEnabled || localNetworkRequirements().isEmpty) return;
+    try {
+      final status = await LocalNetworkAccess.status();
+      if (mounted && status != _localNetwork) setState(() => _localNetwork = status);
+    } catch (e, s) {
+      recordError(e, s, context: 'home local network status');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+
+    unawaited(_refreshLocalNetwork());
 
     _connectionListener = core.connection.connectionStream.listen((_) {
       _syncProxyListeners();
@@ -142,6 +182,14 @@ class _HomePageState extends State<HomePage> {
 
     _refreshBluetoothState();
     IAPManager.instance.isPurchased.addListener(_onPurchaseChanged);
+    // The keep-awake resolves a few seconds after a left puck turns up, which
+    // is not a connection event — without this the offer would linger on the
+    // card after it had already been taken up.
+    ClickLogic.keepAwakeStatus.addListener(_onKeepAwakeChanged);
+  }
+
+  void _onKeepAwakeChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Whether the bridge is running and whether the trainer app holds it are
@@ -174,6 +222,7 @@ class _HomePageState extends State<HomePage> {
     _actionListener.cancel();
     _metricsTicker?.cancel();
     IAPManager.instance.isPurchased.removeListener(_onPurchaseChanged);
+    ClickLogic.keepAwakeStatus.removeListener(_onKeepAwakeChanged);
     super.dispose();
   }
 
@@ -305,6 +354,10 @@ class _HomePageState extends State<HomePage> {
             name: device.displayName(context),
             presence: _presenceOf(device, isStandIn: standInIds.contains(device.uniqueId)),
             hasMappedButtons: _hasMappedButtons(device),
+            // A derailleur learns its paddles from the presses they send, so
+            // before its guided setup has run there is nothing on the keymap
+            // to map — see [ControllerInput.hasKnownButtons].
+            hasKnownButtons: device.availableButtons.isNotEmpty,
             requiresBluetooth: device is BluetoothDevice,
             unlocked: _unlockState(device),
             unlockedUntil: _unlockedUntil(device),
@@ -312,6 +365,9 @@ class _HomePageState extends State<HomePage> {
             sramSetupDone: device is SramAxs ? !device.needsGuidedSetup : null,
             needsUnlockModeChoice:
                 (device is ZwiftClickV2 || device is ZwiftClickV2RightSide) && ClickV2Onboarding.isPending,
+            clickV2NeedsLeftSide:
+                device is ZwiftClickV2RightSide &&
+                ClickLogic.keepAwakeStatus.value == ClickKeepAwakeStatus.waitingForLeftSide,
           ),
       ],
       trainer: trainer,
@@ -326,6 +382,7 @@ class _HomePageState extends State<HomePage> {
         // this platform can drive it" — see CoreLogic.
         localControlOffered: core.logic.showLocalControl,
         localControlEnabled: core.settings.getLocalEnabled(),
+        localNetworkGranted: _localNetworkGranted,
       ),
     );
   }
@@ -421,6 +478,7 @@ class _HomePageState extends State<HomePage> {
 
   void _update() {
     widget.onUpdate();
+    unawaited(_refreshLocalNetwork());
     if (mounted) setState(() {});
   }
 
@@ -743,7 +801,11 @@ class _HomePageState extends State<HomePage> {
     } else if (link.status == LinkStatus.problem) {
       statusLabel = context.i18n.notConnected;
     } else if (app != null) {
-      statusLabel = context.i18n.chainStatusWaitingForApp(app.name);
+      // Name what is actually outstanding. Reporting "waiting for the app"
+      // while a permission is missing points the rider at the wrong device.
+      statusLabel = appStatusFollowsActiveStep(link)
+          ? chainStepText(context, link.activeStep!, appName: app.name).label
+          : context.i18n.chainStatusWaitingForApp(app.name);
     } else {
       statusLabel = context.i18n.chainStatusNotSetUp;
     }
@@ -768,6 +830,8 @@ class _HomePageState extends State<HomePage> {
           ? context.i18n.chainStepLocalControlAction
           : appLinkOpensConnectionSettings(link)
           ? context.i18n.chainSetUp
+          : appCardOffersTroubleshooting(link)
+          ? context.i18n.networkTroubleshootTroubleshoot
           : null,
     );
   }
@@ -855,7 +919,13 @@ class _HomePageState extends State<HomePage> {
           await openTrainerConnectSheet(context);
         }
       case ChainLinkKey.app:
-        if (link.activeStep?.id == SetupStepId.appLocalControl) {
+        if (link.activeStep?.id == SetupStepId.appLocalNetwork) {
+          // Runs the permission sheet and, on a grant, brings the enabled
+          // network methods up — the bridge has to actually start, not just
+          // stop complaining.
+          await ensureLocalNetworkAccess(context);
+          await _refreshLocalNetwork();
+        } else if (link.activeStep?.id == SetupStepId.appLocalControl) {
           // enableLocalControl runs the permission sheet itself when the
           // accessibility service or the keyboard grant is still missing, and
           // only reports success once the grant actually landed.
@@ -867,6 +937,11 @@ class _HomePageState extends State<HomePage> {
           // the rider reading pairing instructions for a bridge that isn't
           // running yet.
           await context.push(const TrainerConnectionSettingsPage());
+        } else if (appCardOffersTroubleshooting(link)) {
+          // The app is up and just hasn't been told about this device yet —
+          // that's the network troubleshooter's exact job, not the generic
+          // "how do I pair this app" guide.
+          await context.push(const NetworkTroubleshootingPage());
         } else {
           await openAppGuideSheet(context);
         }

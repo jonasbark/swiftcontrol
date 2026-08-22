@@ -39,6 +39,7 @@
     <array>
       <string>_wahoo-fitness-tnp._tcp</string>
       <string>_openbikecontrol._tcp</string>
+      <string>_bikecontrol-preflight._tcp</string>
     </array>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>

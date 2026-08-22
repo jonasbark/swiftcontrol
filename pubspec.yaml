@@ -1,7 +1,7 @@
 name: bike_control
 description: "BikeControl - Control your virtual riding"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-version: 6.4.3+147
+version: 6.5.0+148
 
 environment:
   sdk: ^3.9.0
@@ -43,6 +43,7 @@ dependencies:
   sign_in_with_apple: ^7.0.1
 
   nsd: ^4.0.3
+  ffi: ^2.1.0
   image_picker: ^1.1.2
   file_picker: ^10.3.10
   flutter_screen_capture: ^2.0.1
@@ -60,6 +61,8 @@ dependencies:
   window_manager: ^0.5.1
   multi_window_native:
     path: packages/multi_window_native
+  local_network_permission:
+    path: packages/local_network_permission
   flutter_overlay_window: ^0.5.0
   live_activities: ^2.4.9
   device_info_plus: ^12.1.0
@@ -93,6 +96,7 @@ dependencies:
 
   flutter_localizations:
     sdk: flutter
+  play_install_referrer: ^0.5.0
 
 dev_dependencies:
   flutter_test:

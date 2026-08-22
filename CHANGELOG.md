@@ -1,3 +1,12 @@
+### 6.5.0 (22-08-2026)
+**Features**:
+- Zwift Click V2: when you use the right side only, the puck no longer falls asleep after a minute of inactivity — and the LEDs stay on.
+- Network issues: you can now troubleshoot network related issues, e.g. connection to MyWhoosh
+- Virtual Shifting:
+  - shifting on Zwift Ready trainers now feels instant
+  - more FTMS trainers are supported
+  - a new resistance test lets you confirm your trainer really responds
+
 ### 6.4.0 (10-08-2026)
 **Features**:
 - Added a guided setup on first launch

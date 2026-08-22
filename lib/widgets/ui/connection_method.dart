@@ -6,6 +6,7 @@ import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
 import 'package:bike_control/widgets/status_icon.dart';
 import 'package:bike_control/widgets/ui/beta_pill.dart';
@@ -51,6 +52,7 @@ class ConnectionMethod extends StatefulWidget {
   final List<PlatformRequirement> requirements;
   final List<InGameAction>? supportedActions;
   final Function(bool) onChange;
+  final VoidCallback? onTroubleshoot;
 
   const ConnectionMethod({
     super.key,
@@ -67,6 +69,7 @@ class ConnectionMethod extends StatefulWidget {
     required this.onChange,
     this.supportedActions,
     required this.requirements,
+    this.onTroubleshoot,
   });
 
   @override
@@ -113,12 +116,18 @@ class _ConnectionMethodState extends State<ConnectionMethod> with WidgetsBinding
       } else if (widget.requirements.isEmpty) {
         widget.onChange(!widget.isEnabled);
       } else {
-        Future.wait(widget.requirements.map((e) => e.getStatus())).then((_) async {
+        // Captured, not re-read after the await: `requirements` is rebuilt from
+        // scratch on every build (see the tiles), so `widget.requirements` on
+        // the far side of the gap can be a different, never-probed list whose
+        // `status` is all false — which used to open the permission sheet for a
+        // permission that was actually granted.
+        final requirements = widget.requirements;
+        Future.wait(requirements.map((e) => e.getStatus())).then((_) async {
           // The widget can be disposed across these async gaps; using a defunct
           // context (openPermissionSheet) or setState then throws "Null check
           // operator used on a null value".
           if (!context.mounted) return;
-          final notDone = widget.requirements.filter((e) => !e.status).toList();
+          final notDone = requirements.filter((e) => !e.status).toList();
           if (notDone.isEmpty) {
             widget.onChange(!widget.isEnabled);
           } else {
@@ -235,31 +244,43 @@ class _ConnectionMethodState extends State<ConnectionMethod> with WidgetsBinding
               Text(widget.description).xSmall.textMuted,
               if (widget.isEnabled && widget.additionalChild != null) widget.additionalChild!,
               if (widget.instructionLink != null || widget.showTroubleshooting) SizedBox(),
-              if (widget.instructionLink != null)
+              if (widget.instructionLink != null || widget.onTroubleshoot != null)
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    Button(
-                      style: widget.isEnabled && Theme.of(context).brightness == Brightness.light
-                          ? ButtonStyle.outline().withBorder(border: Border.all(color: Colors.gray.shade500))
-                          : ButtonStyle.outline(),
-                      leading: Icon(
-                        widget.instructionLink!.contains("youtube") ? Icons.ondemand_video : Icons.help_outline,
+                    if (widget.instructionLink != null) ...[
+                      Button(
+                        style: widget.isEnabled && Theme.of(context).brightness == Brightness.light
+                            ? ButtonStyle.outline().withBorder(border: Border.all(color: Colors.gray.shade500))
+                            : ButtonStyle.outline(),
+                        leading: Icon(
+                          widget.instructionLink!.contains("youtube") ? Icons.ondemand_video : Icons.help_outline,
+                        ),
+                        onPressed: () {
+                          if (widget.instructionLink!.contains("youtube") || widget.instructionLink!.contains("http")) {
+                            launchUrlString(widget.instructionLink!);
+                          } else {
+                            openDrawer(
+                              context: context,
+                              position: OverlayPosition.bottom,
+                              builder: (c) => MarkdownPage(assetPath: widget.instructionLink!),
+                            );
+                          }
+                        },
+                        child: Text(AppLocalizations.of(context).instructions),
                       ),
-                      onPressed: () {
-                        if (widget.instructionLink!.contains("youtube") || widget.instructionLink!.contains("http")) {
-                          launchUrlString(widget.instructionLink!);
-                        } else {
-                          openDrawer(
-                            context: context,
-                            position: OverlayPosition.bottom,
-                            builder: (c) => MarkdownPage(assetPath: widget.instructionLink!),
-                          );
-                        }
-                      },
-                      child: Text(AppLocalizations.of(context).instructions),
-                    ),
+                    ],
+                    if (widget.onTroubleshoot != null)
+                      Button(
+                        key: const ValueKey('connection-troubleshoot'),
+                        style: widget.trainerConnection.isStarted.value && !widget.trainerConnection.isConnected.value
+                            ? ButtonStyle.outline()
+                            : ButtonStyle.ghost(),
+                        leading: const Icon(LucideIcons.wrench, size: 16),
+                        onPressed: widget.onTroubleshoot,
+                        child: Text(AppLocalizations.of(context).networkTroubleshootTroubleshoot),
+                      ),
                     if (widget.supportedActions != null)
                       Button.outline(
                         leading: Container(
@@ -341,6 +362,49 @@ Future openPermissionSheet(BuildContext context, List<PlatformRequirement> notDo
     ),
     position: OverlayPosition.bottom,
   );
+}
+
+/// Reports whether [requirements] are satisfied, prompting for whichever are
+/// missing.
+///
+/// A status check that throws counts as not granted: a permission state we
+/// could not read is not one to act on.
+Future<bool> satisfyRequirements(BuildContext context, List<PlatformRequirement> requirements) async {
+  Future<bool> liveStatus(PlatformRequirement r) async {
+    try {
+      return await r.getStatus();
+    } catch (e, s) {
+      recordError(e, s, context: 'requirement status');
+      return false;
+    }
+  }
+
+  var states = await Future.wait(requirements.map(liveStatus));
+  final missing = [
+    for (var i = 0; i < requirements.length; i++)
+      if (!states[i]) requirements[i],
+  ];
+  if (missing.isEmpty) return true;
+  if (context.mounted) {
+    await openPermissionSheet(context, missing);
+  }
+  states = await Future.wait(missing.map(liveStatus));
+  return states.every((granted) => granted);
+}
+
+/// Prompts for Local Network when it is missing, and brings the enabled network
+/// methods up once it is granted.
+///
+/// The network-side mirror of [enableLocalControl]. Starting on success is the
+/// point: the launch-time start is skipped while onboarding holds the screen,
+/// and a rider who grants the permission later would otherwise be left with a
+/// method that reads as enabled while advertising nothing.
+Future<bool> ensureLocalNetworkAccess(BuildContext context) async {
+  final requirements = localNetworkRequirements();
+  if (requirements.isEmpty) return true;
+  if (!await satisfyRequirements(context, requirements)) return false;
+  core.logic.startEnabledConnectionMethod(userInitiated: true);
+  return true;
 }
 
 /// Prompts for any missing local-control permissions, enables the Local

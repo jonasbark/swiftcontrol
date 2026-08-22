@@ -19,3 +19,14 @@ OnboardingTriggerAction decideOnboardingTrigger({
       ? OnboardingTriggerAction.show
       : OnboardingTriggerAction.markCompleted;
 }
+
+/// Whether work triggered by app launch should be skipped entirely.
+///
+/// Permissions *are* checked at launch — a rider who revoked one in System
+/// Settings should find out then, not from a silently dead connection. The
+/// exception is while the first-run wizard is about to take over the screen:
+/// checking a permission means *asking* for it on Apple platforms, and a
+/// dialog or a warning toast arriving from behind the wizard explains nothing.
+/// Onboarding asks for what it needs, when it needs it.
+bool deferLaunchPermissionChecks({required OnboardingTriggerAction onboardingAction}) =>
+    onboardingAction == OnboardingTriggerAction.show;

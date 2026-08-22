@@ -29,4 +29,27 @@ void main() {
       OnboardingTriggerAction.none,
     );
   });
+
+  group('deferLaunchPermissionChecks', () {
+    test('defers while the wizard is about to take the screen', () {
+      // Checking a permission means asking for it on Apple platforms; a dialog
+      // arriving from behind the wizard explains nothing.
+      expect(
+        deferLaunchPermissionChecks(onboardingAction: OnboardingTriggerAction.show),
+        isTrue,
+      );
+    });
+
+    test('checks once onboarding is settled', () {
+      // A rider who revoked a permission in System Settings should find out at
+      // launch, not from a connection that silently does nothing.
+      for (final action in [OnboardingTriggerAction.none, OnboardingTriggerAction.markCompleted]) {
+        expect(
+          deferLaunchPermissionChecks(onboardingAction: action),
+          isFalse,
+          reason: '$action must still check',
+        );
+      }
+    });
+  });
 }

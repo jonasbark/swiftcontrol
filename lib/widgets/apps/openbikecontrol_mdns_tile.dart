@@ -1,8 +1,10 @@
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
+import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart';
 import 'package:dartx/dartx.dart';
 import 'package:prop/prop.dart';
@@ -17,6 +19,11 @@ class OpenBikeControlMdnsTile extends StatefulWidget {
 }
 
 class _OpenBikeProtocolTileState extends State<OpenBikeControlMdnsTile> {
+  /// Built once, not per build: PlatformRequirement carries a mutable
+  /// `status`, so rebuilding the list every frame throws away whatever the
+  /// last probe learned.
+  final _requirements = localNetworkRequirements();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -44,7 +51,8 @@ class _OpenBikeProtocolTileState extends State<OpenBikeControlMdnsTile> {
                       : isStarted
                       ? context.i18n.chooseBikeControlInConnectionScreen
                       : context.i18n.letsAppConnectOverNetwork(core.settings.getTrainerApp()?.name ?? ''),
-                  requirements: [],
+                  requirements: _requirements,
+                  onTroubleshoot: () => context.push(const NetworkTroubleshootingPage()),
                   onChange: (value) {
                     core.settings.setObpMdnsEnabled(value);
                     if (!value) {

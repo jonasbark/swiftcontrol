@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/services/support_chat_models.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:file_picker/file_picker.dart';
@@ -156,9 +157,17 @@ class SupportChatService {
     Map<String, dynamic>? intakeAnswers,
   }) async {
     final session = _requireSession();
+    // An image-only message is legitimate, but the send-support-message edge
+    // function rejects an empty body. Substitute a minimal placeholder so the
+    // screenshot goes through; remove this once the function accepts empty
+    // bodies with attachments.
+    final trimmedBody = body.trim();
+    final effectiveBody = (trimmedBody.isEmpty && attachments.isNotEmpty)
+        ? AppLocalizations.current.attachmentOnlyMessageBody
+        : trimmedBody;
     final payload = <String, dynamic>{
       'chat_id': chatId,
-      'body': body.trim(),
+      'body': effectiveBody,
       if (parentMessageId != null) 'parent_message_id': parentMessageId,
       if (attachments.isNotEmpty) 'attachment_paths': attachments.map((a) => a.toJson()).toList(growable: false),
       if (intakeAnswers != null) 'intake_answers': intakeAnswers,

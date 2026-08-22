@@ -77,7 +77,22 @@ class AndroidActions extends BaseActions {
       // Increment command count after successful execution
       return superResult;
     }
-    final keyPair = supportedApp!.keymap.getKeyPair(button, trigger: trigger)!;
+    final app = supportedApp;
+    if (app == null) {
+      return Error(
+        AppLocalizations.current.couldNotPerformButtonnamesplitbyuppercaseNoKeymapSet(button.name.splitByUpperCase()),
+        type: ErrorType.noKeymapSet,
+        button: button,
+      );
+    }
+    final keyPair = app.keymap.getKeyPair(button, trigger: trigger);
+    if (keyPair == null) {
+      return Error(
+        AppLocalizations.current.noActionAssignedForButton(button.name.splitByUpperCase()),
+        type: ErrorType.noActionAssigned,
+        button: button,
+      );
+    }
 
     if (keyPair.isSpecialKey) {
       await accessibilityHandler.controlMedia(switch (keyPair.physicalKey) {

@@ -1,12 +1,17 @@
-import 'dart:io' show Platform;
-
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/services/local_network_access.dart';
 import 'package:bike_control/services/mdns_discovery_scan.dart';
 import 'package:flutter/foundation.dart';
+import 'package:local_network_permission/local_network_permission.dart';
+import 'package:prop/mdns/mdns_responder.dart' show MdnsQueryLogEntry;
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:prop/utils/advertised_service_registry.dart';
 import 'package:prop/utils/network_address.dart';
 import 'package:prop/utils/resilient_tcp_server.dart';
+
+// Part of PermissionsSnapshot's surface — callers shouldn't need a second
+// import to name the value they just read.
+export 'package:local_network_permission/local_network_permission.dart' show LocalNetworkStatus;
 
 /// A running TCP bridge server, for diagnostics.
 class TcpServerInfo {
@@ -25,17 +30,28 @@ class TcpServerInfo {
 
 /// Status of the permissions whose denial silently breaks WiFi/BLE bridging.
 class PermissionsSnapshot {
-  /// iOS Local Network can't be queried directly; inferred from whether a
-  /// discovery scan returned anything. Null when no scan ran.
-  final bool? localNetworkInferred;
+  /// Apple's Local Network permission, measured with a Bonjour round trip.
+  /// Null on the platforms that have no such permission.
+  final LocalNetworkStatus? localNetwork;
 
   const PermissionsSnapshot({
-    required this.localNetworkInferred,
+    required this.localNetwork,
   });
 
-  static Future<PermissionsSnapshot> gather({bool? localNetworkInferred}) async {
+  /// [probe] runs a live check; a support bundle is worthless if it reports
+  /// what the UI happened to cache half an hour ago.
+  ///
+  /// It must stay off for the crash handler, though: probing is what raises
+  /// the system prompt, so a background error would otherwise pop a Local
+  /// Network dialog at an arbitrary moment — including app launch, before
+  /// onboarding has explained anything. Without it, report what is already
+  /// known, or nothing.
+  static Future<PermissionsSnapshot> gather({required bool probe}) async {
+    if (!LocalNetworkPermission.isSupported) {
+      return const PermissionsSnapshot(localNetwork: null);
+    }
     return PermissionsSnapshot(
-      localNetworkInferred: localNetworkInferred,
+      localNetwork: probe ? await LocalNetworkAccess.status(force: true) : LocalNetworkAccess.cached,
     );
   }
 }
@@ -53,6 +69,10 @@ class DebugDiagnostics {
   final List<TcpServerInfo> servers;
   final PermissionsSnapshot permissions;
 
+  /// mDNS queries our responder saw. Empty on the nsd backend (iOS), where the
+  /// OS responder handles queries and never tells us about them.
+  final List<MdnsQueryLogEntry> recentQueries;
+
   const DebugDiagnostics({
     required this.advertised,
     required this.backend,
@@ -63,6 +83,7 @@ class DebugDiagnostics {
     required this.addressReport,
     required this.servers,
     required this.permissions,
+    this.recentQueries = const [],
   });
 
   static Future<DebugDiagnostics> gather({
@@ -102,12 +123,9 @@ class DebugDiagnostics {
       }
     }
 
-    final permissions = await PermissionsSnapshot.gather(
-      // iOS is the only platform with a (non-queryable) "Local Network"
-      // permission; infer it from whether discovery saw anything. Elsewhere an
-      // empty scan just means no peers, so leave it unset.
-      localNetworkInferred: (discoveryRan && !kIsWeb && Platform.isIOS) ? discovered.isNotEmpty : null,
-    );
+    // includeDiscovery is the existing "may do live network work" seam — the
+    // crash handler passes false. The permission probe belongs to it.
+    final permissions = await PermissionsSnapshot.gather(probe: includeDiscovery);
 
     return DebugDiagnostics(
       advertised: AdvertisedServiceRegistry.instance.records,
@@ -119,8 +137,46 @@ class DebugDiagnostics {
       addressReport: addressReport,
       servers: servers,
       permissions: permissions,
+      recentQueries: isResponder ? advertiser.recentQueries : const [],
     );
   }
+
+  /// Name fragments that mean "VPN tunnel" — the VPN subset of the address
+  /// picker's broader "virtual" set, which also covers docker bridges, the
+  /// Personal Hotspot bridge and cellular interfaces (none of them a VPN).
+  ///
+  /// Matched case-insensitively, and partly as a substring, because on Windows
+  /// `NetworkInterface.name` is the adapter's FriendlyName ("NordLynx",
+  /// "ProtonVPN TUN", "TAP-Windows Adapter V9") rather than a unix device
+  /// name, so prefix matching alone would miss nearly every Windows VPN.
+  static final _tunnelNamePattern = RegExp(
+    r'^(utun|tun|tap|ipsec|ppp|wg|nordlynx|zt)'
+    r'|wireguard|openvpn|tailscale|zerotier|mullvad|proton|anyconnect|vpn|tunnel',
+    caseSensitive: false,
+  );
+
+  /// 169.254/16 is link-local and 192.0.0/24 is the 464XLAT CLAT dummy range;
+  /// neither is ever a VPN, and both show up on healthy devices.
+  static bool _isRoutable(String address) =>
+      !address.startsWith('169.254.') && !address.startsWith('192.0.0.');
+
+  /// 100.64/10, the CGNAT range mesh VPNs (Tailscale, ZeroTier) hand out.
+  static bool _isCgnat(String address) {
+    final parts = address.split('.').map(int.tryParse).toList();
+    if (parts.length != 4 || parts.any((p) => p == null)) return false;
+    return parts[0] == 100 && parts[1]! >= 64 && parts[1]! <= 127;
+  }
+
+  /// Tunnel interfaces that carry a real IPv4 — i.e. the ones a VPN actually
+  /// brought up.
+  ///
+  /// Apple platforms always keep several idle `utun` devices around (iCloud
+  /// Private Relay, Continuity, Wi-Fi Calling, content filters). Those carry
+  /// only an IPv6 link-local, so they never become an [AddressCandidate] in
+  /// the first place — which is what stops this from firing on every iPhone.
+  List<AddressCandidate> get tunnelCandidates => addressReport.candidates
+      .where((c) => _tunnelNamePattern.hasMatch(c.interfaceName) && _isRoutable(c.address))
+      .toList();
 
   String _txt(Map<String, String> txt) {
     final entries = txt.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
@@ -167,6 +223,46 @@ class DebugDiagnostics {
       b.writeln('    ${c.interfaceName}/${c.address} = ${c.score}${tags.isEmpty ? '' : ' (${tags.join(', ')})'}');
     }
 
+    // Its own line, spelled "VPN", because support reads this block at a
+    // glance and a "(virtual)" suffix on one of five interface rows does not
+    // survive that. A live VPN leaves mDNS working (multicast is not tunnelled)
+    // while blackholing the inbound TCP connection, so the rest of the block
+    // looks perfectly healthy — advertised, discovered, listening, no client.
+    final tunnels = tunnelCandidates;
+    if (tunnels.isEmpty) {
+      b.writeln('  VPN: none detected');
+    } else {
+      // Mesh VPNs route only their own overlay and leave the LAN path alone,
+      // so they are almost never why a trainer app cannot connect.
+      final meshOnly = tunnels.every((c) => _isCgnat(c.address));
+      b.writeln(
+        '  VPN: likely active — ${tunnels.map((c) => '${c.interfaceName}/${c.address}').join(', ')}'
+        '${meshOnly ? ' (mesh/CGNAT range — usually harmless)' : ' (a full-tunnel VPN blocks inbound LAN connections — try turning it off)'}',
+      );
+    }
+
+    // "Did the trainer app on this machine ask us anything, and did we answer?"
+    // A same-host querier shows up with one of this host's addresses as its
+    // source. No entries at all means the failure is upstream of this
+    // responder (the app never browsed — Bonjour missing, firewall, VPN DNS);
+    // a browse and resolve answered followed by `A <host>.local` asked over
+    // and over is the Windows same-host resolution failure.
+    b.writeln('  mDNS queries received:');
+    if (recentQueries.isEmpty) {
+      b.writeln('    (none)');
+    } else {
+      for (final q in recentQueries) {
+        final at = q.at.toIso8601String().split('T').last.split('.').first;
+        // Repeats are folded; the count keeps a continuous poller visible as
+        // one line instead of hiding that it fired hundreds of times.
+        final repeats = q.count > 1 ? ' ×${q.count}' : '';
+        b.writeln(
+          '    $at ${q.source}:${q.sourcePort} ${q.wantsUnicast ? 'QU' : 'QM'} '
+          '${q.questions.join(', ')} → ${q.reply}$repeats',
+        );
+      }
+    }
+
     b.writeln('  TCP servers:');
     if (servers.isEmpty) {
       b.writeln('    (none)');
@@ -179,11 +275,9 @@ class DebugDiagnostics {
       }
     }
 
-    if (permissions.localNetworkInferred != null) {
-      b.writeln(
-        '  Permissions: ios-local-network='
-        '${permissions.localNetworkInferred! ? 'inferred-ok' : 'inferred-blocked'}',
-      );
+    final localNetwork = permissions.localNetwork;
+    if (localNetwork != null) {
+      b.writeln('  Permissions: local-network=${localNetwork.name}');
     }
 
     return b.toString().trimRight();

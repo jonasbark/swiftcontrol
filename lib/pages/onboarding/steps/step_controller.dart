@@ -2,6 +2,7 @@ import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_reveal.dart';
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
+import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
 import 'package:bike_control/pages/onboarding/onboarding_models.dart';
@@ -14,8 +15,19 @@ import 'package:bike_control/widgets/ui/animated_button_widget.dart';
 import 'package:bike_control/widgets/guided_operation_sheet.dart';
 import 'package:bike_control/widgets/ui/wifi_animation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
-Widget _infoRow(BuildContext context, IconData icon, String title, String sub) {
+/// A tip row in the onboarding info blocks. When [linkLabel]/[onLink] are
+/// given the row grows a trailing link, so a tip that points at another app
+/// can actually take the rider there instead of just naming it.
+Widget _infoRow(
+  BuildContext context,
+  IconData icon,
+  String title,
+  String sub, {
+  String? linkLabel,
+  VoidCallback? onLink,
+}) {
   return Container(
     margin: const EdgeInsets.only(bottom: 8),
     padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
@@ -30,6 +42,15 @@ Widget _infoRow(BuildContext context, IconData icon, String title, String sub) {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title).small.semiBold,
           if (sub.isNotEmpty) Text(sub).xSmall.muted,
+          if (linkLabel != null && onLink != null)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Button.link(
+                onPressed: onLink,
+                trailing: const Icon(Icons.open_in_new, size: 12),
+                child: Text(linkLabel).xSmall,
+              ),
+            ),
         ]),
       ),
     ]),
@@ -189,6 +210,13 @@ Widget onboardingControllerBody(BuildContext context,
             context.i18n.onboardingScanEmptyDisconnectSub),
         _infoRow(context, LucideIcons.ruler, context.i18n.onboardingScanEmptyCloserTitle,
             context.i18n.onboardingScanEmptyCloserSub),
+        // Riders rarely know controller firmware is updated from the Zwift
+        // Companion app, so the tip links straight to it.
+        _infoRow(context, LucideIcons.refreshCw, context.i18n.onboardingScanEmptyFirmwareTitle,
+            context.i18n.onboardingScanEmptyFirmwareSub,
+            linkLabel: context.i18n.zwiftCompanionApp,
+            onLink: () =>
+                launchUrlString(ZwiftConstants.ZWIFT_COMPANION_URL, mode: LaunchMode.externalApplication)),
       ]));
     case ControllerPhase.list:
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: onboardingReveal([

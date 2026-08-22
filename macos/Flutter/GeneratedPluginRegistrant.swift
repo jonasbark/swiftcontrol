@@ -22,6 +22,7 @@ import in_app_purchase_storekit
 import in_app_review
 import just_audio
 import keypress_simulator_macos
+import local_network_permission
 import media_key_detector_macos
 import multi_window_native
 import nsd_macos
@@ -56,6 +57,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   InAppReviewPlugin.register(with: registry.registrar(forPlugin: "InAppReviewPlugin"))
   JustAudioPlugin.register(with: registry.registrar(forPlugin: "JustAudioPlugin"))
   KeypressSimulatorMacosPlugin.register(with: registry.registrar(forPlugin: "KeypressSimulatorMacosPlugin"))
+  LocalNetworkPermissionPlugin.register(with: registry.registrar(forPlugin: "LocalNetworkPermissionPlugin"))
   MediaKeyDetectorPlugin.register(with: registry.registrar(forPlugin: "MediaKeyDetectorPlugin"))
   MultiWindowNativePlugin.register(with: registry.registrar(forPlugin: "MultiWindowNativePlugin"))
   NsdMacosPlugin.register(with: registry.registrar(forPlugin: "NsdMacosPlugin"))
