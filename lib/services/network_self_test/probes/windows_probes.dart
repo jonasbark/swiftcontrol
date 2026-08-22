@@ -173,8 +173,14 @@ Future<({NetworkCheck profile, NetworkCheck firewall})> windowsNetworkProfileAnd
     );
   }
 
+  // `#FWSTATE` asks whether the firewall is even switched on per profile: a
+  // missing inbound rule blocks nothing on a machine whose firewall is off,
+  // and warning about it there (with a button into Defender settings) is noise
+  // about a non-problem. The rule query stays last because it is the one whose
+  // pipeline legitimately yields nothing.
   const script = '''
 Write-Output '#PROFILE'; Get-NetConnectionProfile | ForEach-Object { Write-Output (\$_.InterfaceAlias + '=' + \$_.NetworkCategory) };
+Write-Output '#FWSTATE'; Get-NetFirewallProfile | ForEach-Object { Write-Output (\$_.Name + '=' + \$_.Enabled) };
 Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeControl*' -ErrorAction SilentlyContinue | Get-NetFirewallRule | Where-Object { \$_.Direction -eq 'Inbound' } | ForEach-Object { Write-Output (\$_.Enabled.ToString() + '=' + \$_.Action.ToString()) }
 ''';
 
@@ -196,9 +202,10 @@ Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeContro
   // not.
   final stdout = _capStdout(result.stdout);
   final profileLines = <String>[];
+  final fwStateLines = <String>[];
   final firewallLines = <String>[];
   var sawFirewallMarker = false;
-  var section = 0; // 0 = before any marker, 1 = #PROFILE, 2 = #FIREWALL
+  var section = 0; // 0 = before any marker, 1 = #PROFILE, 2 = #FWSTATE, 3 = #FIREWALL
   for (final rawLine in stdout.split('\n')) {
     final line = rawLine.trim();
     if (line.isEmpty) continue;
@@ -206,13 +213,18 @@ Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeContro
       section = 1;
       continue;
     }
-    if (line == '#FIREWALL') {
+    if (line == '#FWSTATE') {
       section = 2;
+      continue;
+    }
+    if (line == '#FIREWALL') {
+      section = 3;
       sawFirewallMarker = true;
       continue;
     }
     if (section == 1) profileLines.add(line);
-    if (section == 2) firewallLines.add(line);
+    if (section == 2) fwStateLines.add(line);
+    if (section == 3) firewallLines.add(line);
   }
 
   // No marker at all means the script never ran (bad execution policy, missing
@@ -221,16 +233,36 @@ Write-Output '#FIREWALL'; Get-NetFirewallApplicationFilter -Program '*BikeContro
     return _bothUnknown('exit ${result.exitCode}');
   }
 
+  final profile = _parseProfile(ctx, profileLines);
   return (
-    profile: _parseProfile(ctx, profileLines),
+    profile: profile,
     firewall: sawFirewallMarker
-        ? _parseFirewall(firewallLines)
+        ? _parseFirewall(firewallLines, enabled: _firewallEnabledFor(profile.detail['category'], fwStateLines))
         : NetworkCheck(
             id: NetworkCheckId.firewallRule,
             verdict: NetworkVerdict.unknown,
             detail: {'error': 'exit ${result.exitCode}'},
           ),
   );
+}
+
+/// Whether the firewall is switched on for the profile that governs the
+/// advertised interface — `Domain` / `Private` / `Public` lines of
+/// `Name=True|False`.
+///
+/// Falls back to "any profile on" when the category is unknown, and to true
+/// when the section is missing entirely: assuming the firewall is on is the
+/// safe direction, since it keeps the advisory rather than silencing it.
+bool _firewallEnabledFor(String? category, List<String> lines) {
+  final states = <String, bool>{};
+  for (final line in lines) {
+    final split = line.indexOf('=');
+    if (split <= 0) continue;
+    states[line.substring(0, split)] = line.substring(split + 1).toLowerCase() == 'true';
+  }
+  if (states.isEmpty) return true;
+  if (category != null && states.containsKey(category)) return states[category]!;
+  return states.values.any((on) => on);
 }
 
 ({NetworkCheck profile, NetworkCheck firewall}) _bothUnknown(String error) {
@@ -285,7 +317,17 @@ NetworkCheck _parseProfile(NetworkProbeContext ctx, List<String> lines) {
   return NetworkCheck(id: NetworkCheckId.networkProfile, verdict: NetworkVerdict.pass, detail: {'category': category});
 }
 
-NetworkCheck _parseFirewall(List<String> lines) {
+NetworkCheck _parseFirewall(List<String> lines, {required bool enabled}) {
+  // Nothing to allow past a firewall that is switched off. Reporting "no rule
+  // found" there is a warning about a non-problem, and it comes with a button
+  // into Defender settings that has nothing to do.
+  if (!enabled) {
+    return const NetworkCheck(
+      id: NetworkCheckId.firewallRule,
+      verdict: NetworkVerdict.pass,
+      detail: {'note': 'firewall is off for this network'},
+    );
+  }
   if (lines.isEmpty) {
     return const NetworkCheck(
       id: NetworkCheckId.firewallRule,

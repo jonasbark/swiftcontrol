@@ -198,6 +198,51 @@ void main() {
       expect(result.firewall.detail['rules'], 'none found');
     });
 
+    test('firewall pass: no rule needed when the firewall is off', () async {
+      // Field-observed 2026-08-21: all three profiles disabled and no rule for
+      // BikeControl. "None found" was true but meaningless — nothing was being
+      // blocked — and it came with a fix button into Defender settings.
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(
+          runProcess: _stub(
+            '#PROFILE\nWLAN=Private\n#FWSTATE\nDomain=False\nPrivate=False\nPublic=False\n#FIREWALL\n',
+          ),
+        ),
+      );
+
+      expect(result.firewall.verdict, NetworkVerdict.pass);
+      expect(result.firewall.fixes, isEmpty);
+      expect(result.firewall.detail['note'], contains('firewall is off'));
+    });
+
+    test('firewall warn: a missing rule still matters when the firewall is on', () async {
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(
+          runProcess: _stub(
+            '#PROFILE\nWLAN=Private\n#FWSTATE\nDomain=False\nPrivate=True\nPublic=False\n#FIREWALL\n',
+          ),
+        ),
+      );
+
+      expect(result.firewall.verdict, NetworkVerdict.warn);
+      expect(result.firewall.fixes, [NetworkFixId.openFirewallSettings]);
+    });
+
+    test('firewall state is read for the profile governing the advertised interface', () async {
+      // Public is on, but the advertised interface is Private and Private is
+      // off — the rule cannot be what stops anything.
+      final result = await windowsNetworkProfileAndFirewallChecks(
+        ctx(
+          runProcess: _stub(
+            '#PROFILE\nWLAN=Private\n#FWSTATE\nDomain=True\nPrivate=False\nPublic=True\n#FIREWALL\n',
+          ),
+        ),
+      );
+
+      expect(result.profile.detail['category'], 'Private');
+      expect(result.firewall.verdict, NetworkVerdict.pass);
+    });
+
     test('unknown (both rows): no markers means the script never ran', () async {
       final result = await windowsNetworkProfileAndFirewallChecks(ctx(runProcess: _stub('', exitCode: 1)));
 
