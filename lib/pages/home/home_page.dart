@@ -354,6 +354,10 @@ class _HomePageState extends State<HomePage> {
             name: device.displayName(context),
             presence: _presenceOf(device, isStandIn: standInIds.contains(device.uniqueId)),
             hasMappedButtons: _hasMappedButtons(device),
+            // A derailleur learns its paddles from the presses they send, so
+            // before its guided setup has run there is nothing on the keymap
+            // to map — see [ControllerInput.hasKnownButtons].
+            hasKnownButtons: device.availableButtons.isNotEmpty,
             requiresBluetooth: device is BluetoothDevice,
             unlocked: _unlockState(device),
             unlockedUntil: _unlockedUntil(device),

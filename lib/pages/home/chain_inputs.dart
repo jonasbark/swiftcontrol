@@ -40,6 +40,7 @@ class ControllerInput {
     required this.name,
     required this.presence,
     required this.hasMappedButtons,
+    this.hasKnownButtons = true,
     this.requiresBluetooth = true,
     this.unlocked,
     this.unlockedUntil,
@@ -56,6 +57,16 @@ class ControllerInput {
   /// Whether the active keymap assigns at least one action to one of this
   /// device's buttons.
   final bool hasMappedButtons;
+
+  /// Whether BikeControl knows which buttons this controller even has.
+  ///
+  /// Almost every controller declares its buttons the moment it is known, so
+  /// mapping them is a keymap edit the rider can make from the sofa. A SRAM
+  /// derailleur declares none: its paddles are learned from the presses they
+  /// send, and those only start once the guided setup has run on a connected
+  /// device. Until then "map your buttons" names work with nothing to work
+  /// on — the keymap has no entry to assign an action to.
+  final bool hasKnownButtons;
 
   /// False for controllers that don't ride on BLE (USB/OS gamepads, the
   /// phone's gyroscope). Their card omits the Bluetooth step, which would

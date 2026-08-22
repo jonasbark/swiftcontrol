@@ -16,6 +16,7 @@ ControllerInput controller({
   String name = 'Zwift Click V2',
   DevicePresence presence = DevicePresence.connected,
   bool hasMappedButtons = true,
+  bool hasKnownButtons = true,
   bool requiresBluetooth = true,
   bool? unlocked,
   String? unlockedUntil,
@@ -29,6 +30,7 @@ ControllerInput controller({
     name: name,
     presence: presence,
     hasMappedButtons: hasMappedButtons,
+    hasKnownButtons: hasKnownButtons,
     requiresBluetooth: requiresBluetooth,
     unlocked: unlocked,
     unlockedUntil: unlockedUntil,
@@ -189,6 +191,58 @@ void main() {
         ChainInputs(controllers: [controller(sramSetupDone: false, unlocked: false)], app: _readyApp),
       );
       final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.activeStep?.id, SetupStepId.controllerSramSetup);
+    });
+
+    // Reported: an out-of-range derailleur listed "Set up SRAM control" and
+    // "Map your buttons" above "Bring it back in range", and the card's
+    // instructions button opened the guided sheet — which writes to a
+    // derailleur BikeControl has no connection to.
+    test('an absent derailleur is asked to come back, not to run its setup', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [
+            controller(
+              presence: DevicePresence.remembered,
+              sramSetupDone: false,
+              hasKnownButtons: false,
+              hasMappedButtons: false,
+            ),
+          ],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerSramSetup), isFalse);
+      expect(_hasStep(link, SetupStepId.controllerButtonsMapped), isFalse);
+      expect(link.activeStep?.id, SetupStepId.controllerInRange);
+      expect(link.remainingSteps, 1);
+    });
+
+    test('a finished guided setup stays ticked while the derailleur is away', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(presence: DevicePresence.remembered, sramSetupDone: true)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_stepDone(link, SetupStepId.controllerSramSetup), isTrue);
+      expect(link.activeStep?.id, SetupStepId.controllerInRange);
+    });
+
+    // A derailleur declares no buttons of its own: they are learned from the
+    // presses it sends, which only start once the guided setup has run. Until
+    // then the keymap has nothing to assign an action to.
+    test('a controller with no buttons discovered yet is not asked to map them', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(sramSetupDone: false, hasKnownButtons: false, hasMappedButtons: false)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerButtonsMapped), isFalse);
       expect(link.activeStep?.id, SetupStepId.controllerSramSetup);
     });
 

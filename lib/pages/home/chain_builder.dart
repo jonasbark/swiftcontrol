@@ -53,6 +53,7 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
 
   return inputs.controllers.map((controller) {
     final inRange = _isPresent(controller.presence);
+    final guidedSetupDone = controller.sramSetupDone;
     // A Click V2 waiting for its unlock-mode choice gets that one step and
     // nothing else. It is discovered and in range; the app is choosing not to
     // connect it, so "pair it" and "bring it back in range" would both be
@@ -75,9 +76,19 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
             // Ahead of mapping, because it is what produces the buttons to map: a
             // derailleur whose own shifting is still enabled sends nothing at all, so
             // "assign an action to a button" is advice the rider cannot act on yet.
-            if (controller.sramSetupDone != null)
-              SetupStep(id: SetupStepId.controllerSramSetup, done: controller.sramSetupDone!),
-            SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
+            //
+            // Emitted when it is ticked — history, like pairing, and it survives the
+            // device walking away — or when the device is here to run it. Listing it
+            // for one out of range would offer a sheet that writes over a connection
+            // there isn't, and bury the only thing that helps, "bring it back in
+            // range", underneath it.
+            if (guidedSetupDone != null && (guidedSetupDone || inRange))
+              SetupStep(id: SetupStepId.controllerSramSetup, done: guidedSetupDone),
+            // Only once there are buttons to map. A derailleur declares none
+            // until its paddles have been heard from, so the line would name
+            // work with nothing to work on — see [ControllerInput.hasKnownButtons].
+            if (controller.hasKnownButtons || controller.hasMappedButtons)
+              SetupStep(id: SetupStepId.controllerButtonsMapped, done: controller.hasMappedButtons),
             SetupStep(id: SetupStepId.controllerInRange, done: inRange),
             // Last, because unlocking needs the controller present. Omitted entirely
             // for anything that has no such concept — see [ControllerInput.unlocked].
