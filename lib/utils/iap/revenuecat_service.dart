@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/services/entitlements_service.dart';
+import 'package:bike_control/utils/analytics/campaign_attributes.dart';
+import 'package:bike_control/utils/analytics/install_referrer_reporter.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:dartx/dartx.dart';
@@ -531,8 +533,25 @@ class RevenueCatService {
     }
     final Session? session = core.supabase.auth.currentSession;
 
+    // Campaign attribution for this install, from the Play referrer the
+    // reporter stored on first launch (Android only -- everywhere else this is
+    // simply empty). Re-sent every time, because RevenueCat subscriber
+    // attributes do not persist on their own, and it is what makes paid
+    // acquisition measurable past the install: trial-to-paid and revenue by
+    // campaign, not just cost-per-install.
+    var campaign = const <String, String>{};
+    try {
+      if (core.settings.isInitialized) {
+        campaign = campaignAttributes(core.settings.prefs.getString(InstallReferrerReporter.referrerKey));
+      }
+    } catch (e, s) {
+      // A malformed stored referrer must not cost us the other attributes.
+      recordError(e, s, context: 'RevenueCatService.campaignAttributes');
+    }
+
     // attributes are fully anonymous
     await Purchases.setAttributes({
+      ...campaign,
       if (session?.user.id != null) "bikecontrol_user": session!.user.id,
       "bikecontrol_trainer": core.settings.getTrainerApp()?.name ?? '-',
       "bikecontrol_target": core.settings.getLastTarget()?.name ?? '-',

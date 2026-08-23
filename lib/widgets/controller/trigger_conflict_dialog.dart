@@ -22,43 +22,60 @@ Future<TriggerConflictResolution?> showTriggerConflictDialog(
 }) {
   return showDialog<TriggerConflictResolution>(
     context: context,
-    builder: (c) => Container(
-      constraints: const BoxConstraints(maxWidth: 420),
-      child: AlertDialog(
-        title: Row(
-          children: [
-            if (!IAPManager.instance.hasActiveSubscription) ...[
-              Icon(Icons.workspace_premium, color: Colors.orange),
-              const SizedBox(width: 8),
-            ],
-            Text(AppLocalizations.of(context).additionalTriggerAssignment),
+    builder: (c) => buildTriggerConflictDialog(
+      context: c,
+      trigger: trigger,
+      hintText: hintText,
+      onResolved: (resolution) => Navigator.of(c).pop(resolution),
+    ),
+  );
+}
+
+/// The dialog body [showTriggerConflictDialog] shows. Split out from the
+/// `showDialog` call so it can be rendered on its own — the documentation
+/// snapshots shoot this widget rather than a hand-built copy of it.
+Widget buildTriggerConflictDialog({
+  required BuildContext context,
+  required ButtonTrigger trigger,
+  String? hintText,
+  required void Function(TriggerConflictResolution? resolution) onResolved,
+}) {
+  return Container(
+    constraints: const BoxConstraints(maxWidth: 420),
+    child: AlertDialog(
+      title: Row(
+        children: [
+          if (!IAPManager.instance.hasActiveSubscription) ...[
+            Icon(Icons.workspace_premium, color: Colors.orange),
+            const SizedBox(width: 8),
           ],
-        ),
-        content: Text(
-          hintText ?? AppLocalizations.of(context).anotherTriggerIsAlreadyAssignedForThisButton(trigger.title),
-        ),
-        actions: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            spacing: 8,
-            children: [
-              Button.secondary(
-                onPressed: () => Navigator.of(c).pop(),
-                child: Text(AppLocalizations.of(context).cancel),
-              ),
-              Button.secondary(
-                onPressed: () => Navigator.of(c).pop(TriggerConflictResolution.replaceOtherTriggers),
-                child: Text(AppLocalizations.of(context).replaceExisting),
-              ),
-              if (!IAPManager.instance.hasActiveSubscription)
-                PrimaryButton(
-                  onPressed: () => Navigator.of(c).pop(TriggerConflictResolution.goPro),
-                  child: Text(AppLocalizations.of(context).goPro),
-                ),
-            ],
-          ),
+          Text(AppLocalizations.of(context).additionalTriggerAssignment),
         ],
       ),
+      content: Text(
+        hintText ?? AppLocalizations.of(context).anotherTriggerIsAlreadyAssignedForThisButton(trigger.title),
+      ),
+      actions: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          spacing: 8,
+          children: [
+            Button.secondary(
+              onPressed: () => onResolved(null),
+              child: Text(AppLocalizations.of(context).cancel),
+            ),
+            Button.secondary(
+              onPressed: () => onResolved(TriggerConflictResolution.replaceOtherTriggers),
+              child: Text(AppLocalizations.of(context).replaceExisting),
+            ),
+            if (!IAPManager.instance.hasActiveSubscription)
+              PrimaryButton(
+                onPressed: () => onResolved(TriggerConflictResolution.goPro),
+                child: Text(AppLocalizations.of(context).goPro),
+              ),
+          ],
+        ),
+      ],
     ),
   );
 }
