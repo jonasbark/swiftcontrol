@@ -1760,6 +1760,8 @@
   "selfTestVerdictPassBody": "BikeControl può controllare questo rullo. Se durante la sessione i cambi sembrano morti, la tua app di allenamento non sta passando da BikeControl — oppure semplicemente non vedi la marcia. L'Overlay delle marce risolve la parte della visibilità.",
   "selfTestVerdictErgOkTitle": "Gli obiettivi di potenza funzionano, i cambi no",
   "selfTestVerdictErgOkBody": "Il rullo obbedisce agli obiettivi di potenza diretti ma ha ignorato la modalità Virtual Shifting. Spesso basta cambiare la modalità di cambio.",
+  "selfTestVerdictVsOkErgFailTitle": "Il cambio funziona, gli obiettivi di potenza no",
+  "selfTestVerdictVsOkErgFailBody": "Il tuo cambio virtuale funziona: il rullo ha seguito ogni cambio di marcia. Ha ignorato gli obiettivi di potenza diretti, quindi gli allenamenti ERG richiedono un altro protocollo di controllo.",
   "selfTestVerdictNoControlTitle": "Il rullo non risponde a BikeControl",
   "selfTestVerdictNoControlBody": "Il rullo ha ignorato tutti i comandi. Cerca un aggiornamento del firmware nell'app del produttore, poi inviaci il risultato: individua il problema con precisione.",
   "selfTestVerdictNoDataTitle": "Nessun dato dal rullo",

@@ -1760,6 +1760,8 @@
   "selfTestVerdictPassBody": "BikeControl może sterować tym trenażerem. Jeśli podczas jazdy zmiana biegów wydaje się martwa, twoja aplikacja treningowa nie działa przez BikeControl — albo po prostu nie widzisz biegu. Overlay biegów rozwiązuje kwestię widoczności.",
   "selfTestVerdictErgOkTitle": "Cele mocy działają, zmiana biegów nie",
   "selfTestVerdictErgOkBody": "Trenażer wykonuje bezpośrednie cele mocy, ale zignorował tryb Virtual Shifting. Zmiana trybu zmiany biegów często to naprawia.",
+  "selfTestVerdictVsOkErgFailTitle": "Zmiana biegów działa, cele mocy nie",
+  "selfTestVerdictVsOkErgFailBody": "Twoja wirtualna zmiana biegów działa – trenażer wykonał każdą zmianę biegu. Zignorował bezpośrednie cele mocy, więc treningi ERG wymagają innego protokołu sterowania.",
   "selfTestVerdictNoControlTitle": "Trenażer nie reaguje na BikeControl",
   "selfTestVerdictNoControlBody": "Trenażer zignorował wszystkie komendy. Sprawdź w aplikacji producenta, czy jest aktualizacja oprogramowania, a potem wyślij nam wynik — dokładnie wskazuje problem.",
   "selfTestVerdictNoDataTitle": "Brak danych z trenażera",

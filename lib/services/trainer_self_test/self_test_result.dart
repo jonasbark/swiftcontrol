@@ -1,6 +1,11 @@
 import 'dart:convert';
 
-enum SelfTestVerdict { pass, ergOkVsFail, noControl, noData, aborted }
+/// [vsOkErgFail] is the mirror of [ergOkVsFail]: the trainer honours the gear
+/// ratio but not the ERG target. Several "Zwift Ready" trainers implement only
+/// the virtual-shifting subset of the Zwift Sync command set and expect ERG
+/// over FTMS, which used to score as [noControl] and send the rider off to
+/// change a protocol that was already driving their shifting.
+enum SelfTestVerdict { pass, ergOkVsFail, vsOkErgFail, noControl, noData, aborted }
 
 class SelfTestResult {
   final DateTime at;
@@ -77,6 +82,7 @@ class SelfTestResult {
     return switch (verdict) {
       SelfTestVerdict.pass => 'PASS',
       SelfTestVerdict.ergOkVsFail => 'ERG_OK_VS_FAIL',
+      SelfTestVerdict.vsOkErgFail => 'VS_OK_ERG_FAIL',
       SelfTestVerdict.noControl => 'NO_CONTROL',
       SelfTestVerdict.noData => 'NO_DATA',
       SelfTestVerdict.aborted => 'ABORTED',

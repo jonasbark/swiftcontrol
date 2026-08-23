@@ -1760,6 +1760,8 @@
   "selfTestVerdictPassBody": "BikeControl kann diesen Trainer steuern. Wenn sich das Schalten während der Fahrt tot anfühlt, läuft deine Trainer-App nicht über BikeControl – oder du siehst den Gang einfach nicht. Das Gang-Overlay löst zumindest das Sichtbarkeitsproblem.",
   "selfTestVerdictErgOkTitle": "Leistungsvorgaben funktionieren, das Schalten nicht",
   "selfTestVerdictErgOkBody": "Der Trainer folgt direkten Leistungsvorgaben, hat den Virtual-Shifting-Modus aber ignoriert. Ein anderer Schaltmodus behebt das oft.",
+  "selfTestVerdictVsOkErgFailTitle": "Schalten funktioniert, Leistungsvorgaben nicht",
+  "selfTestVerdictVsOkErgFailBody": "Dein virtuelles Schalten funktioniert – der Trainer hat jeden Gangwechsel umgesetzt. Direkte Leistungsvorgaben hat er ignoriert, für ERG-Workouts braucht es daher ein anderes Steuerungsprotokoll.",
   "selfTestVerdictNoControlTitle": "Trainer reagiert nicht auf BikeControl",
   "selfTestVerdictNoControlBody": "Der Trainer hat alle Befehle ignoriert. Prüfe in der Hersteller-App, ob ein Firmware-Update vorliegt, und schick uns dann das Ergebnis – damit lässt sich das Problem genau eingrenzen.",
   "selfTestVerdictNoDataTitle": "Keine Daten vom Trainer",

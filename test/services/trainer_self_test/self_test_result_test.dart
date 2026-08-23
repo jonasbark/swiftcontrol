@@ -15,6 +15,20 @@ void main() {
     expect(result.toBundleString().contains(' '), isFalse);
   });
 
+  test('the shifting-works-ERG-does-not verdict has its own bundle label', () {
+    final result = SelfTestResult(
+      at: DateTime(2026, 8, 22),
+      verdict: SelfTestVerdict.vsOkErgFail,
+      ergStepsPassed: 1,
+      ergStepsTotal: 3,
+      shiftStepsPassed: 2,
+      shiftStepsTotal: 3,
+      vsMode: 'targetPower',
+      protocol: 'zwiftHub',
+    );
+    expect(result.toBundleString(), 'VS_OK_ERG_FAIL,2026-08-22,a:1/3,b:2/3,targetPower');
+  });
+
   test('skipped ERG phase renders a:n/a', () {
     final skipped = SelfTestResult(
       at: DateTime(2026, 8, 20), verdict: SelfTestVerdict.pass,

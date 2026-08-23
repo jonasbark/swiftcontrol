@@ -1760,6 +1760,8 @@
   "selfTestVerdictPassBody": "BikeControl puede controlar este rodillo. Si los cambios se sienten muertos durante la sesión, tu app de entrenamiento no está pasando por BikeControl, o simplemente no ves la marcha. El Overlay de marchas resuelve la parte de la visibilidad.",
   "selfTestVerdictErgOkTitle": "Los objetivos de potencia funcionan; los cambios, no",
   "selfTestVerdictErgOkBody": "El rodillo obedece los objetivos de potencia directos, pero ignoró el modo de Virtual Shifting. Cambiar el modo de cambios suele solucionarlo.",
+  "selfTestVerdictVsOkErgFailTitle": "El cambio funciona, los objetivos de potencia no",
+  "selfTestVerdictVsOkErgFailBody": "Tu cambio virtual funciona: el rodillo siguió todos los cambios de marcha. Ignoró los objetivos de potencia directos, así que los entrenamientos ERG necesitan otro protocolo de control.",
   "selfTestVerdictNoControlTitle": "El rodillo no responde a BikeControl",
   "selfTestVerdictNoControlBody": "El rodillo ignoró todos los comandos. Busca una actualización de firmware en la app del fabricante y luego envíanos el resultado: señala el problema con precisión.",
   "selfTestVerdictNoDataTitle": "Sin datos del rodillo",
