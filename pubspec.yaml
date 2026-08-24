@@ -110,6 +110,7 @@ dev_dependencies:
   golden_screenshot: ^11.0.1
   flutter_lints: ^6.0.0
   msix: ^3.16.12
+  url_launcher_platform_interface: ^2.3.2
 
 dependency_overrides:
   path_provider_foundation: ">=2.3.0 <2.6.0"

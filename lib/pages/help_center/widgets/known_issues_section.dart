@@ -2,9 +2,13 @@
 // `SupportChatService.fetchOpenIssues()`, the same public-issues fetch the
 // support-chat intake screen already uses, so the two surfaces never drift
 // into separate issue lists. Each row deep-links to the public issue page
-// (`https://bikecontrol.app/issues/<id>`); an empty result or a fetch
-// failure hides the section body entirely — no dead "no known issues" card —
-// while still funneling failures through `recordError` per house rule.
+// (`https://bikecontrol.app/issues/<id>`), except issues that carry a
+// `helpBlogSlug` — those are documented as a blog post instead, and route to
+// `https://bikecontrol.app/blog/<slug>` instead, matching the convention
+// `support_open_issues_banner.dart`/`support_intake_form.dart` already use
+// for the same field. An empty result or a fetch failure hides the section
+// body entirely — no dead "no known issues" card — while still funneling
+// failures through `recordError` per house rule.
 import 'dart:async';
 
 import 'package:bike_control/main.dart' show recordError;
@@ -55,10 +59,7 @@ class _KnownIssuesSectionState extends State<KnownIssuesSection> {
       children: [
         for (final issue in _issues)
           Button.ghost(
-            onPressed: () => launchUrlString(
-              'https://bikecontrol.app/issues/${issue.id}',
-              mode: LaunchMode.externalApplication,
-            ),
+            onPressed: () => launchUrlString(_urlFor(issue), mode: LaunchMode.externalApplication),
             child: Basic(
               leading: const Icon(LucideIcons.triangleAlert, size: 18),
               title: Text(issue.title, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -67,5 +68,14 @@ class _KnownIssuesSectionState extends State<KnownIssuesSection> {
           ),
       ],
     );
+  }
+
+  /// An issue documented as a blog post (`helpBlogSlug` set) routes to that
+  /// post instead of the generic issue page — see
+  /// `support_intake_form.dart`'s `helpBlogSlug` handling for the same rule.
+  String _urlFor(SupportIssue issue) {
+    final slug = issue.helpBlogSlug;
+    if (slug != null && slug.isNotEmpty) return 'https://bikecontrol.app/blog/$slug';
+    return 'https://bikecontrol.app/issues/${issue.id}';
   }
 }
