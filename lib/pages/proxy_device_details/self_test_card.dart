@@ -479,7 +479,7 @@ class _SelfTestCardState extends State<SelfTestCard> {
             subcategory: 'issue',
             subcategoryValue: 'no_resistance_change',
           ),
-          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugFuture),
+          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugText()),
         ),
       ),
     );

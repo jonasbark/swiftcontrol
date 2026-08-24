@@ -205,7 +205,7 @@ class _NetworkTroubleshootingPageState extends State<NetworkTroubleshootingPage>
         builder: (_) => SupportChatPage(
           diagnosticPreviewFuture: debugFuture,
           initialText: 'Network self-test: ${result.toBundleString()}',
-          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugFuture),
+          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugText()),
         ),
       ),
     );

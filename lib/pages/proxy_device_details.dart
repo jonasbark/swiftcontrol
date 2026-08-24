@@ -248,17 +248,20 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
     // Build telemetry in the background so the chat opens immediately. The full
     // debugText (gathered here) already carries this trainer's services &
     // characteristics, the diagnostics block and the log buffer, so we attach it
-    // instead of just the services snippet. The page awaits this future lazily
-    // for the diagnostic preview and at send time.
-    final snapshotFuture = () async {
+    // instead of just the services snippet.
+    Future<TelemetrySnapshot> buildSnapshot() async {
       final debug = await debugText();
       return TelemetrySnapshot.fromDevice(device: device, freetextOverride: '$key\n$debug');
-    }();
+    }
+    // The preview is a one-shot taken as the chat opens; send-time telemetry is
+    // re-gathered per message so a later send reflects the current state rather
+    // than the compose-time snapshot.
+    final previewFuture = buildSnapshot();
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SupportChatPage(
-          telemetryBuilder: () => snapshotFuture,
-          diagnosticPreviewFuture: snapshotFuture.then((s) => JsonEncoder.withIndent('  ').convert(s.toJson())),
+          telemetryBuilder: buildSnapshot,
+          diagnosticPreviewFuture: previewFuture.then((s) => JsonEncoder.withIndent('  ').convert(s.toJson())),
           initialText: '$label\n',
           initialAttachment: screenshot,
         ),
