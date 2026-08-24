@@ -452,6 +452,13 @@ class IAPManager {
         await _revenueCatService?.setAttributes();
         await entitlements.refresh(force: true);
         _syncPurchaseFlagFromEntitlements();
+        // A rider who tapped Buy on the Windows Stripe build while logged out was
+        // sent to the login gate; a genuine `signedIn` is our cue to finish the
+        // checkout they started. Skip token refreshes / the initial session,
+        // which are not a fresh login and would fire on every launch.
+        if (event == AuthChangeEvent.signedIn) {
+          await _windowsIapService?.resumePendingPurchaseAfterLogin(isAlreadyPro: isProEnabled);
+        }
         return;
       case AuthChangeEvent.signedOut:
       // ignore: deprecated_member_use
