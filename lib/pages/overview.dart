@@ -96,25 +96,21 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     if (mounted) setState(() {});
   }
 
-  void _onFeedbackPromptChanged() {
-    if (!core.feedbackPromptService.shouldShowPrompt.value) return;
-    if (FeedbackPromptFlow.shownThisLaunch) return;
-    FeedbackPromptFlow.shownThisLaunch = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showFeedbackPromptFlow(context, service: core.feedbackPromptService);
-    });
-  }
+  late final FeedbackPromptTrigger _feedbackPromptTrigger;
 
   @override
   void initState() {
     super.initState();
 
-    core.feedbackPromptService.shouldShowPrompt.addListener(_onFeedbackPromptChanged);
-    // The service can already be eligible before this page mounts (e.g. the
-    // threshold was crossed in a previous session) — a listener alone would
-    // never fire for that case since the value doesn't change again.
-    _onFeedbackPromptChanged();
+    _feedbackPromptTrigger = FeedbackPromptTrigger(
+      service: core.feedbackPromptService,
+      onShow: () {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showFeedbackPromptFlow(context, service: core.feedbackPromptService);
+        });
+      },
+    )..checkInitial();
 
     // keep screen on - this is required for iOS to keep the bluetooth connection alive
     if (!screenshotMode) {
@@ -296,7 +292,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     }
     WidgetsBinding.instance.removeObserver(this);
     _horizontalScrollController.dispose();
-    core.feedbackPromptService.shouldShowPrompt.removeListener(_onFeedbackPromptChanged);
+    _feedbackPromptTrigger.dispose();
 
     _timeRefreshTimer.cancel();
     _actionListener.cancel();

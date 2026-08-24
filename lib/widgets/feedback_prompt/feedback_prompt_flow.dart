@@ -37,7 +37,11 @@ Future<void> showFeedbackPromptFlow(
       builder: (dialogContext) => Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
+          // shadcn's own ModalContainer — not a hand-rolled one — so this
+          // stays consistent with the rest of the app's dialog chrome.
           child: ModalContainer(
+            filled: true,
+            padding: const EdgeInsets.all(20),
             child: FeedbackPromptFlow(
               service: service,
               initialStep: initialStep,
@@ -46,21 +50,6 @@ Future<void> showFeedbackPromptFlow(
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Wraps the dialog presentation of the flow in the app's card surface.
-class ModalContainer extends StatelessWidget {
-  final Widget child;
-  const ModalContainer({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      filled: true,
-      padding: const EdgeInsets.all(20),
-      child: child,
     );
   }
 }
@@ -85,11 +74,51 @@ class FeedbackPromptFlow extends StatefulWidget {
   });
 
   /// Guards against showing the gate more than once per app launch. Reset
-  /// only by an app restart (not exposed as resettable on purpose).
+  /// only by an app restart in production.
   static bool shownThisLaunch = false;
+
+  /// Test-only escape hatch: resets [shownThisLaunch] so tests don't leak
+  /// the once-per-launch guard into each other. Never call from app code.
+  @visibleForTesting
+  static void resetShownThisLaunchForTesting() => shownThisLaunch = false;
 
   @override
   State<FeedbackPromptFlow> createState() => _FeedbackPromptFlowState();
+}
+
+/// Wires [FeedbackPromptService.shouldShowPrompt] to a single, once-per-launch
+/// [onShow] callback.
+///
+/// Extracted out of `OverviewPage` so the "already-eligible-at-attach" edge
+/// case is independently testable: `service.start()` (in `_Starter.initState`,
+/// higher in the tree than the page that owns this trigger) can synchronously
+/// set `shouldShowPrompt.value = true` *before* this trigger attaches, e.g.
+/// when the session threshold was already crossed in a previous launch. A
+/// bare `addListener` only fires on a value *change*, so that already-true
+/// state would otherwise never surface the prompt — call [checkInitial] once
+/// right after construction to also cover that case.
+class FeedbackPromptTrigger {
+  final FeedbackPromptService service;
+  final VoidCallback onShow;
+
+  FeedbackPromptTrigger({required this.service, required this.onShow}) {
+    service.shouldShowPrompt.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (!service.shouldShowPrompt.value) return;
+    if (FeedbackPromptFlow.shownThisLaunch) return;
+    FeedbackPromptFlow.shownThisLaunch = true;
+    onShow();
+  }
+
+  /// Fires [onShow] immediately if [service] is already eligible. Safe to
+  /// call unconditionally right after attaching — it's a no-op otherwise.
+  void checkInitial() => _onChanged();
+
+  void dispose() {
+    service.shouldShowPrompt.removeListener(_onChanged);
+  }
 }
 
 class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
