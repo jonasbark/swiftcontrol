@@ -1,15 +1,18 @@
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/services/feedback_prompt_service.dart';
+import 'package:bike_control/services/feedback_submission_service.dart';
 import 'package:bike_control/utils/rate_app.dart';
 import 'package:bike_control/widgets/feedback_prompt/confetti_burst.dart';
+import 'package:bike_control/widgets/feedback_prompt/feedback_composer_step.dart';
+import 'package:bike_control/widgets/feedback_prompt/feedback_thanks_step.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Steps of the feedback prompt flow. `gate` asks a plain thumbs up/down
 /// sentiment question (no rating, no stars); `positive`/`negative` branch off
-/// it; `composer`/`negative` eventually lead into `composer` (free-text) and
-/// `thanks`. `gate` and `positive` are fully built out here — `negative`,
-/// `composer`, and `thanks` are placeholders wired up by later tasks.
+/// it; both eventually lead into `composer` (free-text) and `thanks`. `gate`,
+/// `positive`, `composer`, and `thanks` are fully built out here — `negative`
+/// is a placeholder wired up by a later task.
 enum FeedbackFlowStep { gate, positive, negative, composer, thanks }
 
 /// Opens the feedback prompt flow: a bottom sheet on narrow layouts
@@ -73,12 +76,28 @@ class FeedbackPromptFlow extends StatefulWidget {
   /// substitute a spy instead of hitting the real store review API.
   final Future<void> Function() onRate;
 
+  /// Talks to the `submit-feedback` edge function and the anonymous-session
+  /// email link-up. Injectable so tests can substitute a fake instead of
+  /// hitting real Supabase; defaults to a real instance for production use.
+  final FeedbackSubmissionService? submissionService;
+
+  /// Which (sentiment, kind) pair the composer/thanks steps were opened
+  /// with, when [initialStep] is [FeedbackFlowStep.composer] or
+  /// [FeedbackFlowStep.thanks] directly (tests, or a future direct-negative
+  /// entry point). The suggest button on the positive step always opens
+  /// (up, suggestion) regardless of these.
+  final FeedbackSentiment initialSentiment;
+  final FeedbackKind initialKind;
+
   const FeedbackPromptFlow({
     super.key,
     required this.service,
     this.initialStep = FeedbackFlowStep.gate,
     this.onClose,
     this.onRate = requestAppRating,
+    this.submissionService,
+    this.initialSentiment = FeedbackSentiment.up,
+    this.initialKind = FeedbackKind.suggestion,
   });
 
   /// Guards against showing the gate more than once per app launch. Reset
@@ -131,16 +150,37 @@ class FeedbackPromptTrigger {
 
 class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
   late FeedbackFlowStep _step;
+  late FeedbackSentiment _composerSentiment;
+  late FeedbackKind _composerKind;
+
+  /// Lazily built so steps that never touch Supabase (gate/positive/negative)
+  /// don't force a real client to exist — tests for those steps never pass
+  /// [FeedbackPromptFlow.submissionService] and don't have Supabase
+  /// initialized at all.
+  late final FeedbackSubmissionService _submissionService = widget.submissionService ?? FeedbackSubmissionService();
 
   @override
   void initState() {
     super.initState();
     _step = widget.initialStep;
+    _composerSentiment = widget.initialSentiment;
+    _composerKind = widget.initialKind;
   }
 
   void _goTo(FeedbackFlowStep step) {
     if (!mounted) return;
     setState(() => _step = step);
+  }
+
+  /// Opens the composer for a specific (sentiment, kind) pair, remembered
+  /// through to the thanks step (e.g. to decide whether "also rate" shows).
+  void _goToComposer({required FeedbackSentiment sentiment, required FeedbackKind kind}) {
+    if (!mounted) return;
+    setState(() {
+      _composerSentiment = sentiment;
+      _composerKind = kind;
+      _step = FeedbackFlowStep.composer;
+    });
   }
 
   void _close() {
@@ -187,14 +227,27 @@ class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
         return _PositiveStep(
           service: widget.service,
           onRate: widget.onRate,
-          onSuggest: () => _goTo(FeedbackFlowStep.composer),
+          onSuggest: () => _goToComposer(sentiment: FeedbackSentiment.up, kind: FeedbackKind.suggestion),
+          onClosed: _close,
+        );
+      case FeedbackFlowStep.composer:
+        return FeedbackComposerStep(
+          service: widget.service,
+          submissionService: _submissionService,
+          sentiment: _composerSentiment,
+          kind: _composerKind,
+          onSubmitted: () => _goTo(FeedbackFlowStep.thanks),
+        );
+      case FeedbackFlowStep.thanks:
+        return FeedbackThanksStep(
+          submissionService: _submissionService,
+          kind: _composerKind,
+          onRate: widget.onRate,
           onClosed: _close,
         );
       case FeedbackFlowStep.negative:
-      case FeedbackFlowStep.composer:
-      case FeedbackFlowStep.thanks:
-        // Placeholders: Tasks 7/8 build these out. For now they simply
-        // record that feedback happened and close the flow.
+        // Placeholder: Task 8 builds this out. For now it simply records
+        // that feedback happened and closes the flow.
         return _PlaceholderStep(service: widget.service, onClosed: _close);
     }
   }
