@@ -1799,5 +1799,12 @@
   "feedbackGetHelpButton": "Ottieni aiuto",
   "feedbackTellWhatsWrongButton": "Dimmi cosa non va",
   "feedbackSendFailed": "Impossibile inviare. Il tuo testo viene conservato — riprova.",
-  "feedbackRetryButton": "Riprova"
+  "feedbackRetryButton": "Riprova",
+  "helpCenterTitle": "Centro assistenza",
+  "helpCenterYourSetup": "La tua configurazione",
+  "helpCenterKnownIssues": "Problemi noti",
+  "helpCenterPricingFaq": "Prezzi e account",
+  "helpCenterGuides": "Guide e video",
+  "helpCenterContact": "Contatti e community",
+  "helpCenterChatLanguageHint": "Puoi scrivere al supporto nella tua lingua."
 }

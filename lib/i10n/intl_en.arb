@@ -2106,5 +2106,12 @@
   "feedbackGetHelpButton": "Get help",
   "feedbackTellWhatsWrongButton": "Tell me what's wrong",
   "feedbackSendFailed": "Could not send. Your text is kept — try again.",
-  "feedbackRetryButton": "Retry"
+  "feedbackRetryButton": "Retry",
+  "helpCenterTitle": "Help Center",
+  "helpCenterYourSetup": "Your setup",
+  "helpCenterKnownIssues": "Known issues",
+  "helpCenterPricingFaq": "Pricing & account",
+  "helpCenterGuides": "Guides & videos",
+  "helpCenterContact": "Contact & community",
+  "helpCenterChatLanguageHint": "You can write to support in your own language."
 }
