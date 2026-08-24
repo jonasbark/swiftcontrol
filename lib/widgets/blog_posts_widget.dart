@@ -10,7 +10,17 @@ class BlogPostsWidget extends StatefulWidget {
   final bool showHeader;
   final ValueChanged<bool>? onHasNewPosts;
 
-  const BlogPostsWidget({super.key, this.maxPosts = 5, this.showHeader = true, this.onHasNewPosts});
+  /// Test seam: replaces the default `BlogService().fetchPosts()` call —
+  /// see help_center_sections_test.dart.
+  final Future<List<BlogPost>>? postsFutureOverride;
+
+  const BlogPostsWidget({
+    super.key,
+    this.maxPosts = 5,
+    this.showHeader = true,
+    this.onHasNewPosts,
+    this.postsFutureOverride,
+  });
 
   @override
   State<BlogPostsWidget> createState() => _BlogPostsWidgetState();
@@ -22,7 +32,7 @@ class _BlogPostsWidgetState extends State<BlogPostsWidget> {
   @override
   void initState() {
     super.initState();
-    _postsFuture = BlogService().fetchPosts();
+    _postsFuture = widget.postsFutureOverride ?? BlogService().fetchPosts();
   }
 
   @override

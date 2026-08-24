@@ -12,6 +12,7 @@ import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/widgets/ui/help_button.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -35,6 +36,9 @@ Future<void> main() async {
   // offline dummy instance (no session, so no request is ever made) rather
   // than crashing on the un-initialized singleton.
   setUpAll(() async {
+    // The "Guides & videos" section now embeds BlogSection, which formats
+    // each post's date with DateFormat.yMMMd() — needs locale data.
+    await initializeDateFormatting();
     SharedPreferences.setMockInitialValues({});
     await Supabase.initialize(
       url: 'http://127.0.0.1:9',
@@ -89,7 +93,14 @@ Future<void> main() async {
     // `initState`, mirroring how a freshly-pushed route always behaves.
     await tester.pumpWidget(const SizedBox());
     await _pump(tester, const HelpCenterPage(focus: HelpCenterFocus.yourSetup));
-    await tester.pumpAndSettle();
+    // Not pumpAndSettle: the "Guides & videos" section now embeds
+    // BlogSection, whose loading state shimmers via an indefinitely
+    // repeating animation while its (real, unmocked) network fetch is in
+    // flight — pumpAndSettle never sees a settled frame. The scroll
+    // animation itself is a fixed 350ms tween, so a couple of bounded pumps
+    // is enough to let it finish.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     final focusedRect = tester.getRect(find.byKey(const ValueKey('help-your-setup')));
     expect(focusedRect.top, greaterThanOrEqualTo(0));
@@ -103,7 +114,11 @@ Future<void> main() async {
     expect(find.byType(HelpCenterPage), findsNothing);
 
     await tester.tap(find.byType(HelpButton));
-    await tester.pumpAndSettle();
+    // Not pumpAndSettle: HelpCenterPage's "Guides & videos" section embeds
+    // BlogSection, whose loading-state shimmer animates indefinitely while
+    // its (real, unmocked) network fetch is in flight.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(HelpCenterPage), findsOneWidget);
   });
@@ -120,11 +135,15 @@ Future<void> main() async {
     await tester.pump();
 
     await tester.tap(find.byType(HelpButton));
-    await tester.pumpAndSettle();
+    // Not pumpAndSettle: see the "help button push opens HelpCenterPage"
+    // test above — BlogSection's loading shimmer never settles.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(HelpCenterPage), findsOneWidget);
 
     await tester.tap(find.byType(IconButton).first);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1000));
 
     expect(find.byType(HelpCenterPage), findsNothing);
     expect(find.byType(HelpButton), findsOneWidget);

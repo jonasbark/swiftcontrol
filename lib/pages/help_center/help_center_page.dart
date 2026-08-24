@@ -3,13 +3,17 @@
 // the frame plus the sections it can already fill cheaply — Guides & videos,
 // Troubleshooting, Contact & community (all lifted from the old dropdown) —
 // and placeholder headers for the sections Tasks 9-11 build out: Your setup,
-// Known issues, Pricing & account.
+// Known issues, Pricing & account. Task 9 filled in "Your setup"; Task 10
+// filled in "Known issues" and appended the blog to "Guides & videos";
+// "Pricing & account" is still a placeholder for Task 11.
 import 'dart:async';
 
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/pages/help_center/widgets/blog_section.dart';
 import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
 import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
 import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
+import 'package:bike_control/pages/help_center/widgets/known_issues_section.dart';
 import 'package:bike_control/pages/help_center/widgets/your_setup_section.dart';
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -69,7 +73,11 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         index: 0,
         icon: LucideIcons.bookOpen,
         title: l10n.helpCenterGuides,
-        child: const GuidesVideosSection(),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 8,
+          children: [GuidesVideosSection(), Divider(), BlogSection()],
+        ),
       ),
       HelpCenterSectionCard(
         index: 1,
@@ -92,7 +100,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         index: 3,
         icon: LucideIcons.triangleAlert,
         title: l10n.helpCenterKnownIssues,
-        child: const _PlaceholderSection(key: ValueKey('help-known-issues')),
+        child: const KnownIssuesSection(key: ValueKey('help-known-issues')),
       ),
       HelpCenterSectionCard(
         index: 4,
@@ -166,11 +174,11 @@ class _TroubleshootingSection extends StatelessWidget {
   }
 }
 
-/// Placeholder body for a section Tasks 10-11 will build out. Task 9 gave
-/// "Your setup" its own [_YourSetupFocusFrame] below (with real content and
-/// its own [HelpCenterFocus] cue); the two sections still on this
-/// placeholder don't have a focus target yet, so there's nothing to expand
-/// for.
+/// Placeholder body for the "Pricing & account" section Task 11 will build
+/// out. Task 9 gave "Your setup" its own [_YourSetupFocusFrame] below (with
+/// real content and its own [HelpCenterFocus] cue); Task 10 gave "Known
+/// issues" real content too. This last placeholder doesn't have a focus
+/// target yet, so there's nothing to expand for.
 class _PlaceholderSection extends StatelessWidget {
   const _PlaceholderSection({super.key});
 
