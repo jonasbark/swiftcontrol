@@ -397,10 +397,13 @@ class Connection {
     // "Zwift Hub"). Restart the transport on every change so the new name
     // shows up on the wire without the user reconnecting.
     core.settings.trainerAppListenable.addListener(() {
-      unawaited(ftmsEmulator.restart());
+      // Reconcile each device's composite membership (a VS bridge takes its
+      // ride-along controller on/off depending on the app) BEFORE the shared
+      // emulator re-advertises, so the new advertisement reflects the change.
       for (final pd in proxyDevices) {
-        unawaited(pd.restartProxyEmulator());
+        unawaited(pd.onTrainerAppChanged());
       }
+      unawaited(ftmsEmulator.restart());
     });
 
     // Inform the user when ClickLogic restarts a device on purpose — its

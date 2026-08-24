@@ -253,6 +253,31 @@ class ProxyDevice extends BluetoothDevice {
     await _proxyEmulator.restart();
   }
 
+  /// React to a trainer-app change while this device is connected.
+  ///
+  /// Proxy mode re-advertises its own emulator (the advertised name depends on
+  /// the app). A VS-mode device reconciles its ride-along controller: the
+  /// controller belongs on the bridge only for apps that take their controller
+  /// over it ([_attachesZwiftController]). Switching to an app that doesn't must
+  /// take it back off, or the bridge keeps advertising a controller the app
+  /// can't use — and it stays there until the trainer is reconnected. The
+  /// composite is only mutated here; the shared emulator's re-advertise is
+  /// driven by the caller.
+  Future<void> onTrainerAppChanged() async {
+    if (_retrofitModeN.value == RetrofitMode.proxy) {
+      await restartProxyEmulator();
+      return;
+    }
+    final controller = _zwiftControllerEmulator;
+    if (controller == null) return;
+    final attached = ftmsEmulator.composite.children.contains(controller);
+    if (_attachesZwiftController && !attached) {
+      ftmsEmulator.composite.attach(controller);
+    } else if (!_attachesZwiftController && attached) {
+      ftmsEmulator.composite.detach(controller);
+    }
+  }
+
   /// Mirror the active emulator's state notifiers into our stable wrappers.
   /// Removes listeners from the previous emulator (if any) before re-binding.
   void _bindToActiveEmulator() {
