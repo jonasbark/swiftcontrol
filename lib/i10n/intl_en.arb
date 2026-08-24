@@ -2117,5 +2117,17 @@
   "helpCenterOpenTroubleshooting": "Open troubleshooting guide",
   "helpCenterNetworkEntry": "Test your network connection",
   "helpCenterClickV2Entry": "Zwift Click V2 setup options",
-  "helpCenterNoSetup": "No controllers set up yet — the setup wizard is the best place to start."
+  "helpCenterNoSetup": "No controllers set up yet — the setup wizard is the best place to start.",
+  "faqOneTimeQ": "I paid for the app once — what did that include?",
+  "faqOneTimeA": "The one-time purchase unlocks the Base version of BikeControl: connecting your controllers, basic button mapping (one action per button), and unlimited commands per day in your trainer app. It was never a subscription and it doesn't expire.",
+  "faqProQ": "Why is there a Pro subscription now?",
+  "faqProA": "Pro covers virtual shifting, advanced button mapping (3 actions per button), cross-platform use, and the other premium features — they create ongoing work and server costs, since trainer-app protocols and integrations change constantly and need continuous updates. The one-time price alone couldn't sustain that.",
+  "faqTrialQ": "Why is virtual shifting limited to 20 minutes?",
+  "faqTrialA": "That's the free trial of Pro: without a subscription you get 20 minutes of virtual shifting in your trainer app per day — it resets daily, not per ride. With Pro there's no limit.",
+  "faqGrandfatherQ": "I bought the app before the subscription existed. What do I keep?",
+  "faqGrandfatherA": "Everything the one-time purchase included, you keep forever — unlimited commands, basic button mapping, connecting your controllers. Virtual shifting was always part of Pro, even for early purchases, so it isn't included automatically.",
+  "faqRefundQ": "Can I get a refund?",
+  "faqRefundA": "Refunds are handled by the store you bought from (App Store, Google Play, Microsoft Store) under their policies. If something doesn't work, contact support first — most issues are fixable, and I'd rather fix yours than lose you.",
+  "faqRestoreQ": "I reinstalled and my purchase is gone.",
+  "faqRestoreA": "Use Restore Purchases on the paywall screen (Go Pro / Upgrade), with the same store account you bought with. If it still doesn't appear, contact support from this page and include your purchase email."
 }

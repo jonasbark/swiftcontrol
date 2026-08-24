@@ -1810,5 +1810,17 @@
   "helpCenterOpenTroubleshooting": "Otwórz przewodnik rozwiązywania problemów",
   "helpCenterNetworkEntry": "Przetestuj swoje połączenie sieciowe",
   "helpCenterClickV2Entry": "Opcje konfiguracji Zwift Click V2",
-  "helpCenterNoSetup": "Nie masz jeszcze skonfigurowanych kontrolerów — najlepiej zacząć od kreatora konfiguracji."
+  "helpCenterNoSetup": "Nie masz jeszcze skonfigurowanych kontrolerów — najlepiej zacząć od kreatora konfiguracji.",
+  "faqOneTimeQ": "Zapłaciłem za aplikację jednorazowo — co to obejmowało?",
+  "faqOneTimeA": "Jednorazowy zakup odblokowuje wersję podstawową BikeControl: połączenie z kontrolerami, podstawowe mapowanie przycisków (jedna akcja na przycisk) oraz nielimitowane polecenia dziennie w aplikacji treningowej. To nigdy nie było subskrypcją i nie wygasa.",
+  "faqProQ": "Dlaczego teraz jest subskrypcja Pro?",
+  "faqProA": "Pro obejmuje wirtualne przełączanie, zaawansowane mapowanie przycisków (3 akcje na przycisk), użytkowanie na wielu platformach i pozostałe funkcje premium — generują one bieżącą pracę i koszty serwera, bo protokoły i integracje z aplikacjami treningowymi wciąż się zmieniają i wymagają ciągłego utrzymania. Sama jednorazowa opłata by tego nie udźwignęła.",
+  "faqTrialQ": "Dlaczego wirtualne przełączanie jest ograniczone do 20 minut?",
+  "faqTrialA": "To bezpłatny okres próbny Pro: bez subskrypcji masz 20 minut wirtualnego przełączania w aplikacji treningowej dziennie — limit resetuje się codziennie, a nie przy każdej jeździe. Z Pro nie ma limitu.",
+  "faqGrandfatherQ": "Kupiłem aplikację, zanim istniała subskrypcja. Co zachowuję?",
+  "faqGrandfatherA": "Wszystko, co obejmował jednorazowy zakup, zachowujesz na zawsze — nielimitowane polecenia, podstawowe mapowanie przycisków, połączenie z kontrolerami. Wirtualne przełączanie zawsze było częścią Pro, nawet dla wcześniejszych zakupów, więc nie jest w nim automatycznie zawarte.",
+  "faqRefundQ": "Czy mogę dostać zwrot pieniędzy?",
+  "faqRefundA": "Zwroty obsługuje sklep, w którym kupiłeś (App Store, Google Play, Microsoft Store), zgodnie z jego zasadami. Jeśli coś nie działa, najpierw napisz do wsparcia — większość problemów da się rozwiązać, a wolę naprawić twój niż cię stracić.",
+  "faqRestoreQ": "Zainstalowałem aplikację ponownie i mój zakup zniknął.",
+  "faqRestoreA": "Użyj „Przywróć zakupy” na ekranie płatności (Go Pro / Ulepsz), na tym samym koncie sklepu, na którym kupiłeś. Jeśli nadal się nie pojawia, napisz do wsparcia z tej strony i podaj e-mail użyty przy zakupie."
 }

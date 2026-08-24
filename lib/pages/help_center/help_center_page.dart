@@ -14,6 +14,7 @@ import 'package:bike_control/pages/help_center/widgets/contact_community_section
 import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
 import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
 import 'package:bike_control/pages/help_center/widgets/known_issues_section.dart';
+import 'package:bike_control/pages/help_center/widgets/pricing_faq_section.dart';
 import 'package:bike_control/pages/help_center/widgets/your_setup_section.dart';
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -106,7 +107,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         index: 4,
         icon: LucideIcons.creditCard,
         title: l10n.helpCenterPricingFaq,
-        child: const _PlaceholderSection(key: ValueKey('help-pricing-account')),
+        child: const PricingFaqSection(key: ValueKey('help-pricing-account')),
       ),
       HelpCenterSectionCard(
         index: 5,
@@ -174,32 +175,9 @@ class _TroubleshootingSection extends StatelessWidget {
   }
 }
 
-/// Placeholder body for the "Pricing & account" section Task 11 will build
-/// out. Task 9 gave "Your setup" its own [_YourSetupFocusFrame] below (with
-/// real content and its own [HelpCenterFocus] cue); Task 10 gave "Known
-/// issues" real content too. This last placeholder doesn't have a focus
-/// target yet, so there's nothing to expand for.
-class _PlaceholderSection extends StatelessWidget {
-  const _PlaceholderSection({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.mutedForeground.withValues(alpha: 0.3), width: 0.3),
-      ),
-      child: Text('Coming soon.').muted.small,
-    );
-  }
-}
-
-/// Wraps [YourSetupSection] with the same highlighted-border cue
-/// [_PlaceholderSection] used, so a rider landing on this page via
-/// `HelpCenterFocus.yourSetup` still gets the visual "you're here" nudge now
-/// that the section has real content (Task 9).
+/// Wraps [YourSetupSection] with a highlighted-border cue so a rider landing
+/// on this page via `HelpCenterFocus.yourSetup` gets a visual "you're here"
+/// nudge (Task 9).
 class _YourSetupFocusFrame extends StatelessWidget {
   final bool expanded;
   final Widget child;

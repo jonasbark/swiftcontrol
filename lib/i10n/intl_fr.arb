@@ -1810,5 +1810,17 @@
   "helpCenterOpenTroubleshooting": "Ouvrir le guide de dépannage",
   "helpCenterNetworkEntry": "Teste ta connexion réseau",
   "helpCenterClickV2Entry": "Options de configuration du Zwift Click V2",
-  "helpCenterNoSetup": "Aucun contrôleur configuré pour l'instant — l'assistant de configuration est le meilleur point de départ."
+  "helpCenterNoSetup": "Aucun contrôleur configuré pour l'instant — l'assistant de configuration est le meilleur point de départ.",
+  "faqOneTimeQ": "J'ai payé l'appli une seule fois — qu'est-ce que ça incluait ?",
+  "faqOneTimeA": "L'achat unique débloque la version de base de BikeControl : connexion de tes contrôleurs, mapping de boutons basique (une action par bouton) et commandes illimitées par jour dans ton appli d'entraînement. Ça n'a jamais été un abonnement et ça n'expire pas.",
+  "faqProQ": "Pourquoi y a-t-il maintenant un abonnement Pro ?",
+  "faqProA": "Pro couvre le changement de vitesses virtuel, le mapping de boutons avancé (3 actions par bouton), l'utilisation multiplateforme et les autres fonctionnalités premium — elles génèrent un travail et des coûts de serveur continus, car les protocoles et intégrations des applis d'entraînement changent sans cesse et demandent une maintenance permanente. Le prix unique seul ne pouvait pas soutenir ça.",
+  "faqTrialQ": "Pourquoi le changement de vitesses virtuel est-il limité à 20 minutes ?",
+  "faqTrialA": "C'est l'essai gratuit de Pro : sans abonnement, tu as 20 minutes de changement de vitesses virtuel dans ton appli d'entraînement par jour — ça se réinitialise chaque jour, pas à chaque sortie. Avec Pro, il n'y a pas de limite.",
+  "faqGrandfatherQ": "J'ai acheté l'appli avant que l'abonnement existe. Qu'est-ce que je garde ?",
+  "faqGrandfatherA": "Tout ce que l'achat unique incluait, tu le gardes pour toujours — commandes illimitées, mapping de boutons basique, connexion de tes contrôleurs. Le changement de vitesses virtuel a toujours fait partie de Pro, même pour les achats anciens, donc il n'est pas inclus automatiquement.",
+  "faqRefundQ": "Puis-je obtenir un remboursement ?",
+  "faqRefundA": "Les remboursements sont gérés par le store où tu as acheté (App Store, Google Play, Microsoft Store) selon leurs règles. Si quelque chose ne fonctionne pas, contacte d'abord le support — la plupart des problèmes se règlent, et je préfère régler le tien plutôt que te perdre.",
+  "faqRestoreQ": "J'ai réinstallé et mon achat a disparu.",
+  "faqRestoreA": "Utilise « Restaurer les achats » sur l'écran de paiement (Allez Pro / Mettre à niveau), avec le même compte store que celui utilisé pour l'achat. Si ça n'apparaît toujours pas, contacte le support depuis cette page et indique ton e-mail d'achat."
 }

@@ -1810,5 +1810,17 @@
   "helpCenterOpenTroubleshooting": "Fehlerbehebungsanleitung öffnen",
   "helpCenterNetworkEntry": "Teste deine Netzwerkverbindung",
   "helpCenterClickV2Entry": "Einrichtungsoptionen für den Zwift Click V2",
-  "helpCenterNoSetup": "Noch keine Controller eingerichtet – der Einrichtungsassistent ist der beste Startpunkt."
+  "helpCenterNoSetup": "Noch keine Controller eingerichtet – der Einrichtungsassistent ist der beste Startpunkt.",
+  "faqOneTimeQ": "Ich habe die App einmalig gekauft – was war da alles dabei?",
+  "faqOneTimeA": "Der einmalige Kauf schaltet die Basisversion von BikeControl frei: Verbindung deiner Controller, einfaches Button-Mapping (eine Aktion pro Taste) und unbegrenzte Befehle pro Tag in deiner Trainings-App. Das war nie ein Abonnement und läuft nie ab.",
+  "faqProQ": "Warum gibt es jetzt ein Pro-Abonnement?",
+  "faqProA": "Pro umfasst virtuelles Schalten, erweitertes Button-Mapping (3 Aktionen pro Taste), plattformübergreifende Nutzung und die weiteren Premium-Funktionen – sie verursachen laufende Arbeit und Serverkosten, weil sich Protokolle und Integrationen der Trainings-Apps ständig ändern und dauerhaft gepflegt werden müssen. Der einmalige Preis allein hätte das nicht getragen.",
+  "faqTrialQ": "Warum ist virtuelles Schalten auf 20 Minuten begrenzt?",
+  "faqTrialA": "Das ist die kostenlose Testzeit von Pro: Ohne Abonnement bekommst du 20 Minuten virtuelles Schalten in deiner Trainings-App pro Tag – sie wird täglich zurückgesetzt, nicht pro Fahrt. Mit Pro gibt es kein Limit.",
+  "faqGrandfatherQ": "Ich habe die App gekauft, bevor es das Abo gab. Was behalte ich?",
+  "faqGrandfatherA": "Alles, was der einmalige Kauf enthielt, behältst du für immer – unbegrenzte Befehle, einfaches Button-Mapping, die Verbindung deiner Controller. Virtuelles Schalten war schon immer Teil von Pro, auch für frühe Käufe, und ist deshalb nicht automatisch enthalten.",
+  "faqRefundQ": "Kann ich eine Rückerstattung bekommen?",
+  "faqRefundA": "Rückerstattungen laufen über den Store, bei dem du gekauft hast (App Store, Google Play, Microsoft Store) und richten sich nach dessen Richtlinien. Wenn etwas nicht funktioniert, melde dich zuerst beim Support – die meisten Probleme lassen sich lösen, und ich repariere lieber deins, als dich zu verlieren.",
+  "faqRestoreQ": "Ich habe neu installiert und mein Kauf ist weg.",
+  "faqRestoreA": "Nutze „Käufe wiederherstellen“ auf dem Bezahlbildschirm (Pro werden / Upgrade), mit demselben Store-Konto, mit dem du gekauft hast. Falls es immer noch nicht auftaucht, melde dich hier beim Support und gib deine Kauf-E-Mail an."
 }

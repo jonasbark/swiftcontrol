@@ -1810,5 +1810,17 @@
   "helpCenterOpenTroubleshooting": "Abrir la guía de solución de problemas",
   "helpCenterNetworkEntry": "Prueba tu conexión de red",
   "helpCenterClickV2Entry": "Opciones de configuración del Zwift Click V2",
-  "helpCenterNoSetup": "Todavía no tienes ningún controlador configurado: el asistente de configuración es el mejor punto de partida."
+  "helpCenterNoSetup": "Todavía no tienes ningún controlador configurado: el asistente de configuración es el mejor punto de partida.",
+  "faqOneTimeQ": "Pagué la app una sola vez, ¿qué incluía eso?",
+  "faqOneTimeA": "El pago único desbloquea la versión básica de BikeControl: conectar tus controladores, asignación básica de botones (una acción por botón) y comandos ilimitados por día en tu app de entrenamiento. Nunca fue una suscripción y no caduca.",
+  "faqProQ": "¿Por qué hay ahora una suscripción Pro?",
+  "faqProA": "Pro incluye el cambio de marchas virtual, la asignación avanzada de botones (3 acciones por botón), el uso multiplataforma y el resto de funciones premium: generan trabajo y costes de servidor continuos, porque los protocolos e integraciones con las apps de entrenamiento cambian todo el tiempo y necesitan mantenimiento constante. El precio único por sí solo no podía sostener eso.",
+  "faqTrialQ": "¿Por qué el cambio de marchas virtual está limitado a 20 minutos?",
+  "faqTrialA": "Esa es la prueba gratuita de Pro: sin suscripción tienes 20 minutos de cambio de marchas virtual en tu app de entrenamiento al día, y se reinicia cada día, no por salida. Con Pro no hay límite.",
+  "faqGrandfatherQ": "Compré la app antes de que existiera la suscripción. ¿Qué conservo?",
+  "faqGrandfatherA": "Todo lo que incluía el pago único lo conservas para siempre: comandos ilimitados, asignación básica de botones, conexión de tus controladores. El cambio de marchas virtual siempre fue parte de Pro, incluso para compras antiguas, así que no está incluido automáticamente.",
+  "faqRefundQ": "¿Puedo pedir un reembolso?",
+  "faqRefundA": "Los reembolsos los gestiona la tienda donde compraste (App Store, Google Play, Microsoft Store) según sus políticas. Si algo no funciona, contacta primero con soporte: la mayoría de los problemas se pueden resolver, y prefiero arreglar el tuyo antes que perderte.",
+  "faqRestoreQ": "Reinstalé la app y mi compra ha desaparecido.",
+  "faqRestoreA": "Usa «Restaurar compras» en la pantalla de pago (Hazte Pro / Actualizar), con la misma cuenta de la tienda con la que compraste. Si sigue sin aparecer, contacta con soporte desde esta página e indica tu correo de compra."
 }
