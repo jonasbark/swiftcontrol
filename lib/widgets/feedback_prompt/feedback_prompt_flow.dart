@@ -1,12 +1,15 @@
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/services/feedback_prompt_service.dart';
+import 'package:bike_control/utils/rate_app.dart';
+import 'package:bike_control/widgets/feedback_prompt/confetti_burst.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Steps of the feedback prompt flow. `gate` asks a plain thumbs up/down
 /// sentiment question (no rating, no stars); `positive`/`negative` branch off
 /// it; `composer`/`negative` eventually lead into `composer` (free-text) and
-/// `thanks`. Only `gate` is fully built out here — the rest are placeholders
-/// wired up by later tasks.
+/// `thanks`. `gate` and `positive` are fully built out here — `negative`,
+/// `composer`, and `thanks` are placeholders wired up by later tasks.
 enum FeedbackFlowStep { gate, positive, negative, composer, thanks }
 
 /// Opens the feedback prompt flow: a bottom sheet on narrow layouts
@@ -66,11 +69,16 @@ class FeedbackPromptFlow extends StatefulWidget {
   final FeedbackFlowStep initialStep;
   final VoidCallback? onClose;
 
+  /// Requests the native store rating prompt. Injectable so widget tests can
+  /// substitute a spy instead of hitting the real store review API.
+  final Future<void> Function() onRate;
+
   const FeedbackPromptFlow({
     super.key,
     required this.service,
     this.initialStep = FeedbackFlowStep.gate,
     this.onClose,
+    this.onRate = requestAppRating,
   });
 
   /// Guards against showing the gate more than once per app launch. Reset
@@ -176,10 +184,16 @@ class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
           onNotNow: _onNotNow,
         );
       case FeedbackFlowStep.positive:
+        return _PositiveStep(
+          service: widget.service,
+          onRate: widget.onRate,
+          onSuggest: () => _goTo(FeedbackFlowStep.composer),
+          onClosed: _close,
+        );
       case FeedbackFlowStep.negative:
       case FeedbackFlowStep.composer:
       case FeedbackFlowStep.thanks:
-        // Placeholders: Tasks 4/7/8 build these out. For now they simply
+        // Placeholders: Tasks 7/8 build these out. For now they simply
         // record that feedback happened and close the flow.
         return _PlaceholderStep(service: widget.service, onClosed: _close);
     }
@@ -235,6 +249,76 @@ class _GateStep extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Thumbs-up branch of the gate: offers a native store rating or a written
+/// suggestion, celebrating with a one-shot confetti burst behind the
+/// content.
+class _PositiveStep extends StatefulWidget {
+  final FeedbackPromptService service;
+  final Future<void> Function() onRate;
+  final VoidCallback onSuggest;
+  final VoidCallback onClosed;
+
+  const _PositiveStep({
+    required this.service,
+    required this.onRate,
+    required this.onSuggest,
+    required this.onClosed,
+  });
+
+  @override
+  State<_PositiveStep> createState() => _PositiveStepState();
+}
+
+class _PositiveStepState extends State<_PositiveStep> {
+  bool _rating = false;
+
+  Future<void> _handleRate() async {
+    if (_rating) return;
+    setState(() => _rating = true);
+    try {
+      await widget.onRate();
+      await widget.service.markCompleted();
+      if (mounted) widget.onClosed();
+    } catch (e, s) {
+      await recordError(e, s, context: 'FeedbackPromptFlow.rate');
+      if (mounted) setState(() => _rating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        const Positioned.fill(child: ConfettiBurst()),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.feedbackPositiveTitle, textAlign: TextAlign.center).semiBold,
+              const Gap(20),
+              PrimaryButton(
+                key: const ValueKey('feedback-rate'),
+                onPressed: _rating ? null : _handleRate,
+                child: Text(l10n.feedbackRateButton),
+              ),
+              const Gap(12),
+              SecondaryButton(
+                key: const ValueKey('feedback-suggest'),
+                onPressed: widget.onSuggest,
+                child: Text(l10n.feedbackSuggestButton),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
