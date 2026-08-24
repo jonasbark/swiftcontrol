@@ -17,8 +17,8 @@ import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/blog_posts_widget.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
+import 'package:bike_control/widgets/feedback_prompt/feedback_prompt_flow.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
-import 'package:bike_control/widgets/review_banner.dart';
 import 'package:bike_control/widgets/ui/button_widget.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show ConnectionMethodTypeActivityIcon;
@@ -96,9 +96,25 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     if (mounted) setState(() {});
   }
 
+  void _onFeedbackPromptChanged() {
+    if (!core.feedbackPromptService.shouldShowPrompt.value) return;
+    if (FeedbackPromptFlow.shownThisLaunch) return;
+    FeedbackPromptFlow.shownThisLaunch = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showFeedbackPromptFlow(context, service: core.feedbackPromptService);
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+
+    core.feedbackPromptService.shouldShowPrompt.addListener(_onFeedbackPromptChanged);
+    // The service can already be eligible before this page mounts (e.g. the
+    // threshold was crossed in a previous session) — a listener alone would
+    // never fire for that case since the value doesn't change again.
+    _onFeedbackPromptChanged();
 
     // keep screen on - this is required for iOS to keep the bluetooth connection alive
     if (!screenshotMode) {
@@ -280,6 +296,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     }
     WidgetsBinding.instance.removeObserver(this);
     _horizontalScrollController.dispose();
+    core.feedbackPromptService.shouldShowPrompt.removeListener(_onFeedbackPromptChanged);
 
     _timeRefreshTimer.cancel();
     _actionListener.cancel();
@@ -304,7 +321,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Gap(8),
-        ReviewBanner(service: core.feedbackPromptService),
         HomePage(
           isMobile: widget.isMobile,
           showHelpRow: !showsActivityRail,
