@@ -149,7 +149,7 @@ Future<void> _openSupportChat(BuildContext context, VoidCallback onClose) async 
         builder: (_) => SupportChatPage(
           diagnosticPreviewFuture: debugFuture,
           initialAttachment: screenshot,
-          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugFuture),
+          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugText()),
         ),
       ),
     );

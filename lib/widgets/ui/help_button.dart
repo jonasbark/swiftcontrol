@@ -145,7 +145,8 @@ class _HelpButtonState extends State<HelpButton> {
                         final screenshot = await captureOverviewScreenshot(context: context);
                         // Gather diagnostics in the background so the chat opens
                         // immediately; the page awaits this future lazily for the
-                        // preview and at send time (it resolves once and is reused).
+                        // preview. Send-time telemetry is re-gathered fresh (see telemetryBuilder)
+                        // so a later message reflects the current state, not the compose-time snapshot.
                         final debugFuture = debugText();
                         await Navigator.of(context).push(
                           MaterialPageRoute(
@@ -153,7 +154,7 @@ class _HelpButtonState extends State<HelpButton> {
                               diagnosticPreviewFuture: debugFuture,
                               initialAttachment: screenshot,
                               telemetryBuilder: () async =>
-                                  TelemetrySnapshot.general(freetext: await debugFuture),
+                                  TelemetrySnapshot.general(freetext: await debugText()),
                             ),
                           ),
                         );
