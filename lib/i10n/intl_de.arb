@@ -1807,5 +1807,8 @@
   "helpCenterGuides": "Anleitungen & Videos",
   "helpCenterContact": "Kontakt & Community",
   "helpCenterChatLanguageHint": "Du kannst dem Support in deiner eigenen Sprache schreiben.",
-  "helpCenterOpenTroubleshooting": "Fehlerbehebungsanleitung öffnen"
+  "helpCenterOpenTroubleshooting": "Fehlerbehebungsanleitung öffnen",
+  "helpCenterNetworkEntry": "Teste deine Netzwerkverbindung",
+  "helpCenterClickV2Entry": "Einrichtungsoptionen für den Zwift Click V2",
+  "helpCenterNoSetup": "Noch keine Controller eingerichtet – der Einrichtungsassistent ist der beste Startpunkt."
 }

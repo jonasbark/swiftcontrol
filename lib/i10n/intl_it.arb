@@ -1807,5 +1807,8 @@
   "helpCenterGuides": "Guide e video",
   "helpCenterContact": "Contatti e community",
   "helpCenterChatLanguageHint": "Puoi scrivere al supporto nella tua lingua.",
-  "helpCenterOpenTroubleshooting": "Apri la guida alla risoluzione dei problemi"
+  "helpCenterOpenTroubleshooting": "Apri la guida alla risoluzione dei problemi",
+  "helpCenterNetworkEntry": "Testa la tua connessione di rete",
+  "helpCenterClickV2Entry": "Opzioni di configurazione dello Zwift Click V2",
+  "helpCenterNoSetup": "Non hai ancora configurato nessun controller: la procedura guidata è il punto di partenza migliore."
 }

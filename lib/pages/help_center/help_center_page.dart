@@ -10,6 +10,7 @@ import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
 import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
 import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
+import 'package:bike_control/pages/help_center/widgets/your_setup_section.dart';
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -81,9 +82,10 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         index: 2,
         icon: LucideIcons.settings2,
         title: l10n.helpCenterYourSetup,
-        child: _PlaceholderSection(
+        child: _YourSetupFocusFrame(
           key: const ValueKey('help-your-setup'),
           expanded: _yourSetupExpanded,
+          child: const YourSetupSection(),
         ),
       ),
       HelpCenterSectionCard(
@@ -164,14 +166,37 @@ class _TroubleshootingSection extends StatelessWidget {
   }
 }
 
-/// Placeholder body for a section Tasks 9-11 will build out. [expanded]
-/// reflects whether this page was opened with the section's [HelpCenterFocus]
-/// — a cheap visual cue (highlighted border) until the section has real
-/// content of its own to expand.
+/// Placeholder body for a section Tasks 10-11 will build out. Task 9 gave
+/// "Your setup" its own [_YourSetupFocusFrame] below (with real content and
+/// its own [HelpCenterFocus] cue); the two sections still on this
+/// placeholder don't have a focus target yet, so there's nothing to expand
+/// for.
 class _PlaceholderSection extends StatelessWidget {
-  final bool expanded;
+  const _PlaceholderSection({super.key});
 
-  const _PlaceholderSection({super.key, this.expanded = false});
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cs.mutedForeground.withValues(alpha: 0.3), width: 0.3),
+      ),
+      child: Text('Coming soon.').muted.small,
+    );
+  }
+}
+
+/// Wraps [YourSetupSection] with the same highlighted-border cue
+/// [_PlaceholderSection] used, so a rider landing on this page via
+/// `HelpCenterFocus.yourSetup` still gets the visual "you're here" nudge now
+/// that the section has real content (Task 9).
+class _YourSetupFocusFrame extends StatelessWidget {
+  final bool expanded;
+  final Widget child;
+
+  const _YourSetupFocusFrame({super.key, required this.child, this.expanded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +211,7 @@ class _PlaceholderSection extends StatelessWidget {
           width: expanded ? 1.2 : 0.3,
         ),
       ),
-      child: Text('Coming soon.').muted.small,
+      child: child,
     );
   }
 }

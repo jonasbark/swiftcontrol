@@ -2114,5 +2114,8 @@
   "helpCenterGuides": "Guides & videos",
   "helpCenterContact": "Contact & community",
   "helpCenterChatLanguageHint": "You can write to support in your own language.",
-  "helpCenterOpenTroubleshooting": "Open troubleshooting guide"
+  "helpCenterOpenTroubleshooting": "Open troubleshooting guide",
+  "helpCenterNetworkEntry": "Test your network connection",
+  "helpCenterClickV2Entry": "Zwift Click V2 setup options",
+  "helpCenterNoSetup": "No controllers set up yet — the setup wizard is the best place to start."
 }
