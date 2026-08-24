@@ -3,6 +3,7 @@
 // dropdown's `MenuButton` (Task 8): unread-dot polling, the pre-staged
 // overview screenshot, and the debug-text/TelemetrySnapshot handoff into
 // `SupportChatPage` all behave exactly as before.
+import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/support_chat_models.dart';
@@ -11,7 +12,7 @@ import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/widgets/menu.dart' show debugText;
-import 'package:prop/utils/shared.dart';
+import 'package:bike_control/widgets/ui/unread_dot.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -49,9 +50,9 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
       if (hasUnreadAdminReply != _hasUnread) {
         setState(() => _hasUnread = hasUnreadAdminReply);
       }
-    } catch (error) {
+    } catch (e, s) {
       // Best-effort — leave the dot off.
-      Logger.error('Failed to check for unread support messages $error');
+      recordError(e, s, context: 'ContactCommunitySection.checkForUnread');
     }
   }
 
@@ -115,12 +116,7 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
             leading: Icon(LucideIcons.messageCircle, size: 18, color: _hasUnread ? destructive : null),
             title: _hasUnread ? Text(context.i18n.chatWithSupport).semiBold : Text(context.i18n.chatWithSupport),
             trailing: _hasUnread
-                ? Container(
-                    key: const ValueKey('help-center-chat-unread-dot'),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(color: destructive, shape: BoxShape.circle),
-                  )
+                ? const UnreadDot(key: ValueKey('help-center-chat-unread-dot'), size: 10)
                 : const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
           ),
         ),

@@ -3,6 +3,7 @@ import 'package:bike_control/services/support_chat_models.dart';
 import 'package:bike_control/services/support_chat_service.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/widgets/ui/unread_dot.dart';
 import 'package:prop/utils/shared.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -60,7 +61,19 @@ class _HelpButtonState extends State<HelpButton> {
       child: Builder(
         builder: (context) {
           return Button(
-            onPressed: () => context.push(const HelpCenterPage()),
+            onPressed: () async {
+              // Awaited so the unread badge re-syncs on return — mirrors the
+              // old dropdown's MenuButton, which reset/re-checked after the
+              // chat page closed. HelpButton stays mounted under the pushed
+              // route, and ContactCommunitySection only ever clears its own
+              // local unread flag, so this button's badge needs its own
+              // re-check too.
+              await context.push(const HelpCenterPage());
+              if (mounted) {
+                setState(() => _hasUnread = false);
+                _checkForUnread();
+              }
+            },
             leading: Padding(
               padding: EdgeInsets.only(
                 bottom: isMobile
@@ -106,26 +119,6 @@ class _HelpButtonState extends State<HelpButton> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _UnreadDot extends StatelessWidget {
-  const _UnreadDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.destructive,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.background,
-          width: 1.5,
-        ),
       ),
     );
   }
@@ -192,7 +185,7 @@ class _PulsingUnreadBadgeState extends State<_PulsingUnreadBadge> with SingleTic
                 ),
               ),
             ),
-            const _UnreadDot(),
+            const UnreadDot(),
           ],
         ),
       ),

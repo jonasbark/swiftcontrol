@@ -1806,5 +1806,6 @@
   "helpCenterPricingFaq": "Precios y cuenta",
   "helpCenterGuides": "Guías y vídeos",
   "helpCenterContact": "Contacto y comunidad",
-  "helpCenterChatLanguageHint": "Puedes escribir al soporte en tu propio idioma."
+  "helpCenterChatLanguageHint": "Puedes escribir al soporte en tu propio idioma.",
+  "helpCenterOpenTroubleshooting": "Abrir la guía de solución de problemas"
 }

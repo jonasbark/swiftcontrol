@@ -1801,10 +1801,11 @@
   "feedbackSendFailed": "Impossible d'envoyer. Ton texte est conservé — réessaie.",
   "feedbackRetryButton": "Réessayer",
   "helpCenterTitle": "Centre d'aide",
-  "helpCenterYourSetup": "Votre configuration",
+  "helpCenterYourSetup": "Ta configuration",
   "helpCenterKnownIssues": "Problèmes connus",
   "helpCenterPricingFaq": "Tarifs et compte",
   "helpCenterGuides": "Guides et vidéos",
   "helpCenterContact": "Contact et communauté",
-  "helpCenterChatLanguageHint": "Vous pouvez écrire au support dans votre propre langue."
+  "helpCenterChatLanguageHint": "Tu peux écrire au support dans ta propre langue.",
+  "helpCenterOpenTroubleshooting": "Ouvrir le guide de dépannage"
 }

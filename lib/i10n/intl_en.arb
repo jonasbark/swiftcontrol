@@ -2113,5 +2113,6 @@
   "helpCenterPricingFaq": "Pricing & account",
   "helpCenterGuides": "Guides & videos",
   "helpCenterContact": "Contact & community",
-  "helpCenterChatLanguageHint": "You can write to support in your own language."
+  "helpCenterChatLanguageHint": "You can write to support in your own language.",
+  "helpCenterOpenTroubleshooting": "Open troubleshooting guide"
 }

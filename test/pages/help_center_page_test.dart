@@ -14,6 +14,7 @@ import 'package:bike_control/widgets/ui/help_button.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> _pump(WidgetTester tester, Widget child) {
   return tester.pumpWidget(
@@ -27,7 +28,25 @@ Future<void> _pump(WidgetTester tester, Widget child) {
 }
 
 Future<void> main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final l10n = await AppLocalizations.load(const Locale('en'));
+
+  // HelpButton's re-check-on-return fix touches `core.supabase`; give it an
+  // offline dummy instance (no session, so no request is ever made) rather
+  // than crashing on the un-initialized singleton.
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await Supabase.initialize(
+      url: 'http://127.0.0.1:9',
+      anonKey: 'help-center-test-anon-key',
+      debug: false,
+      authOptions: const FlutterAuthClientOptions(
+        localStorage: EmptyLocalStorage(),
+        detectSessionInUri: false,
+        autoRefreshToken: false,
+      ),
+    );
+  });
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -87,5 +106,28 @@ Future<void> main() async {
     await tester.pumpAndSettle();
 
     expect(find.byType(HelpCenterPage), findsOneWidget);
+  });
+
+  testWidgets('help button awaits the pushed HelpCenterPage and re-checks unread on return', (tester) async {
+    // Regression: HelpButton stays mounted under the pushed route and its
+    // own `_hasUnread` badge was never re-synced when the rider returned —
+    // only ContactCommunitySection's local flag got reset. `onPressed` now
+    // awaits `context.push` and re-runs `_checkForUnread` afterwards; this
+    // pins that the round trip completes cleanly (no session in tests, so
+    // `_checkForUnread` no-ops past its `currentSession == null` guard, but
+    // the awaited continuation must still run without throwing).
+    await _pump(tester, const HelpButton(isMobile: false));
+    await tester.pump();
+
+    await tester.tap(find.byType(HelpButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(HelpCenterPage), findsOneWidget);
+
+    await tester.tap(find.byType(IconButton).first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HelpCenterPage), findsNothing);
+    expect(find.byType(HelpButton), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -4,12 +4,12 @@
 // Troubleshooting, Contact & community (all lifted from the old dropdown) —
 // and placeholder headers for the sections Tasks 9-11 build out: Your setup,
 // Known issues, Pricing & account.
-import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
-import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
-import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
 import 'dart:async';
 
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
+import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
+import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
 import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -147,6 +147,7 @@ class _TroubleshootingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Button.ghost(
+      key: const ValueKey('help-center-open-troubleshooting'),
       onPressed: () {
         openDrawer(
           context: context,
@@ -156,7 +157,7 @@ class _TroubleshootingSection extends StatelessWidget {
       },
       child: Basic(
         leading: const Icon(Icons.help_outline, size: 18),
-        title: const Text('Open troubleshooting guide'),
+        title: Text(context.i18n.helpCenterOpenTroubleshooting),
         trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
       ),
     );
