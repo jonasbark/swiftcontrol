@@ -1,10 +1,10 @@
 import 'package:bike_control/gen/l10n.dart';
-import 'package:bike_control/services/review_prompt_service.dart';
+import 'package:bike_control/services/feedback_prompt_service.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 class ReviewBanner extends StatelessWidget {
-  final ReviewPromptService service;
+  final FeedbackPromptService service;
   const ReviewBanner({super.key, required this.service});
 
   Future<void> _onRate() async {
@@ -23,7 +23,7 @@ class ReviewBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
-      valueListenable: service.shouldShowBanner,
+      valueListenable: service.shouldShowPrompt,
       builder: (context, show, _) {
         if (!show) return const SizedBox.shrink();
         return Padding(

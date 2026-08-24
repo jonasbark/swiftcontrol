@@ -304,7 +304,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Gap(8),
-        ReviewBanner(service: core.reviewPromptService),
+        ReviewBanner(service: core.feedbackPromptService),
         HomePage(
           isMobile: widget.isMobile,
           showHelpRow: !showsActivityRail,

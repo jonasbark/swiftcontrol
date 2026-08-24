@@ -1,24 +1,22 @@
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:flutter/foundation.dart';
 
-class ReviewPromptService {
+class FeedbackPromptService {
   static const int sessionThreshold = 6;
   static const int snoozeSessions = 10;
 
   final Settings settings;
   final List<ValueListenable<bool>> trainerConnections;
-  final bool isMobilePlatform;
   final bool Function() isOnTrial;
 
-  final ValueNotifier<bool> shouldShowBanner = ValueNotifier(false);
+  final ValueNotifier<bool> shouldShowPrompt = ValueNotifier(false);
 
   bool _countedThisLaunch = false;
   final List<VoidCallback> _disposers = [];
 
-  ReviewPromptService({
+  FeedbackPromptService({
     required this.settings,
     required this.trainerConnections,
-    required this.isMobilePlatform,
     this.isOnTrial = _alwaysFalse,
   });
 
@@ -42,11 +40,10 @@ class ReviewPromptService {
   }
 
   void _refreshBannerState() {
-    shouldShowBanner.value = _isEligible();
+    shouldShowPrompt.value = _isEligible();
   }
 
   bool _isEligible() {
-    if (!isMobilePlatform) return false;
     if (isOnTrial()) return false;
     if (settings.getReviewCompleted()) return false;
     final count = settings.getReviewSessionCount();
@@ -73,6 +70,6 @@ class ReviewPromptService {
       d();
     }
     _disposers.clear();
-    shouldShowBanner.dispose();
+    shouldShowPrompt.dispose();
   }
 }

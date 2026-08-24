@@ -1,4 +1,4 @@
-import 'package:bike_control/services/review_prompt_service.dart';
+import 'package:bike_control/services/feedback_prompt_service.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,13 +13,12 @@ void main() {
     settings.prefs = await SharedPreferences.getInstance();
   });
 
-  group('ReviewPromptService', () {
+  group('FeedbackPromptService', () {
     test('does not show banner before threshold', () async {
       final trainer = ValueNotifier(false);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
       );
       service.start();
 
@@ -27,17 +26,16 @@ void main() {
       await Future.value();
 
       expect(settings.getReviewSessionCount(), 1);
-      expect(service.shouldShowBanner.value, false);
+      expect(service.shouldShowPrompt.value, false);
 
       service.dispose();
     });
 
     test('counts at most once per app launch even if connection toggles', () async {
       final trainer = ValueNotifier(false);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
       );
       service.start();
 
@@ -54,117 +52,103 @@ void main() {
     });
 
     test('shows banner once threshold reached on a fresh launch', () async {
-      await settings.setReviewSessionCount(ReviewPromptService.sessionThreshold - 1);
+      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
 
       final trainer = ValueNotifier(false);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
       );
       service.start();
 
       trainer.value = true;
       await Future.value();
 
-      expect(settings.getReviewSessionCount(), ReviewPromptService.sessionThreshold);
-      expect(service.shouldShowBanner.value, true);
+      expect(settings.getReviewSessionCount(), FeedbackPromptService.sessionThreshold);
+      expect(service.shouldShowPrompt.value, true);
 
       service.dispose();
     });
 
-    test('does not show banner on non-mobile platforms', () async {
-      await settings.setReviewSessionCount(10);
-
-      final trainer = ValueNotifier(true);
-      final service = ReviewPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
-        isMobilePlatform: false,
-      );
+    test('desktop platforms are eligible (no platform gate)', () async {
+      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold);
+      final trainer = ValueNotifier(false);
+      final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer]);
       service.start();
-      await Future.value();
-
-      expect(service.shouldShowBanner.value, false);
-
+      expect(service.shouldShowPrompt.value, true);
       service.dispose();
     });
 
     test('markCompleted hides banner forever', () async {
-      await settings.setReviewSessionCount(ReviewPromptService.sessionThreshold - 1);
+      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
 
       final trainer = ValueNotifier(false);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
       );
       service.start();
       trainer.value = true;
       await Future.value();
-      expect(service.shouldShowBanner.value, true);
+      expect(service.shouldShowPrompt.value, true);
 
       await service.markCompleted();
 
-      expect(service.shouldShowBanner.value, false);
+      expect(service.shouldShowPrompt.value, false);
       expect(settings.getReviewCompleted(), true);
 
       service.dispose();
-      final next = ReviewPromptService(
+      final next = FeedbackPromptService(
         settings: settings,
         trainerConnections: [ValueNotifier(true)],
-        isMobilePlatform: true,
       );
       next.start();
       await Future.value();
-      expect(next.shouldShowBanner.value, false);
+      expect(next.shouldShowPrompt.value, false);
       next.dispose();
     });
 
     test('dismiss snoozes for 10 sessions then re-shows', () async {
-      await settings.setReviewSessionCount(ReviewPromptService.sessionThreshold - 1);
+      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
 
       final trainer = ValueNotifier(false);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
       );
       service.start();
       trainer.value = true;
       await Future.value();
-      expect(service.shouldShowBanner.value, true);
+      expect(service.shouldShowPrompt.value, true);
 
       await service.dismiss();
-      expect(service.shouldShowBanner.value, false);
-      expect(settings.getReviewDismissedAtSessionCount(), ReviewPromptService.sessionThreshold);
+      expect(service.shouldShowPrompt.value, false);
+      expect(settings.getReviewDismissedAtSessionCount(), FeedbackPromptService.sessionThreshold);
 
       service.dispose();
 
       await settings.setReviewSessionCount(
-        ReviewPromptService.sessionThreshold + ReviewPromptService.snoozeSessions - 1,
+        FeedbackPromptService.sessionThreshold + FeedbackPromptService.snoozeSessions - 1,
       );
-      var snoozed = ReviewPromptService(
+      var snoozed = FeedbackPromptService(
         settings: settings,
         trainerConnections: [ValueNotifier(true)],
-        isMobilePlatform: true,
       );
       snoozed.start();
       await Future.value();
-      expect(snoozed.shouldShowBanner.value, false);
+      expect(snoozed.shouldShowPrompt.value, false);
       snoozed.dispose();
 
       await settings.setReviewSessionCount(
-        ReviewPromptService.sessionThreshold + ReviewPromptService.snoozeSessions,
+        FeedbackPromptService.sessionThreshold + FeedbackPromptService.snoozeSessions,
       );
-      var reshown = ReviewPromptService(
+      var reshown = FeedbackPromptService(
         settings: settings,
         trainerConnections: [ValueNotifier(true)],
-        isMobilePlatform: true,
       );
       reshown.start();
       await Future.value();
-      expect(reshown.shouldShowBanner.value, true);
+      expect(reshown.shouldShowPrompt.value, true);
       reshown.dispose();
     });
 
@@ -172,16 +156,15 @@ void main() {
       await settings.setReviewSessionCount(10);
 
       final trainer = ValueNotifier(true);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
         isOnTrial: () => true,
       );
       service.start();
       await Future.value();
 
-      expect(service.shouldShowBanner.value, false);
+      expect(service.shouldShowPrompt.value, false);
 
       service.dispose();
     });
@@ -191,20 +174,19 @@ void main() {
 
       var onTrial = true;
       final trainer = ValueNotifier(false);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
         isOnTrial: () => onTrial,
       );
       service.start();
-      expect(service.shouldShowBanner.value, false);
+      expect(service.shouldShowPrompt.value, false);
 
       onTrial = false;
       trainer.value = true;
       await Future.value();
 
-      expect(service.shouldShowBanner.value, true);
+      expect(service.shouldShowPrompt.value, true);
 
       service.dispose();
     });
@@ -213,16 +195,15 @@ void main() {
       await settings.setReviewSessionCount(2);
 
       final trainer = ValueNotifier(false);
-      final service = ReviewPromptService(
+      final service = FeedbackPromptService(
         settings: settings,
         trainerConnections: [trainer],
-        isMobilePlatform: true,
       );
       service.start();
       await Future.value();
 
       expect(settings.getReviewSessionCount(), 2);
-      expect(service.shouldShowBanner.value, false);
+      expect(service.shouldShowPrompt.value, false);
 
       service.dispose();
     });

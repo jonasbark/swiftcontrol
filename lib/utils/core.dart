@@ -15,7 +15,7 @@ import 'package:bike_control/repositories/remembered_devices_repository.dart';
 import 'package:bike_control/bluetooth/remote_pairing.dart';
 import 'package:bike_control/utils/demo_mode.dart';
 import 'package:bike_control/main.dart';
-import 'package:bike_control/services/review_prompt_service.dart';
+import 'package:bike_control/services/feedback_prompt_service.dart';
 import 'package:bike_control/services/screen_recording/screen_recording_service.dart';
 import 'package:bike_control/services/shifting_configs_controller.dart';
 import 'package:bike_control/services/workout/workout_recorder.dart';
@@ -89,12 +89,11 @@ class Core {
   late final logic = CoreLogic();
   late final permissions = Permissions();
 
-  ReviewPromptService? _reviewPromptService;
-  ReviewPromptService get reviewPromptService {
-    return _reviewPromptService ??= ReviewPromptService(
+  FeedbackPromptService? _feedbackPromptService;
+  FeedbackPromptService get feedbackPromptService {
+    return _feedbackPromptService ??= FeedbackPromptService(
       settings: settings,
       trainerConnections: logic.trainerConnections.map((t) => t.isConnected).toList(),
-      isMobilePlatform: !kIsWeb && (Platform.isAndroid || Platform.isIOS),
       isOnTrial: () {
         final iap = IAPManager.instance;
         return !iap.isProEnabled && !iap.isPurchased.value && !iap.isTrialExpired;
