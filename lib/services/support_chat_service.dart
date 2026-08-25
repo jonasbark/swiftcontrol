@@ -27,6 +27,7 @@ class SupportAttachmentLimits {
     'image/webp',
     'text/plain',
     'application/pdf',
+    'application/zip',
   };
 
   static String? mimeTypeForName(String fileName) {
@@ -35,8 +36,11 @@ class SupportAttachmentLimits {
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.gif')) return 'image/gif';
     if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.txt')) return 'text/plain';
+    // .log alongside .txt: app/trainer logs are the attachment a support
+    // thread most often needs, and they are plain text under another name.
+    if (lower.endsWith('.txt') || lower.endsWith('.log')) return 'text/plain';
     if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.zip')) return 'application/zip';
     return null;
   }
 }

@@ -113,7 +113,7 @@ class _SupportComposerState extends State<SupportComposer> {
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'log'],
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'log', 'zip'],
       allowMultiple: false,
       withData: kIsWeb,
     );
