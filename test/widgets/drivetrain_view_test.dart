@@ -97,4 +97,33 @@ void main() {
     expect(find.bySemanticsLabel('3 / 12 · 50T'), findsOneWidget);
   });
 
+  group('the panel inset', () {
+    Rect drawing(WidgetTester tester) => Rect.fromPoints(
+      tester.getTopLeft(find.byType(AspectRatio)),
+      tester.getBottomRight(find.byType(AspectRatio)),
+    );
+
+    testWidgets('framed: the drawing is inset from the panel edge', (tester) async {
+      await show(tester, const DrivetrainView(gear: 12, gearCount: 24, moving: false));
+      await tester.pumpAndSettle();
+      final box = Rect.fromPoints(
+        tester.getTopLeft(find.byType(DrivetrainView)),
+        tester.getBottomRight(find.byType(DrivetrainView)),
+      );
+      expect(drawing(tester).left, greaterThan(box.left));
+      expect(drawing(tester).right, lessThan(box.right));
+    });
+
+    testWidgets('unframed: the caller owns the inset, so we add none', (tester) async {
+      await show(tester, const DrivetrainView(gear: 12, gearCount: 24, moving: false, framed: false));
+      await tester.pumpAndSettle();
+      final box = Rect.fromPoints(
+        tester.getTopLeft(find.byType(DrivetrainView)),
+        tester.getBottomRight(find.byType(DrivetrainView)),
+      );
+      // Padding here would be doubled up on the caller's own, and every pixel
+      // of it comes off the drawing — which on a phone is the whole card.
+      expect(drawing(tester), box);
+    });
+  });
 }

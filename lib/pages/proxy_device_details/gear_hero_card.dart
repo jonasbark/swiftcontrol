@@ -58,6 +58,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
       ]),
       builder: (context, _) {
         final isErg = widget.definition.trainerMode.value == TrainerMode.ergMode;
+        final isSmall = MediaQuery.sizeOf(context).width < 600;
         if (widget.simOnly && isErg) return const SizedBox.shrink();
         final showMyWhooshHint = !isErg && !_myWhooshHintDismissed && _isMyWhooshActive && !screenshotMode;
         final tile = SettingTile(
@@ -93,7 +94,11 @@ class _GearHeroCardState extends State<GearHeroCard> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                // A phone has no width to spare: the drivetrain is the widest
+                // thing on the card and every pixel of inset comes off it.
+                padding: isSmall
+                    ? const EdgeInsets.symmetric(vertical: 10, horizontal: 6)
+                    : const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
                 decoration: BoxDecoration(
                   color: cs.muted,
                   borderRadius: BorderRadius.circular(14),
@@ -203,9 +208,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
               context: context,
               icon: LucideIcons.plus,
               filled: true,
-              onTap: target < ErgPowerStepping.maxManualW
-                  ? () => widget.definition.stepManualErgPower(up: true)
-                  : null,
+              onTap: target < ErgPowerStepping.maxManualW ? () => widget.definition.stepManualErgPower(up: true) : null,
             ),
             Expanded(child: SizedBox()),
           ],

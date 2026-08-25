@@ -150,7 +150,9 @@ class _DrivetrainViewState extends State<DrivetrainView> with SingleTickerProvid
                 border: Border.all(color: cs.border),
               )
             : null,
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+        // The inset belongs to the panel: unframed, the caller supplies both the
+        // surface and its padding, and adding our own only shrinks the drawing.
+        padding: widget.framed ? const EdgeInsets.fromLTRB(8, 6, 8, 4) : EdgeInsets.zero,
         child: Semantics(
           label: _semanticsLabel(),
           child: AspectRatio(
