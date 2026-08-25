@@ -106,17 +106,18 @@ class FeedbackPromptFlow extends StatefulWidget {
 ///
 /// Extracted out of `OverviewPage` so the "already-eligible-at-attach" edge
 /// case is independently testable: `service.start()` (called early, in
-/// main.dart) can already have counted this launch's trainer connection and
-/// set `shouldShowPrompt.value = true` *before* this trigger attaches, e.g.
-/// when that connection completes before the page that owns this trigger
-/// even builds. A bare `addListener` only fires on a value *change*, so that
-/// already-true state would otherwise never surface the prompt — call
-/// [checkInitial] once right after construction to also cover that case.
+/// main.dart) can already have ended a qualifying session — e.g. one earned
+/// in a previous launch, or one that finished before the page that owns
+/// this trigger even builds — and set `shouldShowPrompt.value = true`
+/// *before* this trigger attaches. A bare `addListener` only fires on a
+/// value *change*, so that already-true state would otherwise never surface
+/// the prompt — call [checkInitial] once right after construction to also
+/// cover that case.
 ///
-/// Note eligibility requires THIS launch to have counted a connection
-/// (`FeedbackPromptService._countedThisLaunch`) — merely having crossed the
-/// session threshold in a *previous* launch is not enough on its own; see
-/// that service for why (Bug 5a).
+/// Unlike this trigger's once-per-launch guard, [FeedbackPromptService]'s
+/// own eligibility does NOT require a qualifying session in THIS launch —
+/// sessions genuinely completed in previous launches count too; see that
+/// service's doc comment.
 class FeedbackPromptTrigger {
   final FeedbackPromptService service;
   final VoidCallback onShow;

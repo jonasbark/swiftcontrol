@@ -112,12 +112,12 @@ Future<void> main() async {
     final service = await _service();
     await _pump(tester, service);
 
-    expect(service.settings.getReviewDismissedAtSessionCount(), isNull);
+    expect(service.settings.getFeedbackPromptDismissedAtSessionCount(), isNull);
 
     await tester.tap(find.byKey(const ValueKey('feedback-not-now')));
     await tester.pumpAndSettle();
 
-    expect(service.settings.getReviewDismissedAtSessionCount(), isNotNull);
+    expect(service.settings.getFeedbackPromptDismissedAtSessionCount(), isNotNull);
   });
 
   testWidgets('gate never contains the word rate or a star icon', (tester) async {
@@ -157,12 +157,12 @@ Future<void> main() async {
     await _pump(tester, service, initialStep: FeedbackFlowStep.negative);
 
     expect(service.settings.getReviewCompleted(), isFalse);
-    expect(service.settings.getReviewDismissedAtSessionCount(), isNull);
+    expect(service.settings.getFeedbackPromptDismissedAtSessionCount(), isNull);
 
     await tester.tap(find.byKey(const ValueKey('feedback-negative-not-now')));
     await tester.pumpAndSettle();
 
     expect(service.settings.getReviewCompleted(), isTrue);
-    expect(service.settings.getReviewDismissedAtSessionCount(), isNull);
+    expect(service.settings.getFeedbackPromptDismissedAtSessionCount(), isNull);
   });
 }

@@ -2,19 +2,20 @@
 // `FeedbackPromptService.shouldShowPrompt` and the flow's `onShow` callback.
 // `service.start()` runs higher in the widget tree than the page that owns a
 // trigger, so `shouldShowPrompt` can already be `true` before a trigger
-// attaches (e.g. this launch's trainer connection was counted between
-// `service.start()` and the trigger being constructed) — a bare
-// `addListener` would never fire for that case since the value doesn't
-// change again. These tests pin `checkInitial()` covering that gap, the
-// normal flip-to-true path, and the once-per-launch guard.
+// attaches — a bare `addListener` would never fire for that case since the
+// value doesn't change again. These tests pin `checkInitial()` covering that
+// gap, the normal flip-to-eligible path, and the once-per-launch guard.
 //
-// Bug 5a (usage-fixes round): `review_session_count` persists across
-// launches and pre-dates this feature, so an existing user could already be
-// over the threshold at cold start with nothing counted yet *this* launch —
-// `FeedbackPromptService` now additionally requires `_countedThisLaunch`
-// before `shouldShowPrompt` can go true, so that stale-count-alone case must
-// NOT fire (see the "does not fire" test below, and
-// feedback_prompt_service_test.dart for the service-level coverage).
+// Session-based redesign: unlike the old connection-COUNTING scheme (where
+// `review_session_count` was inherited from an unrelated legacy feature and
+// could already be over threshold with zero real usage behind it — "Bug
+// 5a" required a same-launch connection before firing to guard against
+// that), the new counter only advances on a genuinely qualifying session
+// END (minimum duration AND a delivered command — see
+// feedback_prompt_service_test.dart). There's nothing bogus left to guard
+// against, so a cold start with nothing connected yet *this* launch, but
+// enough qualifying sessions banked across previous launches, is
+// intentionally eligible — see the second test below.
 import 'package:bike_control/services/feedback_prompt_service.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/widgets/feedback_prompt/feedback_prompt_flow.dart';
@@ -29,6 +30,14 @@ Future<Settings> _settings() async {
   return settings;
 }
 
+/// Seeds settings so a freshly-started service, with nothing connected, is
+/// immediately eligible: past the successful-session threshold, past the
+/// first-seen floor, no dismissal on file.
+Future<void> _primeEligible(Settings settings, DateTime clock) async {
+  await settings.setFeedbackSuccessfulSessionCount(FeedbackPromptService.successfulSessionThreshold);
+  await settings.setFeedbackPromptFirstSeenAt(clock.subtract(FeedbackPromptService.minAgeSinceFirstSeen * 2));
+}
+
 void main() {
   setUp(() {
     FeedbackPromptFlow.resetShownThisLaunchForTesting();
@@ -38,19 +47,16 @@ void main() {
     FeedbackPromptFlow.resetShownThisLaunchForTesting();
   });
 
-  test('checkInitial fires when this launch already counted a connection before the trigger attaches', () async {
+  test('checkInitial fires when already eligible before the trigger attaches', () async {
     final settings = await _settings();
-    await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
-    final trainer = ValueNotifier(false);
-    final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer]);
+    final clock = DateTime(2026, 1, 1);
+    await _primeEligible(settings, clock);
+    final service = FeedbackPromptService(
+      settings: settings,
+      trainerConnections: [ValueNotifier(false)],
+      now: () => clock,
+    );
     service.start();
-
-    // A connection gets counted (and shouldShowPrompt flips true) before any
-    // trigger exists yet — e.g. the connection completes between
-    // `service.start()` (run early, in main.dart) and the page that owns a
-    // trigger even building.
-    trainer.value = true;
-    await Future.value();
     expect(
       service.shouldShowPrompt.value,
       isTrue,
@@ -70,35 +76,35 @@ void main() {
     service.dispose();
   });
 
-  test('checkInitial does NOT fire just because a past launch already crossed the threshold (Bug 5a)', () async {
+  test('checkInitial fires from sessions completed in a past launch, with nothing connected yet this launch', () async {
     final settings = await _settings();
-    // Simulates an existing user: review_session_count persisted from
-    // previous launches (the old review banner used the same key) is
-    // already at/over threshold, but this launch's own trainer connection
-    // has not been counted — the exact cold-start scenario Bug 5a reported.
-    await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold);
-    final service = FeedbackPromptService(settings: settings, trainerConnections: [ValueNotifier(false)]);
-    service.start();
-    expect(
-      service.shouldShowPrompt.value,
-      isFalse,
-      reason: 'not eligible until this launch counts a connection of its own',
+    final clock = DateTime(2026, 1, 1);
+    await _primeEligible(settings, clock);
+    final service = FeedbackPromptService(
+      settings: settings,
+      trainerConnections: [ValueNotifier(false)],
+      now: () => clock,
     );
+    service.start();
+    expect(service.shouldShowPrompt.value, isTrue);
 
     var shown = 0;
     final trigger = FeedbackPromptTrigger(service: service, onShow: () => shown++);
     trigger.checkInitial();
 
-    expect(shown, 0, reason: 'must not fire at cold start purely from a stale persisted count');
+    expect(shown, 1, reason: 'genuinely-earned past sessions are enough; no same-launch connection required');
 
     trigger.dispose();
     service.dispose();
   });
 
-  test('fires on a later flip to true when not eligible at attach time', () async {
+  test('fires on a later flip to eligible when not eligible at attach time', () async {
     final settings = await _settings();
+    var clock = DateTime(2026, 1, 1);
+    await settings.setFeedbackPromptFirstSeenAt(clock.subtract(FeedbackPromptService.minAgeSinceFirstSeen * 2));
+    await settings.setFeedbackSuccessfulSessionCount(FeedbackPromptService.successfulSessionThreshold - 1);
     final trainer = ValueNotifier(false);
-    final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer]);
+    final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer], now: () => clock);
     service.start();
     expect(service.shouldShowPrompt.value, isFalse);
 
@@ -107,8 +113,12 @@ void main() {
     trigger.checkInitial();
     expect(shown, 0, reason: 'checkInitial is a no-op while ineligible');
 
-    await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
+    // A full qualifying session: long enough, with a delivered command.
     trainer.value = true;
+    await Future.value();
+    service.recordCommandDelivered();
+    clock = clock.add(FeedbackPromptService.minSessionDuration);
+    trainer.value = false;
     await Future.value();
 
     expect(service.shouldShowPrompt.value, isTrue);
@@ -120,12 +130,15 @@ void main() {
 
   test('never fires more than once per launch, across triggers and repeated flips', () async {
     final settings = await _settings();
-    await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
-    final trainer = ValueNotifier(false);
-    final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer]);
+    final clock = DateTime(2026, 1, 1);
+    await _primeEligible(settings, clock);
+    final service = FeedbackPromptService(
+      settings: settings,
+      trainerConnections: [ValueNotifier(false)],
+      now: () => clock,
+    );
     service.start();
-    trainer.value = true;
-    await Future.value();
+    expect(service.shouldShowPrompt.value, isTrue);
 
     var shown = 0;
     final trigger = FeedbackPromptTrigger(service: service, onShow: () => shown++);
@@ -136,17 +149,17 @@ void main() {
     // Dismissing and coming back eligible later in the same launch must not
     // re-fire — nor should a second trigger instance attached afterwards.
     await service.dismiss();
-    await settings.setReviewSessionCount(
-      FeedbackPromptService.sessionThreshold + FeedbackPromptService.snoozeSessions - 1,
+    await settings.setFeedbackSuccessfulSessionCount(
+      FeedbackPromptService.successfulSessionThreshold + FeedbackPromptService.dismissalCooldownSessions,
     );
-    // Bug 5a: eligibility also requires this launch to count a connection —
-    // a notifier already `true` at construction never fires a change event,
-    // so construct false and flip it like a real connection would.
-    final trainer2 = ValueNotifier(false);
-    final service2 = FeedbackPromptService(settings: settings, trainerConnections: [trainer2]);
+    await settings.setFeedbackPromptDismissedAt(clock.subtract(FeedbackPromptService.dismissalCooldownDuration));
+
+    final service2 = FeedbackPromptService(
+      settings: settings,
+      trainerConnections: [ValueNotifier(false)],
+      now: () => clock,
+    );
     service2.start();
-    trainer2.value = true;
-    await Future.value();
     expect(service2.shouldShowPrompt.value, isTrue);
 
     var shownAgain = 0;
@@ -164,16 +177,22 @@ void main() {
 
   test('dispose stops the trigger from reacting to further changes', () async {
     final settings = await _settings();
+    var clock = DateTime(2026, 1, 1);
+    await settings.setFeedbackPromptFirstSeenAt(clock.subtract(FeedbackPromptService.minAgeSinceFirstSeen * 2));
+    await settings.setFeedbackSuccessfulSessionCount(FeedbackPromptService.successfulSessionThreshold - 1);
     final trainer = ValueNotifier(false);
-    final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer]);
+    final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer], now: () => clock);
     service.start();
 
     var shown = 0;
     final trigger = FeedbackPromptTrigger(service: service, onShow: () => shown++);
     trigger.dispose();
 
-    await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
     trainer.value = true;
+    await Future.value();
+    service.recordCommandDelivered();
+    clock = clock.add(FeedbackPromptService.minSessionDuration);
+    trainer.value = false;
     await Future.value();
 
     expect(service.shouldShowPrompt.value, isTrue);

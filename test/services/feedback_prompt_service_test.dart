@@ -1,221 +1,349 @@
+// Coverage for the session-based redesign of FeedbackPromptService. A
+// "session" spans from the first trainer connection going live to the last
+// one dropping; it only counts toward `successfulSessionThreshold` if it
+// lasted at least `minSessionDuration` AND at least one command was
+// delivered during it (`recordCommandDelivered`, the hook `BaseDevice`
+// calls on a `Success` `ActionResult`). The counter advances — and
+// `shouldShowPrompt` is re-checked — on session END, never on START, which
+// is also what guarantees the sheet can never become eligible mid-ride.
+//
+// This replaces a connection-COUNTING scheme keyed off `review_session_count`
+// — a counter inherited from the old star-rating banner, already far past
+// threshold for existing installs with zero real usage behind it. The new
+// counter (`getFeedbackSuccessfulSessionCount`) is a brand new key, rebased
+// to 0 for everyone; nothing here reads the legacy counter or its dismissal
+// marker (`review_dismissed_at_session_count`) — see
+// `FeedbackPromptService`'s doc comment for the full rationale.
 import 'package:bike_control/services/feedback_prompt_service.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+bool _neverOnTrial() => false;
+
 void main() {
   late Settings settings;
+  late DateTime clock;
+  DateTime now() => clock;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     settings = Settings();
     settings.prefs = await SharedPreferences.getInstance();
+    clock = DateTime(2026, 1, 1);
   });
 
-  group('FeedbackPromptService', () {
-    test('does not show banner before threshold', () async {
+  /// Seeds every gate except the successful-session counter: first-seen
+  /// recorded well past `minAgeSinceFirstSeen`, no dismissal on file, not on
+  /// trial, not yet reviewed. Lets each test isolate exactly the one thing
+  /// it's checking.
+  Future<void> primeGatesExceptCount({required int successfulSessions}) async {
+    await settings.setFeedbackPromptFirstSeenAt(clock.subtract(FeedbackPromptService.minAgeSinceFirstSeen * 2));
+    await settings.setFeedbackSuccessfulSessionCount(successfulSessions);
+  }
+
+  FeedbackPromptService makeService(
+    List<ValueNotifier<bool>> trainers, {
+    bool Function() isOnTrial = _neverOnTrial,
+  }) {
+    return FeedbackPromptService(
+      settings: settings,
+      trainerConnections: trainers,
+      isOnTrial: isOnTrial,
+      now: now,
+    );
+  }
+
+  group('session counting', () {
+    test('a short session does not count even with a delivered command', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold - 1);
       final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
-      );
+      final service = makeService([trainer]);
       service.start();
 
       trainer.value = true;
       await Future.value();
-
-      expect(settings.getReviewSessionCount(), 1);
-      expect(service.shouldShowPrompt.value, false);
-
-      service.dispose();
-    });
-
-    test('counts at most once per app launch even if connection toggles', () async {
-      final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
-      );
-      service.start();
-
-      trainer.value = true;
+      service.recordCommandDelivered();
+      clock = clock.add(FeedbackPromptService.minSessionDuration - const Duration(seconds: 1));
       trainer.value = false;
+      await Future.value();
+
+      expect(
+        settings.getFeedbackSuccessfulSessionCount(),
+        FeedbackPromptService.successfulSessionThreshold - 1,
+        reason: 'too short to count',
+      );
+      expect(service.shouldShowPrompt.value, isFalse);
+
+      service.dispose();
+    });
+
+    test('a long session with no delivered command does not count', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold - 1);
+      final trainer = ValueNotifier(false);
+      final service = makeService([trainer]);
+      service.start();
+
       trainer.value = true;
+      await Future.value();
+      clock = clock.add(FeedbackPromptService.minSessionDuration * 2);
       trainer.value = false;
-      trainer.value = true;
       await Future.value();
 
-      expect(settings.getReviewSessionCount(), 1);
-
-      service.dispose();
-    });
-
-    test('shows banner once threshold reached on a fresh launch', () async {
-      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
-
-      final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
+      expect(
+        settings.getFeedbackSuccessfulSessionCount(),
+        FeedbackPromptService.successfulSessionThreshold - 1,
+        reason: 'long enough, but nothing was ever delivered',
       );
-      service.start();
-
-      trainer.value = true;
-      await Future.value();
-
-      expect(settings.getReviewSessionCount(), FeedbackPromptService.sessionThreshold);
-      expect(service.shouldShowPrompt.value, true);
+      expect(service.shouldShowPrompt.value, isFalse);
 
       service.dispose();
     });
 
-    test('desktop platforms are eligible (no platform gate)', () async {
-      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
+    test('a long session with a delivered command counts on END, not on start', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold - 1);
       final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer]);
+      final service = makeService([trainer]);
       service.start();
 
-      // Bug 5a: eligibility requires this launch to have counted a
-      // connection — a bare pre-existing/never-changed notifier wouldn't do
-      // that, so flip it like a real connection would.
       trainer.value = true;
       await Future.value();
+      service.recordCommandDelivered();
+      clock = clock.add(FeedbackPromptService.minSessionDuration);
 
-      expect(service.shouldShowPrompt.value, true);
+      // Still connected: every other gate is already satisfied, but it must
+      // not have counted yet and must not be showable.
+      expect(settings.getFeedbackSuccessfulSessionCount(), FeedbackPromptService.successfulSessionThreshold - 1);
+      expect(service.shouldShowPrompt.value, isFalse);
+
+      trainer.value = false;
+      await Future.value();
+
+      expect(settings.getFeedbackSuccessfulSessionCount(), FeedbackPromptService.successfulSessionThreshold);
+      expect(service.shouldShowPrompt.value, isTrue);
+
       service.dispose();
     });
 
-    test('markCompleted hides banner forever', () async {
-      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
-
+    test('the sheet never becomes eligible while a session is active, even once already over threshold', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold);
       final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
+      final service = makeService([trainer]);
+      service.start();
+      expect(service.shouldShowPrompt.value, isTrue, reason: 'precondition: eligible before this ride starts');
+
+      trainer.value = true;
+      await Future.value();
+
+      expect(service.shouldShowPrompt.value, isFalse, reason: 'must hide the instant a new session starts');
+
+      service.dispose();
+    });
+
+    test('a session spanning multiple connections only ends once ALL are disconnected', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold - 1);
+      final trainerA = ValueNotifier(false);
+      final trainerB = ValueNotifier(false);
+      final service = makeService([trainerA, trainerB]);
+      service.start();
+
+      trainerA.value = true;
+      await Future.value();
+      trainerB.value = true;
+      await Future.value();
+      service.recordCommandDelivered();
+      clock = clock.add(FeedbackPromptService.minSessionDuration);
+
+      trainerA.value = false; // one drops, the other is still up
+      await Future.value();
+      expect(settings.getFeedbackSuccessfulSessionCount(), FeedbackPromptService.successfulSessionThreshold - 1);
+      expect(service.shouldShowPrompt.value, isFalse);
+
+      trainerB.value = false; // now all are down: the session actually ends
+      await Future.value();
+      expect(settings.getFeedbackSuccessfulSessionCount(), FeedbackPromptService.successfulSessionThreshold);
+
+      service.dispose();
+    });
+
+    test('a connection already up before start() is never counted (no known start time)', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold - 1);
+      final trainer = ValueNotifier(true);
+      final service = makeService([trainer]);
+      service.start();
+
+      service.recordCommandDelivered();
+      clock = clock.add(FeedbackPromptService.minSessionDuration * 2);
+      trainer.value = false;
+      await Future.value();
+
+      expect(
+        settings.getFeedbackSuccessfulSessionCount(),
+        FeedbackPromptService.successfulSessionThreshold - 1,
+        reason: 'we never observed when this connection actually started',
       );
+
+      service.dispose();
+    });
+  });
+
+  group('gates', () {
+    test('below threshold: not eligible', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold - 1);
+      final service = makeService([ValueNotifier(false)]);
       service.start();
+      expect(service.shouldShowPrompt.value, isFalse);
+      service.dispose();
+    });
+
+    test('at threshold with every other gate satisfied: eligible', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold);
+      final service = makeService([ValueNotifier(false)]);
+      service.start();
+      expect(service.shouldShowPrompt.value, isTrue);
+      service.dispose();
+    });
+
+    test('first-seen floor: not eligible before minAgeSinceFirstSeen has passed', () async {
+      await settings.setFeedbackSuccessfulSessionCount(FeedbackPromptService.successfulSessionThreshold);
+      await settings.setFeedbackPromptFirstSeenAt(clock); // recorded "just now"
+      final service = makeService([ValueNotifier(false)]);
+      service.start();
+      expect(service.shouldShowPrompt.value, isFalse);
+      service.dispose();
+    });
+
+    test('first-seen floor: eligible once minAgeSinceFirstSeen has passed', () async {
+      await settings.setFeedbackSuccessfulSessionCount(FeedbackPromptService.successfulSessionThreshold);
+      await settings.setFeedbackPromptFirstSeenAt(clock.subtract(FeedbackPromptService.minAgeSinceFirstSeen));
+      final service = makeService([ValueNotifier(false)]);
+      service.start();
+      expect(service.shouldShowPrompt.value, isTrue);
+      service.dispose();
+    });
+
+    test('first run records a first-seen timestamp so the floor starts counting immediately', () async {
+      expect(settings.getFeedbackPromptFirstSeenAt(), isNull);
+      final service = makeService([ValueNotifier(false)]);
+      service.start();
+      await Future.value();
+      expect(settings.getFeedbackPromptFirstSeenAt()!.isAtSameMomentAs(clock), isTrue);
+      service.dispose();
+    });
+
+    test('trial gate: not eligible while on trial', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold);
+      final service = makeService([ValueNotifier(false)], isOnTrial: () => true);
+      service.start();
+      expect(service.shouldShowPrompt.value, isFalse);
+      service.dispose();
+    });
+
+    test('trial gate: eligible once the trial ends', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold);
+      var onTrial = true;
+      final trainer = ValueNotifier(false);
+      final service = makeService([trainer], isOnTrial: () => onTrial);
+      service.start();
+      expect(service.shouldShowPrompt.value, isFalse);
+
+      onTrial = false;
+      // Nothing changed on the trainer side, so nothing re-triggers a
+      // refresh by itself — flip a connection like a real trial-expiry +
+      // reconnect would, ending a (too-short, here) session to force a
+      // re-check. This exercises the getter being re-read, not a new
+      // qualifying session.
       trainer.value = true;
       await Future.value();
-      expect(service.shouldShowPrompt.value, true);
+      trainer.value = false;
+      await Future.value();
+
+      expect(service.shouldShowPrompt.value, isTrue);
+      service.dispose();
+    });
+
+    test('review_completed is a hard stop regardless of every other gate', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold);
+      await settings.setReviewCompleted(true);
+      final service = makeService([ValueNotifier(false)]);
+      service.start();
+      expect(service.shouldShowPrompt.value, isFalse);
+      service.dispose();
+    });
+
+    test('markCompleted hides the prompt forever, across service instances', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold);
+      final service = makeService([ValueNotifier(false)]);
+      service.start();
+      expect(service.shouldShowPrompt.value, isTrue);
 
       await service.markCompleted();
-
-      expect(service.shouldShowPrompt.value, false);
-      expect(settings.getReviewCompleted(), true);
-
+      expect(service.shouldShowPrompt.value, isFalse);
+      expect(settings.getReviewCompleted(), isTrue);
       service.dispose();
-      final next = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [ValueNotifier(true)],
-      );
+
+      final next = makeService([ValueNotifier(false)]);
       next.start();
-      await Future.value();
-      expect(next.shouldShowPrompt.value, false);
+      expect(next.shouldShowPrompt.value, isFalse);
       next.dispose();
     });
 
-    test('dismiss snoozes for 10 sessions then re-shows', () async {
-      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
-
-      final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
-      );
+    test('a stale legacy review_session_count of 999 does not make a fresh user eligible', () async {
+      await settings.setReviewSessionCount(999);
+      await settings.setFeedbackPromptFirstSeenAt(clock.subtract(FeedbackPromptService.minAgeSinceFirstSeen * 2));
+      // Deliberately leave the NEW counter at its default (0) — only the
+      // legacy, unrelated key is inflated.
+      final service = makeService([ValueNotifier(false)]);
       service.start();
-      trainer.value = true;
-      await Future.value();
-      expect(service.shouldShowPrompt.value, true);
+      expect(service.shouldShowPrompt.value, isFalse);
+      expect(settings.getFeedbackSuccessfulSessionCount(), 0);
+      service.dispose();
+    });
+  });
+
+  group('dismissal cooldown', () {
+    test('dismiss() blocks until BOTH the session-count and day cooldowns clear', () async {
+      await primeGatesExceptCount(successfulSessions: FeedbackPromptService.successfulSessionThreshold);
+      final service = makeService([ValueNotifier(false)]);
+      service.start();
+      expect(service.shouldShowPrompt.value, isTrue);
 
       await service.dismiss();
-      expect(service.shouldShowPrompt.value, false);
-      expect(settings.getReviewDismissedAtSessionCount(), FeedbackPromptService.sessionThreshold);
+      expect(service.shouldShowPrompt.value, isFalse);
+      expect(settings.getFeedbackPromptDismissedAtSessionCount(), FeedbackPromptService.successfulSessionThreshold);
+      expect(settings.getFeedbackPromptDismissedAt()!.isAtSameMomentAs(clock), isTrue);
 
-      service.dispose();
+      // Enough successful sessions, but not enough days yet: still blocked.
+      await settings.setFeedbackSuccessfulSessionCount(
+        FeedbackPromptService.successfulSessionThreshold + FeedbackPromptService.dismissalCooldownSessions,
+      );
+      await settings.setFeedbackPromptDismissedAt(
+        clock.subtract(FeedbackPromptService.dismissalCooldownDuration - const Duration(days: 1)),
+      );
+      final sessionsOkDaysShort = makeService([ValueNotifier(false)]);
+      sessionsOkDaysShort.start();
+      expect(sessionsOkDaysShort.shouldShowPrompt.value, isFalse);
+      sessionsOkDaysShort.dispose();
 
-      await settings.setReviewSessionCount(
-        FeedbackPromptService.sessionThreshold + FeedbackPromptService.snoozeSessions - 1,
+      // Enough days, but not enough further sessions: still blocked.
+      await settings.setFeedbackSuccessfulSessionCount(
+        FeedbackPromptService.successfulSessionThreshold + FeedbackPromptService.dismissalCooldownSessions - 1,
       );
-      var snoozed = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [ValueNotifier(true)],
-      );
-      snoozed.start();
-      await Future.value();
-      expect(snoozed.shouldShowPrompt.value, false);
-      snoozed.dispose();
+      await settings.setFeedbackPromptDismissedAt(clock.subtract(FeedbackPromptService.dismissalCooldownDuration));
+      final daysOkSessionsShort = makeService([ValueNotifier(false)]);
+      daysOkSessionsShort.start();
+      expect(daysOkSessionsShort.shouldShowPrompt.value, isFalse);
+      daysOkSessionsShort.dispose();
 
-      await settings.setReviewSessionCount(
-        FeedbackPromptService.sessionThreshold + FeedbackPromptService.snoozeSessions,
+      // Both satisfied: eligible again.
+      await settings.setFeedbackSuccessfulSessionCount(
+        FeedbackPromptService.successfulSessionThreshold + FeedbackPromptService.dismissalCooldownSessions,
       );
-      final reshownTrainer = ValueNotifier(false);
-      var reshown = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [reshownTrainer],
-      );
+      final reshown = makeService([ValueNotifier(false)]);
       reshown.start();
-      // Bug 5a: eligibility also requires this launch to have counted a
-      // connection — a notifier that's already `true` at construction never
-      // fires a change event, so flip it like a real connection would.
-      reshownTrainer.value = true;
-      await Future.value();
-      expect(reshown.shouldShowPrompt.value, true);
+      expect(reshown.shouldShowPrompt.value, isTrue);
       reshown.dispose();
-    });
-
-    test('does not show banner while user is on trial time', () async {
-      await settings.setReviewSessionCount(10);
-
-      final trainer = ValueNotifier(true);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
-        isOnTrial: () => true,
-      );
-      service.start();
-      await Future.value();
-
-      expect(service.shouldShowPrompt.value, false);
-
-      service.dispose();
-    });
-
-    test('shows banner once trial ends', () async {
-      await settings.setReviewSessionCount(10);
-
-      var onTrial = true;
-      final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
-        isOnTrial: () => onTrial,
-      );
-      service.start();
-      expect(service.shouldShowPrompt.value, false);
-
-      onTrial = false;
-      trainer.value = true;
-      await Future.value();
-
-      expect(service.shouldShowPrompt.value, true);
-
-      service.dispose();
-    });
-
-    test('no trainer connection in this launch leaves session count untouched', () async {
-      await settings.setReviewSessionCount(2);
-
-      final trainer = ValueNotifier(false);
-      final service = FeedbackPromptService(
-        settings: settings,
-        trainerConnections: [trainer],
-      );
-      service.start();
-      await Future.value();
-
-      expect(settings.getReviewSessionCount(), 2);
-      expect(service.shouldShowPrompt.value, false);
 
       service.dispose();
     });
