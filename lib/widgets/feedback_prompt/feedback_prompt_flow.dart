@@ -18,49 +18,34 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// future entry point).
 enum FeedbackFlowStep { gate, positive, negative, composer, thanks }
 
-/// Opens the feedback prompt flow: a bottom sheet on narrow layouts
-/// (`width < 600`) or a centered dialog otherwise.
+/// Opens the feedback prompt flow as a bottom sheet — on every screen size,
+/// matching the approved mockups (Bug 5b: this used to switch to a centered
+/// dialog at `width >= 600`, which wasn't what the mockups showed).
 ///
-/// The presentation mechanism decides how the flow closes itself — a sheet
-/// closes via [closeDrawer], a dialog via [Navigator.pop] — so this wires the
-/// right `onClose` into [FeedbackPromptFlow] for each case.
+/// Content width is capped on wide windows (`Center` + `ConstrainedBox`,
+/// same treatment as `instruction_videos_section.dart`'s Bug 3 fix and
+/// `home_sheets.dart`'s `_frame`) so the sheet isn't stretched full-width on
+/// desktop, while staying full-width on phones.
 Future<void> showFeedbackPromptFlow(
   BuildContext context, {
   required FeedbackPromptService service,
   FeedbackFlowStep initialStep = FeedbackFlowStep.gate,
 }) async {
-  final isMobile = MediaQuery.sizeOf(context).width < 600;
-  if (isMobile) {
-    await openDrawer(
-      context: context,
-      position: OverlayPosition.bottom,
-      builder: (sheetContext) => FeedbackPromptFlow(
-        service: service,
-        initialStep: initialStep,
-        onClose: () => closeDrawer(sheetContext),
-      ),
-    );
-  } else {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          // shadcn's own ModalContainer — not a hand-rolled one — so this
-          // stays consistent with the rest of the app's dialog chrome.
-          child: ModalContainer(
-            filled: true,
-            padding: const EdgeInsets.all(20),
-            child: FeedbackPromptFlow(
-              service: service,
-              initialStep: initialStep,
-              onClose: () => Navigator.of(dialogContext).pop(),
-            ),
-          ),
+  await openDrawer(
+    context: context,
+    position: OverlayPosition.bottom,
+    builder: (sheetContext) => Center(
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: FeedbackPromptFlow(
+          service: service,
+          initialStep: initialStep,
+          onClose: () => closeDrawer(sheetContext),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// Renders the current step of the feedback prompt flow, cross-fading and
@@ -120,13 +105,18 @@ class FeedbackPromptFlow extends StatefulWidget {
 /// [onShow] callback.
 ///
 /// Extracted out of `OverviewPage` so the "already-eligible-at-attach" edge
-/// case is independently testable: `service.start()` (in `_Starter.initState`,
-/// higher in the tree than the page that owns this trigger) can synchronously
+/// case is independently testable: `service.start()` (called early, in
+/// main.dart) can already have counted this launch's trainer connection and
 /// set `shouldShowPrompt.value = true` *before* this trigger attaches, e.g.
-/// when the session threshold was already crossed in a previous launch. A
-/// bare `addListener` only fires on a value *change*, so that already-true
-/// state would otherwise never surface the prompt — call [checkInitial] once
-/// right after construction to also cover that case.
+/// when that connection completes before the page that owns this trigger
+/// even builds. A bare `addListener` only fires on a value *change*, so that
+/// already-true state would otherwise never surface the prompt — call
+/// [checkInitial] once right after construction to also cover that case.
+///
+/// Note eligibility requires THIS launch to have counted a connection
+/// (`FeedbackPromptService._countedThisLaunch`) — merely having crossed the
+/// session threshold in a *previous* launch is not enough on its own; see
+/// that service for why (Bug 5a).
 class FeedbackPromptTrigger {
   final FeedbackPromptService service;
   final VoidCallback onShow;

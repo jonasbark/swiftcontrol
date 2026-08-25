@@ -44,6 +44,13 @@ class FeedbackPromptService {
   }
 
   bool _isEligible() {
+    // Bug 5a: review_session_count persists across launches and pre-dates
+    // this feature (the old review banner used the same key), so an
+    // existing user can already be over threshold at cold start. Without
+    // this, the prompt would fire immediately, before the rider has done
+    // anything this launch — eligibility requires THIS launch to have
+    // counted a connection of its own.
+    if (!_countedThisLaunch) return false;
     if (isOnTrial()) return false;
     if (settings.getReviewCompleted()) return false;
     final count = settings.getReviewSessionCount();

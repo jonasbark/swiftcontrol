@@ -71,10 +71,17 @@ void main() {
     });
 
     test('desktop platforms are eligible (no platform gate)', () async {
-      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold);
+      await settings.setReviewSessionCount(FeedbackPromptService.sessionThreshold - 1);
       final trainer = ValueNotifier(false);
       final service = FeedbackPromptService(settings: settings, trainerConnections: [trainer]);
       service.start();
+
+      // Bug 5a: eligibility requires this launch to have counted a
+      // connection — a bare pre-existing/never-changed notifier wouldn't do
+      // that, so flip it like a real connection would.
+      trainer.value = true;
+      await Future.value();
+
       expect(service.shouldShowPrompt.value, true);
       service.dispose();
     });
@@ -142,11 +149,16 @@ void main() {
       await settings.setReviewSessionCount(
         FeedbackPromptService.sessionThreshold + FeedbackPromptService.snoozeSessions,
       );
+      final reshownTrainer = ValueNotifier(false);
       var reshown = FeedbackPromptService(
         settings: settings,
-        trainerConnections: [ValueNotifier(true)],
+        trainerConnections: [reshownTrainer],
       );
       reshown.start();
+      // Bug 5a: eligibility also requires this launch to have counted a
+      // connection — a notifier that's already `true` at construction never
+      // fires a change event, so flip it like a real connection would.
+      reshownTrainer.value = true;
       await Future.value();
       expect(reshown.shouldShowPrompt.value, true);
       reshown.dispose();

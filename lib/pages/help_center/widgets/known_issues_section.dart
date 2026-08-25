@@ -2,13 +2,15 @@
 // `SupportChatService.fetchOpenIssues()`, the same public-issues fetch the
 // support-chat intake screen already uses, so the two surfaces never drift
 // into separate issue lists. Each row deep-links to the public issue page
-// (`https://bikecontrol.app/issues/<id>`), except issues that carry a
-// `helpBlogSlug` — those are documented as a blog post instead, and route to
-// `https://bikecontrol.app/blog/<slug>` instead, matching the convention
-// `support_open_issues_banner.dart`/`support_intake_form.dart` already use
-// for the same field. An empty result or a fetch failure hides the section
-// body entirely — no dead "no known issues" card — while still funneling
-// failures through `recordError` per house rule.
+// (`https://bikecontrol.app/issues/<id>`). Issues that carry a
+// `helpBlogSlug` are "Blog-derived seeds" (website migration
+// 20260517070000_seed_intake_help_issues.sql) — tutorial/help entries meant
+// for the support intake form's "Read tutorial" affordance, not incidents —
+// so this section excludes them outright rather than listing them (Bug 2;
+// this superseded an earlier version that routed them to
+// `https://bikecontrol.app/blog/<slug>` instead). An empty result or a fetch
+// failure hides the section body entirely — no dead "no known issues" card
+// — while still funneling failures through `recordError` per house rule.
 import 'dart:async';
 
 import 'package:bike_control/main.dart' show recordError;
@@ -41,8 +43,12 @@ class _KnownIssuesSectionState extends State<KnownIssuesSection> {
     try {
       final fetch = widget.fetchIssues ?? () => SupportChatService().fetchOpenIssues();
       final issues = await fetch();
+      // Blog-derived seeds (helpBlogSlug set) are tutorial content for the
+      // support intake form, not incidents — keep them out of this list. See
+      // the file header comment for the full story (Bug 2).
+      final filtered = issues.where((i) => i.helpBlogSlug == null || i.helpBlogSlug!.isEmpty).toList(growable: false);
       if (!mounted) return;
-      setState(() => _issues = issues);
+      setState(() => _issues = filtered);
     } catch (e, s) {
       // Supplementary content — a failed fetch just leaves the section
       // hidden (see build()), but it still must not be swallowed silently.
@@ -70,12 +76,7 @@ class _KnownIssuesSectionState extends State<KnownIssuesSection> {
     );
   }
 
-  /// An issue documented as a blog post (`helpBlogSlug` set) routes to that
-  /// post instead of the generic issue page — see
-  /// `support_intake_form.dart`'s `helpBlogSlug` handling for the same rule.
-  String _urlFor(SupportIssue issue) {
-    final slug = issue.helpBlogSlug;
-    if (slug != null && slug.isNotEmpty) return 'https://bikecontrol.app/blog/$slug';
-    return 'https://bikecontrol.app/issues/${issue.id}';
-  }
+  // Blog-derived (helpBlogSlug) issues never reach here — see _load() —
+  // so every row still shown always deep-links to the plain issue page.
+  String _urlFor(SupportIssue issue) => 'https://bikecontrol.app/issues/${issue.id}';
 }

@@ -104,82 +104,93 @@ class _InstructionVideosDrawerState extends State<InstructionVideosDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        spacing: 8,
-        children: [
-          ColoredTitle(text: 'Instruction Videos'),
-          Expanded(
-            child: FutureBuilder<List<_InstructionVideo>>(
-              future: _videosFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return _statusCard(text: 'Loading videos...');
-                }
+    // Bug 3: this drawer used to stretch full window width on desktop. Cap
+    // it like the rest of the app's wide layouts do (Center + ConstrainedBox
+    // — see help_center_page.dart's body and home_sheets.dart's `_frame`)
+    // while staying full-width on phones. No heightFactor here (unlike
+    // `_frame`) — the Expanded/FutureBuilder below needs the bounded height
+    // the drawer already provides, not a shrink-wrapped one.
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            spacing: 8,
+            children: [
+              ColoredTitle(text: 'Instruction Videos'),
+              Expanded(
+                child: FutureBuilder<List<_InstructionVideo>>(
+                  future: _videosFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return _statusCard(text: 'Loading videos...');
+                    }
 
-                if (snapshot.hasError) {
-                  return _statusCard(
-                    text: 'Could not load videos from YouTube.',
-                    action: SecondaryButton(
-                      onPressed: _retry,
-                      child: const Text('Retry'),
-                    ),
-                  );
-                }
-
-                final videos = snapshot.data ?? <_InstructionVideo>[];
-                if (videos.isEmpty) {
-                  return _statusCard(
-                    text: 'No videos found on the channel right now.',
-                    action: SecondaryButton(
-                      onPressed: _retry,
-                      child: const Text('Retry'),
-                    ),
-                  );
-                }
-
-                final regularVideos = videos.where((video) => !video.isShort).toList();
-                final shortVideos = videos.where((video) => video.isShort).toList();
-
-                return SingleChildScrollView(
-                  physics: ClampingScrollPhysics(),
-                  child: Column(
-                    spacing: 12,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final video in regularVideos)
-                        SizedBox(
-                          height: 280,
-                          child: _buildVideoCard(video, fullWidth: true),
+                    if (snapshot.hasError) {
+                      return _statusCard(
+                        text: 'Could not load videos from YouTube.',
+                        action: SecondaryButton(
+                          onPressed: _retry,
+                          child: const Text('Retry'),
                         ),
-                      if (shortVideos.isNotEmpty)
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final crossAxisCount = (constraints.maxWidth / 280).floor().clamp(1, 4);
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                childAspectRatio: 0.9,
-                              ),
-                              itemCount: shortVideos.length,
-                              itemBuilder: (context, index) {
-                                return _buildVideoCard(shortVideos[index], fullWidth: false);
+                      );
+                    }
+
+                    final videos = snapshot.data ?? <_InstructionVideo>[];
+                    if (videos.isEmpty) {
+                      return _statusCard(
+                        text: 'No videos found on the channel right now.',
+                        action: SecondaryButton(
+                          onPressed: _retry,
+                          child: const Text('Retry'),
+                        ),
+                      );
+                    }
+
+                    final regularVideos = videos.where((video) => !video.isShort).toList();
+                    final shortVideos = videos.where((video) => video.isShort).toList();
+
+                    return SingleChildScrollView(
+                      physics: ClampingScrollPhysics(),
+                      child: Column(
+                        spacing: 12,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final video in regularVideos)
+                            SizedBox(
+                              height: 280,
+                              child: _buildVideoCard(video, fullWidth: true),
+                            ),
+                          if (shortVideos.isNotEmpty)
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final crossAxisCount = (constraints.maxWidth / 280).floor().clamp(1, 4);
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: crossAxisCount,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    childAspectRatio: 0.9,
+                                  ),
+                                  itemCount: shortVideos.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildVideoCard(shortVideos[index], fullWidth: false);
+                                  },
+                                );
                               },
-                            );
-                          },
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

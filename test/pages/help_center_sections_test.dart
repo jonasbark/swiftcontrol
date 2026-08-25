@@ -1,9 +1,15 @@
 // Task 10: the "Known issues" section body. Pins: known-issues renders one
-// ghost row per fetched issue and routes each tap by the `helpBlogSlug`
-// convention (bikecontrol.app/blog/<slug> when set, else
-// bikecontrol.app/issues/<id> — see support_open_issues_banner.dart /
-// support_intake_form.dart for the same rule); an empty or failing fetch
-// hides the section entirely (no dead card).
+// ghost row per fetched issue, routing each tap to the plain
+// bikecontrol.app/issues/<id> URL; an empty or failing fetch hides the
+// section entirely (no dead card).
+//
+// Usage-fix round (Bug 2): issues that carry a `helpBlogSlug` are
+// "Blog-derived seeds" (website migration
+// 20260517070000_seed_intake_help_issues.sql) — tutorial/help entries for
+// the support intake form's "Read tutorial" affordance, not incidents. This
+// section now excludes them outright rather than routing to the blog post,
+// which superseded an earlier design (see git history) that did route them
+// there.
 //
 // Design round 1 added two more groups: "Guides & videos" dropped its blog
 // list for a direct Tutorials link (listed before Instruction Videos), and
@@ -98,23 +104,30 @@ void main() {
       expect(fake.launchedUrls, ['https://bikecontrol.app/issues/abc123']);
     });
 
-    testWidgets('tapping a row with a blog slug opens the blog post instead', (tester) async {
-      final fake = _FakeUrlLauncher();
-      final previous = UrlLauncherPlatform.instance;
-      UrlLauncherPlatform.instance = fake;
-      addTearDown(() => UrlLauncherPlatform.instance = previous);
+    testWidgets('excludes issues that carry a helpBlogSlug — those are tutorial seeds, not incidents', (
+      tester,
+    ) async {
       final issues = [
-        const SupportIssue(id: 'abc123', title: 'Documented issue', helpBlogSlug: 'documented-issue'),
+        const SupportIssue(id: 'i1', title: 'MyWhoosh drops connection'),
+        const SupportIssue(id: 'i2', title: 'How to pair your Zwift Click V2', helpBlogSlug: 'pair-click-v2'),
       ];
 
       await _pump(tester, KnownIssuesSection(fetchIssues: () async => issues));
       await tester.pump();
 
-      await tester.tap(find.text('Documented issue'));
+      expect(find.text('MyWhoosh drops connection'), findsOneWidget);
+      expect(find.text('How to pair your Zwift Click V2'), findsNothing);
+    });
+
+    testWidgets('hides the section when every fetched issue carries a helpBlogSlug', (tester) async {
+      final issues = [
+        const SupportIssue(id: 'i2', title: 'How to pair your Zwift Click V2', helpBlogSlug: 'pair-click-v2'),
+      ];
+
+      await _pump(tester, KnownIssuesSection(fetchIssues: () async => issues));
       await tester.pump();
 
-      expect(tester.takeException(), isNull);
-      expect(fake.launchedUrls, ['https://bikecontrol.app/blog/documented-issue']);
+      expect(find.byType(Button), findsNothing);
     });
 
     testWidgets('hides the section when the fetch returns no issues', (tester) async {
@@ -135,32 +148,38 @@ void main() {
   });
 
   group('GuidesVideosSection', () {
-    testWidgets('shows a Tutorials row before Instruction Videos, linking bikecontrol.app/tutorials', (
-      tester,
-    ) async {
-      final fake = _FakeUrlLauncher();
-      final previous = UrlLauncherPlatform.instance;
-      UrlLauncherPlatform.instance = fake;
-      addTearDown(() => UrlLauncherPlatform.instance = previous);
+    testWidgets(
+      'shows a Tutorials row before Instruction Videos, linking bikecontrol.app/blog (Bug 4: /tutorials 404s)',
+      (
+        tester,
+      ) async {
+        final fake = _FakeUrlLauncher();
+        final previous = UrlLauncherPlatform.instance;
+        UrlLauncherPlatform.instance = fake;
+        addTearDown(() => UrlLauncherPlatform.instance = previous);
 
-      await _pump(tester, const GuidesVideosSection());
-      await tester.pump();
+        await _pump(tester, const GuidesVideosSection());
+        await tester.pump();
 
-      final tutorialsFinder = find.text('Tutorials');
-      final videosFinder = find.text('Instruction Videos');
-      expect(tutorialsFinder, findsOneWidget);
-      expect(videosFinder, findsOneWidget);
-      expect(
-        tester.getTopLeft(tutorialsFinder).dy,
-        lessThan(tester.getTopLeft(videosFinder).dy),
-        reason: 'Tutorials is listed first, Instruction Videos second',
-      );
+        final tutorialsFinder = find.text('Tutorials');
+        final videosFinder = find.text('Instruction Videos');
+        expect(tutorialsFinder, findsOneWidget);
+        expect(videosFinder, findsOneWidget);
+        expect(
+          tester.getTopLeft(tutorialsFinder).dy,
+          lessThan(tester.getTopLeft(videosFinder).dy),
+          reason: 'Tutorials is listed first, Instruction Videos second',
+        );
 
-      await tester.tap(find.byKey(const ValueKey('help-center-tutorials')));
-      await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('help-center-tutorials')));
+        await tester.pump();
 
-      expect(fake.launchedUrls, ['https://bikecontrol.app/tutorials']);
-    });
+        // https://bikecontrol.app/tutorials does not exist on the website (only
+        // /blog and /blog/:slug) — the tutorials are the blog's "Blog-derived
+        // seeds" posts, so this points at /blog until a dedicated index exists.
+        expect(fake.launchedUrls, ['https://bikecontrol.app/blog']);
+      },
+    );
   });
 
   group('ContactCommunitySection', () {

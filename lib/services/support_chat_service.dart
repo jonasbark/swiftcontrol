@@ -103,7 +103,8 @@ class SupportChatService {
       var query = _supabase
           .from('issues')
           .select('id, title, description, help_blog_slug, help_video_url')
-          .eq('is_public', true);
+          .eq('is_public', true)
+          .eq('status', 'open');
       // trainer_apps is the per-issue scoping array; an empty array = applies to everyone.
       if (trainerApp != null) {
         query = query.or('trainer_apps.eq.{},trainer_apps.cs.{${trainerApp.name}}');

@@ -83,6 +83,11 @@ class _FaqRow extends StatelessWidget {
       children: [
         Button.ghost(
           key: ValueKey('help-faq-question-${item.key}'),
+          // Bug 6: the default ghost-button padding read as cramped for an
+          // accordion trigger — bump it using the same
+          // `ButtonStyle.ghost().withPadding(...)` idiom vs_stage.dart uses,
+          // with the 12 this file's own answer padding already established.
+          style: ButtonStyle.ghost().withPadding(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12)),
           onPressed: onTap,
           child: Basic(
             title: Text(item.question),
@@ -95,7 +100,11 @@ class _FaqRow extends StatelessWidget {
         if (expanded)
           Padding(
             key: ValueKey('help-faq-answer-${item.key}'),
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            // 16 matches the "comfortable" bottom breathing room
+            // HelpCenterSectionCard/InstructionVideosDrawer already use
+            // elsewhere in the Help Center; the 4 top gap separates the
+            // answer from the question above it instead of hugging it.
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
             child: Text(item.answer).muted.small,
           ),
       ],
