@@ -76,7 +76,7 @@ class Connection {
     }
   }
 
-  int get _logHistoryCap => (kIsWeb || _isBetaTester) ? 1000 : 200;
+  int get _logHistoryCap => (kIsWeb || _isBetaTester) ? 2000 : 200;
 
   void _appendLogEntry(String entry) {
     lastLogEntries.add((date: DateTime.now(), entry: entry));
