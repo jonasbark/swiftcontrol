@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
@@ -20,6 +19,7 @@ import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
+import 'package:bike_control/utils/lazy_async.dart';
 import 'package:bike_control/widgets/menu.dart' show debugText;
 import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
@@ -44,6 +44,16 @@ class ProxyDeviceDetailsPage extends StatefulWidget {
 class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
   late StreamSubscription<BaseDevice> _connectionSub;
   final GlobalKey _overlaySectionKey = GlobalKey();
+
+  /// True once "Works" has been tapped in this view of the page — collapses
+  /// _provideFeedbackBox to a plain acknowledgement instead of continuing to
+  /// show the button row (which, thanks to the persisted `hasSubmitted`
+  /// flag any tap sets, would otherwise reveal "No difference" right next to
+  /// a positive confirmation — reading as if the app doubts what the rider
+  /// just said). Deliberately local, ephemeral state: a returning rider who
+  /// already submitted feedback in an earlier session should still see the
+  /// full button row, just not immediately after tapping "Works" themselves.
+  bool _justConfirmedWorks = false;
 
   void _onEmulatorStateChanged() => setState(() {});
 
@@ -187,6 +197,27 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
 
   Widget _provideFeedbackBox() {
     final cs = Theme.of(context).colorScheme;
+    // Collapsed once "Works" was just tapped — see _justConfirmedWorks.
+    if (_justConfirmedWorks) {
+      return Card(
+        key: const ValueKey('feedback-works-acknowledged'),
+        padding: const EdgeInsets.all(12),
+        fillColor: cs.secondary,
+        filled: true,
+        child: Row(
+          children: [
+            const Icon(LucideIcons.circleCheck, size: 18, color: Color(0xFF22C55E)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.i18n.thanksForFeedback,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final hasSubmitted = core.settings.getFeedbackSubmitted(widget.device.trainerKey);
     return Card(
       padding: const EdgeInsets.all(12),
@@ -245,12 +276,13 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
 
   /// "Works": nothing to diagnose, so there is nothing a support chat could
   /// answer — chats opened for this tap used to arrive content-free by
-  /// construction. Record the feedback and acknowledge it in place instead;
-  /// this never opens a chat.
+  /// construction. Record the feedback, collapse the box to a plain
+  /// acknowledgement (see _justConfirmedWorks) and toast the same
+  /// confirmation; this never opens a chat.
   Future<void> _submitWorks() async {
     await core.settings.setFeedbackSubmitted(widget.device.trainerKey, true);
     if (!mounted) return;
-    setState(() {});
+    setState(() => _justConfirmedWorks = true);
     buildToast(title: context.i18n.thanksForFeedback);
   }
 
@@ -258,40 +290,40 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
   /// setup" section — the gear overlay, controller-disconnect and
   /// network-test explainers these riders usually need — instead of
   /// straight into a support chat. The same rich diagnostic payload the chat
-  /// used to get up front (screenshot, trainer-specific telemetry, a
-  /// formatted preview) still rides along via [HelpCenterSupportContext], so
-  /// it isn't lost if the rider continues from there into "Tell us what's
-  /// wrong". The composer is deliberately left empty — no prefilled label —
-  /// the feedback key still reaches support, folded into the telemetry's
-  /// freetext below instead.
+  /// used to get up front (a screenshot, trainer-specific telemetry) still
+  /// rides along via [HelpCenterSupportContext], so it isn't lost if the
+  /// rider continues from there into "Tell us what's wrong". The composer is
+  /// deliberately left empty — no prefilled label — the feedback key still
+  /// reaches support, folded into the telemetry's freetext below instead.
   Future<void> _routeToHelpCenter(String key) async {
     final device = widget.device;
     await core.settings.setFeedbackSubmitted(device.trainerKey, true);
     if (!mounted) return;
     setState(() {});
+    // Cheap, local (RepaintBoundary → PNG) — unlike debugText() below, worth
+    // paying up front rather than deferring.
     final screenshot = await captureOverviewScreenshot(context: context);
     if (!mounted) return;
-    // Build telemetry in the background so the Help Center opens immediately.
-    // The full debugText (gathered here) already carries this trainer's
-    // services & characteristics, the diagnostics block and the log buffer,
-    // so we attach it instead of just the services snippet.
-    Future<TelemetrySnapshot> buildSnapshot() async {
+    // Lazy + memoized: the Help Center is now an intermediate stop the rider
+    // can bounce off without ever opening the chat, so debugText() (a real
+    // mDNS discovery scan) must not run just because this button was tapped
+    // — only if the rider actually continues into "Tell us what's wrong".
+    // memoizeAsync also means that first call is the *only* gather: the
+    // composer's diagnostic preview and every send-time telemetry attachment
+    // share it rather than each re-gathering their own. The full debugText
+    // (gathered here) already carries this trainer's services &
+    // characteristics, the diagnostics block and the log buffer, so we
+    // attach it instead of just the services snippet.
+    final buildSnapshot = memoizeAsync(() async {
       final debug = await debugText();
       return TelemetrySnapshot.fromDevice(device: device, freetextOverride: '$key\n$debug');
-    }
-
-    // The preview is a one-shot taken as the Help Center opens; send-time
-    // telemetry is re-gathered per message so a later send reflects the
-    // current state rather than the compose-time snapshot.
-    final previewFuture = buildSnapshot();
+    });
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => HelpCenterPage(
           focus: HelpCenterFocus.yourSetup,
           launchContext: HelpCenterSupportContext(
-            feedbackKey: key,
             telemetryBuilder: buildSnapshot,
-            diagnosticPreviewFuture: previewFuture.then((s) => JsonEncoder.withIndent('  ').convert(s.toJson())),
             initialAttachment: screenshot,
           ),
         ),

@@ -19,9 +19,21 @@
 // "No difference"/"Not working" feedback buttons) — when present, that
 // payload goes to [SupportChatPage] instead of the generic one this section
 // gathers itself, so continuing into the chat from here never loses it.
+//
+// Review round: [HelpCenterSupportContext.telemetryBuilder] is lazy and
+// memoized (see `memoizeAsync`), so calling it here — the point the rider
+// actually commits to opening the chat, not whenever the Help Center merely
+// *might* have been reached — is what triggers its (slow, mDNS-scanning)
+// gather for the first and only time; `diagnosticPreviewFuture` is derived
+// from that same call rather than stored separately, so the preview and
+// every later send share one result. Also collapsed the two branches' near-
+// identical `Navigator.push` into one.
+import 'dart:convert';
+
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/help_center/help_center_support_context.dart';
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
+import 'package:bike_control/pages/support_chat/widgets/support_composer.dart' show StagedAttachment;
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/support_chat_models.dart';
 import 'package:bike_control/services/support_chat_service.dart';
@@ -81,20 +93,21 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
 
   Future<void> _openChat(BuildContext context) async {
     final launchContext = widget.launchContext;
+    final Future<String>? diagnosticPreviewFuture;
+    final StagedAttachment? initialAttachment;
+    final TelemetryBuilder telemetryBuilder;
     if (launchContext != null) {
       // A caller upstream (currently only the trainer-feedback buttons)
       // already gathered a trainer-specific payload before pushing the Help
       // Center — reuse it verbatim instead of collecting a fresh, generic
-      // one from scratch.
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SupportChatPage(
-            diagnosticPreviewFuture: launchContext.diagnosticPreviewFuture,
-            initialAttachment: launchContext.initialAttachment,
-            telemetryBuilder: launchContext.telemetryBuilder,
-          ),
-        ),
-      );
+      // one from scratch. telemetryBuilder is lazy + memoized (memoizeAsync):
+      // this call is what actually starts its gather, and it's the only one
+      // — the preview below and every later send-time attachment
+      // (SupportChatPage._send calling telemetryBuilder again) share this
+      // same in-flight/completed snapshot instead of re-gathering.
+      telemetryBuilder = launchContext.telemetryBuilder;
+      diagnosticPreviewFuture = telemetryBuilder().then((s) => JsonEncoder.withIndent('  ').convert(s.toJson()));
+      initialAttachment = launchContext.initialAttachment;
     } else {
       final screenshot = await captureOverviewScreenshot(context: context);
       if (!context.mounted) return;
@@ -102,17 +115,19 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
       // page awaits this future lazily for the preview. Send-time telemetry is
       // re-gathered fresh (see telemetryBuilder) so a later message reflects
       // the current state, not the compose-time snapshot.
-      final debugFuture = debugText();
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SupportChatPage(
-            diagnosticPreviewFuture: debugFuture,
-            initialAttachment: screenshot,
-            telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugText()),
-          ),
-        ),
-      );
+      diagnosticPreviewFuture = debugText();
+      initialAttachment = screenshot;
+      telemetryBuilder = () async => TelemetrySnapshot.general(freetext: await debugText());
     }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SupportChatPage(
+          diagnosticPreviewFuture: diagnosticPreviewFuture,
+          initialAttachment: initialAttachment,
+          telemetryBuilder: telemetryBuilder,
+        ),
+      ),
+    );
     if (mounted) {
       setState(() => _hasUnread = false);
       _checkForUnread();
