@@ -1,8 +1,12 @@
 // Task 11: the "Pricing & account" FAQ section body. Pins: the accordion
-// renders all 6 Q/A pairs (one row per FAQ key), all collapsed by default,
+// renders all 8 Q/A pairs (one row per FAQ key), all collapsed by default,
 // and tapping a question's trigger reveals that question's answer. Finds
 // widgets by `ValueKey`, not literal copy, so translated builds and future
 // copy edits don't break the test.
+//
+// Content-round addition: two more FAQ items ("still shows Trial/Basic" and
+// "bought on one store, use on another") plus a rework of `faqRestore`'s
+// copy in place (same key — see pricing_faq_section.dart's header comment).
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/help_center/widgets/pricing_faq_section.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,14 +29,16 @@ void main() {
   const faqKeys = [
     'faqOneTime',
     'faqPro',
+    'faqStillTrial',
     'faqTrial',
     'faqGrandfather',
     'faqRefund',
+    'faqCrossStore',
     'faqRestore',
   ];
 
   group('PricingFaqSection', () {
-    testWidgets('renders a trigger for each of the 6 FAQ items, all collapsed', (tester) async {
+    testWidgets('renders a trigger for each of the 8 FAQ items, all collapsed', (tester) async {
       await _pump(tester, const PricingFaqSection());
       await tester.pump();
 

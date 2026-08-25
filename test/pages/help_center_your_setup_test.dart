@@ -4,7 +4,16 @@
 // a Click V2 side (left or right) is among the known devices; and an empty
 // setup shows a muted nudge toward onboarding instead of an empty card. Both
 // rows push their target page via `context.push`.
+//
+// Content-round addition: three explainer rows opening a `HelpAnswerSheet`
+// (help_answer_sheet.dart) — "the gear doesn't move" while a trainer app is
+// configured, and "keeps disconnecting" / "isn't found" while any controller
+// is known. Pins: visibility conditions, the overlay row's deep link to
+// `ProxyDeviceDetailsPage(revealOverlaySection: true)` when a ProxyDevice is
+// known (and its link-only fallback when none is), and the exact blog URLs
+// wired into the two link actions.
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
@@ -12,16 +21,45 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/click_v2_onboarding.dart';
 import 'package:bike_control/pages/help_center/widgets/your_setup_section.dart';
 import 'package:bike_control/pages/network_troubleshooting_page.dart';
+import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/apps/supported_app.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 const _networkRowKey = ValueKey('help-network-troubleshoot');
 const _clickV2RowKey = ValueKey('help-clickv2-onboarding');
+const _gearOverlayRowKey = ValueKey('help-gear-overlay');
+const _controllerDisconnectingRowKey = ValueKey('help-controller-disconnecting');
+const _controllerNotFoundRowKey = ValueKey('help-controller-not-found');
+const _overlayActionKey = ValueKey('help-answer-action-overlay-settings');
+const _vsBlogActionKey = ValueKey('help-answer-action-vs-blog');
+const _clickV2RestartActionKey = ValueKey('help-answer-action-clickv2-restart-blog');
+
+/// Records every URL passed to `launchUrlString` instead of hitting a real
+/// platform channel, so link actions are assertable (mirrors
+/// help_center_sections_test.dart's `_FakeUrlLauncher`).
+class _FakeUrlLauncher extends UrlLauncherPlatform {
+  final List<String> launchedUrls = [];
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => true;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launchedUrls.add(url);
+    return true;
+  }
+}
 
 class _FakeConnection extends TrainerConnection {
   _FakeConnection({required super.type}) : super(title: () => 'Fake connection', supportedActions: const []);
@@ -49,6 +87,26 @@ Future<void> _pump(
       ),
     ),
   );
+}
+
+/// Taps [rowKey] and lets the sheet's entrance animation run out, so its
+/// content is stable for further finds/taps (mirrors the drawer-open pattern
+/// in paywall_open_context_test.dart — shadcn's overlay stack, same as
+/// `openDrawer`).
+Future<void> _openSheet(WidgetTester tester, Key rowKey) async {
+  await tester.tap(find.byKey(rowKey));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+/// Scrolls [key] into view before tapping it — the sheet's body text is long
+/// enough that its action rows can sit below the test viewport's fixed
+/// 800x600 size inside the sheet's own `SingleChildScrollView`.
+Future<void> _tapAction(WidgetTester tester, Key key) async {
+  await tester.ensureVisible(find.byKey(key));
+  await tester.pump();
+  await tester.tap(find.byKey(key));
+  await tester.pump();
 }
 
 Future<void> main() async {
@@ -151,6 +209,137 @@ Future<void> main() async {
     });
   });
 
+  group('gear overlay row', () {
+    testWidgets('shown when a trainer app is configured', (tester) async {
+      core.settings.setTrainerApp(SupportedApp.supportedApps.first);
+
+      await _pump(tester, devices: const [], connections: const []);
+      await tester.pump();
+
+      expect(find.byKey(_gearOverlayRowKey), findsOneWidget);
+    });
+
+    testWidgets('absent without a trainer app configured', (tester) async {
+      await _pump(tester, devices: const [], connections: const []);
+      await tester.pump();
+
+      expect(find.byKey(_gearOverlayRowKey), findsNothing);
+    });
+
+    testWidgets('tapping it opens a sheet with an overlay deep link when a trainer is known', (tester) async {
+      core.settings.setTrainerApp(SupportedApp.supportedApps.first);
+      final proxy = ProxyDevice(BleDevice(deviceId: 'trainer1', name: 'KICKR CORE'));
+
+      await _pump(tester, devices: [proxy], connections: const []);
+      await tester.pump();
+      await _openSheet(tester, _gearOverlayRowKey);
+
+      expect(find.text(l10n.helpCenterGearOverlayEntry), findsWidgets);
+      expect(find.byKey(_overlayActionKey), findsOneWidget);
+      expect(find.byKey(_vsBlogActionKey), findsOneWidget);
+
+      // Not pumpAndSettle: ProxyDeviceDetailsPage subscribes to live
+      // connection/device streams that never settle in a test harness.
+      await _tapAction(tester, _overlayActionKey);
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(tester.takeException(), isNull);
+      final page = tester.widget<ProxyDeviceDetailsPage>(find.byType(ProxyDeviceDetailsPage));
+      expect(page.device, same(proxy));
+      expect(page.revealOverlaySection, isTrue);
+    });
+
+    testWidgets('falls back to the link-only fallback when no trainer is known', (tester) async {
+      core.settings.setTrainerApp(SupportedApp.supportedApps.first);
+
+      await _pump(tester, devices: const [], connections: const []);
+      await tester.pump();
+      await _openSheet(tester, _gearOverlayRowKey);
+
+      expect(find.byKey(_overlayActionKey), findsNothing);
+      expect(find.byKey(_vsBlogActionKey), findsOneWidget);
+    });
+
+    testWidgets('the fallback action opens the virtual-shifting comparison blog post', (tester) async {
+      final fakeLauncher = _FakeUrlLauncher();
+      UrlLauncherPlatform.instance = fakeLauncher;
+      core.settings.setTrainerApp(SupportedApp.supportedApps.first);
+
+      await _pump(tester, devices: const [], connections: const []);
+      await tester.pump();
+      await _openSheet(tester, _gearOverlayRowKey);
+
+      await _tapAction(tester, _vsBlogActionKey);
+
+      expect(
+        fakeLauncher.launchedUrls,
+        contains('https://bikecontrol.app/blog/virtual-shifting-with-and-without-bikecontrol'),
+      );
+    });
+  });
+
+  group('controller disconnecting / not found rows', () {
+    testWidgets('shown when a controller is known', (tester) async {
+      final rightSide = ZwiftClickV2RightSide(BleDevice(deviceId: 'r1', name: 'Zwift Click'));
+
+      await _pump(tester, devices: [rightSide], connections: const []);
+      await tester.pump();
+
+      expect(find.byKey(_controllerDisconnectingRowKey), findsOneWidget);
+      expect(find.byKey(_controllerNotFoundRowKey), findsOneWidget);
+    });
+
+    testWidgets('absent without any controller known', (tester) async {
+      await _pump(tester, devices: const [], connections: const []);
+      await tester.pump();
+
+      expect(find.byKey(_controllerDisconnectingRowKey), findsNothing);
+      expect(find.byKey(_controllerNotFoundRowKey), findsNothing);
+    });
+
+    testWidgets('a trainer alone does not count as a controller', (tester) async {
+      final proxy = ProxyDevice(BleDevice(deviceId: 'trainer1', name: 'KICKR CORE'));
+
+      await _pump(tester, devices: [proxy], connections: const []);
+      await tester.pump();
+
+      expect(find.byKey(_controllerDisconnectingRowKey), findsNothing);
+      expect(find.byKey(_controllerNotFoundRowKey), findsNothing);
+    });
+
+    testWidgets('the disconnecting row opens a sheet linking to the Click V2 restart explainer', (tester) async {
+      final fakeLauncher = _FakeUrlLauncher();
+      UrlLauncherPlatform.instance = fakeLauncher;
+      final rightSide = ZwiftClickV2RightSide(BleDevice(deviceId: 'r1', name: 'Zwift Click'));
+
+      await _pump(tester, devices: [rightSide], connections: const []);
+      await tester.pump();
+      await _openSheet(tester, _controllerDisconnectingRowKey);
+
+      expect(find.text(l10n.helpCenterControllerDisconnectingEntry), findsWidgets);
+      expect(find.byKey(_clickV2RestartActionKey), findsOneWidget);
+
+      await _tapAction(tester, _clickV2RestartActionKey);
+
+      expect(
+        fakeLauncher.launchedUrls,
+        contains('https://bikecontrol.app/blog/zwift-click-v2-with-other-trainer-apps'),
+      );
+    });
+
+    testWidgets('the not-found row opens a sheet with no follow-up actions', (tester) async {
+      final rightSide = ZwiftClickV2RightSide(BleDevice(deviceId: 'r1', name: 'Zwift Click'));
+
+      await _pump(tester, devices: [rightSide], connections: const []);
+      await tester.pump();
+      await _openSheet(tester, _controllerNotFoundRowKey);
+
+      expect(find.text(l10n.helpCenterControllerNotFoundEntry), findsWidgets);
+      expect(find.text(l10n.helpAnswerControllerNotFoundBody), findsOneWidget);
+      expect(find.byKey(const ValueKey('help-answer-close')), findsOneWidget);
+    });
+  });
+
   group('empty state', () {
     testWidgets('shows a muted nudge toward the setup wizard when nothing is configured', (tester) async {
       await _pump(tester, devices: const [], connections: const []);
@@ -159,6 +348,9 @@ Future<void> main() async {
       expect(find.text(l10n.helpCenterNoSetup), findsOneWidget);
       expect(find.byKey(_networkRowKey), findsNothing);
       expect(find.byKey(_clickV2RowKey), findsNothing);
+      expect(find.byKey(_gearOverlayRowKey), findsNothing);
+      expect(find.byKey(_controllerDisconnectingRowKey), findsNothing);
+      expect(find.byKey(_controllerNotFoundRowKey), findsNothing);
     });
   });
 }

@@ -1,16 +1,22 @@
-// "Pricing & account" FAQ section body (Task 11). Six Q/A rows covering the
+// "Pricing & account" FAQ section body (Task 11). Eight Q/A rows covering the
 // one-time purchase, the Pro subscription, the daily virtual-shifting trial,
-// the pre-subscription "grandfather" purchases, refunds, and restoring
-// purchases after a reinstall.
+// the pre-subscription "grandfather" purchases, refunds, restoring purchases
+// after a reinstall, and (content round) the two other big pricing sub-themes
+// from the support corpus: "I paid but it still shows Trial/Basic" and
+// "I bought on one store, can I use it on another?".
 //
 // Copy was fact-checked against `IAPManager` (isProEnabledForCurrentDevice /
-// hasPurchasedBefore50RVC / ensureProForFeature), `paywall.dart`'s feature
-// matrix, and the existing `virtualShiftingProNote` / `bridgeTrialTimeOverBody`
-// strings before being written — see task-11-report.md for the corrections
-// that came out of that check (most notably: the free virtual-shifting trial
-// is a 20-minute *daily* allowance that resets every day, not a per-ride
-// limit, and the pre-subscription grandfather explicitly does not extend to
-// virtual shifting).
+// hasPurchasedBefore50RVC / ensureProForFeature / isRegisteredDevice),
+// `windows_iap_service.dart`, `revenuecat_service.dart`, `paywall.dart`'s
+// feature matrix, and the existing `virtualShiftingProNote` /
+// `bridgeTrialTimeOverBody` strings before being written — see
+// task-11-report.md (original six) and content-round-report.md (the three
+// content-round additions) for the corrections that came out of each check
+// (most notably: the free virtual-shifting trial is a 20-minute *daily*
+// allowance that resets every day, not a per-ride limit; the pre-subscription
+// grandfather explicitly does not extend to virtual shifting; and Windows
+// purchases made outside the Microsoft Store go through Stripe, not
+// RevenueCat, so "Restore Purchases" is a literal no-op for them).
 //
 // shadcn_flutter's `Accordion`/`AccordionItem` keep their `content` mounted
 // in the tree at all times (collapsed to zero height via `SizeTransition`
@@ -45,9 +51,22 @@ class _PricingFaqSectionState extends State<PricingFaqSection> {
     final items = <_FaqItem>[
       _FaqItem(key: 'faqOneTime', question: l10n.faqOneTimeQ, answer: l10n.faqOneTimeA),
       _FaqItem(key: 'faqPro', question: l10n.faqProQ, answer: l10n.faqProA),
+      // The largest pricing sub-theme in the support corpus: paid, but the
+      // app still reads as Trial/Basic. Sits right after "why Pro" since
+      // it's the natural next question once someone has actually paid.
+      _FaqItem(key: 'faqStillTrial', question: l10n.faqStillTrialQ, answer: l10n.faqStillTrialA),
       _FaqItem(key: 'faqTrial', question: l10n.faqTrialQ, answer: l10n.faqTrialA),
       _FaqItem(key: 'faqGrandfather', question: l10n.faqGrandfatherQ, answer: l10n.faqGrandfatherA),
       _FaqItem(key: 'faqRefund', question: l10n.faqRefundQ, answer: l10n.faqRefundA),
+      // Firm store policy, not a workaround — grouped with Restore at the
+      // end since both are "something's wrong after I paid" entries.
+      _FaqItem(key: 'faqCrossStore', question: l10n.faqCrossStoreQ, answer: l10n.faqCrossStoreA),
+      // Content-round rework: this used to be "I reinstalled and my purchase
+      // is gone" with an answer that just said "press Restore" — which
+      // dead-ends the riders asking this exact question. Same key, reworked
+      // copy (see the ARB files) covering same-store-account, one-time
+      // purchases being store-bound, and Windows-outside-the-Store going
+      // through Stripe rather than RevenueCat.
       _FaqItem(key: 'faqRestore', question: l10n.faqRestoreQ, answer: l10n.faqRestoreA),
     ];
 

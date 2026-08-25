@@ -5,15 +5,26 @@
 // Click V2 setup-options row while a Click V2 side is known (live or
 // remembered), and a muted nudge toward the setup wizard when nothing is
 // configured yet.
+//
+// Content-round addition: three explainer rows answering the questions the
+// support-chat corpus actually asks, each opening a `HelpAnswerSheet`
+// (help_answer_sheet.dart) instead of a bespoke page — "the gear doesn't
+// move" while a trainer app is configured (deep-links to the trainer's own
+// Overlay setting when a ProxyDevice is known), and "keeps disconnecting" /
+// "isn't found" while any controller is known (live or remembered).
 import 'package:bike_control/bluetooth/devices/base_device.dart';
+import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/trainer_connection.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_right_side.dart';
 import 'package:bike_control/pages/click_v2_onboarding.dart';
+import 'package:bike_control/pages/help_center/widgets/help_answer_sheet.dart';
 import 'package:bike_control/pages/network_troubleshooting_page.dart';
+import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/help_article.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:dartx/dartx.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -52,6 +63,19 @@ class YourSetupSection extends StatelessWidget {
       (t) => t.type == ConnectionMethodType.network && (t.isStarted.value || t.isConnected.value),
     );
     final hasClickV2 = knownDevices.any((d) => d is ZwiftClickV2 || d is ZwiftClickV2RightSide);
+    // Any controller at all, live or remembered. `core.connection.
+    // controllerDevices` already excludes the trainer's own ProxyDevice, but
+    // `articleDevices` collapses to `devicesOverride` verbatim under the test
+    // seam above (bypassing that filtering), so this re-excludes it directly
+    // rather than trusting the source to have done so.
+    final hasControllers =
+        articleDevices.any((d) => d is! ProxyDevice) || core.connection.offlineControllers.isNotEmpty;
+    // The deep-link target for the overlay row below: prefer a connected
+    // trainer, else any known one. `devicesOverride` doubles as the proxy
+    // source too so tests can supply a fake one the same way they do for the
+    // controller rows.
+    final proxyPool = (devicesOverride ?? core.connection.devices).whereType<ProxyDevice>();
+    final proxy = proxyPool.where((d) => d.isConnected).firstOrNull ?? proxyPool.firstOrNull;
 
     // Matches the mockup's row padding (`padding:11px 14px`) now that the
     // card itself carries no padding — rows run edge-to-edge and supply
@@ -69,6 +93,42 @@ class YourSetupSection extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
           ),
         ),
+      // The single most common support question in the corpus: the press
+      // registers in BikeControl, but the trainer app's gear never changes.
+      // Shown whenever a trainer app is configured, independent of whether a
+      // ProxyDevice is currently known — the sheet's body still describes the
+      // path in text when there's nothing to deep-link to yet.
+      if (app != null)
+        Button.ghost(
+          key: const ValueKey('help-gear-overlay'),
+          style: rowStyle,
+          onPressed: () => openHelpAnswerSheet(
+            context,
+            icon: LucideIcons.eye,
+            title: l10n.helpCenterGearOverlayEntry,
+            body: l10n.helpAnswerGearBody,
+            actions: [
+              if (proxy != null)
+                HelpAnswerAction.navigate(
+                  id: 'overlay-settings',
+                  icon: LucideIcons.layers,
+                  label: l10n.helpAnswerGearOverlayAction,
+                  onPressed: () => context.push(ProxyDeviceDetailsPage(device: proxy, revealOverlaySection: true)),
+                ),
+              HelpAnswerAction.link(
+                id: 'vs-blog',
+                icon: LucideIcons.bike,
+                label: l10n.helpAnswerGearFallbackAction,
+                url: 'https://bikecontrol.app/blog/virtual-shifting-with-and-without-bikecontrol',
+              ),
+            ],
+          ),
+          child: Basic(
+            leading: const Icon(Icons.visibility_outlined, size: 18),
+            title: Text(l10n.helpCenterGearOverlayEntry),
+            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+          ),
+        ),
       if (hasNetworkConnection)
         Button.ghost(
           key: const ValueKey('help-network-troubleshoot'),
@@ -77,6 +137,46 @@ class YourSetupSection extends StatelessWidget {
           child: Basic(
             leading: const Icon(Icons.wifi_tethering, size: 18),
             title: Text(l10n.helpCenterNetworkEntry),
+            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+          ),
+        ),
+      if (hasControllers)
+        Button.ghost(
+          key: const ValueKey('help-controller-disconnecting'),
+          style: rowStyle,
+          onPressed: () => openHelpAnswerSheet(
+            context,
+            icon: LucideIcons.bluetoothOff,
+            title: l10n.helpCenterControllerDisconnectingEntry,
+            body: l10n.helpAnswerControllerDisconnectingBody,
+            actions: [
+              HelpAnswerAction.link(
+                id: 'clickv2-restart-blog',
+                icon: LucideIcons.refreshCw,
+                label: l10n.helpAnswerControllerDisconnectingAction,
+                url: 'https://bikecontrol.app/blog/zwift-click-v2-with-other-trainer-apps',
+              ),
+            ],
+          ),
+          child: Basic(
+            leading: const Icon(Icons.bluetooth_disabled, size: 18),
+            title: Text(l10n.helpCenterControllerDisconnectingEntry),
+            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+          ),
+        ),
+      if (hasControllers)
+        Button.ghost(
+          key: const ValueKey('help-controller-not-found'),
+          style: rowStyle,
+          onPressed: () => openHelpAnswerSheet(
+            context,
+            icon: LucideIcons.bluetooth,
+            title: l10n.helpCenterControllerNotFoundEntry,
+            body: l10n.helpAnswerControllerNotFoundBody,
+          ),
+          child: Basic(
+            leading: const Icon(Icons.bluetooth_searching, size: 18),
+            title: Text(l10n.helpCenterControllerNotFoundEntry),
             trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
           ),
         ),
