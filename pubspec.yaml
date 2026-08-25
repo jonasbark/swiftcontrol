@@ -111,6 +111,11 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   msix: ^3.16.12
   url_launcher_platform_interface: ^2.3.2
+  # Used directly by support_chat_page_test.dart to stand in a synchronous
+  # JSON isolate for SupabaseClient — otherwise a transitive dep of
+  # supabase/functions_client, which flutter_lints flags if referenced
+  # without being declared.
+  yet_another_json_isolate: ^2.1.0
 
 dependency_overrides:
   path_provider_foundation: ">=2.3.0 <2.6.0"

@@ -52,7 +52,7 @@ class FeedbackSubmissionService {
     required FeedbackKind kind,
     required String body,
   }) async {
-    await _ensureSession();
+    await ensureSession();
 
     final payload = <String, dynamic>{
       'sentiment': sentiment.name,
@@ -89,12 +89,17 @@ class FeedbackSubmissionService {
     }
   }
 
-  Future<void> _ensureSession() async {
+  /// Ensures the client has a session, signing in anonymously if it has
+  /// none. Public so other callers that need "a session, any session"
+  /// before their own request — e.g. [SupportChatPage] sending a message
+  /// with no rider signed in yet — can reuse this instead of duplicating
+  /// the signInAnonymously + error-wrapping dance.
+  Future<void> ensureSession() async {
     if (_client.auth.currentSession != null) return;
     try {
       await _client.auth.signInAnonymously();
     } catch (e, s) {
-      await recordError(e, s, context: 'FeedbackSubmissionService.submit.signInAnonymously');
+      await recordError(e, s, context: 'FeedbackSubmissionService.ensureSession');
       throw const FeedbackSubmissionException('Failed to start a session');
     }
   }

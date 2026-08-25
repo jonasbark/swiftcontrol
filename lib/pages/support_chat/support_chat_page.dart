@@ -1,21 +1,21 @@
 import 'dart:async';
 
 import 'package:bike_control/main.dart' show recordError;
-import 'package:bike_control/pages/subscriptions/login.dart';
 import 'package:bike_control/pages/support_chat/support_thread_page.dart';
+import 'package:bike_control/pages/support_chat/widgets/support_account_link_card.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_composer.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_intake_form.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_message_group.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_open_issues_banner.dart';
+import 'package:bike_control/services/feedback_submission_service.dart';
 import 'package:bike_control/services/support_chat_models.dart';
 import 'package:bike_control/services/support_chat_service.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
-import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/support/intake_options.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/toast.dart';
-import 'package:flutter/material.dart' show BackButton, RefreshIndicator;
+import 'package:flutter/material.dart' show RefreshIndicator;
 import 'package:prop/prop.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -41,6 +41,16 @@ class SupportChatPage extends StatefulWidget {
   /// directly onto a smart-trainer intake branch.
   final IntakeAnswers? initialIntake;
 
+  /// Test-only injection point for the chat's Supabase-backed service.
+  /// Production call sites never pass this and get the default
+  /// `SupportChatService()`, which talks to `core.supabase`.
+  final SupportChatService? service;
+
+  /// Test-only injection point for the anonymous-session + email-link-up
+  /// helper. When null, defaults to a [FeedbackSubmissionService] sharing
+  /// [service]'s client so both always agree on the current auth state.
+  final FeedbackSubmissionService? accountService;
+
   const SupportChatPage({
     super.key,
     required this.telemetryBuilder,
@@ -48,6 +58,8 @@ class SupportChatPage extends StatefulWidget {
     this.initialText,
     this.initialAttachment,
     this.initialIntake,
+    this.service,
+    this.accountService,
   });
 
   @override
@@ -55,7 +67,17 @@ class SupportChatPage extends StatefulWidget {
 }
 
 class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingObserver {
-  final SupportChatService _service = SupportChatService();
+  late final SupportChatService _service = widget.service ?? SupportChatService();
+
+  /// Handles anonymous sign-in-on-demand and the email link-up flow. Reused
+  /// from the feedback prompt rather than reinvented — the logic isn't
+  /// feedback-specific, it always shares [_service]'s client so a session
+  /// created here (e.g. by [_send]) is immediately visible to [_service].
+  late final FeedbackSubmissionService _accountService =
+      widget.accountService ?? FeedbackSubmissionService(client: _service.client);
+
+  SupabaseClient get _client => _service.client;
+
   StreamSubscription<AuthState>? _authSub;
 
   bool _loading = false;
@@ -75,6 +97,12 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
   bool _editingIntake = false;
   String? _diagnosticPreview;
 
+  /// True once either entry point (the post-send prompt or the header's
+  /// "Sign In" button) has revealed [SupportAccountLinkCard]. Both entry
+  /// points converge on the same card instance/state machine, so this only
+  /// ever flips false → true.
+  bool _showAccountLink = false;
+
   @override
   void initState() {
     super.initState();
@@ -84,14 +112,25 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
     // outgoing message.
     _intakeAnswers = widget.initialIntake ?? _intakeAnswers;
     WidgetsBinding.instance.addObserver(this);
-    _authSub = core.supabase.auth.onAuthStateChange.listen((_) {
+    _authSub = _client.auth.onAuthStateChange.listen((_) {
       if (!mounted) return;
       setState(() {});
-      if (core.supabase.auth.currentSession != null && _chat == null && !_loading) {
+      // Catches a session appearing from outside this page's own _send()
+      // flow (e.g. the rider signs in elsewhere while the chat is open).
+      // _sending guards against the race _send() would otherwise cause with
+      // itself: ensureSession() signing in anonymously fires this same
+      // event, and without the guard both this listener and _send() would
+      // call openChat() concurrently.
+      if (_client.auth.currentSession != null && _chat == null && !_loading && !_sending) {
         _bootstrap();
       }
     });
-    if (core.supabase.auth.currentSession != null) {
+    // A session (anonymous or otherwise) may already exist from a previous
+    // visit — bootstrap eagerly so returning riders see their history. A
+    // brand-new rider has no session yet; _send() creates one (and the chat)
+    // lazily on the first message instead of forcing that here just to view
+    // the empty composer.
+    if (_client.auth.currentSession != null) {
       _bootstrap();
     }
     _loadIssues();
@@ -169,13 +208,52 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
   }
 
   Future<void> _send(String body, StagedAttachment? staged) async {
-    final chat = _chat;
-    if (chat == null) return;
+    setState(() => _sending = true);
+
+    // Write-first, sign-in-afterwards: a rider with no session at all gets
+    // one created silently right here, the same anonymous-session-on-demand
+    // pattern the feedback flow already uses. SupportChatService's calls
+    // below are otherwise unchanged — they just now always find a session.
+    try {
+      await _accountService.ensureSession();
+    } catch (e, s) {
+      recordError(e, s, context: 'support.chat.send.ensureSession');
+      if (!mounted) return;
+      setState(() => _sending = false);
+      buildToast(level: LogLevel.LOGLEVEL_ERROR, title: context.i18n.failedToSendMessage);
+      // Same contract as the catch blocks below: the composer restores the
+      // typed text and staged attachment on any rethrow.
+      rethrow;
+    }
+
+    // A brand-new anonymous rider has no chat yet — open one now that a
+    // session exists. Returning riders (session already existed at
+    // initState) already have _chat from _bootstrap().
+    var chat = _chat;
+    if (chat == null) {
+      try {
+        chat = await _service.openChat();
+        if (!mounted) return;
+        setState(() => _chat = chat);
+      } on SupportChatException catch (e, s) {
+        recordError(e, s, context: 'support.chat.send.openChat');
+        if (!mounted) return;
+        setState(() => _sending = false);
+        buildToast(level: LogLevel.LOGLEVEL_ERROR, title: e.message);
+        rethrow;
+      } catch (e, s) {
+        recordError(e, s, context: 'support.chat.send.openChat');
+        if (!mounted) return;
+        setState(() => _sending = false);
+        buildToast(level: LogLevel.LOGLEVEL_ERROR, title: context.i18n.failedToSendMessage);
+        rethrow;
+      }
+    }
 
     final telemetry = await widget.telemetryBuilder();
 
     final placeholderId = 'pending-${DateTime.now().microsecondsSinceEpoch}';
-    final session = core.supabase.auth.currentSession;
+    final session = _client.auth.currentSession;
     final placeholder = SupportMessage(
       id: placeholderId,
       chatId: chat.id,
@@ -187,7 +265,6 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
       attachments: const [],
     );
     setState(() {
-      _sending = true;
       _pendingMessages.add(placeholder);
     });
 
@@ -210,9 +287,7 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
         _retainedUploads[staged] = upload;
         attachments.add(upload);
       }
-      final intakePayload = (!_intakeSent && _intakeAnswers != null)
-          ? _intakeAnswers!.toJson()
-          : null;
+      final intakePayload = (!_intakeSent && _intakeAnswers != null) ? _intakeAnswers!.toJson() : null;
       final sent = await _service.sendMessage(
         chatId: chat.id,
         body: body,
@@ -227,6 +302,11 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
         _messages = [..._messages, sent];
         _sending = false;
         if (intakePayload != null) _intakeSent = true;
+        // The incentive to link an email: the message is already with
+        // support, but nothing comes back to an anonymous rider until they
+        // do. Shown once per chat session — _showAccountLink only goes
+        // false → true.
+        if (_accountService.isAnonymous) _showAccountLink = true;
       });
     } on SupportChatException catch (e, s) {
       recordError(e, s, context: 'support.chat.send');
@@ -253,6 +333,8 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final signedIn = !_accountService.isAnonymous;
     return Scaffold(
       headers: [
         AppBar(
@@ -267,6 +349,38 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
             context.i18n.supportChat,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.3),
           ),
+          // Standing sign-in affordance: works no matter whether the rider
+          // has sent anything yet — it starts the exact same email-link flow
+          // as the post-send prompt (SupportAccountLinkCard), just revealed
+          // from a different trigger.
+          subtitle: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: signedIn ? Colors.green : cs.mutedForeground,
+                ),
+              ),
+              const Gap(5),
+              Text(
+                key: const ValueKey('support-account-status-text'),
+                signedIn ? context.i18n.supportAccountStatusSignedIn : context.i18n.supportAccountStatusAnonymous,
+                style: TextStyle(fontSize: 11, color: cs.mutedForeground),
+              ),
+            ],
+          ),
+          trailing: [
+            if (!signedIn)
+              Button(
+                key: const ValueKey('support-header-sign-in'),
+                style: ButtonStyle.outline(size: ButtonSize.small),
+                onPressed: _openAccountLink,
+                child: Text(context.i18n.signIn),
+              ),
+          ],
           backgroundColor: Theme.of(context).colorScheme.background,
         ),
         const Divider(),
@@ -280,18 +394,15 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
     );
   }
 
+  /// Reveals [SupportAccountLinkCard] — the same instance/state machine the
+  /// post-send prompt uses — from the header's "Sign In" button. Idempotent:
+  /// tapping it again once the card is already showing is a no-op.
+  void _openAccountLink() {
+    if (_showAccountLink) return;
+    setState(() => _showAccountLink = true);
+  }
+
   Widget _body() {
-    if (core.supabase.auth.currentSession == null) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: _signInGate(),
-          ),
-        ),
-      );
-    }
     if (_loading) {
       return const Center(child: SmallProgressIndicator());
     }
@@ -318,6 +429,13 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
     return Column(
       children: [
         Expanded(child: _messageList()),
+        // Inline, not a modal — sits right above the composer regardless of
+        // which entry point (post-send prompt or header button) revealed it.
+        if (_showAccountLink)
+          SupportAccountLinkCard(
+            accountService: _accountService,
+            onLinked: () => setState(() {}),
+          ),
         if (showComposer && !_intakeSent && _intakeAnswers != null && !_editingIntake)
           SupportIntakeSummaryChip(
             answers: _intakeAnswers!,
@@ -464,55 +582,5 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
         .then((_) {
           if (mounted) _refresh();
         });
-  }
-
-  Widget _signInGate() {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cs.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.logIn, size: 20, color: cs.mutedForeground),
-              const Gap(10),
-              Text(
-                context.i18n.signInToChatWithSupport,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const Gap(8),
-          Text(
-            context.i18n.signInToChatExplanation,
-            style: TextStyle(fontSize: 13, color: cs.mutedForeground),
-          ),
-          const Gap(16),
-          Button.primary(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    headers: [
-                      AppBar(
-                        leading: [BackButton()],
-                      ),
-                    ],
-                    child: const LoginPage(pushed: true),
-                  ),
-                ),
-              );
-            },
-            child: Text(context.i18n.signIn),
-          ),
-        ],
-      ),
-    );
   }
 }

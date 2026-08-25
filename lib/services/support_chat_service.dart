@@ -63,6 +63,13 @@ class SupportChatService {
     : _supabase = supabase ?? core.supabase,
       _httpClient = httpClient ?? http.Client();
 
+  /// The Supabase client this service talks to — exposed so callers that
+  /// need auth state (e.g. [SupportChatPage] checking/observing the current
+  /// session) share the exact same client instance rather than falling back
+  /// to the ambient `core.supabase` singleton, which would break test
+  /// injection.
+  SupabaseClient get client => _supabase;
+
   Future<SupportChat> openChat() async {
     final session = _requireSession();
     try {
