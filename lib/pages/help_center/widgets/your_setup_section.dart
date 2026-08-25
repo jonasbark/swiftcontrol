@@ -53,9 +53,15 @@ class YourSetupSection extends StatelessWidget {
     );
     final hasClickV2 = knownDevices.any((d) => d is ZwiftClickV2 || d is ZwiftClickV2RightSide);
 
+    // Matches the mockup's row padding (`padding:11px 14px`) now that the
+    // card itself carries no padding — rows run edge-to-edge and supply
+    // their own inset.
+    final rowStyle = ButtonStyle.ghost().withPadding(padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14));
+
     final rows = <Widget>[
       for (final article in articles.values)
         Button.ghost(
+          style: rowStyle,
           onPressed: () => launchUrlString(article.url),
           child: Basic(
             leading: const Icon(Icons.menu_book_outlined, size: 18),
@@ -66,6 +72,7 @@ class YourSetupSection extends StatelessWidget {
       if (hasNetworkConnection)
         Button.ghost(
           key: const ValueKey('help-network-troubleshoot'),
+          style: rowStyle,
           onPressed: () => context.push(const NetworkTroubleshootingPage()),
           child: Basic(
             leading: const Icon(Icons.wifi_tethering, size: 18),
@@ -76,6 +83,7 @@ class YourSetupSection extends StatelessWidget {
       if (hasClickV2)
         Button.ghost(
           key: const ValueKey('help-clickv2-onboarding'),
+          style: rowStyle,
           onPressed: () => context.push(const ClickV2OnboardingPage()),
           child: Basic(
             leading: const Icon(Icons.tune, size: 18),
@@ -86,9 +94,20 @@ class YourSetupSection extends StatelessWidget {
     ];
 
     if (rows.isEmpty) {
-      return Text(l10n.helpCenterNoSetup).muted.small;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+        child: Text(l10n.helpCenterNoSetup).muted.small,
+      );
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) const Divider(),
+          rows[i],
+        ],
+      ],
+    );
   }
 }

@@ -27,45 +27,60 @@ class GuidesVideosSection extends StatelessWidget {
       app: core.settings.getTrainerApp(),
     );
 
+    // Matches the mockup's row padding (`padding:11px 14px`) now that the
+    // card itself carries no padding — rows run edge-to-edge and supply
+    // their own inset.
+    final rowStyle = ButtonStyle.ghost().withPadding(padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14));
+
+    final rows = <Widget>[
+      if (article != null)
+        Button.ghost(
+          style: rowStyle,
+          onPressed: () => launchUrlString(article.url),
+          child: Basic(
+            leading: const Icon(Icons.menu_book_outlined, size: 18),
+            title: Text(article.label),
+            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+          ),
+        ),
+      Button.ghost(
+        key: const ValueKey('help-center-tutorials'),
+        style: rowStyle,
+        // bikecontrol.app/tutorials does not exist (website only has
+        // /blog and /blog/:slug) — the tutorials are blog posts, so this
+        // points there. TODO: point at a dedicated /tutorials index once
+        // the website has one.
+        onPressed: () => launchUrlString('https://bikecontrol.app/blog'),
+        child: Basic(
+          leading: const Icon(Icons.play_circle_outline, size: 18),
+          title: const Text('Tutorials'),
+          trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+        ),
+      ),
+      Button.ghost(
+        style: rowStyle,
+        onPressed: () {
+          openDrawer(
+            context: context,
+            position: OverlayPosition.bottom,
+            builder: (c) => const InstructionVideosDrawer(),
+          );
+        },
+        child: Basic(
+          leading: const Icon(Icons.ondemand_video, size: 18),
+          title: const Text('Instruction Videos'),
+          trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+        ),
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (article != null)
-          Button.ghost(
-            onPressed: () => launchUrlString(article.url),
-            child: Basic(
-              leading: const Icon(Icons.menu_book_outlined, size: 18),
-              title: Text(article.label),
-              trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
-            ),
-          ),
-        Button.ghost(
-          key: const ValueKey('help-center-tutorials'),
-          // bikecontrol.app/tutorials does not exist (website only has
-          // /blog and /blog/:slug) — the tutorials are blog posts, so this
-          // points there. TODO: point at a dedicated /tutorials index once
-          // the website has one.
-          onPressed: () => launchUrlString('https://bikecontrol.app/blog'),
-          child: Basic(
-            leading: const Icon(Icons.play_circle_outline, size: 18),
-            title: const Text('Tutorials'),
-            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
-          ),
-        ),
-        Button.ghost(
-          onPressed: () {
-            openDrawer(
-              context: context,
-              position: OverlayPosition.bottom,
-              builder: (c) => const InstructionVideosDrawer(),
-            );
-          },
-          child: Basic(
-            leading: const Icon(Icons.ondemand_video, size: 18),
-            title: const Text('Instruction Videos'),
-            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
-          ),
-        ),
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) const Divider(),
+          rows[i],
+        ],
       ],
     );
   }

@@ -22,6 +22,12 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// "check your setup" hint elsewhere in the app.
 enum HelpCenterFocus { yourSetup }
 
+/// Known Issues' header accent (mockup's `--bk-warning` design token — there
+/// is no equivalent in the shadcn `ColorScheme`, so this follows the app's
+/// existing convention of a module-private amber constant, e.g.
+/// `onboarding_app_guides.dart`'s `_warning`).
+const Color _warningAccent = Color(0xFFF59E0B);
+
 class HelpCenterPage extends StatefulWidget {
   final HelpCenterFocus? focus;
 
@@ -72,16 +78,22 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         index: 0,
         icon: LucideIcons.bookOpen,
         title: l10n.helpCenterGuides,
+        accent: null,
         child: const GuidesVideosSection(),
       ),
-      HelpCenterSectionCard(
-        key: _yourSetupKey,
-        index: 1,
-        icon: LucideIcons.settings2,
-        title: l10n.helpCenterYourSetup,
-        child: _YourSetupFocusFrame(
-          key: const ValueKey('help-your-setup'),
-          expanded: _yourSetupExpanded,
+      // The ValueKey moves to a KeyedSubtree wrapping the whole card now
+      // that there's no nested focus frame to carry it — see
+      // help_center_page_test.dart's scroll-into-view assertions, which
+      // find this section by that key and read its rect.
+      KeyedSubtree(
+        key: const ValueKey('help-your-setup'),
+        child: HelpCenterSectionCard(
+          key: _yourSetupKey,
+          index: 1,
+          icon: LucideIcons.settings2,
+          title: l10n.helpCenterYourSetup,
+          microLabel: l10n.helpCenterYourSetupMicroLabel,
+          focused: _yourSetupExpanded,
           child: const YourSetupSection(),
         ),
       ),
@@ -89,12 +101,15 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         index: 2,
         icon: LucideIcons.triangleAlert,
         title: l10n.helpCenterKnownIssues,
+        accent: _warningAccent,
         child: const KnownIssuesSection(key: ValueKey('help-known-issues')),
       ),
       HelpCenterSectionCard(
         index: 3,
         icon: LucideIcons.creditCard,
         title: l10n.helpCenterPricingFaq,
+        subtitle: l10n.helpCenterPricingFaqSubtitle,
+        accent: null,
         child: const PricingFaqSection(key: ValueKey('help-pricing-account')),
       ),
       HelpCenterSectionCard(
@@ -136,33 +151,6 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Wraps [YourSetupSection] with a highlighted-border cue so a rider landing
-/// on this page via `HelpCenterFocus.yourSetup` gets a visual "you're here"
-/// nudge (Task 9).
-class _YourSetupFocusFrame extends StatelessWidget {
-  final bool expanded;
-  final Widget child;
-
-  const _YourSetupFocusFrame({super.key, required this.child, this.expanded = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: expanded ? cs.primary : cs.mutedForeground.withValues(alpha: 0.3),
-          width: expanded ? 1.2 : 0.3,
-        ),
-      ),
-      child: child,
     );
   }
 }

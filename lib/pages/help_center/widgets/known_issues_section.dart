@@ -60,18 +60,25 @@ class _KnownIssuesSectionState extends State<KnownIssuesSection> {
   Widget build(BuildContext context) {
     if (_issues.isEmpty) return const SizedBox.shrink();
     final cs = Theme.of(context).colorScheme;
+    // Matches the mockup's row padding (`padding:11px 14px`) now that the
+    // card itself carries no padding — rows run edge-to-edge and supply
+    // their own inset.
+    final rowStyle = ButtonStyle.ghost().withPadding(padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final issue in _issues)
+        for (var i = 0; i < _issues.length; i++) ...[
+          if (i > 0) const Divider(),
           Button.ghost(
-            onPressed: () => launchUrlString(_urlFor(issue), mode: LaunchMode.externalApplication),
+            style: rowStyle,
+            onPressed: () => launchUrlString(_urlFor(_issues[i]), mode: LaunchMode.externalApplication),
             child: Basic(
               leading: const Icon(LucideIcons.triangleAlert, size: 18),
-              title: Text(issue.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+              title: Text(_issues[i].title, maxLines: 2, overflow: TextOverflow.ellipsis),
               trailing: Icon(LucideIcons.externalLink, size: 14, color: cs.mutedForeground),
             ),
           ),
+        ],
       ],
     );
   }

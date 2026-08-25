@@ -8,7 +8,10 @@
 // the feedback prompt's own free-text complaint route is gone — without
 // touching any of that wiring, and moved it first (matching the mockup and
 // the original spec's stated order) ahead of the Reddit/Facebook/GitHub
-// rows, which are otherwise untouched.
+// links. Layout-fidelity round: those links moved from three stacked
+// full-width rows into a single row of three equal-width bordered buttons
+// (icon above label), matching the mockup's Contact & Community card — same
+// targets, same icons, unchanged wiring.
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
@@ -94,9 +97,13 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
         // The support row leads (spec: "support chat ... then Reddit/
         // Facebook/GitHub links"; the mockup puts it first too) — it is the
         // single entry point into reporting a problem now that the feedback
-        // prompt's own free-text complaint route is gone.
+        // prompt's own free-text complaint route is gone. Padding matches
+        // the mockup's row padding (`padding:12px 14px`) now that the card
+        // itself carries no padding — rows run edge-to-edge and supply
+        // their own inset.
         Button.ghost(
           key: const ValueKey('help-center-chat-with-support'),
+          style: ButtonStyle.ghost().withPadding(padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14)),
           onPressed: () => _openChat(context),
           child: Basic(
             leading: Icon(LucideIcons.messageCircle, size: 18, color: _hasUnread ? destructive : null),
@@ -110,34 +117,71 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(left: 12, top: 2),
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
           child: Text(context.i18n.helpCenterChatLanguageHint).xSmall.muted,
         ),
-        Button.ghost(
-          onPressed: () => launchUrlString('https://www.reddit.com/r/BikeControl/'),
-          child: Basic(
-            leading: const Icon(Icons.reddit_outlined, size: 18),
-            title: const Text('Reddit'),
-            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
-          ),
-        ),
-        Button.ghost(
-          onPressed: () => launchUrlString('https://www.facebook.com/groups/1892836898778912'),
-          child: Basic(
-            leading: const Icon(Icons.facebook_outlined, size: 18),
-            title: const Text('Facebook'),
-            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
-          ),
-        ),
-        Button.ghost(
-          onPressed: () => launchUrlString('https://github.com/OpenBikeControl/bikecontrol/issues'),
-          child: Basic(
-            leading: const Icon(RadixIcons.githubLogo, size: 18),
-            title: const Text('GitHub'),
-            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+        const Divider(),
+        // Reddit/Facebook/GitHub as three equal-width bordered buttons in a
+        // row (icon above label), matching the mockup — replacing the old
+        // stacked full-width list rows.
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+          child: Row(
+            spacing: 8,
+            children: [
+              Expanded(
+                child: _CommunityLinkButton(
+                  icon: Icons.reddit_outlined,
+                  label: 'Reddit',
+                  onPressed: () => launchUrlString('https://www.reddit.com/r/BikeControl/'),
+                ),
+              ),
+              Expanded(
+                child: _CommunityLinkButton(
+                  icon: Icons.facebook_outlined,
+                  label: 'Facebook',
+                  onPressed: () => launchUrlString('https://www.facebook.com/groups/1892836898778912'),
+                ),
+              ),
+              Expanded(
+                child: _CommunityLinkButton(
+                  icon: RadixIcons.githubLogo,
+                  label: 'GitHub',
+                  onPressed: () => launchUrlString('https://github.com/OpenBikeControl/bikecontrol/issues'),
+                ),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// One tile in the Reddit/Facebook/GitHub row: a bordered, equal-width
+/// button with its icon stacked above its label (mockup's Contact &
+/// Community card).
+class _CommunityLinkButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _CommunityLinkButton({required this.icon, required this.label, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Button.outline(
+      style: ButtonStyle.outline().withPadding(padding: const EdgeInsets.symmetric(vertical: 11)),
+      onPressed: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 6,
+        children: [
+          Icon(icon, size: 18, color: cs.mutedForeground),
+          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 }
