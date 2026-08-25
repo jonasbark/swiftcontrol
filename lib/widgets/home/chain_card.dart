@@ -25,6 +25,7 @@ class ChainCard extends StatefulWidget {
     this.onInstructions,
     this.instructionsLabel,
     this.body,
+    this.onTap,
   });
 
   final ChainLink link;
@@ -52,6 +53,11 @@ class ChainCard extends StatefulWidget {
   /// Extra content between the header and the checklist — the controller
   /// contour, for instance.
   final Widget? body;
+
+  /// Opens this link's own page. The whole card carries it, not just [onEdit]:
+  /// a card that is entirely about one device should behave like the row it
+  /// looks like. Buttons inside the card still win the tap they sit under.
+  final VoidCallback? onTap;
 
   @override
   State<ChainCard> createState() => _ChainCardState();
@@ -104,25 +110,46 @@ class _ChainCardState extends State<ChainCard> {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _header(context),
-          if (widget.body != null) Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), child: widget.body!),
-          // The checklist grows and shrinks rather than blinking in and out: when
-          // the last step of a card finally ticks, the card shrinks to its
-          // header as a movement the eye can follow, which is what makes
-          // "that's done now" legible instead of just sudden.
-          AnimatedSize(
-            duration: _statusChangeDuration,
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: link.pendingSteps.isEmpty
-                ? const SizedBox(width: double.infinity)
-                : _checklist(context),
-          ),
-        ],
+      child: _tappable(context, _content(context)),
+    );
+  }
+
+  /// Wraps the card in its own tap target when there is somewhere to go.
+  ///
+  /// A ghost button rather than a bare GestureDetector, so the card picks up
+  /// the pointer cursor and hover wash every other tappable surface here has.
+  Widget _tappable(BuildContext context, Widget content) {
+    if (widget.onTap == null) return content;
+    return SizedBox(
+      width: double.infinity,
+      child: Button.ghost(
+        style: ButtonStyle.ghost()
+            .withPadding(padding: EdgeInsets.zero)
+            .withBackgroundColor(hoverColor: Theme.of(context).colorScheme.border.withLuminance(0.94)),
+        onPressed: widget.onTap,
+        child: content,
       ),
+    );
+  }
+
+  Widget _content(BuildContext context) {
+    final link = widget.link;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _header(context),
+        if (widget.body != null) Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), child: widget.body!),
+        // The checklist grows and shrinks rather than blinking in and out: when
+        // the last step of a card finally ticks, the card shrinks to its
+        // header as a movement the eye can follow, which is what makes
+        // "that's done now" legible instead of just sudden.
+        AnimatedSize(
+          duration: _statusChangeDuration,
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: link.pendingSteps.isEmpty ? const SizedBox(width: double.infinity) : _checklist(context),
+        ),
+      ],
     );
   }
 
