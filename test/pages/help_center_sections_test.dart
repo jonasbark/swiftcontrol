@@ -1,18 +1,25 @@
-// Task 10: the "Known issues" and "Guides & blog" (blog half of "Guides &
-// videos") section bodies. Pins: known-issues renders one ghost row per
-// fetched issue and routes each tap by the `helpBlogSlug` convention
-// (bikecontrol.app/blog/<slug> when set, else bikecontrol.app/issues/<id> —
-// see support_open_issues_banner.dart / support_intake_form.dart for the
-// same rule); an empty or failing fetch hides the section entirely (no dead
-// card); blog renders the fetched posts' titles.
+// Task 10: the "Known issues" section body. Pins: known-issues renders one
+// ghost row per fetched issue and routes each tap by the `helpBlogSlug`
+// convention (bikecontrol.app/blog/<slug> when set, else
+// bikecontrol.app/issues/<id> — see support_open_issues_banner.dart /
+// support_intake_form.dart for the same rule); an empty or failing fetch
+// hides the section entirely (no dead card).
+//
+// Design round 1 added two more groups: "Guides & videos" dropped its blog
+// list for a direct Tutorials link (listed before Instruction Videos), and
+// "Contact & community" collapsed its support row + a separate report row
+// into one "Tell us what's wrong" / "Chat with support · no account needed"
+// row, keeping the same tap/unread-dot wiring.
 import 'package:bike_control/gen/l10n.dart';
-import 'package:bike_control/pages/help_center/widgets/blog_section.dart';
+import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
+import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
 import 'package:bike_control/pages/help_center/widgets/known_issues_section.dart';
-import 'package:bike_control/services/blog_service.dart';
 import 'package:bike_control/services/support_chat_models.dart';
+import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher_platform_interface/link.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
@@ -48,10 +55,16 @@ Future<void> _pump(WidgetTester tester, Widget child) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
-    // BlogPostsWidget formats each post's date with DateFormat.yMMMd(),
-    // which needs locale data initialized — nothing else in the suite
-    // exercises intl's date formatting yet.
     await initializeDateFormatting();
+  });
+
+  setUp(() async {
+    // GuidesVideosSection/ContactCommunitySection read `core.settings`
+    // directly (no test-seam override, unlike YourSetupSection) — prefs
+    // must be assigned before `Settings.getTrainerApp()` /
+    // `getSupportChatActive()` are called or they throw.
+    SharedPreferences.setMockInitialValues({});
+    core.settings.prefs = await SharedPreferences.getInstance();
   });
 
   group('KnownIssuesSection', () {
@@ -121,18 +134,60 @@ void main() {
     });
   });
 
-  group('BlogSection', () {
-    testWidgets('renders the fetched posts', (tester) async {
-      final posts = [
-        BlogPost(date: DateTime(2026, 1, 1), title: 'BikeControl 6.4 released', slug: 'bikecontrol-6-4'),
-        BlogPost(date: DateTime(2025, 12, 1), title: 'Setting up virtual shifting', slug: 'virtual-shifting'),
-      ];
+  group('GuidesVideosSection', () {
+    testWidgets('shows a Tutorials row before Instruction Videos, linking bikecontrol.app/tutorials', (
+      tester,
+    ) async {
+      final fake = _FakeUrlLauncher();
+      final previous = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = fake;
+      addTearDown(() => UrlLauncherPlatform.instance = previous);
 
-      await _pump(tester, BlogSection(postsFuture: Future.value(posts)));
+      await _pump(tester, const GuidesVideosSection());
       await tester.pump();
 
-      expect(find.text('BikeControl 6.4 released'), findsOneWidget);
-      expect(find.text('Setting up virtual shifting'), findsOneWidget);
+      final tutorialsFinder = find.text('Tutorials');
+      final videosFinder = find.text('Instruction Videos');
+      expect(tutorialsFinder, findsOneWidget);
+      expect(videosFinder, findsOneWidget);
+      expect(
+        tester.getTopLeft(tutorialsFinder).dy,
+        lessThan(tester.getTopLeft(videosFinder).dy),
+        reason: 'Tutorials is listed first, Instruction Videos second',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('help-center-tutorials')));
+      await tester.pump();
+
+      expect(fake.launchedUrls, ['https://bikecontrol.app/tutorials']);
+    });
+  });
+
+  group('ContactCommunitySection', () {
+    testWidgets('shows a single report row (title + subtitle) instead of two support entries', (tester) async {
+      final l10n = await AppLocalizations.load(const Locale('en'));
+
+      await _pump(tester, const ContactCommunitySection());
+      await tester.pump();
+
+      expect(find.text(l10n.helpCenterReportTitle), findsOneWidget);
+      expect(find.text(l10n.helpCenterReportSubtitle), findsOneWidget);
+      final supportRowFinder = find.byKey(const ValueKey('help-center-chat-with-support'));
+      expect(
+        supportRowFinder,
+        findsOneWidget,
+        reason: 'same row/wiring as before, only relabeled',
+      );
+      expect(
+        tester.getTopLeft(supportRowFinder).dy,
+        lessThan(tester.getTopLeft(find.text('Reddit')).dy),
+        reason: 'support row leads, matching the spec/mockup order',
+      );
+
+      // Reddit/Facebook/GitHub rows are untouched.
+      expect(find.text('Reddit'), findsOneWidget);
+      expect(find.text('Facebook'), findsOneWidget);
+      expect(find.text('GitHub'), findsOneWidget);
     });
   });
 }

@@ -11,8 +11,11 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Steps of the feedback prompt flow. `gate` asks a plain thumbs up/down
 /// sentiment question (no rating, no stars); `positive`/`negative` branch off
-/// it; both eventually lead into `composer` (free-text) and `thanks`. All
-/// steps are fully built out here.
+/// it. `positive` leads into `composer` (free-text) and `thanks`; `negative`
+/// only ever offers "Get help" (out to the Help Center) or "Not now" — no
+/// free-text complaint route lives here anymore, though `composer`/`thanks`
+/// still support [FeedbackKind.complaint] for direct callers (tests, or a
+/// future entry point).
 enum FeedbackFlowStep { gate, positive, negative, composer, thanks }
 
 /// Opens the feedback prompt flow: a bottom sheet on narrow layouts
@@ -197,6 +200,17 @@ class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
     _close();
   }
 
+  /// "Not now" from the negative step, unlike the gate's: the rider already
+  /// said they're having trouble and chose to walk away from "Get help"
+  /// rather than just not answering, so this counts as a terminal outcome —
+  /// [markCompleted] like the other terminal branches (rate, suggest-submit,
+  /// get-help), not [FeedbackPromptService.dismiss]'s 10-session snooze,
+  /// which would just re-ask a rider who already told us something's wrong.
+  Future<void> _onNegativeNotNow() async {
+    await widget.service.markCompleted();
+    _close();
+  }
+
   /// "Get help" leaves the flow entirely for the Help Center's "Your setup"
   /// section. The flow may live inside a dialog or a bottom drawer, so the
   /// navigator that should receive the push is captured *before* closing —
@@ -266,7 +280,7 @@ class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
       case FeedbackFlowStep.negative:
         return _NegativeStep(
           onGetHelp: _handleGetHelp,
-          onTellWhatsWrong: () => _goToComposer(sentiment: FeedbackSentiment.down, kind: FeedbackKind.complaint),
+          onNotNow: _onNegativeNotNow,
         );
     }
   }
@@ -395,14 +409,16 @@ class _PositiveStepState extends State<_PositiveStep> {
   }
 }
 
-/// Thumbs-down branch of the gate: offers a direct line to the Help Center
-/// or a free-text complaint — never mentions the store, since a bad
-/// experience isn't the moment to ask for a rating.
+/// Thumbs-down branch of the gate: offers a single direct line to the Help
+/// Center, or dismissal — never mentions the store, since a bad experience
+/// isn't the moment to ask for a rating. There is no free-text complaint
+/// route here: "Get help" (guides for the rider's exact setup, known
+/// issues, and support, all in one place) is the one action that matters.
 class _NegativeStep extends StatelessWidget {
   final VoidCallback onGetHelp;
-  final VoidCallback onTellWhatsWrong;
+  final Future<void> Function() onNotNow;
 
-  const _NegativeStep({required this.onGetHelp, required this.onTellWhatsWrong});
+  const _NegativeStep({required this.onGetHelp, required this.onNotNow});
 
   @override
   Widget build(BuildContext context) {
@@ -423,10 +439,12 @@ class _NegativeStep extends StatelessWidget {
             child: Text(l10n.feedbackGetHelpButton),
           ),
           const Gap(12),
-          SecondaryButton(
-            key: const ValueKey('feedback-tell-whats-wrong'),
-            onPressed: onTellWhatsWrong,
-            child: Text(l10n.feedbackTellWhatsWrongButton),
+          Center(
+            child: Button.ghost(
+              key: const ValueKey('feedback-negative-not-now'),
+              onPressed: () => onNotNow(),
+              child: Text(l10n.feedbackPromptNotNow),
+            ),
           ),
         ],
       ),

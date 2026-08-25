@@ -4,45 +4,27 @@
 // (thumbs, not-now), the step transition on thumbs-down, and that the old
 // star-rating language never leaks into the sentiment gate.
 //
-// Task 12 extends this file with the negative step: "Get help" marks
-// feedback completed and pushes `HelpCenterPage` focused on "Your setup";
-// "Tell me what's wrong" hands off into the composer in complaint mode.
+// Design round 1 dropped the negative step's "Tell me what's wrong" composer
+// route: "Get help" marks feedback completed and pushes `HelpCenterPage`
+// focused on "Your setup"; the negative step's own "Not now" also marks
+// feedback completed (unlike the gate's, which only snoozes for 10
+// sessions) — a rider who already said "having trouble" and declined help
+// shouldn't be re-asked. The composer itself still supports
+// `FeedbackKind.complaint` for direct callers — see
+// feedback_composer_test.dart — it just isn't reachable from here anymore.
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show OtherLocalizationsDelegate;
 import 'package:bike_control/pages/help_center/help_center_page.dart';
 import 'package:bike_control/services/feedback_prompt_service.dart';
-import 'package:bike_control/services/feedback_submission_service.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/widgets/feedback_prompt/feedback_prompt_flow.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-/// Bare subclass so the negative-step tests don't need a real Supabase
-/// client — mirrors the fakes in feedback_composer_test.dart /
-/// feedback_prompt_positive_test.dart.
-class _FakeSubmissionService extends FeedbackSubmissionService {
-  _FakeSubmissionService()
-    : super(
-        client: SupabaseClient(
-          'https://example.test',
-          'test-anon-key',
-          authOptions: const AuthClientOptions(autoRefreshToken: false),
-        ),
-      );
-
-  final List<({FeedbackSentiment sentiment, FeedbackKind kind, String body})> submitted = [];
-
-  @override
-  Future<void> submit({required FeedbackSentiment sentiment, required FeedbackKind kind, required String body}) async {
-    submitted.add((sentiment: sentiment, kind: kind, body: body));
-  }
-}
 
 Future<FeedbackPromptService> _service() async {
   SharedPreferences.setMockInitialValues({});
@@ -55,7 +37,6 @@ Future<void> _pump(
   WidgetTester tester,
   FeedbackPromptService service, {
   FeedbackFlowStep initialStep = FeedbackFlowStep.gate,
-  FeedbackSubmissionService? submissionService,
 }) {
   return tester.pumpWidget(
     ShadcnApp(
@@ -70,7 +51,6 @@ Future<void> _pump(
         child: FeedbackPromptFlow(
           service: service,
           initialStep: initialStep,
-          submissionService: submissionService,
         ),
       ),
     ),
@@ -148,12 +128,13 @@ Future<void> main() async {
     expect(find.byIcon(Icons.star_rate), findsNothing);
   });
 
-  testWidgets('negative step shows get-help and tell-whats-wrong, never mentions the store', (tester) async {
+  testWidgets('negative step shows only get-help and not-now, never mentions the store', (tester) async {
     final service = await _service();
     await _pump(tester, service, initialStep: FeedbackFlowStep.negative);
 
     expect(find.byKey(const ValueKey('feedback-get-help')), findsOneWidget);
-    expect(find.byKey(const ValueKey('feedback-tell-whats-wrong')), findsOneWidget);
+    expect(find.byKey(const ValueKey('feedback-negative-not-now')), findsOneWidget);
+    expect(find.byKey(const ValueKey('feedback-tell-whats-wrong')), findsNothing);
     expect(find.textContaining(RegExp('store', caseSensitive: false)), findsNothing);
   });
 
@@ -171,23 +152,17 @@ Future<void> main() async {
     expect(helpCenterPage.focus, HelpCenterFocus.yourSetup);
   });
 
-  testWidgets('tell-whats-wrong reaches the composer in complaint mode', (tester) async {
+  testWidgets('negative not-now marks feedback completed, unlike the gate it does not just snooze', (tester) async {
     final service = await _service();
-    final submissionService = _FakeSubmissionService();
-    await _pump(tester, service, initialStep: FeedbackFlowStep.negative, submissionService: submissionService);
+    await _pump(tester, service, initialStep: FeedbackFlowStep.negative);
 
-    await tester.tap(find.byKey(const ValueKey('feedback-tell-whats-wrong')));
+    expect(service.settings.getReviewCompleted(), isFalse);
+    expect(service.settings.getReviewDismissedAtSessionCount(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('feedback-negative-not-now')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('feedback-step-composer')), findsOneWidget);
-
-    await tester.enterText(find.byType(TextArea), 'the shifting is off');
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('feedback-send')));
-    await tester.pumpAndSettle();
-
-    expect(submissionService.submitted, hasLength(1));
-    expect(submissionService.submitted.single.sentiment, FeedbackSentiment.down);
-    expect(submissionService.submitted.single.kind, FeedbackKind.complaint);
+    expect(service.settings.getReviewCompleted(), isTrue);
+    expect(service.settings.getReviewDismissedAtSessionCount(), isNull);
   });
 }

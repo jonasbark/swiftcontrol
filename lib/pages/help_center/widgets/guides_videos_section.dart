@@ -1,6 +1,9 @@
-// "Guides & videos" section body — the how-to-connect article link + the
-// instruction-videos drawer, both lifted unchanged from the old help-button
-// dropdown (Task 8).
+// "Tutorials & Videos" section body — the how-to-connect article link, the
+// bikecontrol.app/tutorials link, and the instruction-videos drawer. The
+// article link and the videos drawer are lifted unchanged from the old
+// help-button dropdown (Task 8); the tutorials link replaced the blog list
+// that used to sit below this card in design round 1 (blog coverage now
+// lives only on the overview page).
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/help_article.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -32,6 +35,15 @@ class GuidesVideosSection extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
             ),
           ),
+        Button.ghost(
+          key: const ValueKey('help-center-tutorials'),
+          onPressed: () => launchUrlString('https://bikecontrol.app/tutorials'),
+          child: Basic(
+            leading: const Icon(Icons.play_circle_outline, size: 18),
+            title: const Text('Tutorials'),
+            trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+          ),
+        ),
         Button.ghost(
           onPressed: () {
             openDrawer(

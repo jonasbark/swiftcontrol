@@ -1,11 +1,10 @@
-// Task 8: Help Center page skeleton. The page hosts sections for two later
-// tasks ("Your setup", "Known issues", "Pricing & account" — placeholders
-// only, filled in by Tasks 9-11) alongside the sections this task ships in
-// full (Guides & videos, Troubleshooting, Contact & community, lifted from
-// the old help-button dropdown). These tests pin: every section header
-// renders, the `focus: HelpCenterFocus.yourSetup` constructor scrolls the
-// your-setup placeholder into view, and the help button now pushes this page
-// instead of opening the old dropdown.
+// Task 8: Help Center page skeleton, since grown into the full page (Guides
+// & videos, Your setup, Known issues, Pricing & account, Contact &
+// community — the standalone Troubleshooting section was dropped in design
+// round 1). These tests pin: every section header renders, the
+// `focus: HelpCenterFocus.yourSetup` constructor scrolls the your-setup
+// placeholder into view, and the help button pushes this page instead of
+// opening the old dropdown.
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/help_center/help_center_page.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
@@ -36,8 +35,6 @@ Future<void> main() async {
   // offline dummy instance (no session, so no request is ever made) rather
   // than crashing on the un-initialized singleton.
   setUpAll(() async {
-    // The "Guides & videos" section now embeds BlogSection, which formats
-    // each post's date with DateFormat.yMMMd() — needs locale data.
     await initializeDateFormatting();
     SharedPreferences.setMockInitialValues({});
     await Supabase.initialize(
@@ -63,7 +60,6 @@ Future<void> main() async {
     await tester.pump();
 
     expect(find.text(l10n.helpCenterGuides), findsOneWidget);
-    expect(find.text(l10n.troubleshootingPage), findsOneWidget);
     expect(find.text(l10n.helpCenterYourSetup), findsOneWidget);
     expect(find.text(l10n.helpCenterKnownIssues), findsOneWidget);
     expect(find.text(l10n.helpCenterPricingFaq), findsOneWidget);
@@ -72,8 +68,11 @@ Future<void> main() async {
 
   testWidgets('focus: yourSetup scrolls the your-setup placeholder into view', (tester) async {
     // Shrink the viewport so the your-setup section (several sections deep)
-    // starts out of view — otherwise "scrolled into view" is a no-op.
-    const viewportHeight = 350.0;
+    // starts out of view — otherwise "scrolled into view" is a no-op. Design
+    // round 1 dropped the Troubleshooting card ahead of "Your setup", so it
+    // now sits higher up the page — the viewport needs to be shorter than
+    // before to still push it below the fold.
+    const viewportHeight = 250.0;
     tester.view.physicalSize = const Size(400, viewportHeight);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -93,12 +92,10 @@ Future<void> main() async {
     // `initState`, mirroring how a freshly-pushed route always behaves.
     await tester.pumpWidget(const SizedBox());
     await _pump(tester, const HelpCenterPage(focus: HelpCenterFocus.yourSetup));
-    // Not pumpAndSettle: the "Guides & videos" section now embeds
-    // BlogSection, whose loading state shimmers via an indefinitely
-    // repeating animation while its (real, unmocked) network fetch is in
-    // flight — pumpAndSettle never sees a settled frame. The scroll
-    // animation itself is a fixed 350ms tween, so a couple of bounded pumps
-    // is enough to let it finish.
+    // Not pumpAndSettle: KnownIssuesSection fires a real, unmocked network
+    // fetch on initState — bounded pumps sidestep waiting on that. The
+    // scroll animation itself is a fixed 350ms tween, so a couple of bounded
+    // pumps is enough to let it finish.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -114,9 +111,8 @@ Future<void> main() async {
     expect(find.byType(HelpCenterPage), findsNothing);
 
     await tester.tap(find.byType(HelpButton));
-    // Not pumpAndSettle: HelpCenterPage's "Guides & videos" section embeds
-    // BlogSection, whose loading-state shimmer animates indefinitely while
-    // its (real, unmocked) network fetch is in flight.
+    // Not pumpAndSettle: HelpCenterPage's "Known issues" section fires a
+    // real, unmocked network fetch on initState.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -136,7 +132,7 @@ Future<void> main() async {
 
     await tester.tap(find.byType(HelpButton));
     // Not pumpAndSettle: see the "help button push opens HelpCenterPage"
-    // test above — BlogSection's loading shimmer never settles.
+    // test above.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(HelpCenterPage), findsOneWidget);

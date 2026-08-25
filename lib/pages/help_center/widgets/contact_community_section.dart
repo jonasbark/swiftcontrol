@@ -1,8 +1,14 @@
-// "Contact & community" section body — Reddit/Facebook/GitHub links plus the
-// support-chat entry point, lifted unchanged from the old help-button
+// "Contact & community" section body — the support-chat entry point plus
+// Reddit/Facebook/GitHub links, lifted unchanged from the old help-button
 // dropdown's `MenuButton` (Task 8): unread-dot polling, the pre-staged
 // overview screenshot, and the debug-text/TelemetrySnapshot handoff into
-// `SupportChatPage` all behave exactly as before.
+// `SupportChatPage` all behave exactly as before. Design round 1 relabeled
+// the support row "Tell us what's wrong" / "Chat with support · no account
+// needed" — it is the single entry point into reporting a problem now that
+// the feedback prompt's own free-text complaint route is gone — without
+// touching any of that wiring, and moved it first (matching the mockup and
+// the original spec's stated order) ahead of the Reddit/Facebook/GitHub
+// rows, which are otherwise untouched.
 import 'package:bike_control/main.dart' show recordError;
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
@@ -35,9 +41,9 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
   }
 
   /// Polls the support chat in the background and surfaces a small dot next
-  /// to "Chat with Support" when at least one admin message has arrived
-  /// since the last seen timestamp on the chat. Failures (no auth, network
-  /// down, edge function unavailable) are swallowed — the dot just stays off.
+  /// to the support row when at least one admin message has arrived since
+  /// the last seen timestamp on the chat. Failures (no auth, network down,
+  /// edge function unavailable) are swallowed — the dot just stays off.
   Future<void> _checkForUnread() async {
     if (core.supabase.auth.currentSession == null) return;
     try {
@@ -85,6 +91,28 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // The support row leads (spec: "support chat ... then Reddit/
+        // Facebook/GitHub links"; the mockup puts it first too) — it is the
+        // single entry point into reporting a problem now that the feedback
+        // prompt's own free-text complaint route is gone.
+        Button.ghost(
+          key: const ValueKey('help-center-chat-with-support'),
+          onPressed: () => _openChat(context),
+          child: Basic(
+            leading: Icon(LucideIcons.messageCircle, size: 18, color: _hasUnread ? destructive : null),
+            title: _hasUnread
+                ? Text(context.i18n.helpCenterReportTitle).semiBold
+                : Text(context.i18n.helpCenterReportTitle),
+            subtitle: Text(context.i18n.helpCenterReportSubtitle).xSmall.muted,
+            trailing: _hasUnread
+                ? const UnreadDot(key: ValueKey('help-center-chat-unread-dot'), size: 10)
+                : const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 12, top: 2),
+          child: Text(context.i18n.helpCenterChatLanguageHint).xSmall.muted,
+        ),
         Button.ghost(
           onPressed: () => launchUrlString('https://www.reddit.com/r/BikeControl/'),
           child: Basic(
@@ -108,21 +136,6 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
             title: const Text('GitHub'),
             trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
           ),
-        ),
-        Button.ghost(
-          key: const ValueKey('help-center-chat-with-support'),
-          onPressed: () => _openChat(context),
-          child: Basic(
-            leading: Icon(LucideIcons.messageCircle, size: 18, color: _hasUnread ? destructive : null),
-            title: _hasUnread ? Text(context.i18n.chatWithSupport).semiBold : Text(context.i18n.chatWithSupport),
-            trailing: _hasUnread
-                ? const UnreadDot(key: ValueKey('help-center-chat-unread-dot'), size: 10)
-                : const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 12, top: 2),
-          child: Text(context.i18n.helpCenterChatLanguageHint).xSmall.muted,
         ),
       ],
     );

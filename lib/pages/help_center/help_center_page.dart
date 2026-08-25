@@ -1,22 +1,20 @@
-// Task 8: the Help Center page skeleton. Replaces the old help-button
-// dropdown with a persistent, scrollable page of sections. This task ships
-// the frame plus the sections it can already fill cheaply — Guides & videos,
-// Troubleshooting, Contact & community (all lifted from the old dropdown) —
-// and placeholder headers for the sections Tasks 9-11 build out: Your setup,
-// Known issues, Pricing & account. Task 9 filled in "Your setup"; Task 10
-// filled in "Known issues" and appended the blog to "Guides & videos";
-// "Pricing & account" is still a placeholder for Task 11.
+// The Help Center page: a persistent, scrollable page of sections, replacing
+// the old help-button dropdown. Guides & videos, Your setup, Known issues,
+// Pricing & account, and Contact & community all live here as separate
+// section widgets — see each one's own file for its history. (Design round
+// 1 dropped the standalone Troubleshooting section — "Get help" from the
+// feedback prompt and the guides/known-issues/support sections here now
+// cover that ground — and replaced the blog link in "Guides & videos" with
+// a direct Tutorials link.)
 import 'dart:async';
 
 import 'package:bike_control/main.dart' show recordError;
-import 'package:bike_control/pages/help_center/widgets/blog_section.dart';
 import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
 import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
 import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
 import 'package:bike_control/pages/help_center/widgets/known_issues_section.dart';
 import 'package:bike_control/pages/help_center/widgets/pricing_faq_section.dart';
 import 'package:bike_control/pages/help_center/widgets/your_setup_section.dart';
-import 'package:bike_control/pages/markdown.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -74,21 +72,11 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         index: 0,
         icon: LucideIcons.bookOpen,
         title: l10n.helpCenterGuides,
-        child: const Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 8,
-          children: [GuidesVideosSection(), Divider(), BlogSection()],
-        ),
-      ),
-      HelpCenterSectionCard(
-        index: 1,
-        icon: LucideIcons.wrench,
-        title: l10n.troubleshootingPage,
-        child: _TroubleshootingSection(),
+        child: const GuidesVideosSection(),
       ),
       HelpCenterSectionCard(
         key: _yourSetupKey,
-        index: 2,
+        index: 1,
         icon: LucideIcons.settings2,
         title: l10n.helpCenterYourSetup,
         child: _YourSetupFocusFrame(
@@ -98,19 +86,19 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
         ),
       ),
       HelpCenterSectionCard(
-        index: 3,
+        index: 2,
         icon: LucideIcons.triangleAlert,
         title: l10n.helpCenterKnownIssues,
         child: const KnownIssuesSection(key: ValueKey('help-known-issues')),
       ),
       HelpCenterSectionCard(
-        index: 4,
+        index: 3,
         icon: LucideIcons.creditCard,
         title: l10n.helpCenterPricingFaq,
         child: const PricingFaqSection(key: ValueKey('help-pricing-account')),
       ),
       HelpCenterSectionCard(
-        index: 5,
+        index: 4,
         icon: LucideIcons.users,
         title: l10n.helpCenterContact,
         child: const ContactCommunitySection(),
@@ -147,29 +135,6 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _TroubleshootingSection extends StatelessWidget {
-  const _TroubleshootingSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Button.ghost(
-      key: const ValueKey('help-center-open-troubleshooting'),
-      onPressed: () {
-        openDrawer(
-          context: context,
-          position: OverlayPosition.bottom,
-          builder: (c) => MarkdownPage(assetPath: 'TROUBLESHOOTING.md'),
-        );
-      },
-      child: Basic(
-        leading: const Icon(Icons.help_outline, size: 18),
-        title: Text(context.i18n.helpCenterOpenTroubleshooting),
-        trailing: const Icon(Icons.chevron_right, size: 16).iconMutedForeground,
       ),
     );
   }
