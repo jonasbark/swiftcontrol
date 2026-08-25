@@ -53,8 +53,11 @@ Color? _cardBorderColor(WidgetTester tester, Finder cardFinder) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late AppLocalizations l10n;
+
   setUpAll(() async {
     await initializeDateFormatting();
+    l10n = await AppLocalizations.load(const Locale('en'));
     SharedPreferences.setMockInitialValues({});
     await Supabase.initialize(
       url: 'http://127.0.0.1:9',
@@ -79,7 +82,10 @@ void main() {
   ) async {
     await _pump(tester, focus: HelpCenterFocus.yourSetup);
     // Not pumpAndSettle: KnownIssuesSection fires a real, unmocked network
-    // fetch on initState (see help_center_page_test.dart).
+    // fetch on initState (see help_center_page_test.dart) that fails in this
+    // test environment — usage-fix round 3 made that hide the whole section,
+    // header included, so "Guides & videos" (always-rendered, no network
+    // dependency) stands in as the "other card" reference here instead.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -87,11 +93,11 @@ void main() {
       of: find.byKey(const ValueKey('help-your-setup')),
       matching: find.byType(Card),
     );
-    final knownIssuesCard = find.ancestor(of: find.text('Known issues'), matching: find.byType(Card));
+    final guidesCard = find.ancestor(of: find.text(l10n.helpCenterGuides), matching: find.byType(Card));
 
     expect(_cardBorderColor(tester, yourSetupCard), BKColor.main, reason: 'focused card border turns brand blue');
     expect(
-      _cardBorderColor(tester, knownIssuesCard),
+      _cardBorderColor(tester, guidesCard),
       isNot(BKColor.main),
       reason: 'divergence 1: "everything else is unchanged" — other cards keep their default border colour',
     );

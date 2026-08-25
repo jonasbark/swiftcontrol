@@ -896,7 +896,6 @@
   "needsTargetLeavePrompt": "{appName} necesita un destino antes de poder conectar. ¿Salir sin elegir uno?",
   "feedbackQuestion": "¿Funciona?",
   "supportChat": "Chat de soporte",
-  "knownIssues": "Problemas conocidos",
   "supportAccountStatusAnonymous": "Anónimo · sin iniciar sesión",
   "supportAccountStatusSignedIn": "Sesión iniciada",
   "supportAccountLinkTitle": "Recibe la respuesta",

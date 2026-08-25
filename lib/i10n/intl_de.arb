@@ -896,7 +896,6 @@
   "needsTargetLeavePrompt": "{appName} braucht ein Ziel, um sich zu verbinden. Trotzdem ohne Auswahl verlassen?",
   "feedbackQuestion": "Funktioniert es?",
   "supportChat": "Support-Chat",
-  "knownIssues": "Bekannte Probleme",
   "supportAccountStatusAnonymous": "Anonym · nicht angemeldet",
   "supportAccountStatusSignedIn": "Angemeldet",
   "supportAccountLinkTitle": "Antwort erhalten",

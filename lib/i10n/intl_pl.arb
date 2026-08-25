@@ -896,7 +896,6 @@
   "needsTargetLeavePrompt": "{appName} potrzebuje celu, żeby się połączyć. Wyjść mimo to?",
   "feedbackQuestion": "Działa?",
   "supportChat": "Czat wsparcia",
-  "knownIssues": "Znane problemy",
   "supportAccountStatusAnonymous": "Anonimowo · niezalogowano",
   "supportAccountStatusSignedIn": "Zalogowano",
   "supportAccountLinkTitle": "Odbierz odpowiedź",

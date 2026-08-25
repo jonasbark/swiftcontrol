@@ -55,15 +55,30 @@ Future<void> main() async {
     core.actionHandler = StubActions();
   });
 
-  testWidgets('renders every section header', (tester) async {
+  testWidgets('renders every always-on section header', (tester) async {
     await _pump(tester, const HelpCenterPage());
     await tester.pump();
 
     expect(find.text(l10n.helpCenterGuides), findsOneWidget);
     expect(find.text(l10n.helpCenterYourSetup), findsOneWidget);
-    expect(find.text(l10n.helpCenterKnownIssues), findsOneWidget);
     expect(find.text(l10n.helpCenterPricingFaq), findsOneWidget);
     expect(find.text(l10n.helpCenterContact), findsOneWidget);
+  });
+
+  testWidgets('Known Issues renders nothing — not even its header — when the fetch fails', (tester) async {
+    // KnownIssuesSection fires a real, unmocked network fetch on initState
+    // (see the "help button push" test below) against the bogus
+    // 127.0.0.1:9 endpoint set up in setUpAll, which fails fast (loopback
+    // connection-refused, not a real timeout). Usage-fix round 3 (Jonas): a
+    // "Bekannte Probleme" card with a header and an empty body must not
+    // render at all — this pins that the whole card, header included, is
+    // gone once the fetch resolves to "no issues".
+    await _pump(tester, const HelpCenterPage());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text(l10n.helpCenterKnownIssues), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('focus: yourSetup scrolls the your-setup placeholder into view', (tester) async {

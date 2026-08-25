@@ -1443,7 +1443,6 @@
   },
   "feedbackQuestion": "Does it work?",
   "supportChat": "Support Chat",
-  "knownIssues": "Known issues",
   "supportAccountStatusAnonymous": "Anonymous · not signed in",
   "supportAccountStatusSignedIn": "Signed in",
   "supportAccountLinkTitle": "Get the reply",

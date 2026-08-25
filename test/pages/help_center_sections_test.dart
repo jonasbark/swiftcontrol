@@ -19,6 +19,7 @@
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
 import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
+import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
 import 'package:bike_control/pages/help_center/widgets/known_issues_section.dart';
 import 'package:bike_control/services/support_chat_models.dart';
 import 'package:bike_control/utils/core.dart';
@@ -74,15 +75,21 @@ void main() {
   });
 
   group('KnownIssuesSection', () {
-    testWidgets('renders a row per fetched issue', (tester) async {
+    testWidgets('renders a row per fetched issue, plus its own header card', (tester) async {
+      final l10n = await AppLocalizations.load(const Locale('en'));
       final issues = [
         const SupportIssue(id: 'i1', title: 'MyWhoosh drops connection'),
         const SupportIssue(id: 'i2', title: 'Zwift Click V2 pairing fails'),
       ];
 
-      await _pump(tester, KnownIssuesSection(fetchIssues: () async => issues));
+      await _pump(tester, KnownIssuesSection(index: 2, fetchIssues: () async => issues));
       await tester.pump();
 
+      // Usage-fix round 3: this section now owns its whole
+      // HelpCenterSectionCard (header included), not just the row list — see
+      // the "hides ... entirely, header included" test below for the empty
+      // side of this.
+      expect(find.text(l10n.helpCenterKnownIssues), findsOneWidget);
       expect(find.text('MyWhoosh drops connection'), findsOneWidget);
       expect(find.text('Zwift Click V2 pairing fails'), findsOneWidget);
     });
@@ -94,7 +101,7 @@ void main() {
       addTearDown(() => UrlLauncherPlatform.instance = previous);
       final issues = [const SupportIssue(id: 'abc123', title: 'Some issue')];
 
-      await _pump(tester, KnownIssuesSection(fetchIssues: () async => issues));
+      await _pump(tester, KnownIssuesSection(index: 2, fetchIssues: () async => issues));
       await tester.pump();
 
       await tester.tap(find.text('Some issue'));
@@ -112,7 +119,7 @@ void main() {
         const SupportIssue(id: 'i2', title: 'How to pair your Zwift Click V2', helpBlogSlug: 'pair-click-v2'),
       ];
 
-      await _pump(tester, KnownIssuesSection(fetchIssues: () async => issues));
+      await _pump(tester, KnownIssuesSection(index: 2, fetchIssues: () async => issues));
       await tester.pump();
 
       expect(find.text('MyWhoosh drops connection'), findsOneWidget);
@@ -124,25 +131,36 @@ void main() {
         const SupportIssue(id: 'i2', title: 'How to pair your Zwift Click V2', helpBlogSlug: 'pair-click-v2'),
       ];
 
-      await _pump(tester, KnownIssuesSection(fetchIssues: () async => issues));
+      await _pump(tester, KnownIssuesSection(index: 2, fetchIssues: () async => issues));
       await tester.pump();
 
       expect(find.byType(Button), findsNothing);
     });
 
-    testWidgets('hides the section when the fetch returns no issues', (tester) async {
-      await _pump(tester, KnownIssuesSection(fetchIssues: () async => const []));
+    testWidgets('hides the section entirely, header included, when the fetch returns no issues', (tester) async {
+      final l10n = await AppLocalizations.load(const Locale('en'));
+
+      await _pump(tester, KnownIssuesSection(index: 2, fetchIssues: () async => const []));
       await tester.pump();
 
+      // Usage-fix round 3 (Jonas): an empty "Bekannte Probleme" card — header
+      // with nothing under it — must not render at all. KnownIssuesSection
+      // now owns its whole HelpCenterSectionCard, so an empty fetch collapses
+      // the header and divider along with the row list, not just the rows.
       expect(find.byType(Button), findsNothing);
-      expect(find.byType(KnownIssuesSection), findsOneWidget, reason: 'header stays; only the body hides');
+      expect(find.text(l10n.helpCenterKnownIssues), findsNothing, reason: 'header must hide too, not just the body');
+      expect(find.byType(HelpCenterSectionCard), findsNothing);
+      // The widget itself is still mounted (so a later non-empty fetch could
+      // still show it) — it just paints nothing.
+      expect(find.byType(KnownIssuesSection), findsOneWidget);
     });
 
     testWidgets('hides the section (and records, not throws) when the fetch fails', (tester) async {
-      await _pump(tester, KnownIssuesSection(fetchIssues: () async => throw Exception('network down')));
+      await _pump(tester, KnownIssuesSection(index: 2, fetchIssues: () async => throw Exception('network down')));
       await tester.pump();
 
       expect(find.byType(Button), findsNothing);
+      expect(find.byType(HelpCenterSectionCard), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

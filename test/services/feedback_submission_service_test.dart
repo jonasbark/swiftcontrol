@@ -20,10 +20,12 @@ class _FakeSupabaseHttp extends http.BaseClient {
   final List<http.Request> functionRequests = [];
   final List<http.Request> userRequests = [];
   final List<http.Request> verifyRequests = [];
+  final List<http.Request> idTokenRequests = [];
 
   Object? signInAnonymouslyError;
   int functionStatus = 200;
   Map<String, dynamic> functionResponseBody = {'id': 'feedback-1'};
+  bool idTokenLinkError = false;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -48,6 +50,15 @@ class _FakeSupabaseHttp extends http.BaseClient {
     if (path.endsWith('/auth/v1/verify')) {
       verifyRequests.add(req);
       return _json(_sessionJson(anonymous: false, email: 'rider@example.com'));
+    }
+    if (path.endsWith('/auth/v1/token') && request.url.queryParameters['grant_type'] == 'id_token') {
+      idTokenRequests.add(req);
+      if (idTokenLinkError) {
+        return _json({'msg': 'Identity is already linked to another user'}, status: 422);
+      }
+      // Same user id as every other fixture here — a real link response
+      // keeps the id unchanged; only `is_anonymous`/`email` flip.
+      return _json(_sessionJson(anonymous: false, email: 'rider@gmail.com'));
     }
     return _json(<String, dynamic>{}, status: 404);
   }
@@ -221,6 +232,89 @@ void main() {
       );
 
       await erroringClient.dispose();
+    });
+  });
+
+  group('email link-up with no prior session', () {
+    test('beginEmailLink creates an anonymous session first', () async {
+      // Covers the chat's header "Sign In" button, which can be tapped
+      // before any message — and therefore any session — exists yet.
+      // Without this, `updateUser` would have no session to act on.
+      expect(client.auth.currentSession, isNull);
+
+      await service.beginEmailLink('rider@example.com');
+
+      expect(fakeHttp.signupRequests, hasLength(1));
+      expect(fakeHttp.userRequests, hasLength(1));
+      expect(client.auth.currentSession, isNotNull);
+    });
+  });
+
+  group('social identity linking', () {
+    setUp(() async {
+      await client.auth.recoverSession(jsonEncode(_sessionJson(anonymous: true)));
+    });
+
+    test('linkGoogleIdentity calls the id-token grant with link_identity — same user id preserved', () async {
+      final userIdBeforeLink = client.auth.currentSession!.user.id;
+
+      await service.linkGoogleIdentity(idToken: 'fake-google-id-token', accessToken: 'fake-access-token');
+
+      expect(fakeHttp.idTokenRequests, hasLength(1));
+      final request = fakeHttp.idTokenRequests.single;
+      expect(request.url.queryParameters['grant_type'], 'id_token');
+      final payload = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(payload['provider'], 'google');
+      expect(payload['id_token'], 'fake-google-id-token');
+      expect(payload['access_token'], 'fake-access-token');
+      expect(payload['link_identity'], isTrue, reason: 'must link onto the current user, not sign in as a new one');
+      expect(
+        client.auth.currentSession!.user.id,
+        userIdBeforeLink,
+        reason: 'linking preserves the session/user id so anything already written under it stays attached',
+      );
+      expect(client.auth.currentSession!.user.isAnonymous, isFalse);
+    });
+
+    test('linkAppleIdentity calls the id-token grant with the Apple provider and nonce', () async {
+      final userIdBeforeLink = client.auth.currentSession!.user.id;
+
+      await service.linkAppleIdentity(idToken: 'fake-apple-id-token', nonce: 'raw-nonce');
+
+      expect(fakeHttp.idTokenRequests, hasLength(1));
+      final payload = jsonDecode(fakeHttp.idTokenRequests.single.body) as Map<String, dynamic>;
+      expect(payload['provider'], 'apple');
+      expect(payload['id_token'], 'fake-apple-id-token');
+      expect(payload['nonce'], 'raw-nonce');
+      expect(payload['link_identity'], isTrue);
+      expect(client.auth.currentSession!.user.id, userIdBeforeLink);
+    });
+
+    test('linkGoogleIdentity with no prior session creates an anonymous one first', () async {
+      final noSessionClient = SupabaseClient(
+        'https://example.test',
+        'test-anon-key',
+        httpClient: fakeHttp,
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+      );
+      final noSessionService = FeedbackSubmissionService(client: noSessionClient);
+      expect(noSessionClient.auth.currentSession, isNull);
+
+      await noSessionService.linkGoogleIdentity(idToken: 'fake-google-id-token');
+
+      expect(fakeHttp.signupRequests, hasLength(1));
+      expect(fakeHttp.idTokenRequests, hasLength(1));
+
+      await noSessionClient.dispose();
+    });
+
+    test('a rejected link is wrapped in FeedbackSubmissionException, not swallowed', () async {
+      fakeHttp.idTokenLinkError = true;
+
+      await expectLater(
+        service.linkGoogleIdentity(idToken: 'fake-google-id-token'),
+        throwsA(isA<FeedbackSubmissionException>()),
+      );
     });
   });
 }

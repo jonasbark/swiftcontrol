@@ -71,6 +71,15 @@ class FeedbackSubmissionService {
 
   /// Starts linking [email] to the anonymous session (updateUser → OTP mail).
   Future<void> beginEmailLink(String email) async {
+    // Guarantees a session exists before the authenticated `updateUser` call
+    // below — a no-op whenever one already does (the common case: the rider
+    // reached this card after `_send()` already created one). Covers the
+    // header "Sign In" button, which can be tapped before any message — and
+    // therefore any session — exists yet. Called outside this method's own
+    // try/catch: `ensureSession` already records and wraps its own failures,
+    // so nesting it here would only double-record the same error under a
+    // less accurate message.
+    await ensureSession();
     try {
       await _client.auth.updateUser(UserAttributes(email: email));
     } catch (e, s) {
@@ -86,6 +95,47 @@ class FeedbackSubmissionService {
     } catch (e, s) {
       await recordError(e, s, context: 'FeedbackSubmissionService.confirmEmailLink');
       throw const FeedbackSubmissionException('Failed to confirm the verification code');
+    }
+  }
+
+  /// Links a Google identity — its [idToken]/[accessToken] obtained via
+  /// [fetchGoogleIdToken] — onto the CURRENT session via GoTrue's id-token
+  /// identity linking (`linkIdentityWithIdToken`), rather than signing in as
+  /// a — possibly different — user the way [LoginPage] does with the same
+  /// token. Linking preserves the session's user id, so anything already
+  /// written under it (e.g. this rider's support chat, still anonymous at
+  /// this point) stays intact instead of being orphaned under a swapped-out
+  /// user. See `SupportAccountLinkCard`'s file header for the full story.
+  Future<void> linkGoogleIdentity({required String idToken, String? accessToken}) async {
+    // See beginEmailLink for why this runs outside the try/catch below.
+    await ensureSession();
+    try {
+      await _client.auth.linkIdentityWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+    } catch (e, s) {
+      await recordError(e, s, context: 'FeedbackSubmissionService.linkGoogleIdentity');
+      throw const FeedbackSubmissionException('Failed to link your Google account');
+    }
+  }
+
+  /// Links an Apple identity — its [idToken]/[nonce] obtained via
+  /// [fetchAppleIdToken] — onto the CURRENT session. See
+  /// [linkGoogleIdentity] for why this links rather than signs in.
+  Future<void> linkAppleIdentity({required String idToken, required String nonce}) async {
+    // See beginEmailLink for why this runs outside the try/catch below.
+    await ensureSession();
+    try {
+      await _client.auth.linkIdentityWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: idToken,
+        nonce: nonce,
+      );
+    } catch (e, s) {
+      await recordError(e, s, context: 'FeedbackSubmissionService.linkAppleIdentity');
+      throw const FeedbackSubmissionException('Failed to link your Apple account');
     }
   }
 

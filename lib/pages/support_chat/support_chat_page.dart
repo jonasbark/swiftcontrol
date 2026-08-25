@@ -6,7 +6,6 @@ import 'package:bike_control/pages/support_chat/widgets/support_account_link_car
 import 'package:bike_control/pages/support_chat/widgets/support_composer.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_intake_form.dart';
 import 'package:bike_control/pages/support_chat/widgets/support_message_group.dart';
-import 'package:bike_control/pages/support_chat/widgets/support_open_issues_banner.dart';
 import 'package:bike_control/services/feedback_submission_service.dart';
 import 'package:bike_control/services/support_chat_models.dart';
 import 'package:bike_control/services/support_chat_service.dart';
@@ -91,7 +90,6 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
   /// Keyed by the staged attachment the composer restores, so retrying re-uses
   /// the blob instead of orphaning it (there is no client-side delete).
   final Map<StagedAttachment, SupportAttachmentUpload> _retainedUploads = {};
-  List<SupportIssue> _openIssues = const [];
   IntakeAnswers? _intakeAnswers;
   bool _intakeSent = false;
   bool _editingIntake = false;
@@ -133,20 +131,9 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
     if (_client.auth.currentSession != null) {
       _bootstrap();
     }
-    _loadIssues();
     widget.diagnosticPreviewFuture?.then((preview) {
       if (mounted) setState(() => _diagnosticPreview = preview);
     });
-  }
-
-  Future<void> _loadIssues() async {
-    try {
-      final issues = await _service.fetchOpenIssues();
-      if (!mounted) return;
-      setState(() => _openIssues = issues);
-    } on SupportChatException {
-      // Silently ignore — issues list is supplementary content.
-    }
   }
 
   @override
@@ -193,7 +180,6 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
   }
 
   Future<void> _refresh() async {
-    unawaited(_loadIssues());
     try {
       final fetched = await _service.fetchChat(skipLastSeen: false);
       if (!mounted) return;
@@ -385,12 +371,12 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
         ),
         const Divider(),
       ],
-      child: Column(
-        children: [
-          SupportOpenIssuesBanner(issues: _openIssues),
-          Expanded(child: _body()),
-        ],
-      ),
+      // The known-issues banner used to sit here — it's gone (usage-fix
+      // round 3): known issues belong to the Help Center now, and showing
+      // them again in the chat was noise. `_body()` fills the whole content
+      // area directly; it no longer needs an Expanded+Column to share space
+      // with a banner above it.
+      child: _body(),
     );
   }
 

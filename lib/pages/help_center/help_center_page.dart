@@ -22,12 +22,6 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// "check your setup" hint elsewhere in the app.
 enum HelpCenterFocus { yourSetup }
 
-/// Known Issues' header accent (mockup's `--bk-warning` design token — there
-/// is no equivalent in the shadcn `ColorScheme`, so this follows the app's
-/// existing convention of a module-private amber constant, e.g.
-/// `onboarding_app_guides.dart`'s `_warning`).
-const Color _warningAccent = Color(0xFFF59E0B);
-
 class HelpCenterPage extends StatefulWidget {
   final HelpCenterFocus? focus;
 
@@ -73,6 +67,15 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
   Widget build(BuildContext context) {
     final l10n = context.i18n;
 
+    // Every section after the first supplies its own 12px leading gap via an
+    // explicit `Padding` rather than the `Column` below applying a uniform
+    // `spacing:` — `Column(spacing:)` charges a fixed gap per child
+    // regardless of that child's rendered size, so if KnownIssuesSection
+    // collapses to `SizedBox.shrink()` (no open issues — see its own file),
+    // a shared `spacing:` would still leave a phantom gap where its card
+    // used to be. KnownIssuesSection folds this same top-12 gap into its own
+    // conditional build, so the two approaches agree on spacing either way.
+    const sectionGap = EdgeInsets.only(top: 12);
     final sections = <Widget>[
       HelpCenterSectionCard(
         index: 0,
@@ -85,38 +88,44 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
       // that there's no nested focus frame to carry it — see
       // help_center_page_test.dart's scroll-into-view assertions, which
       // find this section by that key and read its rect.
-      KeyedSubtree(
-        key: const ValueKey('help-your-setup'),
-        child: HelpCenterSectionCard(
-          key: _yourSetupKey,
-          index: 1,
-          icon: LucideIcons.settings2,
-          title: l10n.helpCenterYourSetup,
-          microLabel: l10n.helpCenterYourSetupMicroLabel,
-          focused: _yourSetupExpanded,
-          child: const YourSetupSection(),
+      Padding(
+        padding: sectionGap,
+        child: KeyedSubtree(
+          key: const ValueKey('help-your-setup'),
+          child: HelpCenterSectionCard(
+            key: _yourSetupKey,
+            index: 1,
+            icon: LucideIcons.settings2,
+            title: l10n.helpCenterYourSetup,
+            microLabel: l10n.helpCenterYourSetupMicroLabel,
+            focused: _yourSetupExpanded,
+            child: const YourSetupSection(),
+          ),
         ),
       ),
-      HelpCenterSectionCard(
-        index: 2,
-        icon: LucideIcons.triangleAlert,
-        title: l10n.helpCenterKnownIssues,
-        accent: _warningAccent,
-        child: const KnownIssuesSection(key: ValueKey('help-known-issues')),
+      // Owns its whole card (header included) and renders nothing at all —
+      // not even its own leading gap — when there are no open issues or the
+      // fetch fails. See known_issues_section.dart's file header comment.
+      const KnownIssuesSection(key: ValueKey('help-known-issues'), index: 2),
+      Padding(
+        padding: sectionGap,
+        child: HelpCenterSectionCard(
+          index: 3,
+          icon: LucideIcons.creditCard,
+          title: l10n.helpCenterPricingFaq,
+          subtitle: l10n.helpCenterPricingFaqSubtitle,
+          accent: null,
+          child: const PricingFaqSection(key: ValueKey('help-pricing-account')),
+        ),
       ),
-      HelpCenterSectionCard(
-        index: 3,
-        icon: LucideIcons.creditCard,
-        title: l10n.helpCenterPricingFaq,
-        subtitle: l10n.helpCenterPricingFaqSubtitle,
-        accent: null,
-        child: const PricingFaqSection(key: ValueKey('help-pricing-account')),
-      ),
-      HelpCenterSectionCard(
-        index: 4,
-        icon: LucideIcons.users,
-        title: l10n.helpCenterContact,
-        child: const ContactCommunitySection(),
+      Padding(
+        padding: sectionGap,
+        child: HelpCenterSectionCard(
+          index: 4,
+          icon: LucideIcons.users,
+          title: l10n.helpCenterContact,
+          child: const ContactCommunitySection(),
+        ),
       ),
     ];
 
@@ -144,8 +153,10 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 700),
             child: Column(
+              // No `spacing:` here — each section beyond the first supplies
+              // its own leading gap (see `sectionGap` above) so a hidden
+              // KnownIssuesSection doesn't leave a phantom one behind.
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 12,
               children: sections,
             ),
           ),

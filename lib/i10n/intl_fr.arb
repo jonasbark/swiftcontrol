@@ -896,7 +896,6 @@
   "needsTargetLeavePrompt": "{appName} a besoin d'une cible avant de pouvoir se connecter. Partir sans en choisir ?",
   "feedbackQuestion": "Ça fonctionne ?",
   "supportChat": "Chat de support",
-  "knownIssues": "Problèmes connus",
   "supportAccountStatusAnonymous": "Anonyme · non connecté",
   "supportAccountStatusSignedIn": "Connecté",
   "supportAccountLinkTitle": "Reçois la réponse",
