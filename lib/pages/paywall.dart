@@ -1,7 +1,9 @@
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/widgets/ui/colors.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
+import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:intl/intl.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -213,6 +215,15 @@ class _PaywallState extends State<Paywall> {
           );
           break;
       }
+    } catch (e, s) {
+      // Inner purchase paths toast+log their own failures; this catches anything
+      // that escapes them (e.g. loading offerings) so tapping Buy can never fail
+      // silently or land in the logs as an unhandled "Zone" crash.
+      recordError(e, s, context: 'Paywall purchase');
+      buildToast(
+        title: 'Purchase Error',
+        subtitle: 'Something went wrong starting your purchase. Please try again.',
+      );
     } finally {
       if (mounted) {
         setState(() {

@@ -272,7 +272,8 @@ class WindowsIAPService {
         successUrl: 'bikecontrol://stripe-success',
         cancelUrl: 'bikecontrol://stripe-cancel',
       );
-    } on StripeException catch (e) {
+    } on StripeException catch (e, s) {
+      recordError(e, s, context: 'Starting Stripe checkout');
       buildToast(
         title: 'Checkout Error',
         subtitle: e.message,
@@ -297,11 +298,12 @@ class WindowsIAPService {
     try {
       await _stripeService.openPortal(returnUrl: 'bikecontrol://stripe-portal-return');
       return true;
-    } on StripeException catch (e) {
+    } on StripeException catch (e, s) {
       if (e.statusCode == 404) {
         // No Stripe customer found - should hide the portal button
         return false;
       }
+      recordError(e, s, context: 'Opening Stripe portal');
       if (context.mounted) {
         buildToast(
           title: 'Portal Error',
