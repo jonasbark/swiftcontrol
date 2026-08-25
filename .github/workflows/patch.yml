@@ -4,10 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       build_mac:
-        # Selecting this currently only installs the signing certificates: the
-        # macOS patch step itself stays disabled until
-        # https://github.com/OpenBikeControl/bikecontrol/issues/143 is fixed.
-        description: 'Patch for macOS (patch step disabled, see #143)'
+        # macOS patches go through the Mac App Store workaround
+        # (scripts/shorebird_mas_patch.rb). This requires a one-time local
+        # `register-baseline` for the target release BEFORE this runs — see
+        # scripts/README-shorebird-macos.md. Off by default because that local
+        # step can't happen in CI. Set release_version to x.y.z+build.
+        description: 'Patch for macOS (needs local register-baseline first, see scripts/README-shorebird-macos.md)'
         required: false
         default: false
         type: boolean
@@ -111,13 +113,33 @@ jobs:
           keystore-base64: ${{ secrets.KEYSTORE_BASE64 }}
           keystore-properties: ${{ secrets.KEYSTORE_PROPERTIES }}
 
-      - name: 🚀 Shorebird Patch macOS
-        if: false # patch doesn't work: https://github.com/OpenBikeControl/bikecontrol/issues/143
-        uses: shorebirdtech/shorebird-patch@v1
-        with:
-          platform: macos
-          release-version: ${{ inputs.release_version }}
-          args: '--track ${{ inputs.track }} --allow-asset-diffs --allow-native-diffs --split-debug-info=symbols -- --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}'
+      # macOS can't use the stock shorebird-patch action: Apple re-processes the
+      # store .pkg, so patches must be built against the store-delivered .app that a
+      # local `register-baseline` uploaded as macos/app_mas_contents. The script
+      # fails fast with a clear message if that baseline is missing.
+      # See scripts/README-shorebird-macos.md and shorebirdtech/shorebird#3223.
+      - name: Prepare App Store authentication key (macOS patch)
+        if: inputs.build_mac
+        env:
+          API_KEY_BASE64: ${{ secrets.APPSTORE_API_KEY_FILE_BASE64 }}
+          APPSTORE_API_KEY: ${{ secrets.APPSTORE_API_KEY }}
+        run: |
+          mkdir -p ./private_keys
+          printf %s "$API_KEY_BASE64" | base64 -D > "./private_keys/AuthKey_${APPSTORE_API_KEY}.p8"
+
+      - name: 🚀 Shorebird Patch macOS (Mac App Store baseline)
+        if: inputs.build_mac
+        env:
+          SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
+          # 'latest' is the workflow default; the script auto-detects the live
+          # READY_FOR_SALE version when RELEASE_VERSION is empty.
+          RELEASE_VERSION: ${{ inputs.release_version == 'latest' && '' || inputs.release_version }}
+          ASC_APP_ID: ${{ secrets.ASC_MACOS_APP_ID }}
+          ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY }}
+          ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          ASC_API_KEY_PATH: ./private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY }}.p8
+          SHOREBIRD_PATCH_ARGS: "--track ${{ inputs.track }} --allow-asset-diffs --allow-native-diffs --split-debug-info=symbols -- --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+        run: ruby scripts/shorebird_mas_patch.rb patch
 
       - name: 🚀 Shorebird Patch Android
         if: inputs.build_android
@@ -151,15 +173,14 @@ jobs:
           release-version: ${{ inputs.release_version }}
           args: '--track beta --allow-asset-diffs --allow-native-diffs --split-debug-info=symbols -- --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}'
 
-      # build_mac is deliberately not part of these conditions: the macOS patch
-      # step is disabled (#143), so a macOS-only run produces no symbols/ and
-      # the zip would fail. Add it back when that patch step is re-enabled.
+      # macOS, Android and iOS patches all emit --split-debug-info=symbols, so any
+      # of them produces a symbols/ dir to zip.
       - name: Zip Symbols
-        if: inputs.build_android || inputs.build_ios
+        if: inputs.build_mac || inputs.build_android || inputs.build_ios
         run: zip -P "${{ secrets.ZIP_PASSWORD }}" -r symbols.zip symbols/
 
       - name: Upload Symbols
-        if: inputs.build_android || inputs.build_ios
+        if: inputs.build_mac || inputs.build_android || inputs.build_ios
         uses: actions/upload-artifact@v4
         with:
           overwrite: true
