@@ -427,10 +427,14 @@ class Connection {
     // shows up on the wire without the user reconnecting.
     core.settings.trainerAppListenable.addListener(() {
       // Reconcile each device's composite membership (a VS bridge takes its
-      // ride-along controller on/off depending on the app) BEFORE the shared
+      // ride-along controller on/off depending on the app, and a Click V2
+      // rides on the bridge for some apps but not others) BEFORE the shared
       // emulator re-advertises, so the new advertisement reflects the change.
       for (final pd in proxyDevices) {
         unawaited(pd.onTrainerAppChanged());
+      }
+      for (final click in bluetoothDevices.whereType<ZwiftClickV2>()) {
+        click.onTrainerAppChanged();
       }
       unawaited(ftmsEmulator.restart());
     });
