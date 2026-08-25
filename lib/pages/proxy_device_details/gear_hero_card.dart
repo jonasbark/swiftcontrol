@@ -16,7 +16,12 @@ class GearHeroCard extends StatefulWidget {
   /// empty widget) in ERG mode. The mode switch is also omitted since the
   /// surface is dedicated to gear shifting.
   final bool simOnly;
-  const GearHeroCard({super.key, required this.definition, this.simOnly = false});
+
+  /// Opens the Virtual Shifting settings — gear count, ratios, weights. Null
+  /// hides the Edit affordance (the onboarding preview has nothing to open).
+  final VoidCallback? onEditSettings;
+
+  const GearHeroCard({super.key, required this.definition, this.simOnly = false, this.onEditSettings});
 
   @override
   State<GearHeroCard> createState() => _GearHeroCardState();
@@ -83,17 +88,41 @@ class _GearHeroCardState extends State<GearHeroCard> {
                     _modePill(context, cs, TrainerMode.ergMode, active: isErg),
                   ],
                 ),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-            decoration: BoxDecoration(
-              color: cs.muted,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: cs.border,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: cs.muted,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: cs.border,
+                  ),
+                ),
+                child: isErg ? _ergContent(context, cs) : _gearContent(context, cs),
               ),
-            ),
-            child: isErg ? _ergContent(context, cs) : _gearContent(context, cs),
+              // Everything this card *shows* is live; everything that shapes it
+              // — gear count, ratios, weights — lives further down the page.
+              if (widget.onEditSettings != null)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Button.ghost(
+                    onPressed: widget.onEditSettings,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context).chainEdit,
+                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: cs.primary),
+                        ),
+                        Icon(LucideIcons.chevronRight, size: 15, color: cs.primary),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
         if (!showMyWhooshHint) return tile;
@@ -158,15 +187,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
               filled: false,
               onTap: () => widget.definition.shiftDown(),
             ),
-            Text(
-              '$gear',
-              style: TextStyle(
-                fontSize: isSmall ? 52 : 72,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -2,
-                color: cs.foreground,
-              ),
-            ),
+            _gearNumber(context, cs, gear, isSmall),
             _shiftButton(
               context: context,
               icon: LucideIcons.plus,
@@ -184,14 +205,61 @@ class _GearHeroCardState extends State<GearHeroCard> {
             color: cs.mutedForeground,
           ),
         ),
-        if (widget.definition.frontShiftEnabled)
-          Text(
-            widget.definition.frontRing.value == FrontRing.large
-                ? '2× · ${widget.definition.largeChainringTeeth}T'
-                : '1× · ${widget.definition.smallChainringTeeth}T',
-            style: TextStyle(fontSize: 13, color: cs.mutedForeground),
-          ),
+        if (widget.definition.frontShiftEnabled) _frontRingToggle(context, cs),
       ],
+    );
+  }
+
+  /// The gear, in a box wide enough for the highest gear the rider can reach.
+  ///
+  /// Sized to the widest value rather than the current one so the shift buttons
+  /// hold their place — otherwise they slide inwards on 9 and back out on 10,
+  /// and the target moves under a thumb that is already on its way down.
+  Widget _gearNumber(BuildContext context, ColorScheme cs, int gear, bool isSmall) {
+    final style = TextStyle(
+      fontSize: isSmall ? 52 : 72,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -2,
+      color: cs.foreground,
+      // Equal-width digits, so the reserved box is exact for any value of the
+      // same length rather than merely close.
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Visibility(
+          visible: false,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: Text('0' * '${widget.definition.maxGear}'.length, style: style),
+        ),
+        Text('$gear', style: style),
+      ],
+    );
+  }
+
+  /// Which chainring the drivetrain is on, and a way to change it.
+  ///
+  /// The rider already has this on a controller button; having it here too is
+  /// what makes the front derailleur checkable from the page that shows it.
+  Widget _frontRingToggle(BuildContext context, ColorScheme cs) {
+    final large = widget.definition.frontRing.value == FrontRing.large;
+    final teeth = large ? widget.definition.largeChainringTeeth : widget.definition.smallChainringTeeth;
+    return Button.ghost(
+      onPressed: () => widget.definition.toggleFrontChainring(),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${large ? 2 : 1}\u00d7 \u00b7 ${teeth}T',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.mutedForeground),
+          ),
+          const Gap(6),
+          Icon(LucideIcons.repeat, size: 13, color: cs.primary),
+        ],
+      ),
     );
   }
 

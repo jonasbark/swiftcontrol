@@ -31,7 +31,13 @@ class _TrainerSettingsSectionState extends State<TrainerSettingsSection> {
   @override
   void initState() {
     super.initState();
-    _applyActiveConfigToDefinition();
+    // After the frame, not during it. Applying the config writes the
+    // definition's ValueNotifiers, and anything already built that listens to
+    // them — the gear hero and its drivetrain sit above this section — would be
+    // marked dirty mid-build, which the framework treats as an error.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _applyActiveConfigToDefinition();
+    });
     core.shiftingConfigs.addListener(_onConfigsChanged);
   }
 

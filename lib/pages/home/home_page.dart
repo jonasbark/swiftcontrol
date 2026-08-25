@@ -565,18 +565,25 @@ class _HomePageState extends State<HomePage> {
       statusLabel: _controllerStatusLabel(link, device),
       statusBadges: placeholder ? const [] : _controllerBadges(device),
       editLabel: placeholder ? context.i18n.chainSetUp : context.i18n.chainEdit,
-      onEdit: placeholder
-          ? () => openControllerSetupSheet(context).then((_) => _update())
-          : () async {
-              await context.push(ControllerSettingsPage(device: device));
-              _update();
-            },
+      onEdit: () => _openController(device),
+      onTap: () => _openController(device),
       onInstructions: () => _openInstructions(link),
       instructionsLabel: placeholder || link.activeStep?.id == SetupStepId.controllerClickV2Setup
           ? context.i18n.chainSetUp
           : null,
       body: placeholder ? null : _controllerBody(device, connected: device.isConnected),
     );
+  }
+
+  /// This controller's own page — or the setup sheet, when the card is still an
+  /// empty slot and there is no page yet.
+  Future<void> _openController(BaseDevice? device) async {
+    if (device == null) {
+      await openControllerSetupSheet(context);
+    } else {
+      await context.push(ControllerSettingsPage(device: device));
+    }
+    _update();
   }
 
   String _controllerStatusLabel(ChainLink link, BaseDevice? device) {
@@ -753,14 +760,8 @@ class _HomePageState extends State<HomePage> {
       // Until a trainer is actually bridged there is nothing to edit — the
       // useful offer is to connect it, the same way onboarding does.
       editLabel: bridged ? context.i18n.chainEdit : context.i18n.connect,
-      onEdit: () async {
-        if (bridged && proxy != null) {
-          await context.push(ProxyDeviceDetailsPage(device: proxy));
-        } else {
-          await openTrainerConnectSheet(context);
-        }
-        _update();
-      },
+      onEdit: () => _openTrainer(proxy, bridged: bridged),
+      onTap: () => _openTrainer(proxy, bridged: bridged),
       onInstructions: () => _openInstructions(link),
       // The overlay step is an offer, not a puzzle: its button turns the thing
       // on rather than explaining how it works.
@@ -769,6 +770,17 @@ class _HomePageState extends State<HomePage> {
           : null,
       body: _trainerBody(proxy),
     );
+  }
+
+  /// The trainer's own page — or the connect sheet, while there is nothing
+  /// bridged for a page to be about.
+  Future<void> _openTrainer(ProxyDevice? proxy, {required bool bridged}) async {
+    if (bridged && proxy != null) {
+      await context.push(ProxyDeviceDetailsPage(device: proxy));
+    } else {
+      await openTrainerConnectSheet(context);
+    }
+    _update();
   }
 
   /// What the trainer card shows about itself, in the order the rider earns it.

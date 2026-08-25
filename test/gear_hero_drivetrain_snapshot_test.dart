@@ -33,7 +33,9 @@ Future<void> main() async {
     connectedDevice: proxy.scanResult,
     connectedDeviceServices: proxy.services!,
     data: ValueNotifier(''),
-  )..setDebugValues();
+  )
+    ..setDebugValues()
+    ..setFrontShiftEnabled(true);
 
   await core.shiftingConfigs.upsert(
     ShiftingConfig.defaults(trainerKey: proxy.trainerKey).copyWith(
@@ -48,14 +50,14 @@ Future<void> main() async {
       tester,
       name: 'gear_hero_drivetrain',
       width: 380,
-      builder: (context) => GearHeroCard(definition: definition, simOnly: true),
+      builder: (context) => GearHeroCard(definition: definition, onEditSettings: () {}),
     );
     await captureWidget(
       tester,
       name: 'gear_hero_drivetrain_dark',
       width: 380,
       brightness: Brightness.dark,
-      builder: (context) => GearHeroCard(definition: definition, simOnly: true),
+      builder: (context) => GearHeroCard(definition: definition, onEditSettings: () {}),
     );
   });
 }
