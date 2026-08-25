@@ -56,6 +56,9 @@ Future<void> main() async {
   /// just lets it run out.
   Future<void> drainHandshake(WidgetTester tester) => tester.pump(const Duration(milliseconds: 500));
 
+  /// Digit *count*, which is all Ahem can show: every glyph is the same box
+  /// here, so a column drifting on real glyph widths measures as still. The
+  /// font-accurate version of this lives in gear_hero_drivetrain_snapshot_test.
   testWidgets('the shift buttons hold their place from 9 to 12', (tester) async {
     final def = makeDefinition()..setMaxGear(24);
 

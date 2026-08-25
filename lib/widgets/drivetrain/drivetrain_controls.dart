@@ -33,6 +33,11 @@ class DrivetrainControls extends StatelessWidget {
 
   double get _gap => compact ? 4 : 6;
 
+  /// Equal-width digits. Geist's are proportional by default, so a ratio going
+  /// 1.86 → 2.04 is three pixels wider and drags the whole shift column — and
+  /// the buttons in it — sideways on an ordinary shift.
+  static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -86,7 +91,7 @@ class DrivetrainControls extends StatelessWidget {
       color: cs.foreground,
       // Equal-width digits, so the reserved box is exact for any value of the
       // same length rather than merely close.
-      fontFeatures: const [FontFeature.tabularFigures()],
+      fontFeatures: _tabular,
     );
     final gear = definition.currentGear.value;
     return Column(
@@ -108,7 +113,12 @@ class DrivetrainControls extends StatelessWidget {
         Text(
           // "2.40" on its own says nothing; the word is what makes it a ratio.
           compact ? 'of ${definition.maxGear}' : 'of ${definition.maxGear} · ratio ${_ratio()}',
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: cs.mutedForeground),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: cs.mutedForeground,
+            fontFeatures: _tabular,
+          ),
         ),
       ],
     );
@@ -141,7 +151,12 @@ class DrivetrainControls extends StatelessWidget {
             children: [
               Text(
                 '${large ? 2 : 1}× · ${teeth}T',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: cs.mutedForeground),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: cs.mutedForeground,
+                  fontFeatures: _tabular,
+                ),
               ),
               const Gap(6),
               Icon(LucideIcons.repeat, size: 13, color: cs.primary),
