@@ -1,5 +1,6 @@
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/pages/help_center/help_center_page.dart';
 import 'package:bike_control/services/feedback_prompt_service.dart';
 import 'package:bike_control/services/feedback_submission_service.dart';
 import 'package:bike_control/utils/rate_app.dart';
@@ -10,9 +11,8 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// Steps of the feedback prompt flow. `gate` asks a plain thumbs up/down
 /// sentiment question (no rating, no stars); `positive`/`negative` branch off
-/// it; both eventually lead into `composer` (free-text) and `thanks`. `gate`,
-/// `positive`, `composer`, and `thanks` are fully built out here — `negative`
-/// is a placeholder wired up by a later task.
+/// it; both eventually lead into `composer` (free-text) and `thanks`. All
+/// steps are fully built out here.
 enum FeedbackFlowStep { gate, positive, negative, composer, thanks }
 
 /// Opens the feedback prompt flow: a bottom sheet on narrow layouts
@@ -197,6 +197,24 @@ class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
     _close();
   }
 
+  /// "Get help" leaves the flow entirely for the Help Center's "Your setup"
+  /// section. The flow may live inside a dialog or a bottom drawer, so the
+  /// navigator that should receive the push is captured *before* closing —
+  /// closing can tear down the context the flow was built with, and pushing
+  /// afterwards on a defunct context would crash or land on the dismissed
+  /// overlay instead of the app's own navigation stack.
+  Future<void> _handleGetHelp() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    try {
+      await widget.service.markCompleted();
+    } catch (e, s) {
+      await recordError(e, s, context: 'FeedbackPromptFlow.getHelp');
+    }
+    if (!mounted) return;
+    _close();
+    navigator.push(MaterialPageRoute(builder: (_) => const HelpCenterPage(focus: HelpCenterFocus.yourSetup)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
@@ -246,9 +264,10 @@ class _FeedbackPromptFlowState extends State<FeedbackPromptFlow> {
           onClosed: _close,
         );
       case FeedbackFlowStep.negative:
-        // Placeholder: Task 8 builds this out. For now it simply records
-        // that feedback happened and closes the flow.
-        return _PlaceholderStep(service: widget.service, onClosed: _close);
+        return _NegativeStep(
+          onGetHelp: _handleGetHelp,
+          onTellWhatsWrong: () => _goToComposer(sentiment: FeedbackSentiment.down, kind: FeedbackKind.complaint),
+        );
     }
   }
 }
@@ -376,33 +395,41 @@ class _PositiveStepState extends State<_PositiveStep> {
   }
 }
 
-/// Stands in for the positive/negative/composer/thanks steps until later
-/// tasks build them out. Marks feedback as handled and closes the flow so
-/// the gate never blocks the app even before the rest of the flow lands.
-class _PlaceholderStep extends StatefulWidget {
-  final FeedbackPromptService service;
-  final VoidCallback onClosed;
+/// Thumbs-down branch of the gate: offers a direct line to the Help Center
+/// or a free-text complaint — never mentions the store, since a bad
+/// experience isn't the moment to ask for a rating.
+class _NegativeStep extends StatelessWidget {
+  final VoidCallback onGetHelp;
+  final VoidCallback onTellWhatsWrong;
 
-  const _PlaceholderStep({required this.service, required this.onClosed});
-
-  @override
-  State<_PlaceholderStep> createState() => _PlaceholderStepState();
-}
-
-class _PlaceholderStepState extends State<_PlaceholderStep> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _complete());
-  }
-
-  Future<void> _complete() async {
-    await widget.service.markCompleted();
-    if (mounted) widget.onClosed();
-  }
+  const _NegativeStep({required this.onGetHelp, required this.onTellWhatsWrong});
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l10n.feedbackNegativeTitle, textAlign: TextAlign.center).semiBold,
+          const Gap(8),
+          Text(l10n.feedbackNegativeBody, textAlign: TextAlign.center).muted,
+          const Gap(20),
+          PrimaryButton(
+            key: const ValueKey('feedback-get-help'),
+            onPressed: onGetHelp,
+            child: Text(l10n.feedbackGetHelpButton),
+          ),
+          const Gap(12),
+          SecondaryButton(
+            key: const ValueKey('feedback-tell-whats-wrong'),
+            onPressed: onTellWhatsWrong,
+            child: Text(l10n.feedbackTellWhatsWrongButton),
+          ),
+        ],
+      ),
+    );
   }
 }
