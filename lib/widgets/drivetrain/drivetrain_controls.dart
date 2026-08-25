@@ -38,29 +38,61 @@ class DrivetrainControls extends StatelessWidget {
   /// the buttons in it — sideways on an ordinary shift.
   static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
 
+  /// Below this the shift column would take so much of the card that the
+  /// drivetrain is squeezed into little over half of it, and the picture is the
+  /// point. Same breakpoint the ERG side of this card already uses.
+  static const double _sideBySideFrom = 600;
+
   @override
   Widget build(BuildContext context) {
+    // The home card's compact form keeps its buttons beside the picture at any
+    // width: its column is half as wide, so the drivetrain still gets most of
+    // the card, and a chain link has no room to grow taller.
+    final stacked = !compact && MediaQuery.sizeOf(context).width < _sideBySideFrom;
     return AnimatedBuilder(
       animation: Listenable.merge([definition.currentGear, definition.gearRatio, definition.gearRatios]),
-      builder: (context, _) => Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TrainerDrivetrain(definition: definition, showGear: false, framed: false, dim: dim),
-                if (definition.frontShiftEnabled) _frontRing(context),
-              ],
-            ),
-          ),
-          Gap(compact ? 8 : 12),
-          _shiftColumn(context),
-        ],
-      ),
+      builder: (context, _) => stacked ? _stacked(context) : _sideBySide(context),
     );
   }
+
+  Widget _sideBySide(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Expanded(child: _picture(context)),
+      Gap(compact ? 8 : 12),
+      _shiftColumn(context),
+    ],
+  );
+
+  /// The phone layout: the picture across the full width, the shifter under it.
+  Widget _stacked(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      TrainerDrivetrain(definition: definition, showGear: false, framed: false, dim: dim),
+      const Gap(6),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _shiftButton(context, icon: LucideIcons.minus, filled: false, onTap: definition.shiftDown),
+          const Gap(22),
+          _gearNumber(context),
+          const Gap(22),
+          _shiftButton(context, icon: LucideIcons.plus, filled: true, onTap: definition.shiftUp),
+        ],
+      ),
+      if (definition.frontShiftEnabled) Align(child: _frontRing(context)),
+    ],
+  );
+
+  Widget _picture(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      TrainerDrivetrain(definition: definition, showGear: false, framed: false, dim: dim),
+      if (definition.frontShiftEnabled) _frontRing(context),
+    ],
+  );
 
   /// Shift down on top, the gear between them, shift up below — the order the
   /// buttons had side by side, stood on end.
