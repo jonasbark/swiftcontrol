@@ -3,7 +3,7 @@ import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
-import 'package:bike_control/widgets/drivetrain/trainer_drivetrain.dart';
+import 'package:bike_control/widgets/drivetrain/drivetrain_controls.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -93,7 +93,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
                 decoration: BoxDecoration(
                   color: cs.muted,
                   borderRadius: BorderRadius.circular(14),
@@ -101,7 +101,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
                     color: cs.border,
                   ),
                 ),
-                child: isErg ? _ergContent(context, cs) : _gearContent(context, cs),
+                child: isErg ? _ergContent(context, cs) : _gearContent(),
               ),
               // Everything this card *shows* is live; everything that shapes it
               // — gear count, ratios, weights — lives further down the page.
@@ -156,112 +156,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
     );
   }
 
-  Widget _gearContent(BuildContext context, ColorScheme cs) {
-    final gear = widget.definition.currentGear.value;
-    final ratio = widget.definition.gearRatio.value;
-    final target = widget.definition.targetPowerW.value;
-    final isSmall = MediaQuery.sizeOf(context).width < 600;
-    final subtitle = StringBuffer('of ${widget.definition.maxGear}  ·  ratio ${ratio.toStringAsFixed(2)}');
-    if (target != null && widget.definition.trainerMode.value == TrainerMode.ergMode) {
-      subtitle.write('  ·  target $target W');
-    }
-    return Column(
-      children: [
-        // The gear number says which gear; the drivetrain says what the shift
-        // did. Its own readout is off — the 72pt number right below it is the
-        // one to read on this page.
-        TrainerDrivetrain(
-          definition: widget.definition,
-          showGear: false,
-          framed: false,
-        ),
-        Gap(isSmall ? 6 : 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: isSmall ? 12 : 28,
-          children: [
-            Expanded(child: SizedBox()),
-            _shiftButton(
-              context: context,
-              icon: LucideIcons.minus,
-              filled: false,
-              onTap: () => widget.definition.shiftDown(),
-            ),
-            _gearNumber(context, cs, gear, isSmall),
-            _shiftButton(
-              context: context,
-              icon: LucideIcons.plus,
-              filled: true,
-              onTap: () => widget.definition.shiftUp(),
-            ),
-            Expanded(child: SizedBox()),
-          ],
-        ),
-        Text(
-          subtitle.toString(),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: cs.mutedForeground,
-          ),
-        ),
-        if (widget.definition.frontShiftEnabled) _frontRingToggle(context, cs),
-      ],
-    );
-  }
-
-  /// The gear, in a box wide enough for the highest gear the rider can reach.
-  ///
-  /// Sized to the widest value rather than the current one so the shift buttons
-  /// hold their place — otherwise they slide inwards on 9 and back out on 10,
-  /// and the target moves under a thumb that is already on its way down.
-  Widget _gearNumber(BuildContext context, ColorScheme cs, int gear, bool isSmall) {
-    final style = TextStyle(
-      fontSize: isSmall ? 52 : 72,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -2,
-      color: cs.foreground,
-      // Equal-width digits, so the reserved box is exact for any value of the
-      // same length rather than merely close.
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Visibility(
-          visible: false,
-          maintainSize: true,
-          maintainAnimation: true,
-          maintainState: true,
-          child: Text('0' * '${widget.definition.maxGear}'.length, style: style),
-        ),
-        Text('$gear', style: style),
-      ],
-    );
-  }
-
-  /// Which chainring the drivetrain is on, and a way to change it.
-  ///
-  /// The rider already has this on a controller button; having it here too is
-  /// what makes the front derailleur checkable from the page that shows it.
-  Widget _frontRingToggle(BuildContext context, ColorScheme cs) {
-    final large = widget.definition.frontRing.value == FrontRing.large;
-    final teeth = large ? widget.definition.largeChainringTeeth : widget.definition.smallChainringTeeth;
-    return Button.ghost(
-      onPressed: () => widget.definition.toggleFrontChainring(),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${large ? 2 : 1}\u00d7 \u00b7 ${teeth}T',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.mutedForeground),
-          ),
-          const Gap(6),
-          Icon(LucideIcons.repeat, size: 13, color: cs.primary),
-        ],
-      ),
-    );
-  }
+  Widget _gearContent() => DrivetrainControls(definition: widget.definition);
 
   Widget _ergContent(BuildContext context, ColorScheme cs) {
     final target = widget.definition.ergTargetPower.value ?? 150;

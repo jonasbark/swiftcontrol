@@ -3,7 +3,7 @@ library;
 
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/pages/home/chain_state.dart';
-import 'package:bike_control/widgets/drivetrain/trainer_drivetrain.dart';
+import 'package:bike_control/widgets/drivetrain/drivetrain_controls.dart';
 import 'package:bike_control/widgets/home/chain_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -33,7 +33,10 @@ Future<void> main() async {
     connectedDevice: proxy.scanResult,
     connectedDeviceServices: proxy.services!,
     data: ValueNotifier(''),
-  )..setDebugValues();
+  )
+    ..setDebugValues()
+    ..setMaxGear(24)
+    ..setFrontShiftEnabled(true);
 
   const link = ChainLink(
     key: ChainLinkKey.trainer,
@@ -51,7 +54,8 @@ Future<void> main() async {
     statusLabel: dim ? 'Connected' : 'Bridged to MyWhoosh',
     editLabel: 'Edit',
     onEdit: () {},
-    body: TrainerDrivetrain(definition: definition, dim: dim),
+    onTap: () {},
+    body: DrivetrainControls(definition: definition, compact: true, dim: dim),
   );
 
   testWidgets('trainer chain card with drivetrain → PNG', (tester) async {

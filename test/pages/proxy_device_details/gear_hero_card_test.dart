@@ -73,17 +73,21 @@ Future<void> main() async {
     await drainHandshake(tester);
   });
 
-  testWidgets('the box is sized for the highest gear, not the widest seen so far', (tester) async {
-    final def = makeDefinition()..setMaxGear(9);
-    def.setTargetGear(9);
-    await show(tester, def);
-    final narrow = tester.getCenter(find.byIcon(LucideIcons.plus));
-
+  testWidgets('the box is sized for the highest gear, not the value on screen', (tester) async {
+    // The reservation is a hidden digit string the size of the highest gear —
+    // asserting on it says what the layout guarantees, rather than inferring it
+    // from where the buttons happened to land.
     final wide = makeDefinition()..setMaxGear(24);
     wide.setTargetGear(9);
     await show(tester, wide);
-    // Same gear, more gears available: the 24-speed reserves a digit more.
-    expect(tester.getCenter(find.byIcon(LucideIcons.plus)).dx, greaterThan(narrow.dx));
+    expect(find.text('00'), findsOneWidget);
+    expect(find.text('0'), findsNothing);
+    await drainHandshake(tester);
+
+    final narrow = makeDefinition()..setMaxGear(9);
+    narrow.setTargetGear(9);
+    await show(tester, narrow);
+    expect(find.text('0'), findsOneWidget);
     await drainHandshake(tester);
   });
 

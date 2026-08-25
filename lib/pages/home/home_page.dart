@@ -36,7 +36,7 @@ import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
-import 'package:bike_control/widgets/drivetrain/trainer_drivetrain.dart';
+import 'package:bike_control/widgets/drivetrain/drivetrain_controls.dart';
 import 'package:bike_control/widgets/home/accessory_card.dart';
 import 'package:bike_control/widgets/home/ampel.dart';
 import 'package:bike_control/widgets/home/chain_card.dart';
@@ -794,8 +794,9 @@ class _HomePageState extends State<HomePage> {
     final definition = proxy?.fitnessBike;
     if (proxy != null && definition != null) {
       // Paired and shifting, but the trainer app is not on the bridge yet — the
-      // gears are real, they are just not carrying anything.
-      return TrainerDrivetrain(definition: definition, dim: !proxy.isConnected);
+      // gears are real, they are just not carrying anything. The buttons come
+      // with it: a rider on the home screen can shift without opening the page.
+      return DrivetrainControls(definition: definition, compact: true, dim: !proxy.isConnected);
     }
     return _trainerFeatureList(proxy);
   }
