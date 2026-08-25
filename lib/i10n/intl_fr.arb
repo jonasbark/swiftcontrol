@@ -900,7 +900,7 @@
   "supportAccountStatusAnonymous": "Anonyme · non connecté",
   "supportAccountStatusSignedIn": "Connecté",
   "supportAccountLinkTitle": "Reçois la réponse",
-  "supportAccountLinkBody": "Ton message est déjà chez le support. Ajoute ton adresse e-mail et la réponse arrivera dans ce chat, sur n'importe quel appareil.",
+  "supportAccountLinkBody": "Ton message est déjà chez le support. Ajoute ton adresse e-mail et la réponse arrivera dans ce chat, sur n'importe quel appareil — et tu seras notifié.",
   "supportAccountLinkAddButton": "Ajouter",
   "supportAccountLinkedNote": "Connecté — cette discussion suit désormais ton compte.",
   "supportAccountLinkFailed": "Un problème est survenu. Réessaie.",

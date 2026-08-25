@@ -900,7 +900,7 @@
   "supportAccountStatusAnonymous": "Anonym · nicht angemeldet",
   "supportAccountStatusSignedIn": "Angemeldet",
   "supportAccountLinkTitle": "Antwort erhalten",
-  "supportAccountLinkBody": "Deine Nachricht ist schon beim Support. Gib deine E-Mail-Adresse an, und die Antwort landet auf jedem Gerät in diesem Chat.",
+  "supportAccountLinkBody": "Deine Nachricht ist schon beim Support. Gib deine E-Mail-Adresse an, und die Antwort landet auf jedem Gerät in diesem Chat — und du wirst benachrichtigt.",
   "supportAccountLinkAddButton": "Hinzufügen",
   "supportAccountLinkedNote": "Angemeldet — dieser Chat ist jetzt mit deinem Konto verknüpft.",
   "supportAccountLinkFailed": "Etwas ist schiefgelaufen. Versuch es erneut.",

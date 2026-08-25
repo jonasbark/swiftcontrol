@@ -900,7 +900,7 @@
   "supportAccountStatusAnonymous": "Anónimo · sin iniciar sesión",
   "supportAccountStatusSignedIn": "Sesión iniciada",
   "supportAccountLinkTitle": "Recibe la respuesta",
-  "supportAccountLinkBody": "Tu mensaje ya está con soporte. Añade tu correo electrónico y la respuesta llegará a este chat en cualquier dispositivo.",
+  "supportAccountLinkBody": "Tu mensaje ya está con soporte. Añade tu correo electrónico y la respuesta llegará a este chat en cualquier dispositivo — y recibirás una notificación.",
   "supportAccountLinkAddButton": "Añadir",
   "supportAccountLinkedNote": "Sesión iniciada — este chat ahora está vinculado a tu cuenta.",
   "supportAccountLinkFailed": "Algo salió mal. Inténtalo de nuevo.",

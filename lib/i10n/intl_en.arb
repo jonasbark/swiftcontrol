@@ -1447,7 +1447,7 @@
   "supportAccountStatusAnonymous": "Anonymous · not signed in",
   "supportAccountStatusSignedIn": "Signed in",
   "supportAccountLinkTitle": "Get the reply",
-  "supportAccountLinkBody": "Your message is already with support. Add your email and the answer lands in this chat on any device.",
+  "supportAccountLinkBody": "Your message is already with support. Add your email and the answer lands in this chat on any device — and you get notified.",
   "supportAccountLinkAddButton": "Add",
   "supportAccountLinkedNote": "Signed in — this chat now follows your account.",
   "supportAccountLinkFailed": "Something went wrong. Try again.",
