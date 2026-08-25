@@ -3,6 +3,7 @@ import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
+import 'package:bike_control/widgets/drivetrain/trainer_drivetrain.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -137,6 +138,15 @@ class _GearHeroCardState extends State<GearHeroCard> {
     }
     return Column(
       children: [
+        // The gear number says which gear; the drivetrain says what the shift
+        // did. Its own readout is off — the 72pt number right below it is the
+        // one to read on this page.
+        TrainerDrivetrain(
+          definition: widget.definition,
+          showGear: false,
+          framed: false,
+        ),
+        Gap(isSmall ? 6 : 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: isSmall ? 12 : 28,

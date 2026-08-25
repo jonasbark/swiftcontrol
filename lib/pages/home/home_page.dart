@@ -36,6 +36,7 @@ import 'package:bike_control/utils/requirements/local_network.dart';
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/widgets/controller/controller_canvas.dart';
 import 'package:bike_control/widgets/controller/steering_gauge.dart';
+import 'package:bike_control/widgets/drivetrain/trainer_drivetrain.dart';
 import 'package:bike_control/widgets/home/accessory_card.dart';
 import 'package:bike_control/widgets/home/ampel.dart';
 import 'package:bike_control/widgets/home/chain_card.dart';
@@ -766,12 +767,25 @@ class _HomePageState extends State<HomePage> {
       instructionsLabel: link.activeStep?.id == SetupStepId.trainerGearOverlay
           ? context.i18n.chainStepOverlayAction
           : null,
-      // A trainer that has never been connected is the rider who has never
-      // seen what bridging one does — so the card makes the case instead of
-      // sitting empty. Dropped the moment it has actually been connected:
-      // then the useful content is its live numbers, not a pitch.
-      body: _trainerFeatureList(proxy),
+      body: _trainerBody(proxy),
     );
+  }
+
+  /// What the trainer card shows about itself, in the order the rider earns it.
+  ///
+  /// Once virtual shifting is running, the live drivetrain: the rider can watch
+  /// a shift land without opening the trainer. Before that, a trainer that has
+  /// never been connected gets the bridging pitch instead — that rider has
+  /// never seen what bridging one does, so the card makes the case rather than
+  /// sitting empty. In between, nothing.
+  Widget? _trainerBody(ProxyDevice? proxy) {
+    final definition = proxy?.fitnessBike;
+    if (proxy != null && definition != null) {
+      // Paired and shifting, but the trainer app is not on the bridge yet — the
+      // gears are real, they are just not carrying anything.
+      return TrainerDrivetrain(definition: definition, dim: !proxy.isConnected);
+    }
+    return _trainerFeatureList(proxy);
   }
 
   /// The bridging pitch, but only for a trainer that is here and has never
