@@ -9,6 +9,7 @@
 import 'dart:async';
 
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/pages/help_center/help_center_support_context.dart';
 import 'package:bike_control/pages/help_center/widgets/contact_community_section.dart';
 import 'package:bike_control/pages/help_center/widgets/guides_videos_section.dart';
 import 'package:bike_control/pages/help_center/widgets/help_center_section_card.dart';
@@ -25,7 +26,16 @@ enum HelpCenterFocus { yourSetup }
 class HelpCenterPage extends StatefulWidget {
   final HelpCenterFocus? focus;
 
-  const HelpCenterPage({super.key, this.focus});
+  /// Trainer-specific support payload gathered by whichever entry point
+  /// pushed this page (currently only the trainer-feedback buttons on the
+  /// smart-trainer details page — see help_center_support_context.dart) so
+  /// that [ContactCommunitySection]'s "Tell us what's wrong" row can carry
+  /// it into [SupportChatPage] instead of gathering a fresh, generic one.
+  /// Null for every other entry point (the help button, "Get help" from the
+  /// sentiment prompt), which keeps that previous generic behaviour.
+  final HelpCenterSupportContext? launchContext;
+
+  const HelpCenterPage({super.key, this.focus, this.launchContext});
 
   @override
   State<HelpCenterPage> createState() => _HelpCenterPageState();
@@ -124,7 +134,7 @@ class _HelpCenterPageState extends State<HelpCenterPage> {
           index: 4,
           icon: LucideIcons.users,
           title: l10n.helpCenterContact,
-          child: const ContactCommunitySection(),
+          child: ContactCommunitySection(launchContext: widget.launchContext),
         ),
       ),
     ];

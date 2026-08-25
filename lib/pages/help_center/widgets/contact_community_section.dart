@@ -12,7 +12,15 @@
 // full-width rows into a single row of three equal-width bordered buttons
 // (icon above label), matching the mockup's Contact & Community card — same
 // targets, same icons, unchanged wiring.
+//
+// Feedback-routing round: the support row now accepts an optional
+// [HelpCenterSupportContext] (forwarded from [HelpCenterPage]) carrying a
+// trainer-specific payload gathered by whoever pushed the Help Center (the
+// "No difference"/"Not working" feedback buttons) — when present, that
+// payload goes to [SupportChatPage] instead of the generic one this section
+// gathers itself, so continuing into the chat from here never loses it.
 import 'package:bike_control/main.dart' show recordError;
+import 'package:bike_control/pages/help_center/help_center_support_context.dart';
 import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/support_chat_models.dart';
@@ -26,7 +34,13 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class ContactCommunitySection extends StatefulWidget {
-  const ContactCommunitySection({super.key});
+  /// Trainer-specific support payload to hand [SupportChatPage] when the
+  /// rider taps "Tell us what's wrong", in place of this section's own
+  /// generic one. Null for every entry point that isn't a feedback button
+  /// (the help button, "Get help" from the sentiment prompt).
+  final HelpCenterSupportContext? launchContext;
+
+  const ContactCommunitySection({super.key, this.launchContext});
 
   @override
   State<ContactCommunitySection> createState() => _ContactCommunitySectionState();
@@ -66,22 +80,39 @@ class _ContactCommunitySectionState extends State<ContactCommunitySection> {
   }
 
   Future<void> _openChat(BuildContext context) async {
-    final screenshot = await captureOverviewScreenshot(context: context);
-    if (!context.mounted) return;
-    // Gather diagnostics in the background so the chat opens immediately; the
-    // page awaits this future lazily for the preview. Send-time telemetry is
-    // re-gathered fresh (see telemetryBuilder) so a later message reflects
-    // the current state, not the compose-time snapshot.
-    final debugFuture = debugText();
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SupportChatPage(
-          diagnosticPreviewFuture: debugFuture,
-          initialAttachment: screenshot,
-          telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugText()),
+    final launchContext = widget.launchContext;
+    if (launchContext != null) {
+      // A caller upstream (currently only the trainer-feedback buttons)
+      // already gathered a trainer-specific payload before pushing the Help
+      // Center — reuse it verbatim instead of collecting a fresh, generic
+      // one from scratch.
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SupportChatPage(
+            diagnosticPreviewFuture: launchContext.diagnosticPreviewFuture,
+            initialAttachment: launchContext.initialAttachment,
+            telemetryBuilder: launchContext.telemetryBuilder,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      final screenshot = await captureOverviewScreenshot(context: context);
+      if (!context.mounted) return;
+      // Gather diagnostics in the background so the chat opens immediately; the
+      // page awaits this future lazily for the preview. Send-time telemetry is
+      // re-gathered fresh (see telemetryBuilder) so a later message reflects
+      // the current state, not the compose-time snapshot.
+      final debugFuture = debugText();
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SupportChatPage(
+            diagnosticPreviewFuture: debugFuture,
+            initialAttachment: screenshot,
+            telemetryBuilder: () async => TelemetrySnapshot.general(freetext: await debugText()),
+          ),
+        ),
+      );
+    }
     if (mounted) {
       setState(() => _hasUnread = false);
       _checkForUnread();

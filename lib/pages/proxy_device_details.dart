@@ -5,6 +5,8 @@ import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
+import 'package:bike_control/pages/help_center/help_center_page.dart';
+import 'package:bike_control/pages/help_center/help_center_support_context.dart';
 import 'package:bike_control/pages/proxy_device_details/connection_card.dart';
 import 'package:bike_control/pages/proxy_device_details/gear_hero_card.dart';
 import 'package:bike_control/pages/proxy_device_details/live_metrics_section.dart';
@@ -13,7 +15,6 @@ import 'package:bike_control/pages/proxy_device_details/overlay_settings_section
 import 'package:bike_control/pages/proxy_device_details/self_test_card.dart';
 import 'package:bike_control/pages/proxy_device_details/trainer_settings_section.dart';
 import 'package:bike_control/pages/proxy_device_details/virtual_shifting_pro_notice.dart';
-import 'package:bike_control/pages/support_chat/support_chat_page.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/utils/core.dart';
@@ -22,6 +23,7 @@ import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/widgets/menu.dart' show debugText;
 import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
+import 'package:bike_control/widgets/ui/toast.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
@@ -205,8 +207,9 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
             children: [
               Expanded(
                 child: Button(
+                  key: const ValueKey('feedback-works'),
                   style: ButtonStyle.outline(),
-                  onPressed: () => _submitFeedback('feedbackWorks', context.i18n.feedbackWorks),
+                  onPressed: _submitWorks,
                   leading: const Icon(LucideIcons.thumbsUp, size: 16),
                   child: Text(context.i18n.feedbackWorks),
                 ),
@@ -215,8 +218,9 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Button(
+                    key: const ValueKey('feedback-no-difference'),
                     style: ButtonStyle.outline(),
-                    onPressed: () => _submitFeedback('feedbackNoDifference', context.i18n.feedbackNoDifference),
+                    onPressed: () => _routeToHelpCenter('feedbackNoDifference'),
                     leading: const Icon(LucideIcons.minus, size: 16),
                     child: Text(context.i18n.feedbackNoDifference),
                   ),
@@ -225,8 +229,9 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Button(
+                  key: const ValueKey('feedback-not-working'),
                   style: ButtonStyle.outline(),
-                  onPressed: () => _submitFeedback('feedbackNotWorking', context.i18n.feedbackNotWorking),
+                  onPressed: () => _routeToHelpCenter('feedbackNotWorking'),
                   leading: const Icon(LucideIcons.thumbsDown, size: 16),
                   child: Text(context.i18n.feedbackNotWorking),
                 ),
@@ -238,32 +243,57 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
     );
   }
 
-  Future<void> _submitFeedback(String key, String label) async {
+  /// "Works": nothing to diagnose, so there is nothing a support chat could
+  /// answer — chats opened for this tap used to arrive content-free by
+  /// construction. Record the feedback and acknowledge it in place instead;
+  /// this never opens a chat.
+  Future<void> _submitWorks() async {
+    await core.settings.setFeedbackSubmitted(widget.device.trainerKey, true);
+    if (!mounted) return;
+    setState(() {});
+    buildToast(title: context.i18n.thanksForFeedback);
+  }
+
+  /// "No difference"/"Not working": routes into the Help Center's "Your
+  /// setup" section — the gear overlay, controller-disconnect and
+  /// network-test explainers these riders usually need — instead of
+  /// straight into a support chat. The same rich diagnostic payload the chat
+  /// used to get up front (screenshot, trainer-specific telemetry, a
+  /// formatted preview) still rides along via [HelpCenterSupportContext], so
+  /// it isn't lost if the rider continues from there into "Tell us what's
+  /// wrong". The composer is deliberately left empty — no prefilled label —
+  /// the feedback key still reaches support, folded into the telemetry's
+  /// freetext below instead.
+  Future<void> _routeToHelpCenter(String key) async {
     final device = widget.device;
     await core.settings.setFeedbackSubmitted(device.trainerKey, true);
     if (!mounted) return;
     setState(() {});
     final screenshot = await captureOverviewScreenshot(context: context);
     if (!mounted) return;
-    // Build telemetry in the background so the chat opens immediately. The full
-    // debugText (gathered here) already carries this trainer's services &
-    // characteristics, the diagnostics block and the log buffer, so we attach it
-    // instead of just the services snippet.
+    // Build telemetry in the background so the Help Center opens immediately.
+    // The full debugText (gathered here) already carries this trainer's
+    // services & characteristics, the diagnostics block and the log buffer,
+    // so we attach it instead of just the services snippet.
     Future<TelemetrySnapshot> buildSnapshot() async {
       final debug = await debugText();
       return TelemetrySnapshot.fromDevice(device: device, freetextOverride: '$key\n$debug');
     }
-    // The preview is a one-shot taken as the chat opens; send-time telemetry is
-    // re-gathered per message so a later send reflects the current state rather
-    // than the compose-time snapshot.
+
+    // The preview is a one-shot taken as the Help Center opens; send-time
+    // telemetry is re-gathered per message so a later send reflects the
+    // current state rather than the compose-time snapshot.
     final previewFuture = buildSnapshot();
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SupportChatPage(
-          telemetryBuilder: buildSnapshot,
-          diagnosticPreviewFuture: previewFuture.then((s) => JsonEncoder.withIndent('  ').convert(s.toJson())),
-          initialText: '$label\n',
-          initialAttachment: screenshot,
+        builder: (_) => HelpCenterPage(
+          focus: HelpCenterFocus.yourSetup,
+          launchContext: HelpCenterSupportContext(
+            feedbackKey: key,
+            telemetryBuilder: buildSnapshot,
+            diagnosticPreviewFuture: previewFuture.then((s) => JsonEncoder.withIndent('  ').convert(s.toJson())),
+            initialAttachment: screenshot,
+          ),
         ),
       ),
     );
