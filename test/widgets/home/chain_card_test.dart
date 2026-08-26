@@ -39,6 +39,8 @@ Future<void> pumpCard(
   ChainLink l, {
   VoidCallback? onInstructions,
   VoidCallback? onDismissed,
+  VoidCallback? onTap,
+  VoidCallback? onEdit,
   List<Widget> statusBadges = const [],
 }) async {
   await tester.pumpWidget(
@@ -60,6 +62,8 @@ Future<void> pumpCard(
                     statusLabel: 'status',
                     statusBadges: statusBadges,
                     onInstructions: onInstructions,
+                    onTap: onTap,
+                    onEdit: onEdit,
                   ),
                 )
               : ChainCard(
@@ -69,6 +73,8 @@ Future<void> pumpCard(
                   statusLabel: 'status',
                   statusBadges: statusBadges,
                   onInstructions: onInstructions,
+                  onTap: onTap,
+                  onEdit: onEdit,
                 ),
         ),
       ),
@@ -305,4 +311,50 @@ void main() async {
 
     expect(find.byKey(const ValueKey('badge-battery')), findsNothing);
   });
+
+  group('the whole card opens the device', () {
+    testWidgets('tapping the card body opens it', (tester) async {
+      var opened = 0;
+      await pumpCard(tester, link(), onTap: () => opened++);
+
+      await tester.tap(find.text('Zwift Click V2'));
+      await tester.pumpAndSettle();
+      expect(opened, 1);
+    });
+
+    testWidgets('Edit still gets its own tap, not the card underneath it', (tester) async {
+      var opened = 0;
+      var edited = 0;
+      await pumpCard(tester, link(), onTap: () => opened++, onEdit: () => edited++);
+
+      await tester.tap(find.text(l.chainEdit));
+      await tester.pumpAndSettle();
+      // Both land the rider in the same place today, but a card that fires two
+      // navigations from one tap would push the page twice.
+      expect(edited, 1);
+      expect(opened, 0);
+    });
+
+    testWidgets("the active step's own button still gets its own tap", (tester) async {
+      var opened = 0;
+      var instructed = 0;
+      await pumpCard(
+        tester,
+        link(status: LinkStatus.attention, steps: [true, false, false]),
+        onTap: () => opened++,
+        onInstructions: () => instructed++,
+      );
+
+      await tester.tap(find.text(l.chainShowMeHow));
+      await tester.pumpAndSettle();
+      expect(instructed, 1);
+      expect(opened, 0);
+    });
+
+    testWidgets('a card with nowhere to go takes no taps', (tester) async {
+      await pumpCard(tester, link());
+      expect(find.byType(Button), findsNothing);
+    });
+  });
+
 }

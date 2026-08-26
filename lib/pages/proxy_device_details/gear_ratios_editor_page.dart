@@ -113,8 +113,8 @@ class _GearRatiosEditorPageState extends State<GearRatiosEditorPage> {
                   _vsModeCard(),
                   _gradeSmoothingCard(context),
                   _cadenceFilterCard(context),
-                  FrontShiftCard(device: widget.device, definition: def),
                 ],
+                FrontShiftCard(device: widget.device, definition: def),
                 _gearCountCard(context),
                 _heroCurve(context),
                 _presets(context),
@@ -341,7 +341,10 @@ class _GearRatiosEditorPageState extends State<GearRatiosEditorPage> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               spacing: 6,
-              children: List<Widget>.generate(ratios.length, (i) {
+              // The store board only has to establish that every gear is
+              // editable one by one; the rest of the 24 rows would just push
+              // the cards above it off the phone.
+              children: List<Widget>.generate(screenshotMode ? 3 : ratios.length, (i) {
                 final gear = i + 1;
                 return _gearRow(context, gear, ratios[gear - 1], ratios, current);
               }),

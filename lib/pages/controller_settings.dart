@@ -4,6 +4,7 @@ import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/pages/customize.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/help_article.dart';
@@ -108,8 +109,10 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
                       // Device card
                       _buildDeviceCard(device),
 
-                      // How-to-connect guide for this controller + the selected app
-                      if (helpArticle != null) ...[
+                      // How-to-connect guide for this controller + the selected app.
+                      // Named after both products, so it is left off the
+                      // anonymized store boards.
+                      if (helpArticle != null && !screenshotMode) ...[
                         const Gap(12),
                         _buildActionButton(
                           icon: LucideIcons.bookOpen,

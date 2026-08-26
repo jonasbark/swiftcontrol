@@ -44,6 +44,7 @@ class ProxyDeviceDetailsPage extends StatefulWidget {
 class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
   late StreamSubscription<BaseDevice> _connectionSub;
   final GlobalKey _overlaySectionKey = GlobalKey();
+  final GlobalKey _settingsSectionKey = GlobalKey();
 
   /// True once "Works" has been tapped in this view of the page — collapses
   /// _provideFeedbackBox to a plain acknowledgement instead of continuing to
@@ -172,8 +173,14 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
                   ),
                   SizedBox(height: 26),
                 ],
-                LiveMetricsSection(key: const ValueKey('live-metrics'), device: device),
-                SizedBox(height: 20),
+                // The live readout duplicates the watts/rpm already on the
+                // device card above it, and on a store board it pushes the
+                // Virtual Shifting settings — the thing that board is about —
+                // off the bottom of the phone.
+                if (!screenshotMode) ...[
+                  LiveMetricsSection(key: const ValueKey('live-metrics'), device: device),
+                  SizedBox(height: 20),
+                ],
                 if (!screenshotMode && device.fitnessBike != null) ...[
                   SelfTestCard(
                     key: const ValueKey('self-test'),
@@ -375,13 +382,34 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
   Widget _gearSection() {
     final def = widget.device.fitnessBike;
     if (def == null) return const SizedBox.shrink();
-    return GearHeroCard(definition: def);
+    // No Edit affordance on a store board: it points at the settings section,
+    // which that board already shows in full right below the card.
+    return GearHeroCard(
+      definition: def,
+      onEditSettings: screenshotMode ? null : _revealSettingsSection,
+    );
+  }
+
+  /// Scrolls the Virtual Shifting settings into view — the destination of the
+  /// gear card's Edit, which is on the same page rather than behind a push.
+  void _revealSettingsSection() {
+    final ctx = _settingsSectionKey.currentContext;
+    if (!mounted || ctx == null) return;
+    unawaited(
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        alignment: 0.05,
+      ),
+    );
   }
 
   Widget _settingsSection() {
     final def = widget.device.fitnessBike;
     if (def == null) return const SizedBox.shrink();
     return Column(
+      key: _settingsSectionKey,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: 10,
       children: [

@@ -26,13 +26,26 @@ class AccessibilityRequirement extends PlatformRequirement {
 
   @override
   Future<void> call(BuildContext context, VoidCallback onUpdate) async {
+    // Only meaningful while the local (AndroidActions) handler is active. When
+    // connected to a trainer app on another device the handler is a
+    // RemoteActions, and the accessibility service does not apply.
+    if (core.actionHandler is! AndroidActions) return;
     await _showDisclosureDialog(context, onUpdate);
     await getStatus();
   }
 
   @override
   Future<bool> getStatus() async {
-    status = await (core.actionHandler as AndroidActions).accessibilityHandler.hasPermission();
+    // Guard the cast: on Android, connecting to a trainer app on another device
+    // makes actionHandler a RemoteActions, so a blind `as AndroidActions` here
+    // threw a TypeError (e.g. from the Network Troubleshooting "enable Local"
+    // fix, which checks this requirement regardless of the active handler).
+    final handler = core.actionHandler;
+    if (handler is! AndroidActions) {
+      status = false;
+      return status;
+    }
+    status = await handler.accessibilityHandler.hasPermission();
     return status;
   }
 

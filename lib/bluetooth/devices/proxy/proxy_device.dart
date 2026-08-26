@@ -139,9 +139,10 @@ class ProxyDevice extends BluetoothDevice {
   /// Test-only: attach [fbd] as the active virtual-shifting definition without
   /// starting any emulator/server. Lets the screenshot harness render the
   /// virtual-shifting gear UI instead of the "trainer doesn't advertise FTMS"
-  /// warning (which shows whenever [fitnessBike] is null).
+  /// warning (which shows whenever [fitnessBike] is null). Pass null to detach
+  /// again, so a scene that needs the gears can leave the next one without.
   @visibleForTesting
-  void debugAttachFitnessBike(FitnessBikeDefinition fbd) {
+  void debugAttachFitnessBike(FitnessBikeDefinition? fbd) {
     _fbd = fbd;
     _currentFbd = fbd;
   }

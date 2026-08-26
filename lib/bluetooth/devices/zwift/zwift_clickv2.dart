@@ -7,6 +7,7 @@ import 'package:bike_control/utils/click_v2_onboarding.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/interpreter.dart';
+import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/controller/controller_layout.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
@@ -26,6 +27,35 @@ final DirconEmulator ftmsEmulator = DirconEmulator();
 class ZwiftClickV2 extends ZwiftRide {
   ZwiftClickDefinition? _clickDef;
   ZwiftClickDefinition? get clickDef => _clickDef;
+
+  /// Whether this Click's definition rides on the shared bridge composite.
+  ///
+  /// Zwift wants the Click co-located with the trainer on one endpoint. Rouvy
+  /// is the opposite: it refuses to pair a trainer bridge that carries a
+  /// controller service alongside the trainer (the pairing dialog spins
+  /// forever), and it takes its controller input from the standalone
+  /// controller endpoint, where this Click is served anyway.
+  bool get attachesClickDefToBridge => core.settings.getTrainerApp() is! Rouvy;
+
+  /// React to a trainer-app change while this Click is connected: put the
+  /// Click's definition on or take it off the shared composite to match
+  /// [attachesClickDefToBridge]. Composite-only, like
+  /// [ProxyDevice.onTrainerAppChanged] — the caller re-advertises the shared
+  /// emulator once after reconciling every device.
+  void onTrainerAppChanged() {
+    final def = _clickDef;
+    if (def == null) return;
+    final attached = ftmsEmulator.composite.children.contains(def);
+    if (attachesClickDefToBridge && !attached) {
+      ftmsEmulator.composite.attach(def);
+    } else if (!attachesClickDefToBridge && attached) {
+      ftmsEmulator.composite.detach(def);
+    }
+  }
+
+  /// Test seam — [_clickDef] is normally built during the BLE connect flow.
+  @visibleForTesting
+  void debugSetClickDef(ZwiftClickDefinition def) => _clickDef = def;
 
   /// Unlock-flow state owned by the Click device itself, not the shared emulator.
   final ValueNotifier<bool> isUnlocked = ValueNotifier(false);
@@ -172,9 +202,16 @@ class ZwiftClickV2 extends ZwiftRide {
     // Attach the click def to the shared emulator. If a trainer is already
     // running in VS mode its FBD will already be in the composite; if not the
     // emulator starts standalone so Zwift sees the Click right away.
-    await ftmsEmulator.attachDefinition(_clickDef!).catchError((Object e, StackTrace s) {
-      recordError(e, s, context: 'ZwiftClickV2.attachClickDef');
-    });
+    //
+    // Not for Rouvy: it refuses to pair a trainer bridge that carries a
+    // controller service alongside the trainer — the pairing dialog spins
+    // forever — and it takes its controller input from the standalone
+    // controller endpoint instead, where this Click is already served.
+    if (attachesClickDefToBridge) {
+      await ftmsEmulator.attachDefinition(_clickDef!).catchError((Object e, StackTrace s) {
+        recordError(e, s, context: 'ZwiftClickV2.attachClickDef');
+      });
+    }
 
     await super.handleServices(services);
   }
@@ -220,6 +257,9 @@ class ZwiftClickV2 extends ZwiftRide {
 
   @override
   List<Widget> showAdditionalInformation(BuildContext context) {
+    // The unlock modes are a Zwift-specific caveat and name the controller
+    // outright — neither belongs on an anonymized store board.
+    if (screenshotMode) return [];
     return [
       // The unified controller is where unlock-with-Zwift lands the rider, so
       // the way back into the explainer has to be here too — otherwise
