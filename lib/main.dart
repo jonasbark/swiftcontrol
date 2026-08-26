@@ -132,14 +132,14 @@ Future<void> main(List<String> args) async {
         return true;
       };
 
-      // Paint a first frame BEFORE the heavy async bootstrap. The macOS engine
-      // only shows what Flutter renders; blocking on core.settings.init()
-      // (notifications, window_manager, Supabase, IAP, sync) before runApp
-      // means a single plugin call that stalls in a release build leaves the
-      // window black forever — the "won't launch" report. [_StartupGate]
-      // renders a splash immediately, runs the bootstrap below off the
-      // first-frame critical path, then swaps in the real app.
-      runApp(const _StartupGate());
+      // Mount the app shell immediately and let it bootstrap itself. Blocking
+      // on core.settings.init() (notifications, window_manager, Supabase, IAP,
+      // sync) before runApp means a single plugin call that stalls in a release
+      // build leaves the window black forever — the "won't launch" report.
+      // BikeControlApp paints its themed shell from the first frame, shows a
+      // splash while it initialises, then swaps in the real content in-place —
+      // one app root throughout, so no black flash between splash and app.
+      runApp(const BikeControlApp());
     },
     (Object error, StackTrace stack) {
       if (kDebugMode) {
@@ -309,110 +309,10 @@ void initializeActions(ConnectionType connectionType) {
   core.actionHandler.init(core.settings.getKeyMap() ?? core.settings.getTrainerApp());
 }
 
-/// Renders a branded first frame immediately, runs the heavy app bootstrap off
-/// the first-frame critical path, and swaps in [BikeControlApp] once it's
-/// ready. If the bootstrap stalls (the release-mode black-window failure on
-/// macOS) or throws, it shows [_StartupRecovery] instead of a dead window.
-class _StartupGate extends StatefulWidget {
-  const _StartupGate();
-
-  @override
-  State<_StartupGate> createState() => _StartupGateState();
-}
-
-class _StartupGateState extends State<_StartupGate> {
-  /// How long the bootstrap may run before we assume it has stalled and offer
-  /// recovery. A healthy start is well under this; the real app still swaps in
-  /// if the bootstrap finishes later — a slow-but-healthy start just waits it
-  /// out on the splash.
-  static const _bootstrapTimeout = Duration(seconds: 10);
-
-  Widget? _app;
-  Object? _bootstrapError;
-  bool _stalled = false;
-  Timer? _stallTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _stallTimer = Timer(_bootstrapTimeout, () {
-      if (mounted && _app == null) setState(() => _stalled = true);
-    });
-    _bootstrap();
-  }
-
-  @override
-  void dispose() {
-    _stallTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _bootstrap() async {
-    try {
-      final error = await core.settings.init();
-      if (error != null) {
-        recordError(error, null, context: 'SettingsInit');
-        if (mounted) setState(() => _bootstrapError = error);
-        return;
-      }
-      await core.shiftingConfigs.init();
-
-      // Initialise multi_window_native for the main window (macOS + Windows).
-      if (!kIsWeb && (Platform.isMacOS || Platform.isWindows)) {
-        try {
-          await wm.windowManager.ensureInitialized();
-          final mainWindowId = await wm.windowManager.getId();
-          MultiWindowNative.init(mainWindowId);
-        } catch (e, s) {
-          recordError(e, s, context: 'MultiWindowNative.init(main)');
-        }
-      }
-
-      // Attribute this install back to the ad that produced it. Android only:
-      // no other store passes a referrer through to the app. Fire-and-forget,
-      // because nothing here should ever delay startup.
-      if (!kIsWeb && Platform.isAndroid && core.settings.isInitialized) {
-        unawaited(
-          InstallReferrerReporter(
-            source: PlayInstallReferrerSource(),
-            prefs: core.settings.prefs,
-            send: (body) async {
-              await core.supabase.functions.invoke('track-analytics', body: body);
-            },
-          ).reportOnce().catchError((Object e, StackTrace s) {
-            recordError(e, s, context: 'InstallReferrerReporter.reportOnce');
-          }),
-        );
-      }
-
-      if (mounted) setState(() => _app = const BikeControlApp());
-    } catch (e, s) {
-      recordError(e, s, context: 'Startup bootstrap');
-      if (mounted) setState(() => _bootstrapError = e);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_app != null) return _app!;
-    final showRecovery = _bootstrapError != null || _stalled;
-    return m.MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: m.Scaffold(
-        backgroundColor: BKColor.backgroundLight,
-        body: showRecovery
-            ? _StartupRecovery(error: _bootstrapError)
-            : const Center(child: m.CircularProgressIndicator(color: BKColor.main)),
-      ),
-    );
-  }
-}
-
 /// Shown when the app can't finish starting up. Offers the two things that
 /// actually recover it — installing a waiting update (a Shorebird patch or a
-/// store version) and mailing the diagnostic logs to support. Deliberately
-/// self-contained and English-only: it runs before the app's own localisation
-/// and theming exist, like the existing start-up error text.
+/// store version) and mailing the diagnostic logs to support. Kept English-only
+/// and self-contained so it stays dependable on the failure path.
 class _StartupRecovery extends StatefulWidget {
   const _StartupRecovery({this.error});
 
@@ -591,6 +491,83 @@ class BikeControlApp extends StatefulWidget {
 }
 
 class _BikeControlAppState extends State<BikeControlApp> {
+  /// How long the bootstrap may run before we assume it has stalled and show
+  /// the recovery screen. A healthy start is well under this; the real content
+  /// still swaps in if the bootstrap finishes later.
+  static const _bootstrapTimeout = Duration(seconds: 10);
+
+  bool _ready = false;
+  Object? _bootstrapError;
+  bool _stalled = false;
+  Timer? _stallTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Tests, screenshots and embedded (customChild) usage initialise elsewhere
+    // and render their content straight away — only the real app boot runs the
+    // splash/recovery gate.
+    if (widget.customChild != null || screenshotMode || widget.error != null) {
+      _ready = true;
+      return;
+    }
+    _stallTimer = Timer(_bootstrapTimeout, () {
+      if (mounted && !_ready) setState(() => _stalled = true);
+    });
+    _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _stallTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      final error = await core.settings.init();
+      if (error != null) {
+        recordError(error, null, context: 'SettingsInit');
+        if (mounted) setState(() => _bootstrapError = error);
+        return;
+      }
+      await core.shiftingConfigs.init();
+
+      // Initialise multi_window_native for the main window (macOS + Windows).
+      if (!kIsWeb && (Platform.isMacOS || Platform.isWindows)) {
+        try {
+          await wm.windowManager.ensureInitialized();
+          final mainWindowId = await wm.windowManager.getId();
+          MultiWindowNative.init(mainWindowId);
+        } catch (e, s) {
+          recordError(e, s, context: 'MultiWindowNative.init(main)');
+        }
+      }
+
+      // Attribute this install back to the ad that produced it. Android only:
+      // no other store passes a referrer through to the app. Fire-and-forget,
+      // because nothing here should ever delay startup.
+      if (!kIsWeb && Platform.isAndroid && core.settings.isInitialized) {
+        unawaited(
+          InstallReferrerReporter(
+            source: PlayInstallReferrerSource(),
+            prefs: core.settings.prefs,
+            send: (body) async {
+              await core.supabase.functions.invoke('track-analytics', body: body);
+            },
+          ).reportOnce().catchError((Object e, StackTrace s) {
+            recordError(e, s, context: 'InstallReferrerReporter.reportOnce');
+          }),
+        );
+      }
+
+      if (mounted) setState(() => _ready = true);
+    } catch (e, s) {
+      recordError(e, s, context: 'Startup bootstrap');
+      if (mounted) setState(() => _bootstrapError = e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
@@ -628,36 +605,74 @@ class _BikeControlAppState extends State<BikeControlApp> {
       ),
       materialTheme: MediaQuery.platformBrightnessOf(context) == Brightness.dark ? m.ThemeData.dark() : m.ThemeData(),
       //themeMode: ThemeMode.dark,
-      home: widget.error != null
-          ? Center(
-              child: Text(
-                'There was an error starting the App. Please contact support:\n${widget.error}',
-                style: TextStyle(color: Colors.white),
-              ),
-            )
-          : ToastLayer(
-              key: ValueKey('Test'),
-              padding: isMobile ? EdgeInsets.only(bottom: 60, left: 24, right: 24, top: 60) : null,
-              child: m.Builder(
-                builder: (context) {
-                  return ComponentTheme<CardTheme>(
-                    data: CardTheme(
-                      borderWidth: 1.5,
-                    ),
-                    child: ComponentTheme<DividerTheme>(
-                      data: Theme.of(context).brightness == Brightness.dark
-                          ? DividerTheme(
-                              color: Theme.of(context).colorScheme.border,
-                            )
-                          : DividerTheme(),
-                      child: _Starter(
-                        child: widget.customChild ?? Navigation(),
-                      ),
-                    ),
-                  );
-                },
+      // Swap splash → content in place inside the always-mounted ShadcnApp so
+      // the themed background is painted the whole time — no black flash while
+      // the real content takes over from the splash.
+      home: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: _home(context, isMobile),
+      ),
+    );
+  }
+
+  Widget _home(BuildContext context, bool isMobile) {
+    final background = Theme.of(context).colorScheme.background;
+
+    if (widget.error != null) {
+      return Container(
+        key: const ValueKey('startup-error'),
+        color: background,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'There was an error starting the App. Please contact support:\n${widget.error}',
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    if (!_ready) {
+      if (_bootstrapError != null || _stalled) {
+        return Container(
+          key: const ValueKey('startup-recovery'),
+          color: background,
+          child: _StartupRecovery(error: _bootstrapError),
+        );
+      }
+      return Container(
+        key: const ValueKey('startup-splash'),
+        color: background,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 30,
+          height: 30,
+          child: m.CircularProgressIndicator(strokeWidth: 2.4, color: BKColor.main),
+        ),
+      );
+    }
+
+    return ToastLayer(
+      key: const ValueKey('Test'),
+      padding: isMobile ? EdgeInsets.only(bottom: 60, left: 24, right: 24, top: 60) : null,
+      child: m.Builder(
+        builder: (context) {
+          return ComponentTheme<CardTheme>(
+            data: CardTheme(
+              borderWidth: 1.5,
+            ),
+            child: ComponentTheme<DividerTheme>(
+              data: Theme.of(context).brightness == Brightness.dark
+                  ? DividerTheme(
+                      color: Theme.of(context).colorScheme.border,
+                    )
+                  : DividerTheme(),
+              child: _Starter(
+                child: widget.customChild ?? Navigation(),
               ),
             ),
+          );
+        },
+      ),
     );
   }
 }
