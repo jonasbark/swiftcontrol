@@ -396,12 +396,15 @@ Future<void> main() async {
       final device = core.connection.proxyDevices.single;
       await IntegrationEnv.waitFor(() => device.isStartedListenable.value, description: 'bridge started');
 
-      // Under Zwift the bridge carries a ride-along controller definition.
+      // Under Zwift the bridge carries a ride-along controller definition,
+      // and the app's gear-ratio stream drives the bridge's gear.
       expect(
         ftmsEmulator.composite.children.whereType<ZwiftEmulatorDefinition>(),
         isNotEmpty,
         reason: 'the ride-along controller is attached while the app is Zwift',
       );
+      expect(device.fitnessBike!.followAppGearRatio!(), isTrue,
+          reason: "Zwift's gear stream tracks the rider and keeps driving the gear");
 
       // Switching to Rouvy must take it back off, so the bridge advertises only
       // its own trainer services again.
@@ -410,6 +413,10 @@ Future<void> main() async {
         () => ftmsEmulator.composite.children.whereType<ZwiftEmulatorDefinition>().isEmpty,
         description: 'ride-along controller detached on switch to Rouvy',
       );
+      // …and under Rouvy the rider shifts locally: the app's steady ratio
+      // stream must no longer drive the bridge's gear.
+      expect(device.fitnessBike!.followAppGearRatio!(), isFalse,
+          reason: "Rouvy's fixed 1–24 gear stream must not stomp local shifts");
     });
   });
 }
