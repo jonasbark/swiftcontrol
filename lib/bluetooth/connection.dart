@@ -83,6 +83,30 @@ class Connection {
     lastLogEntries = lastLogEntries.takeLast(_logHistoryCap).toList();
   }
 
+  bool _logCaptureStarted = false;
+
+  /// Start buffering [LogNotification]s (and, for beta testers, the verbose
+  /// trace) into [lastLogEntries] independently of the full [initialize], which
+  /// only runs once the app content mounts. Called at startup so handled errors
+  /// during the bootstrap — before [initialize] — still reach the support and
+  /// startup-recovery log bundle. Idempotent.
+  void startLogCapture() {
+    if (_logCaptureStarted) return;
+    _logCaptureStarted = true;
+
+    actionStream.listen((log) => _appendLogEntry(log.toString()));
+
+    // Beta testers also get the verbose DirCon/trainer wire trace in the log —
+    // a release build (e.g. a tester's) has no console to read `IN>`/`OUT<`
+    // from, so this is the only way that traffic reaches a support bundle. The
+    // gate is re-checked per line so it starts working the moment the
+    // beta_access entitlement loads, and stays a cheap no-op for everyone else.
+    Logger.onTrace = (message) {
+      if (!_isBetaTester) return;
+      _appendLogEntry(message);
+    };
+  }
+
   final Map<BaseDevice, StreamSubscription<bool>> _connectionSubscriptions = {};
   final StreamController<BaseDevice> _connectionStreams = StreamController<BaseDevice>.broadcast();
   Stream<BaseDevice> get connectionStream => _connectionStreams.stream;
@@ -357,17 +381,7 @@ class Connection {
     // Show what the rider owns before any radio has said a word.
     loadRememberedDevices();
 
-    actionStream.listen((log) => _appendLogEntry(log.toString()));
-
-    // Beta testers also get the verbose DirCon/trainer wire trace in the log —
-    // a release build (e.g. a tester's) has no console to read `IN>`/`OUT<`
-    // from, so this is the only way that traffic reaches a support bundle. The
-    // gate is re-checked per line so it starts working the moment the
-    // beta_access entitlement loads, and stays a cheap no-op for everyone else.
-    Logger.onTrace = (message) {
-      if (!_isBetaTester) return;
-      _appendLogEntry(message);
-    };
+    startLogCapture();
 
     _inactivityDisconnector = InactivityDisconnector(
       isTrainerAppConnected: () => core.logic.connectedNonLocalTrainerConnections.isNotEmpty,

@@ -132,6 +132,12 @@ Future<void> main(List<String> args) async {
         return true;
       };
 
+      // Start buffering the log before the bootstrap runs so any handled error
+      // during startup (settings.init, plugin init) lands in lastLogEntries —
+      // otherwise it's only wired in Connection.initialize(), which never runs
+      // on the startup-recovery path, and the support mail ships empty logs.
+      core.connection.startLogCapture();
+
       // Mount the app shell immediately and let it bootstrap itself. Blocking
       // on core.settings.init() (notifications, window_manager, Supabase, IAP,
       // sync) before runApp means a single plugin call that stalls in a release
