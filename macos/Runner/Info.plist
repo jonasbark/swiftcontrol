@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Revert macOS to the pre-Flutter-3.35 threading model. The merged
+	     platform/UI thread became the engine default in 3.35 and regressed
+	     startup on release builds (black window, never paints a first frame).
+	     Disabling it restores the threading config the last working release
+	     shipped with. See flutter/flutter#150525 and the merged-threads
+	     breaking-change note. -->
+	<key>FLTEnableMergedPlatformUIThread</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-peripheral</string>

@@ -27,6 +27,7 @@ class SupportAttachmentLimits {
     'image/webp',
     'text/plain',
     'application/pdf',
+    'application/zip',
   };
 
   static String? mimeTypeForName(String fileName) {
@@ -35,8 +36,11 @@ class SupportAttachmentLimits {
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.gif')) return 'image/gif';
     if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.txt')) return 'text/plain';
+    // .log alongside .txt: app/trainer logs are the attachment a support
+    // thread most often needs, and they are plain text under another name.
+    if (lower.endsWith('.txt') || lower.endsWith('.log')) return 'text/plain';
     if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.zip')) return 'application/zip';
     return null;
   }
 }
@@ -62,6 +66,13 @@ class SupportChatService {
   SupportChatService({SupabaseClient? supabase, http.Client? httpClient})
     : _supabase = supabase ?? core.supabase,
       _httpClient = httpClient ?? http.Client();
+
+  /// The Supabase client this service talks to — exposed so callers that
+  /// need auth state (e.g. [SupportChatPage] checking/observing the current
+  /// session) share the exact same client instance rather than falling back
+  /// to the ambient `core.supabase` singleton, which would break test
+  /// injection.
+  SupabaseClient get client => _supabase;
 
   Future<SupportChat> openChat() async {
     final session = _requireSession();
@@ -96,7 +107,8 @@ class SupportChatService {
       var query = _supabase
           .from('issues')
           .select('id, title, description, help_blog_slug, help_video_url')
-          .eq('is_public', true);
+          .eq('is_public', true)
+          .eq('status', 'open');
       // trainer_apps is the per-issue scoping array; an empty array = applies to everyone.
       if (trainerApp != null) {
         query = query.or('trainer_apps.eq.{},trainer_apps.cs.{${trainerApp.name}}');

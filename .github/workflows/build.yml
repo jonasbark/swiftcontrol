@@ -69,8 +69,7 @@ jobs:
           appstore-profile-liveactivity-debug-base64: ${{ secrets.APPSTORE_PROFILE_LIVEACTIVITY_DEBUG_BASE64 }}
 
       - name: 🐦 Setup Shorebird
-        #if: inputs.build_mac || inputs.build_android || inputs.build_ios
-        if: inputs.build_android || inputs.build_ios
+        if: inputs.build_mac || inputs.build_android || inputs.build_ios
         uses: shorebirdtech/setup-shorebird@v1
         with:
           cache: true
@@ -95,16 +94,21 @@ jobs:
           platform: android
           args: "--obfuscate --split-debug-info=symbols -- --dart-define=REVENUECAT_API_KEY_ANDROID=${{ secrets.REVENUECAT_API_KEY_ANDROID }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
 
+      # Ship the macOS store binary through Shorebird so it carries the updater and a
+      # release record exists to patch against. The Mac App Store patch itself needs a
+      # one-time local `register-baseline` step (Apple re-processes the .pkg) — see
+      # scripts/README-shorebird-macos.md and shorebirdtech/shorebird#3223.
       - name: 🚀 Shorebird Release macOS
-        if: inputs.build_mac && false
+        if: inputs.build_mac
         uses: shorebirdtech/shorebird-release@v1
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           platform: macos
           args: "--obfuscate --split-debug-info=symbols -- --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
 
+      # Superseded by the Shorebird release above (a plain flutter build can't be patched).
       - name: Flutter Release macOS
-        if: inputs.build_mac
+        if: false
         run:
           flutter build macos --release --obfuscate --split-debug-info=symbols --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
 

@@ -494,7 +494,12 @@ class Settings {
     await prefs.setBool('support_chat_active', active);
   }
 
-  // Review prompt
+  // Review prompt — legacy connection-counting scheme. `review_completed` is
+  // still read by FeedbackPromptService (a hard stop: someone who already
+  // rated must never be asked again). The other two below pre-date that
+  // service (the old star-rating banner used them) and are deliberately no
+  // longer read/written by it — see FeedbackPromptService's doc comment for
+  // why reusing them for the session-based rewrite wouldn't be safe.
   int getReviewSessionCount() {
     return prefs.getInt('review_session_count') ?? 0;
   }
@@ -520,6 +525,53 @@ class Settings {
       await prefs.remove('review_dismissed_at_session_count');
     } else {
       await prefs.setInt('review_dismissed_at_session_count', count);
+    }
+  }
+
+  // Feedback prompt — session-based rewrite (see FeedbackPromptService).
+  // New keys, rebased at 0 for every install, existing users included.
+  int getFeedbackSuccessfulSessionCount() {
+    return prefs.getInt('feedback_successful_session_count') ?? 0;
+  }
+
+  Future<void> setFeedbackSuccessfulSessionCount(int count) async {
+    await prefs.setInt('feedback_successful_session_count', count);
+  }
+
+  /// First time the new session-based prompt logic ran on this device.
+  /// Recorded once, on the first `FeedbackPromptService.start()` call, and
+  /// never overwritten after — see `minAgeSinceFirstSeen`.
+  DateTime? getFeedbackPromptFirstSeenAt() {
+    final ms = prefs.getInt('feedback_prompt_first_seen_at_ms');
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  Future<void> setFeedbackPromptFirstSeenAt(DateTime value) async {
+    await prefs.setInt('feedback_prompt_first_seen_at_ms', value.millisecondsSinceEpoch);
+  }
+
+  DateTime? getFeedbackPromptDismissedAt() {
+    final ms = prefs.getInt('feedback_prompt_dismissed_at_ms');
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  Future<void> setFeedbackPromptDismissedAt(DateTime? value) async {
+    if (value == null) {
+      await prefs.remove('feedback_prompt_dismissed_at_ms');
+    } else {
+      await prefs.setInt('feedback_prompt_dismissed_at_ms', value.millisecondsSinceEpoch);
+    }
+  }
+
+  int? getFeedbackPromptDismissedAtSessionCount() {
+    return prefs.getInt('feedback_prompt_dismissed_at_session_count');
+  }
+
+  Future<void> setFeedbackPromptDismissedAtSessionCount(int? count) async {
+    if (count == null) {
+      await prefs.remove('feedback_prompt_dismissed_at_session_count');
+    } else {
+      await prefs.setInt('feedback_prompt_dismissed_at_session_count', count);
     }
   }
 

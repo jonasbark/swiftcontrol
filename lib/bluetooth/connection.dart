@@ -61,6 +61,52 @@ class Connection {
   Stream<BaseNotification> get actionStream => _actionStreams.stream;
   List<({DateTime date, String entry})> lastLogEntries = [];
 
+  /// How many recent log lines to keep for the Logs page / support bundle.
+  /// Beta testers keep far more so the verbose DirCon/trainer wire trace they
+  /// opt into (see [Logger.onTrace] wiring in [initialize]) doesn't evict the
+  /// high-level events around it.
+  /// Beta status, guarded: the log path runs from the very first notification,
+  /// which can be before IAP / Supabase have initialised — and reading
+  /// [IAPManager.isBetaTester] then throws. Treat "not ready yet" as not-beta.
+  bool get _isBetaTester {
+    try {
+      return IAPManager.instance.isBetaTester;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int get _logHistoryCap => (kIsWeb || _isBetaTester) ? 2000 : 200;
+
+  void _appendLogEntry(String entry) {
+    lastLogEntries.add((date: DateTime.now(), entry: entry));
+    lastLogEntries = lastLogEntries.takeLast(_logHistoryCap).toList();
+  }
+
+  bool _logCaptureStarted = false;
+
+  /// Start buffering [LogNotification]s (and, for beta testers, the verbose
+  /// trace) into [lastLogEntries] independently of the full [initialize], which
+  /// only runs once the app content mounts. Called at startup so handled errors
+  /// during the bootstrap — before [initialize] — still reach the support and
+  /// startup-recovery log bundle. Idempotent.
+  void startLogCapture() {
+    if (_logCaptureStarted) return;
+    _logCaptureStarted = true;
+
+    actionStream.listen((log) => _appendLogEntry(log.toString()));
+
+    // Beta testers also get the verbose DirCon/trainer wire trace in the log —
+    // a release build (e.g. a tester's) has no console to read `IN>`/`OUT<`
+    // from, so this is the only way that traffic reaches a support bundle. The
+    // gate is re-checked per line so it starts working the moment the
+    // beta_access entitlement loads, and stays a cheap no-op for everyone else.
+    Logger.onTrace = (message) {
+      if (!_isBetaTester) return;
+      _appendLogEntry(message);
+    };
+  }
+
   final Map<BaseDevice, StreamSubscription<bool>> _connectionSubscriptions = {};
   final StreamController<BaseDevice> _connectionStreams = StreamController<BaseDevice>.broadcast();
   Stream<BaseDevice> get connectionStream => _connectionStreams.stream;
@@ -335,10 +381,7 @@ class Connection {
     // Show what the rider owns before any radio has said a word.
     loadRememberedDevices();
 
-    actionStream.listen((log) {
-      lastLogEntries.add((date: DateTime.now(), entry: log.toString()));
-      lastLogEntries = lastLogEntries.takeLast(kIsWeb ? 1000 : 60).toList();
-    });
+    startLogCapture();
 
     _inactivityDisconnector = InactivityDisconnector(
       isTrainerAppConnected: () => core.logic.connectedNonLocalTrainerConnections.isNotEmpty,
@@ -397,10 +440,17 @@ class Connection {
     // "Zwift Hub"). Restart the transport on every change so the new name
     // shows up on the wire without the user reconnecting.
     core.settings.trainerAppListenable.addListener(() {
-      unawaited(ftmsEmulator.restart());
+      // Reconcile each device's composite membership (a VS bridge takes its
+      // ride-along controller on/off depending on the app, and a Click V2
+      // rides on the bridge for some apps but not others) BEFORE the shared
+      // emulator re-advertises, so the new advertisement reflects the change.
       for (final pd in proxyDevices) {
-        unawaited(pd.restartProxyEmulator());
+        unawaited(pd.onTrainerAppChanged());
       }
+      for (final click in bluetoothDevices.whereType<ZwiftClickV2>()) {
+        click.onTrainerAppChanged();
+      }
+      unawaited(ftmsEmulator.restart());
     });
 
     // Inform the user when ClickLogic restarts a device on purpose — its

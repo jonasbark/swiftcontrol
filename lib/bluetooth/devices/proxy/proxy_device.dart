@@ -139,9 +139,10 @@ class ProxyDevice extends BluetoothDevice {
   /// Test-only: attach [fbd] as the active virtual-shifting definition without
   /// starting any emulator/server. Lets the screenshot harness render the
   /// virtual-shifting gear UI instead of the "trainer doesn't advertise FTMS"
-  /// warning (which shows whenever [fitnessBike] is null).
+  /// warning (which shows whenever [fitnessBike] is null). Pass null to detach
+  /// again, so a scene that needs the gears can leave the next one without.
   @visibleForTesting
-  void debugAttachFitnessBike(FitnessBikeDefinition fbd) {
+  void debugAttachFitnessBike(FitnessBikeDefinition? fbd) {
     _fbd = fbd;
     _currentFbd = fbd;
   }
@@ -251,6 +252,31 @@ class ProxyDevice extends BluetoothDevice {
   Future<void> restartProxyEmulator() async {
     if (_retrofitModeN.value != RetrofitMode.proxy) return;
     await _proxyEmulator.restart();
+  }
+
+  /// React to a trainer-app change while this device is connected.
+  ///
+  /// Proxy mode re-advertises its own emulator (the advertised name depends on
+  /// the app). A VS-mode device reconciles its ride-along controller: the
+  /// controller belongs on the bridge only for apps that take their controller
+  /// over it ([_attachesZwiftController]). Switching to an app that doesn't must
+  /// take it back off, or the bridge keeps advertising a controller the app
+  /// can't use — and it stays there until the trainer is reconnected. The
+  /// composite is only mutated here; the shared emulator's re-advertise is
+  /// driven by the caller.
+  Future<void> onTrainerAppChanged() async {
+    if (_retrofitModeN.value == RetrofitMode.proxy) {
+      await restartProxyEmulator();
+      return;
+    }
+    final controller = _zwiftControllerEmulator;
+    if (controller == null) return;
+    final attached = ftmsEmulator.composite.children.contains(controller);
+    if (_attachesZwiftController && !attached) {
+      ftmsEmulator.composite.attach(controller);
+    } else if (!_attachesZwiftController && attached) {
+      ftmsEmulator.composite.detach(controller);
+    }
   }
 
   /// Mirror the active emulator's state notifiers into our stable wrappers.

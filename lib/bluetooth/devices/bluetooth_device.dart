@@ -176,7 +176,10 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.services.contains(ShimanoDi2Constants.SERVICE_UUID_ALTERNATIVE.toLowerCase()) => ShimanoDi2(
           scanResult,
         ),
-        _ when scanResult.services.containsAny(ProxyDevice.proxyServiceUUIDs) => ProxyDevice(scanResult),
+        _
+            when scanResult.services.containsAny(ProxyDevice.proxyServiceUUIDs) ||
+                scanResult.serviceData.keys.containsAny(ProxyDevice.proxyServiceUUIDs) =>
+          ProxyDevice(scanResult),
         _
             when scanResult.services.contains(SramAxsConstants.SERVICE_UUID.toLowerCase()) &&
                 _sramIsConnectable(scanResult) =>

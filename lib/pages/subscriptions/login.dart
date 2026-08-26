@@ -1,22 +1,19 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/subscriptions/email_login_form.dart';
+import 'package:bike_control/utils/auth/social_sign_in.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/requirements/windows.dart';
 import 'package:bike_control/widgets/menu.dart';
 import 'package:bike_control/widgets/title.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:sign_in_button/sign_in_button.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -204,33 +201,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<AuthResponse?> _nativeGoogleSignIn() async {
-    if (Platform.isAndroid || Platform.isIOS) {
-      const webClientId = '709945926587-bgk7j9qc86t7nuemu100ngvl9c7irv9k.apps.googleusercontent.com';
-      final iosClientId = Platform.isAndroid
-          ? (kDebugMode
-                ? '709945926587-fr2uodlnea57jc3mr8qannt45hi0tjeq.apps.googleusercontent.com'
-                : '709945926587-orkcqc71o6i3cf5lkd85k9n93lobfgae.apps.googleusercontent.com')
-          : '709945926587-0iierajthibf4vhqf85fc7bbpgbdgua2.apps.googleusercontent.com';
-      final scopes = ['email'];
-      final googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        serverClientId: webClientId,
-        clientId: iosClientId,
-      );
-      GoogleSignInAccount? googleUser = await googleSignIn.attemptLightweightAuthentication(reportAllExceptions: true);
-      googleUser ??= await googleSignIn.authenticate();
-
-      final authorization =
-          await googleUser.authorizationClient.authorizationForScopes(scopes) ??
-          await googleUser.authorizationClient.authorizeScopes(scopes);
-      final idToken = googleUser.authentication.idToken;
-      if (idToken == null) {
-        throw AuthException('No ID Token found.');
-      }
+    if (supportsNativeGoogleSignIn) {
+      final token = await fetchGoogleIdToken();
       final response = await core.supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: authorization.accessToken,
+        idToken: token.idToken,
+        accessToken: token.accessToken,
       );
 
       _afterSignIn();
@@ -247,22 +223,12 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<AuthResponse?> _signInWithApple() async {
-    if (Platform.isIOS || Platform.isMacOS) {
-      final rawNonce = core.supabase.auth.generateRawNonce();
-      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
-
-      final credential = await SignInWithApple.getAppleIDCredential(
-        scopes: [AppleIDAuthorizationScopes.email],
-        nonce: hashedNonce,
-      );
-      final idToken = credential.identityToken;
-      if (idToken == null) {
-        throw const AuthException('Could not find ID Token from generated credential.');
-      }
+    if (supportsNativeAppleSignIn) {
+      final token = await fetchAppleIdToken();
       final authResponse = await core.supabase.auth.signInWithIdToken(
         provider: OAuthProvider.apple,
-        idToken: idToken,
-        nonce: rawNonce,
+        idToken: token.idToken,
+        nonce: token.rawNonce,
       );
 
       _afterSignIn();

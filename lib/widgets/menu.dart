@@ -16,6 +16,7 @@ import 'package:bike_control/services/trainer_self_test/self_test_result.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/widgets/feedback_prompt/feedback_prompt_flow.dart';
 import 'package:bike_control/widgets/logviewer.dart';
 import 'package:bike_control/widgets/title.dart';
 import 'package:bike_control/widgets/ui/colors.dart';
@@ -266,6 +267,15 @@ class BKMenuButton extends StatelessWidget {
                 onPressed: (c) async {
                   await core.settings.reset();
                 },
+              ),
+              // Debug-only: the real prompt needs six successful sessions, a
+              // three-day-old install and no ride in progress, so there is no
+              // practical way to see it on demand. Calls the flow directly and
+              // therefore bypasses FeedbackPromptTrigger's once-per-launch
+              // guard as well — reopen it as often as you like.
+              MenuButton(
+                child: const Text('Show feedback prompt'),
+                onPressed: (c) => showFeedbackPromptFlow(context, service: core.feedbackPromptService),
               ),
               MenuButton(
                 child: Text('Send Key'),

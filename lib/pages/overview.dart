@@ -17,8 +17,8 @@ import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/widgets/blog_posts_widget.dart';
 import 'package:bike_control/widgets/controller/trigger_assignment_popup.dart';
+import 'package:bike_control/widgets/feedback_prompt/feedback_prompt_flow.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
-import 'package:bike_control/widgets/review_banner.dart';
 import 'package:bike_control/widgets/ui/button_widget.dart';
 import 'package:bike_control/widgets/ui/colored_title.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show ConnectionMethodTypeActivityIcon;
@@ -96,9 +96,21 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     if (mounted) setState(() {});
   }
 
+  late final FeedbackPromptTrigger _feedbackPromptTrigger;
+
   @override
   void initState() {
     super.initState();
+
+    _feedbackPromptTrigger = FeedbackPromptTrigger(
+      service: core.feedbackPromptService,
+      onShow: () {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          showFeedbackPromptFlow(context, service: core.feedbackPromptService);
+        });
+      },
+    )..checkInitial();
 
     // keep screen on - this is required for iOS to keep the bluetooth connection alive
     if (!screenshotMode) {
@@ -280,6 +292,7 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
     }
     WidgetsBinding.instance.removeObserver(this);
     _horizontalScrollController.dispose();
+    _feedbackPromptTrigger.dispose();
 
     _timeRefreshTimer.cancel();
     _actionListener.cancel();
@@ -304,7 +317,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Gap(8),
-        ReviewBanner(service: core.reviewPromptService),
         HomePage(
           isMobile: widget.isMobile,
           showHelpRow: !showsActivityRail,

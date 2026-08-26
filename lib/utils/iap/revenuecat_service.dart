@@ -309,9 +309,11 @@ class RevenueCatService {
           LogNotification('Purchase result: $result'),
         );
         await refreshEntitlementsWithRetry();
-      } on PlatformException catch (e) {
+      } on PlatformException catch (e, s) {
         var errorCode = PurchasesErrorHelper.getErrorCode(e);
+        // A rider dismissing the store sheet is expected — never log or toast it.
         if (errorCode != PurchasesErrorCode.purchaseCancelledError) {
+          recordError(e, s, context: 'Purchasing full version');
           buildToast(title: e.message);
         }
       }
@@ -355,9 +357,11 @@ class RevenueCatService {
           LogNotification('Purchase result: $result'),
         );
         await refreshEntitlementsWithRetry();
-      } on PlatformException catch (e) {
+      } on PlatformException catch (e, s) {
         var errorCode = PurchasesErrorHelper.getErrorCode(e);
+        // A rider dismissing the store sheet is expected — never log or toast it.
         if (errorCode != PurchasesErrorCode.purchaseCancelledError) {
+          recordError(e, s, context: 'Purchasing subscription');
           buildToast(title: e.message);
         }
       }

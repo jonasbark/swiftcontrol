@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/models/shifting_config.dart';
 import 'package:bike_control/pages/onboarding/widgets/onboarding_theme.dart';
-import 'package:bike_control/pages/proxy_device_details/front_shift_visual.dart';
 import 'package:bike_control/pages/proxy_device_details/gear_ratio_curve.dart';
 import 'package:bike_control/pages/proxy_device_details/gear_ratio_presets.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
@@ -11,6 +10,7 @@ import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/custom_app.dart';
 import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
+import 'package:bike_control/widgets/drivetrain/drivetrain_view.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
 /// What Virtual Shifting buys a rider, shown rather than listed: it works
@@ -505,11 +505,14 @@ class _SceneFront extends StatelessWidget {
 
   static const int _gears = 12;
 
+  /// A rear cog in the middle of the block, held still: this scene is about the
+  /// ring the chain is on, not the cog.
+  static const int _gear = 6;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final accent = onboardingAccent(context);
-    final ratios = gearRatioPresets(context, _gears).first.values;
     return _Stepper(
       active: active,
       period: const Duration(milliseconds: 1700),
@@ -557,12 +560,21 @@ class _SceneFront extends StatelessWidget {
               ),
             ),
             const Gap(12),
-            FrontShiftVisual(
-              smallTeeth: ShiftingConfig.smallChainringDefault,
-              largeTeeth: ShiftingConfig.largeChainringDefault,
-              largeRingActive: large,
-              ratios: ratios,
+            // The same drivetrain the rider gets on the trainer page: the chain
+            // walks across to the other ring rather than the picture swapping,
+            // which is the difference between showing a front shift and
+            // captioning one. Marches only while this scene is the live one —
+            // [active] is already false under reduced motion and in captures.
+            DrivetrainView(
+              gear: _gear,
               gearCount: _gears,
+              frontShift: true,
+              largeRingActive: large,
+              smallChainringTeeth: ShiftingConfig.smallChainringDefault,
+              largeChainringTeeth: ShiftingConfig.largeChainringDefault,
+              moving: active,
+              cadence: 85,
+              showGear: false,
             ),
           ],
         );

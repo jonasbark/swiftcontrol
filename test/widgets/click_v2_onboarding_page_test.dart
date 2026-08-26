@@ -215,4 +215,29 @@ void main() {
       expect(opacity.opacity.value, closeTo(1.0, 0.001), reason: 'row not fully faded in: $text');
     }
   });
+
+  testWidgets('caps content width and centers it on a wide desktop window, matching the Help Center / '
+      'instruction-videos idiom', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await pumpPage(tester);
+
+    // The whole page's content — header, pager and footer link alike — sits
+    // inside one Center + ConstrainedBox(maxWidth: 720), the same idiom
+    // instruction_videos_section.dart's "Bug 3" fix uses. On this 1400-wide
+    // window that must actually clamp the rendered width, not just exist
+    // somewhere unused in the tree.
+    final cap = find.byWidgetPredicate((w) => w is ConstrainedBox && w.constraints.maxWidth == 720);
+    expect(cap, findsOneWidget);
+    expect(tester.getSize(cap).width, 720);
+
+    // Centered, not pinned to an edge: equal empty space on both sides of
+    // the capped content within the 1400-wide window.
+    final capLeft = tester.getTopLeft(cap).dx;
+    final capRight = tester.getTopRight(cap).dx;
+    expect(capLeft, closeTo(1400 - capRight, 0.5));
+  });
 }

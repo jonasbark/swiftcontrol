@@ -3,6 +3,7 @@ import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
+import 'package:bike_control/widgets/drivetrain/drivetrain_controls.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -15,7 +16,12 @@ class GearHeroCard extends StatefulWidget {
   /// empty widget) in ERG mode. The mode switch is also omitted since the
   /// surface is dedicated to gear shifting.
   final bool simOnly;
-  const GearHeroCard({super.key, required this.definition, this.simOnly = false});
+
+  /// Opens the Virtual Shifting settings — gear count, ratios, weights. Null
+  /// hides the Edit affordance (the onboarding preview has nothing to open).
+  final VoidCallback? onEditSettings;
+
+  const GearHeroCard({super.key, required this.definition, this.simOnly = false, this.onEditSettings});
 
   @override
   State<GearHeroCard> createState() => _GearHeroCardState();
@@ -52,6 +58,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
       ]),
       builder: (context, _) {
         final isErg = widget.definition.trainerMode.value == TrainerMode.ergMode;
+        final isSmall = MediaQuery.sizeOf(context).width < 600;
         if (widget.simOnly && isErg) return const SizedBox.shrink();
         final showMyWhooshHint = !isErg && !_myWhooshHintDismissed && _isMyWhooshActive && !screenshotMode;
         final tile = SettingTile(
@@ -82,17 +89,45 @@ class _GearHeroCardState extends State<GearHeroCard> {
                     _modePill(context, cs, TrainerMode.ergMode, active: isErg),
                   ],
                 ),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-            decoration: BoxDecoration(
-              color: cs.muted,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: cs.border,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: double.infinity,
+                // A phone has no width to spare: the drivetrain is the widest
+                // thing on the card and every pixel of inset comes off it.
+                padding: isSmall
+                    ? const EdgeInsets.symmetric(vertical: 10, horizontal: 6)
+                    : const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: cs.muted,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: cs.border,
+                  ),
+                ),
+                child: isErg ? _ergContent(context, cs) : _gearContent(),
               ),
-            ),
-            child: isErg ? _ergContent(context, cs) : _gearContent(context, cs),
+              // Everything this card *shows* is live; everything that shapes it
+              // — gear count, ratios, weights — lives further down the page.
+              if (widget.onEditSettings != null)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Button.ghost(
+                    onPressed: widget.onEditSettings,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context).chainEdit,
+                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: cs.primary),
+                        ),
+                        Icon(LucideIcons.chevronRight, size: 15, color: cs.primary),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
         if (!showMyWhooshHint) return tile;
@@ -126,64 +161,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
     );
   }
 
-  Widget _gearContent(BuildContext context, ColorScheme cs) {
-    final gear = widget.definition.currentGear.value;
-    final ratio = widget.definition.gearRatio.value;
-    final target = widget.definition.targetPowerW.value;
-    final isSmall = MediaQuery.sizeOf(context).width < 600;
-    final subtitle = StringBuffer('of ${widget.definition.maxGear}  ·  ratio ${ratio.toStringAsFixed(2)}');
-    if (target != null && widget.definition.trainerMode.value == TrainerMode.ergMode) {
-      subtitle.write('  ·  target $target W');
-    }
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: isSmall ? 12 : 28,
-          children: [
-            Expanded(child: SizedBox()),
-            _shiftButton(
-              context: context,
-              icon: LucideIcons.minus,
-              filled: false,
-              onTap: () => widget.definition.shiftDown(),
-            ),
-            Text(
-              '$gear',
-              style: TextStyle(
-                fontSize: isSmall ? 52 : 72,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -2,
-                color: cs.foreground,
-              ),
-            ),
-            _shiftButton(
-              context: context,
-              icon: LucideIcons.plus,
-              filled: true,
-              onTap: () => widget.definition.shiftUp(),
-            ),
-            Expanded(child: SizedBox()),
-          ],
-        ),
-        Text(
-          subtitle.toString(),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: cs.mutedForeground,
-          ),
-        ),
-        if (widget.definition.frontShiftEnabled)
-          Text(
-            widget.definition.frontRing.value == FrontRing.large
-                ? '2× · ${widget.definition.largeChainringTeeth}T'
-                : '1× · ${widget.definition.smallChainringTeeth}T',
-            style: TextStyle(fontSize: 13, color: cs.mutedForeground),
-          ),
-      ],
-    );
-  }
+  Widget _gearContent() => DrivetrainControls(definition: widget.definition);
 
   Widget _ergContent(BuildContext context, ColorScheme cs) {
     final target = widget.definition.ergTargetPower.value ?? 150;
@@ -230,9 +208,7 @@ class _GearHeroCardState extends State<GearHeroCard> {
               context: context,
               icon: LucideIcons.plus,
               filled: true,
-              onTap: target < ErgPowerStepping.maxManualW
-                  ? () => widget.definition.stepManualErgPower(up: true)
-                  : null,
+              onTap: target < ErgPowerStepping.maxManualW ? () => widget.definition.stepManualErgPower(up: true) : null,
             ),
             Expanded(child: SizedBox()),
           ],

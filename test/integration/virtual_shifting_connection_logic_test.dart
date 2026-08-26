@@ -8,8 +8,10 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart' show ft
 import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/emulators/definitions/zwift_emulator_definition.dart';
 import 'package:nsd/nsd.dart' as nsd;
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/emulators/dircon_emulator.dart' show RetrofitMode;
@@ -376,6 +378,38 @@ Future<void> main() async {
 
       await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(core.connection.proxyDevices, isEmpty);
+    });
+  });
+
+  group('trainer app switch reconciles the ride-along controller', () {
+    test('switching Zwift → Rouvy takes the ride-along controller back off the bridge', () async {
+      core.settings.setTrainerApp(Zwift());
+      final trainer = buildFtmsTrainer();
+      env.ble.addPeripheral(trainer);
+      await core.settings.setAutoConnect('KICKR CORE 1234', true);
+
+      await core.connection.performScanning();
+      await IntegrationEnv.waitFor(
+        () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.isConnected,
+        description: 'trainer auto-connected under Zwift',
+      );
+      final device = core.connection.proxyDevices.single;
+      await IntegrationEnv.waitFor(() => device.isStartedListenable.value, description: 'bridge started');
+
+      // Under Zwift the bridge carries a ride-along controller definition.
+      expect(
+        ftmsEmulator.composite.children.whereType<ZwiftEmulatorDefinition>(),
+        isNotEmpty,
+        reason: 'the ride-along controller is attached while the app is Zwift',
+      );
+
+      // Switching to Rouvy must take it back off, so the bridge advertises only
+      // its own trainer services again.
+      core.settings.setTrainerApp(Rouvy());
+      await IntegrationEnv.waitFor(
+        () => ftmsEmulator.composite.children.whereType<ZwiftEmulatorDefinition>().isEmpty,
+        description: 'ride-along controller detached on switch to Rouvy',
+      );
     });
   });
 }

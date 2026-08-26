@@ -107,10 +107,17 @@ class FtmsMdnsEmulator extends TrainerConnection {
 
   void stop() {
     keepAlive.stop();
-    if (ftmsEmulator.composite.children.length == 1) {
-      // only this emulator is attached, safe to stop the server
-      ftmsEmulator.stop();
-    }
+    // Detach our own definition from the shared composite.
+    //
+    // The old "only stop when we're the sole child" guard left our definition
+    // attached whenever a trainer bridge (FitnessBikeDefinition) was also on the
+    // shared emulator — so stopping the network controller didn't actually take
+    // its service off the bridge's advertisement. detachDefinition tears the
+    // server down when we were the last child, and re-advertises without our
+    // service when the bridge remains.
+    ftmsEmulator.detachDefinition(def).catchError((Object e, StackTrace s) {
+      recordError(e, s, context: 'Zwift mDNS Emulator - stop detach');
+    });
   }
 
   @override

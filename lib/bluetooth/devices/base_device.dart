@@ -4,6 +4,7 @@ import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
+import 'package:bike_control/utils/actions/base_actions.dart' show Success;
 import 'package:bike_control/utils/actions/desktop.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -378,6 +379,7 @@ abstract class BaseDevice {
         isKeyUp: false,
         trigger: trigger,
       );
+      if (result is Success) core.feedbackPromptService.recordCommandDelivered();
 
       actionStreamInternal.add(ActionNotification(result));
     }
@@ -431,6 +433,7 @@ abstract class BaseDevice {
         isKeyUp: true,
         trigger: trigger,
       );
+      if (result is Success) core.feedbackPromptService.recordCommandDelivered();
       actionStreamInternal.add(ActionNotification(result));
     }
   }
@@ -458,6 +461,7 @@ abstract class BaseDevice {
         isKeyUp: true,
         trigger: trigger,
       );
+      if (result is Success) core.feedbackPromptService.recordCommandDelivered();
       actionStreamInternal.add(LogNotification(result.message));
     }
   }
@@ -515,11 +519,13 @@ abstract class BaseDevice {
   /// the rider to a controller.
   List<InGameAction> get assignableActions => const [];
 
-  Widget showInformation(BuildContext context,
-      {required bool showFull,
-      Widget? footer,
-      bool showSettingsIcon = true,
-      bool showAdditionalInfo = true}) {
+  Widget showInformation(
+    BuildContext context, {
+    required bool showFull,
+    Widget? footer,
+    bool showSettingsIcon = true,
+    bool showAdditionalInfo = true,
+  }) {
     final meta = showMetaInformation(context, showFull: showFull);
     final badge = nameBadge(context);
     // Hero the entire header Row so the icon, title and meta fly together
@@ -624,9 +630,10 @@ abstract class BaseDevice {
     if (!core.actionHandler.frontShiftComboEnabled) return false;
     if (buttons.length < 2) return false;
     final actions = buttons
-        .map((b) => core.actionHandler.supportedApp?.keymap
-            .getKeyPair(b, trigger: ButtonTrigger.singleClick)
-            ?.inGameAction)
+        .map(
+          (b) =>
+              core.actionHandler.supportedApp?.keymap.getKeyPair(b, trigger: ButtonTrigger.singleClick)?.inGameAction,
+        )
         .toSet();
     if (actions.contains(InGameAction.shiftUp) && actions.contains(InGameAction.shiftDown)) {
       final result = await core.actionHandler.performInGameAction(InGameAction.frontShift);
