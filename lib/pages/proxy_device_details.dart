@@ -161,8 +161,14 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
                   ),
                   SizedBox(height: 26),
                 ],
-                LiveMetricsSection(key: const ValueKey('live-metrics'), device: device),
-                SizedBox(height: 20),
+                // The live readout duplicates the watts/rpm already on the
+                // device card above it, and on a store board it pushes the
+                // Virtual Shifting settings — the thing that board is about —
+                // off the bottom of the phone.
+                if (!screenshotMode) ...[
+                  LiveMetricsSection(key: const ValueKey('live-metrics'), device: device),
+                  SizedBox(height: 20),
+                ],
                 if (!screenshotMode && device.fitnessBike != null) ...[
                   SelfTestCard(
                     key: const ValueKey('self-test'),
@@ -314,7 +320,12 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
   Widget _gearSection() {
     final def = widget.device.fitnessBike;
     if (def == null) return const SizedBox.shrink();
-    return GearHeroCard(definition: def, onEditSettings: _revealSettingsSection);
+    // No Edit affordance on a store board: it points at the settings section,
+    // which that board already shows in full right below the card.
+    return GearHeroCard(
+      definition: def,
+      onEditSettings: screenshotMode ? null : _revealSettingsSection,
+    );
   }
 
   /// Scrolls the Virtual Shifting settings into view — the destination of the

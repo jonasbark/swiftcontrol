@@ -1,6 +1,8 @@
 @Tags(['screenshots'])
 library;
 
+import 'dart:async';
+
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/cycplus/cycplus_bc2.dart';
@@ -33,7 +35,6 @@ import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/utils/core.dart' show core;
 import 'package:bike_control/utils/iap/iap_manager.dart';
-import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/my_whoosh.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart';
@@ -239,7 +240,9 @@ Future<void> main() async {
     WidgetTester tester,
     String scene,
     Widget Function() homeBuilder, {
-    Future<void> Function(WidgetTester tester)? afterPump,
+    /// Runs on each board after the first pump, before the golden is taken.
+    /// Gets the slot so a scene can drive the UI differently per board size.
+    Future<void> Function(WidgetTester tester, DeviceType type)? afterPump,
   }) async {
     // The gradient rotated to this scene's place in the listing, so the six
     // boards read as a series rather than as one image repeated.
@@ -279,7 +282,7 @@ Future<void> main() async {
         );
 
         await tester.pump();
-        if (afterPump != null) await afterPump(tester);
+        if (afterPump != null) await afterPump(tester, size.type);
         // golden_screenshot v9+ only loads fonts found in the rendered widget
         // tree, so load after the first pump (then re-render with them).
         await tester.loadAssets();
@@ -412,6 +415,9 @@ Future<void> main() async {
   //     a "Connect" button on the flagship image. (`isBridged` is what the
   //     chain calls connected for a trainer — the bridge running, not merely a
   //     Bluetooth link — so driving the wrapper is enough.)
+  //   * the trainer's virtual-shifting definition attached, which is what makes
+  //     its card carry the live drivetrain (`_trainerBody` falls back to the
+  //     bridging pitch — or nothing — while `fitnessBike` is null).
   testGoldens('Device', (WidgetTester tester) async {
     final savedDevices = core.connection.devices.toList();
     core.connection.devices
@@ -423,10 +429,12 @@ Future<void> main() async {
     core.settings.setMyWhooshLinkEnabled(true);
     core.whooshLink.isConnected.value = true;
     proxy.debugSetTrainerAppConnected(true);
+    proxy.debugAttachFitnessBike(fbd);
     try {
       await shoot(tester, 'device', () => BikeControlApp());
     } finally {
       // Restored so the scenes stay independent of the order they run in.
+      proxy.debugAttachFitnessBike(null);
       proxy.debugSetTrainerAppConnected(false);
       core.connection.devices
         ..clear()
@@ -435,13 +443,51 @@ Future<void> main() async {
     }
   });
 
+  // The connection-settings page. MyWhoosh is the selected app — the same one
+  // the home board shows commands reaching — and it declares obpMdns, so the
+  // recommended list carries the Network method next to Local. (BikeControl,
+  // which this scene used to select, is self-hosted: it has no network method
+  // to show at all.) The emulator is forced into its off / not-yet-connected
+  // state so the tile's description and height don't depend on what a prior
+  // scene left behind.
+  //
+  // The wide boards additionally show the trainer-app picker open on the apps
+  // BikeControl speaks to; see afterPump.
   testGoldens('Trainer', (WidgetTester tester) async {
-    core.settings.setTrainerApp(BikeControl());
-    core.settings.setKeyMap(BikeControl());
+    core.settings.setTrainerApp(MyWhoosh());
+    core.settings.setKeyMap(MyWhoosh());
+    core.settings.setLastTarget(Target.thisDevice);
+    core.settings.setObpMdnsEnabled(false);
+    core.obpMdnsEmulator.isStarted.value = false;
+    core.obpMdnsEmulator.connectedApp.value = null;
     await shoot(
       tester,
       'trainer',
       () => BikeControlApp(customChild: TrainerConnectionSettingsPage()),
+      // The picker's popup is a shadcn popover, which ShadcnApp hosts in its
+      // own overlay — inside the frame, so it is part of the capture.
+      afterPump: (tester, type) async {
+        // pumpWidget reuses the element tree between boards, and the popup sits
+        // in an overlay above it — so one opened for an earlier board is still
+        // up, carrying that board's locale in its section headers and covering
+        // the spot the reopening tap aims at (that tap then picks a list item
+        // instead: this scene first came out shot on Rouvy that way). Close it
+        // before deciding anything about this board.
+        final open = find.byType(SelectPopup);
+        if (open.evaluate().isNotEmpty) {
+          unawaited(closeOverlay(tester.element(open)));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+        }
+        // Opened only where there is room beside it: the popup drops straight
+        // down from the picker, so on a phone it lands on top of the very
+        // connection methods this board exists to show, while a tablet or a
+        // desktop window carries both.
+        if (!CustomFrame.isWide(type)) return;
+        await tester.tap(find.byType(TrainerAppSelect));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+      },
     );
   });
 
@@ -482,21 +528,38 @@ Future<void> main() async {
     );
   });
 
+  // The front derailleur is switched on for this board so its card shows the
+  // chainring steppers and the resulting range rather than just an off switch.
+  // Restored afterwards — it changes what the drivetrain reports (2× notation,
+  // ring-aware ratios), which every later scene sharing this trainer would
+  // otherwise inherit.
   testGoldens('Virtual Shifting Settings', (WidgetTester tester) async {
     core.settings.setTrainerApp(Zwift());
     core.settings.setKeyMap(Zwift());
     core.settings.setMyWhooshLinkEnabled(true);
     core.whooshLink.isConnected.value = true;
-    await shoot(
-      tester,
-      'virtualshifting-settings',
-      () => BikeControlApp(
-        customChild: GearRatiosEditorPage(
-          device: proxy,
-          definition: fbd,
-        ),
+    final savedConfig = core.shiftingConfigs.activeFor(proxy.trainerKey);
+    await core.shiftingConfigs.upsert(
+      savedConfig.copyWith(
+        frontShiftEnabled: true,
+        smallChainringTeeth: 34,
+        largeChainringTeeth: 50,
       ),
     );
+    try {
+      await shoot(
+        tester,
+        'virtualshifting-settings',
+        () => BikeControlApp(
+          customChild: GearRatiosEditorPage(
+            device: proxy,
+            definition: fbd,
+          ),
+        ),
+      );
+    } finally {
+      await core.shiftingConfigs.upsert(savedConfig);
+    }
   });
 
   // --- 6.2 Virtual front derailleur (blog widget snapshots) ---
