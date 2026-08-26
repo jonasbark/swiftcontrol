@@ -11,6 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 /// Fake transport standing in for Supabase's Auth + Functions REST APIs.
 /// Records every request it sees and replays canned responses, keyed by URL
@@ -21,11 +23,13 @@ class _FakeSupabaseHttp extends http.BaseClient {
   final List<http.Request> userRequests = [];
   final List<http.Request> verifyRequests = [];
   final List<http.Request> idTokenRequests = [];
+  final List<http.Request> authorizeRequests = [];
 
   Object? signInAnonymouslyError;
   int functionStatus = 200;
   Map<String, dynamic> functionResponseBody = {'id': 'feedback-1'};
   bool idTokenLinkError = false;
+  bool authorizeError = false;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -42,6 +46,17 @@ class _FakeSupabaseHttp extends http.BaseClient {
         return _json({'msg': 'Anonymous sign-ins are disabled'}, status: 422);
       }
       return _json(_sessionJson(anonymous: true));
+    }
+    // Must come before the plain '/auth/v1/user' check below — this is the
+    // identity-*linking* authorize endpoint (GoTrue's `getLinkIdentityUrl`),
+    // a different path from both '/auth/v1/user' and the plain sign-in
+    // '/auth/v1/authorize'.
+    if (path.contains('/user/identities/authorize')) {
+      authorizeRequests.add(req);
+      if (authorizeError) {
+        return _json({'msg': 'Unable to start the OAuth flow'}, status: 400);
+      }
+      return _json({'url': 'https://example.test/oauth-redirect'});
     }
     if (path.endsWith('/auth/v1/user')) {
       userRequests.add(req);
@@ -69,6 +84,49 @@ class _FakeSupabaseHttp extends http.BaseClient {
       status,
       headers: const {'content-type': 'application/json'},
     );
+  }
+}
+
+/// Minimal in-memory PKCE code-verifier store. GoTrue's browser-redirect
+/// OAuth calls (`linkIdentity`/`signInWithOAuth`) need *some*
+/// `GotrueAsyncStorage` to stash the code verifier before the authorize
+/// round trip — real app code gets one from `Supabase.initialize`'s Flutter
+/// bootstrap; a bare `SupabaseClient` in a test needs its own.
+class _InMemoryAsyncStorage extends GotrueAsyncStorage {
+  final _store = <String, String>{};
+
+  @override
+  Future<String?> getItem({required String key}) async => _store[key];
+
+  @override
+  Future<void> setItem({required String key, required String value}) async {
+    _store[key] = value;
+  }
+
+  @override
+  Future<void> removeItem({required String key}) async {
+    _store.remove(key);
+  }
+}
+
+/// Records every URL passed to `launchUrl` instead of hitting a real
+/// platform channel, so `linkOAuthIdentity`'s browser hand-off is
+/// assertable — same fake as help_center_sections_test.dart's
+/// `_FakeUrlLauncher`, redefined locally since that one is private to its
+/// own file.
+class _FakeUrlLauncher extends UrlLauncherPlatform {
+  final List<String> launchedUrls = [];
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => true;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launchedUrls.add(url);
+    return true;
   }
 }
 
@@ -114,7 +172,11 @@ void main() {
       'https://example.test',
       'test-anon-key',
       httpClient: fakeHttp,
-      authOptions: const AuthClientOptions(autoRefreshToken: false),
+      // pkceAsyncStorage: only the OAuth-redirect linking tests below ever
+      // touch the PKCE code-verifier path, but every other test's fixture
+      // session already has a non-expiring access_token, so it's inert for
+      // them — simplest to supply once here rather than per-group.
+      authOptions: AuthClientOptions(autoRefreshToken: false, pkceAsyncStorage: _InMemoryAsyncStorage()),
     );
     service = FeedbackSubmissionService(client: client);
   });
@@ -315,6 +377,79 @@ void main() {
         service.linkGoogleIdentity(idToken: 'fake-google-id-token'),
         throwsA(isA<FeedbackSubmissionException>()),
       );
+    });
+  });
+
+  group('linkOAuthIdentity (browser-redirect linking — GitHub/Facebook, and Google/Apple with no native path)', () {
+    late _FakeUrlLauncher fakeLauncher;
+
+    setUp(() {
+      fakeLauncher = _FakeUrlLauncher();
+      final previous = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = fakeLauncher;
+      addTearDown(() => UrlLauncherPlatform.instance = previous);
+    });
+
+    test(
+      'hits the identity-linking authorize endpoint — not the plain sign-in one — carrying the session JWT, '
+      'then opens the browser',
+      () async {
+        await client.auth.recoverSession(jsonEncode(_sessionJson(anonymous: true)));
+        final userIdBeforeLink = client.auth.currentSession!.user.id;
+
+        await service.linkOAuthIdentity(OAuthProvider.github);
+
+        expect(fakeHttp.authorizeRequests, hasLength(1));
+        final request = fakeHttp.authorizeRequests.single;
+        expect(
+          request.url.path,
+          endsWith('/user/identities/authorize'),
+          reason: 'the identity-linking endpoint, not /authorize — that one would sign in as a new user instead',
+        );
+        expect(request.url.queryParameters['provider'], 'github');
+        expect(
+          request.headers['Authorization'],
+          'Bearer test-access-token',
+          reason: 'the request is authenticated as the current session, not anonymous/unauthenticated',
+        );
+        expect(fakeHttp.idTokenRequests, isEmpty, reason: 'GitHub has no native id-token path');
+        expect(fakeLauncher.launchedUrls, ['https://example.test/oauth-redirect']);
+        expect(
+          client.auth.currentSession!.user.id,
+          userIdBeforeLink,
+          reason: 'linkIdentity never swaps the session — the id only ever changes if a *different* flow signs in',
+        );
+      },
+    );
+
+    test('with no prior session, creates an anonymous one first', () async {
+      final noSessionClient = SupabaseClient(
+        'https://example.test',
+        'test-anon-key',
+        httpClient: fakeHttp,
+        authOptions: AuthClientOptions(autoRefreshToken: false, pkceAsyncStorage: _InMemoryAsyncStorage()),
+      );
+      final noSessionService = FeedbackSubmissionService(client: noSessionClient);
+      expect(noSessionClient.auth.currentSession, isNull);
+
+      await noSessionService.linkOAuthIdentity(OAuthProvider.facebook);
+
+      expect(fakeHttp.signupRequests, hasLength(1));
+      expect(fakeHttp.authorizeRequests, hasLength(1));
+      expect(noSessionClient.auth.currentSession, isNotNull);
+
+      await noSessionClient.dispose();
+    });
+
+    test('a rejected authorize request is wrapped in FeedbackSubmissionException, never reaching the browser', () async {
+      await client.auth.recoverSession(jsonEncode(_sessionJson(anonymous: true)));
+      fakeHttp.authorizeError = true;
+
+      await expectLater(
+        service.linkOAuthIdentity(OAuthProvider.github),
+        throwsA(isA<FeedbackSubmissionException>()),
+      );
+      expect(fakeLauncher.launchedUrls, isEmpty);
     });
   });
 }

@@ -97,7 +97,14 @@ class _FakeSupportChatHttp extends http.BaseClient {
     }
     if (path.endsWith('/auth/v1/user')) {
       userRequests.add(req);
-      return _json(_sessionJson(anonymous: false, email: 'rider@example.com')['user'] as Map<String, dynamic>);
+      // beginEmailLink's updateUser(email:) call lands here to set a
+      // *pending* email — is_anonymous doesn't flip to false until the OTP
+      // is actually confirmed below, matching real GoTrue behaviour. Now
+      // that SupportAccountLinkCard reacts to onAuthStateChange directly
+      // (review round 4, browser-redirect providers), returning
+      // anonymous: false here too would make it jump straight to "linked"
+      // before the rider ever sees the code field.
+      return _json(_sessionJson(anonymous: true, email: 'rider@example.com')['user'] as Map<String, dynamic>);
     }
     if (path.endsWith('/auth/v1/verify')) {
       verifyRequests.add(req);

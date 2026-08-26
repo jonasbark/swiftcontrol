@@ -139,6 +139,43 @@ class FeedbackSubmissionService {
     }
   }
 
+  /// Links [provider] onto the CURRENT session via Supabase's browser-
+  /// redirect OAuth identity linking (`GoTrueClient.linkIdentity`, which
+  /// hits `/user/identities/authorize` with the session's own JWT attached)
+  /// — the path for every provider with no native id-token SDK on this
+  /// platform: GitHub and Facebook always, and Google/Apple wherever
+  /// `supportsNative*SignIn` is false. Like [linkGoogleIdentity]/
+  /// [linkAppleIdentity], this attaches the identity to whatever session is
+  /// already there — anonymous or not — instead of signing in as a
+  /// different user the way `LoginPage.signInWithOAuth` does with the same
+  /// provider. Unlike those two methods, though, the returned `Future`
+  /// only resolves once the OAuth browser tab has been launched; actual
+  /// completion arrives later through the app's existing deep-link
+  /// handling and shows up on [authStateChanges] — exactly like
+  /// `LoginPage`'s own `signInWithOAuth` calls for these same providers,
+  /// which don't await completion inline either.
+  Future<void> linkOAuthIdentity(OAuthProvider provider) async {
+    // See beginEmailLink for why this runs outside the try/catch below.
+    await ensureSession();
+    try {
+      await _client.auth.linkIdentity(
+        provider,
+        redirectTo: kIsWeb ? null : 'bikecontrol://login/',
+        authScreenLaunchMode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+      );
+    } catch (e, s) {
+      await recordError(e, s, context: 'FeedbackSubmissionService.linkOAuthIdentity.${provider.name}');
+      throw FeedbackSubmissionException('Failed to link your ${provider.name} account');
+    }
+  }
+
+  /// The session's own auth-state stream. [SupportAccountLinkCard] listens
+  /// on this for the moment a [linkOAuthIdentity] redirect that's still
+  /// pending in the browser actually completes and the session stops being
+  /// anonymous — the id-token methods above don't need it since they
+  /// already know synchronously.
+  Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
+
   /// Ensures the client has a session, signing in anonymously if it has
   /// none. Public so other callers that need "a session, any session"
   /// before their own request — e.g. [SupportChatPage] sending a message
