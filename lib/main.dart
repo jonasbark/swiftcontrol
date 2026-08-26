@@ -607,10 +607,13 @@ class _BikeControlAppState extends State<BikeControlApp> {
       //themeMode: ThemeMode.dark,
       // Swap splash → content in place inside the always-mounted ShadcnApp so
       // the themed background is painted the whole time — no black flash while
-      // the real content takes over from the splash.
-      home: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: _home(context, isMobile),
+      // the real content takes over from the splash. The Builder gives _home a
+      // context *below* ShadcnApp, where its Theme is available.
+      home: m.Builder(
+        builder: (context) => AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: _home(context, isMobile),
+        ),
       ),
     );
   }
