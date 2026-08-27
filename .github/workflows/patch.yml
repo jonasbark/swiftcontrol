@@ -11,7 +11,7 @@ on:
         # step can't happen in CI. Set release_version to x.y.z+build.
         description: 'Patch for macOS (needs local register-baseline first, see scripts/README-shorebird-macos.md)'
         required: false
-        default: false
+        default: true
         type: boolean
       build_windows:
         description: 'Patch for Windows'
