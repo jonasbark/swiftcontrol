@@ -131,15 +131,27 @@ jobs:
         if: inputs.build_mac
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
-          # 'latest' is the workflow default; the script auto-detects the live
-          # READY_FOR_SALE version when RELEASE_VERSION is empty.
-          RELEASE_VERSION: ${{ inputs.release_version == 'latest' && '' || inputs.release_version }}
+          # The workflow's release_version defaults to the string 'latest'. A GHA
+          # `x && '' || y` expression can't yield an empty string (an empty string
+          # is falsy), so translate 'latest' to empty in the shell below instead.
+          INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
           ASC_APP_ID: ${{ secrets.ASC_MACOS_APP_ID }}
           ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY }}
           ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
           ASC_API_KEY_PATH: ./private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY }}.p8
           SHOREBIRD_PATCH_ARGS: "--track ${{ inputs.track }} --allow-asset-diffs --allow-native-diffs --split-debug-info=symbols -- --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
-        run: ruby scripts/shorebird_mas_patch.rb patch
+        run: |
+          # Pass an explicit x.y.z+build (the version you ran register-baseline for).
+          # 'latest' => empty, which makes the script auto-detect the live
+          # READY_FOR_SALE version — that path additionally needs ASC_MACOS_APP_ID.
+          if [ "$INPUT_RELEASE_VERSION" != "latest" ]; then
+            export RELEASE_VERSION="$INPUT_RELEASE_VERSION"
+          fi
+          if [ -z "${RELEASE_VERSION:-}" ] && [ -z "${ASC_APP_ID:-}" ]; then
+            echo "::error::Set release_version to the x.y.z+build you registered the MAS baseline for, or add the ASC_MACOS_APP_ID secret to auto-detect the live version."
+            exit 1
+          fi
+          ruby scripts/shorebird_mas_patch.rb patch
 
       - name: 🚀 Shorebird Patch Android
         if: inputs.build_android
