@@ -99,9 +99,9 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
                 hintArg: controller.unlockedUntil,
                 uncertain: controller.unlockUncertain,
               ),
-            // An offer, not work: the right puck functions perfectly without a
-            // left one, it just switches off after a minute idle. Only emitted
-            // while outstanding, so it never sits ticked on a card forever.
+            // An offer, not work: the right puck stays on with or without a
+            // left one, which only keeps its lights lit. Only emitted while
+            // outstanding, so it never sits ticked on a card forever.
             if (controller.clickV2NeedsLeftSide)
               const SetupStep(
                 id: SetupStepId.controllerClickV2KeepAwake,

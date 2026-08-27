@@ -139,10 +139,10 @@ class Connection {
 
   /// Whether a Zwift Click V2 left puck is switched on within range.
   ///
-  /// Read from the raw adverts, not from [devices], and deliberately so: the
-  /// right puck only needs its sibling *nearby* to be kept awake, not paired.
-  /// In right-side-only mode the left puck is on the ignored list and so never
-  /// enters [devices] at all, yet it is still advertising and still counts.
+  /// Read from the raw adverts, not from [devices], and deliberately so: what
+  /// matters is a sibling being *nearby*, not paired. In right-side-only mode
+  /// the left puck is on the ignored list and so never enters [devices] at
+  /// all, yet it is still advertising and still counts.
   bool get hasNearbyClickV2LeftSide {
     if (_lastScanResult.any(isClickV2LeftSideAdvert)) return true;
     // A left puck that connected before the scan list was last cleared no
@@ -464,8 +464,8 @@ class Connection {
       }
     };
 
-    // The right puck's keep-awake needs its sibling in range, and only this
-    // side can see what is in range.
+    // Whether the right puck's lights will stay lit — only this side can see
+    // what is in range. Never gates the keep-awake itself.
     ClickLogic.isLeftSideNearby = () => hasNearbyClickV2LeftSide;
 
     UniversalBle.onAvailabilityChange = (available) {
@@ -494,11 +494,15 @@ class Connection {
       if (_lastScanResult.none((e) => e.deviceId == result.deviceId && e.services.contentEquals(result.services))) {
         _lastScanResult.add(result);
 
-        // A left puck coming into range may be exactly what a right puck has
-        // been waiting for, and an ignored one never gets further than this —
-        // it is discovered and then dropped, so discovery is the only signal.
-        // No-op unless a right puck is actually waiting.
-        ClickLogic.startKeepAwakeIfPending();
+        // A left puck coming into range is what brings the right one's LEDs
+        // back, so re-enter the mode now rather than waiting up to a tick for
+        // it. An ignored left puck never gets further than this — it is
+        // discovered and then dropped — so discovery is the only signal.
+        // Deliberately narrowed to left pucks: this re-runs the sequence, and
+        // every other advert would make that an erase for nothing.
+        if (isClickV2LeftSideAdvert(result)) {
+          ClickLogic.startKeepAwakeIfPending();
+        }
 
         if (kDebugMode) {
           debugPrint('Scan result: ${result.name} - ${result.deviceId} - Services: ${result.services}');

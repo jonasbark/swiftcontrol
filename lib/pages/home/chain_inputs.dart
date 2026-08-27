@@ -110,9 +110,9 @@ class ControllerInput {
   /// range" about a controller sitting switched on beside the rider.
   final bool needsUnlockModeChoice;
 
-  /// Whether this is a Click V2 right puck that would stop powering itself off
-  /// if a left puck were switched on nearby. An offer, never a requirement —
-  /// the controller works either way, it just switches off after a minute.
+  /// Whether this is a Click V2 right puck whose lights would stay lit if a
+  /// left puck were switched on nearby. An offer, never a requirement — the
+  /// puck stays powered on either way, only its lights differ.
   final bool clickV2NeedsLeftSide;
 }
 
