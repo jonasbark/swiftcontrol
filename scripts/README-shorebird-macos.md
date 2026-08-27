@@ -22,8 +22,9 @@ this by registering the **store-delivered** `.app` as a second release artifact
 2. **That build is live** on the Mac App Store (`READY_FOR_SALE`) for the same version.
 3. A Mac signed into the App Store with an Apple ID that can download BikeControl.
 4. App Store Connect API key credentials (the same key CI uses for uploads).
-5. Shorebird auth: either `shorebird login` locally, or `SHOREBIRD_TOKEN` from
-   `shorebird login --ci`.
+5. Shorebird auth: either `shorebird login` locally, or a `SHOREBIRD_TOKEN` API key
+   (`sb_api_...`) from https://console.shorebird.dev. Legacy `shorebird login --ci`
+   tokens still work but are deprecated.
 6. `mas` CLI (`brew install mas`) if you want the script to download/update the live app for
    you. Recent `mas` needs `sudo` for install/update.
 
@@ -43,7 +44,7 @@ export ASC_KEY_ID="<APPSTORE_API_KEY>"        # same key id CI uses
 export ASC_ISSUER_ID="<APPSTORE_API_ISSUER_ID>"
 export ASC_API_KEY_PATH="$HOME/.private_keys/AuthKey_${ASC_KEY_ID}.p8"
 # Local Shorebird auth via `shorebird login` is enough; otherwise:
-# export SHOREBIRD_TOKEN="<shorebird login --ci token>"
+# export SHOREBIRD_TOKEN="sb_api_..."    # API key from console.shorebird.dev
 ```
 
 Optional:
