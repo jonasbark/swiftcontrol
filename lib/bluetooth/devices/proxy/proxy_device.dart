@@ -448,14 +448,6 @@ class ProxyDevice extends BluetoothDevice {
     // a stale pref can never strand the trainer on a dead write path.
     final storedProtocol = core.settings.getControlProtocolOverride(trainerKey);
     def.setControlProtocolOverride(TrainerControlProtocol.values.asNameMap()[storedProtocol]);
-
-    // Rouvy's gear model is fixed at 1–24, so it cannot represent a custom
-    // cassette or a front derailleur — shifting stays local (the gear
-    // overlay), and Rouvy's own steady gear-ratio stream must not drive our
-    // gear or it stomps every rider shift seconds later. Zwift's stream DOES
-    // track the rider and keeps driving the gear. Evaluated per message, so
-    // switching apps mid-session needs no rebuild.
-    def.followAppGearRatio = () => core.settings.getTrainerApp() is! Rouvy;
   }
 
   /// Is the connected trainer reporting any sign of riding right now? Used to
