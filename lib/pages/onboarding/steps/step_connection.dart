@@ -241,10 +241,15 @@ Widget onboardingConnectionBody(
         .small
         .muted,
     Gap(18),
-    OnboardingGroupLabel(context.i18n.onboardingConnectionMethods),
-    for (final method in OnboardingMethod.values)
-      if (onboardingMethodVisible(method, app))
-        Padding(padding: const EdgeInsets.only(bottom: 10), child: methodTile(method)),
+    // An app with no controller integration at all (Tacx Training) offers no
+    // method on a second device — only the Bridge below. Drop the heading
+    // rather than leave it standing over nothing.
+    if (OnboardingMethod.values.any((m) => onboardingMethodVisible(m, app))) ...[
+      OnboardingGroupLabel(context.i18n.onboardingConnectionMethods),
+      for (final method in OnboardingMethod.values)
+        if (onboardingMethodVisible(method, app))
+          Padding(padding: const EdgeInsets.only(bottom: 10), child: methodTile(method)),
+    ],
     Gap(10),
     OnboardingGroupLabel(context.i18n.onboardingThenInApp(app.name)),
     OnboardingAppGuideCard(app: app),

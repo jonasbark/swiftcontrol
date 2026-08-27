@@ -12,7 +12,7 @@ import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
-import 'package:bike_control/utils/keymap/apps/supported_app.dart' show TrainerConnectionType;
+import 'package:bike_control/utils/keymap/apps/supported_app.dart' show SupportedApp, TrainerConnectionType;
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/units.dart';
@@ -417,9 +417,22 @@ class ProxyDevice extends BluetoothDevice {
   /// getter.
   String get advertisementName => emulator.advertisementName;
 
-  Map<String, Uint8List> _trainerMdnsTxt() => {
+  Map<String, Uint8List> _trainerMdnsTxt() => trainerMdnsTxtFor(
+    core.settings.getTrainerApp(),
+    serialNumber: mdnsSerialNumber(scanResult.deviceId),
+  );
+
+  /// TXT record for the Bridge's `_wahoo-fitness-tnp._tcp` advertisement.
+  ///
+  /// [SupportedApp.trainerMdnsTxt] contributes whatever fields the selected app
+  /// needs on top of these. It is applied last so an app can also correct one
+  /// of the defaults if it ever has to.
+  @visibleForTesting
+  static Map<String, Uint8List> trainerMdnsTxtFor(SupportedApp? app, {required String serialNumber}) => {
     'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.macAddress.codeUnits),
-    'serial-number': Uint8List.fromList(mdnsSerialNumber(scanResult.deviceId).codeUnits),
+    'serial-number': Uint8List.fromList(serialNumber.codeUnits),
+    for (final e in (app?.trainerMdnsTxt ?? const <String, String>{}).entries)
+      e.key: Uint8List.fromList(e.value.codeUnits),
   };
 
   void _seedFitnessBikeDefinition(FitnessBikeDefinition def) {

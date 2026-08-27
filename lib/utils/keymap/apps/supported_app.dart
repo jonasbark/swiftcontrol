@@ -4,6 +4,7 @@ import 'package:bike_control/utils/keymap/apps/biketerra.dart';
 import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/strappo.dart';
+import 'package:bike_control/utils/keymap/apps/tacx.dart';
 import 'package:bike_control/utils/keymap/apps/training_peaks.dart';
 import 'package:bike_control/utils/keymap/apps/wahoo_element.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
@@ -70,6 +71,19 @@ abstract class SupportedApp {
   /// Apps without a dedicated page fall back to the generic guide.
   String get helpSlug => 'other-training-app';
 
+  /// Extra mDNS TXT entries the Bridge adds to its `_wahoo-fitness-tnp._tcp`
+  /// trainer advertisement while this app is selected, on top of the
+  /// `mac-address` / `serial-number` / `ble-service-uuids` every advertisement
+  /// carries.
+  ///
+  /// For apps that want to see a field of their own before they list a trainer
+  /// (see [Tacx.mdnsProductId]). Values are ASCII; the caller encodes them.
+  ///
+  /// Scoped to the selected app on purpose: an identity a specific app needs
+  /// is noise (at best) to every other one, and the emulator re-advertises on
+  /// every trainer-app change, so switching apps swaps the TXT with it.
+  Map<String, String> get trainerMdnsTxt => const {};
+
   /// Maps Zwift Click V2 actions to this app's corresponding actions.
   /// E.g. for Rouvy: {InGameAction.usePowerUp: InGameAction.pause, InGameAction.select: InGameAction.kudos}
   Map<InGameAction, InGameAction> get inGameActionsMapping => const {};
@@ -110,6 +124,7 @@ abstract class SupportedApp {
     Biketerra(),
     Rouvy(),
     Strappo(),
+    Tacx(),
     BikeControl(),
     OpenBikeControl(),
     if (kDebugMode) WahooElement(),
