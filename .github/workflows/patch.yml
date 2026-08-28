@@ -278,14 +278,16 @@ jobs:
       contents: write
     steps:
       # Checks out github.sha (fixed at dispatch) — the exact commit the patch
-      # was built from. Use secrets.TOKEN: it's the repo-write PAT the release
-      # job pushes tags with. PAT_TOKEN only has read on this repo (it writes to
-      # prop), so its persisted credentials 403 on the tag push. No submodules
-      # needed just to tag.
+      # was built from. Push the tag with the built-in GITHUB_TOKEN: this job
+      # grants it `contents: write` (above), it acts as github-actions[bot] —
+      # the same identity the tagger is set to below — and no tag protection
+      # blocks it. The PAT_TOKEN/TOKEN secrets are only read on this repo
+      # (PAT_TOKEN writes to prop; TOKEN's write scope lapsed after Jan 2026),
+      # so their persisted credentials 403 on the push. No submodules to tag.
       - name: Checkout the patched commit
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.TOKEN }}
+          token: ${{ github.token }}
 
       - name: Tag the source commit with the patch provenance
         env:
