@@ -1094,7 +1094,7 @@
   "sramPanelIntro": "Laissez BikeControl gérer votre transmission : il sauvegarde la configuration actuelle de vos manettes, puis désactive le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pouvez la restaurer à tout moment.",
   "sramSetupIntro": "BikeControl sauvegarde ta configuration de manettes actuelle et désactive le passage de vitesses propre au dérailleur, afin que les palettes envoient des appuis de boutons. Tu peux la restaurer à tout moment.",
   "sramSetupSuccess": "BikeControl contrôle désormais vos vitesses. Chaque bouton de manette est une entrée de contrôleur que vous pouvez attribuer dans l'application.",
-  "sramRestoreIntro": "Cela restaure le fonctionnement d'origine de votre dérailleur.",
+  "sramRestoreIntro": "Si vous voulez retourner rouler en extérieur, utilisez ceci pour réinitialiser votre configuration SRAM et réactiver le passage des vitesses",
   "sramRestoreSuccess": "La configuration d'origine de vos manettes a été restaurée.",
   "sramDialogRunning": "Communication avec votre dérailleur… gardez-le à proximité et actif.",
   "sramAuthorizeTitle": "Autoriser BikeControl",

@@ -1675,7 +1675,7 @@
   "sramPanelIntro": "Let BikeControl control your shifting: it backs up your current shifter configuration, then disables the derailleur's own shifting so it only sends button presses. You can restore it anytime.",
   "sramSetupIntro": "BikeControl backs up your current shifter configuration and disables the derailleur's own shifting, so the paddles send button presses instead. You can restore it anytime.",
   "sramSetupSuccess": "BikeControl now controls your gears. Each shifter button is a controller input you can map in the app.",
-  "sramRestoreIntro": "This restores your derailleur's original shifting.",
+  "sramRestoreIntro": "If you want to go back riding outdoors, use this to reset your SRAM configuration to re-enable shifting",
   "sramRestoreSuccess": "Your original shifter configuration has been restored.",
   "sramDialogRunning": "Talking to your derailleur — keep it close and awake.",
   "sramAuthorizeTitle": "Authorize BikeControl",

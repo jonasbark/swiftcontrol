@@ -1094,7 +1094,7 @@
   "sramPanelIntro": "Lass BikeControl deine Schaltung steuern: Es sichert deine aktuelle Schaltkonfiguration und deaktiviert dann das eigene Schalten des Schaltwerks, sodass es nur noch Tastendrücke sendet. Du kannst sie jederzeit wiederherstellen.",
   "sramSetupIntro": "BikeControl sichert deine aktuelle Schalthebel-Konfiguration und deaktiviert die eigene Schaltung des Schaltwerks, damit die Hebel stattdessen Tastendrücke senden. Du kannst sie jederzeit wiederherstellen.",
   "sramSetupSuccess": "BikeControl steuert jetzt deine Gänge. Jede Schalthebeltaste ist eine Controller-Eingabe, die du in der App zuweisen kannst.",
-  "sramRestoreIntro": "Dadurch wird das ursprüngliche Schalten deines Schaltwerks wiederhergestellt.",
+  "sramRestoreIntro": "Wenn du wieder draußen fahren möchtest, setze damit deine SRAM-Konfiguration zurück, um das Schalten wieder zu aktivieren",
   "sramRestoreSuccess": "Deine ursprüngliche Schaltkonfiguration wurde wiederhergestellt.",
   "sramDialogRunning": "Verbindung mit deinem Schaltwerk … halte es in der Nähe und aktiv.",
   "sramAuthorizeTitle": "BikeControl autorisieren",

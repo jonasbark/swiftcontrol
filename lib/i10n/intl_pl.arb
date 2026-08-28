@@ -1094,7 +1094,7 @@
   "sramPanelIntro": "Pozwól BikeControl sterować przełączaniem: utworzy kopię zapasową bieżącej konfiguracji manetek, a następnie wyłączy własne przełączanie przerzutki, tak aby wysyłała tylko naciśnięcia przycisków. Możesz ją przywrócić w dowolnej chwili.",
   "sramSetupIntro": "BikeControl utworzy kopię obecnej konfiguracji manetek i wyłączy własną zmianę biegów przerzutki, aby dźwignie wysyłały naciśnięcia przycisków. Możesz to przywrócić w każdej chwili.",
   "sramSetupSuccess": "BikeControl steruje teraz Twoimi biegami. Każdy przycisk manetki to wejście kontrolera, które możesz przypisać w aplikacji.",
-  "sramRestoreIntro": "Spowoduje to przywrócenie oryginalnego przełączania przerzutki.",
+  "sramRestoreIntro": "Jeśli chcesz wrócić do jazdy na zewnątrz, użyj tego, aby zresetować konfigurację SRAM i ponownie włączyć zmianę biegów",
   "sramRestoreSuccess": "Przywrócono oryginalną konfigurację manetek.",
   "sramDialogRunning": "Łączenie z przerzutką… trzymaj ją blisko i aktywną.",
   "sramAuthorizeTitle": "Autoryzuj BikeControl",

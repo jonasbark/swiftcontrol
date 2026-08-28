@@ -1094,7 +1094,7 @@
   "sramPanelIntro": "Deja que BikeControl controle tu cambio: hace una copia de seguridad de tu configuración actual del cambio y luego desactiva el cambio propio del desviador para que solo envíe pulsaciones de botón. Puedes restaurarla en cualquier momento.",
   "sramSetupIntro": "BikeControl hace una copia de tu configuración actual de manetas y desactiva el cambio propio del cambio trasero, para que las levas envíen pulsaciones de botón. Puedes restaurarla cuando quieras.",
   "sramSetupSuccess": "BikeControl ahora controla tus marchas. Cada botón del mando es una entrada de controlador que puedes asignar en la app.",
-  "sramRestoreIntro": "Esto restaura el cambio original de tu desviador.",
+  "sramRestoreIntro": "Si quieres volver a rodar al aire libre, usa esto para restablecer tu configuración SRAM y volver a activar el cambio",
   "sramRestoreSuccess": "Se ha restaurado tu configuración original del cambio.",
   "sramDialogRunning": "Comunicando con tu desviador: mantenlo cerca y activo.",
   "sramAuthorizeTitle": "Autorizar BikeControl",

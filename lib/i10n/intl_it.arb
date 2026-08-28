@@ -1094,7 +1094,7 @@
   "sramPanelIntro": "Lascia che BikeControl controlli il cambio: esegue il backup della configurazione attuale dei comandi, poi disattiva il cambio del deragliatore in modo che invii solo la pressione dei pulsanti. Puoi ripristinarla in qualsiasi momento.",
   "sramSetupIntro": "BikeControl salva la configurazione attuale delle leve e disattiva il cambio proprio del deragliatore, così le leve inviano pressioni di pulsanti. Puoi ripristinarla quando vuoi.",
   "sramSetupSuccess": "Ora BikeControl controlla i tuoi rapporti. Ogni pulsante del comando è un ingresso del controller che puoi assegnare nell'app.",
-  "sramRestoreIntro": "Questa operazione ripristina il cambio originale del deragliatore.",
+  "sramRestoreIntro": "Se vuoi tornare a pedalare all'aperto, usa questa opzione per reimpostare la tua configurazione SRAM e riattivare il cambio",
   "sramRestoreSuccess": "La configurazione originale dei comandi è stata ripristinata.",
   "sramDialogRunning": "Comunicazione con il deragliatore… tienilo vicino e attivo.",
   "sramAuthorizeTitle": "Autorizza BikeControl",
