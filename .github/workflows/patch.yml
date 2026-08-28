@@ -257,3 +257,66 @@ jobs:
           overwrite: true
           name: Windows Symbols
           path: symbols-win.zip
+
+  tag:
+    name: Tag source commit
+    needs: [build, windows]
+    # Tag the commit this patch was built from, so every OTA patch is traceable
+    # to its source. Runs only when a patch actually succeeded: at least one
+    # platform job succeeded and neither failed. always() lets it evaluate even
+    # when a platform job was skipped (e.g. a Windows-only patch skips `build`);
+    # a skipped job's result is 'skipped', not 'failure', so it's tolerated. If
+    # the main-branch guard tripped, both patch jobs are skipped and this is
+    # skipped too — no tag off main. !cancelled() avoids tagging a cancelled run.
+    if: >-
+      always() && !cancelled() &&
+      (needs.build.result == 'success' || needs.windows.result == 'success') &&
+      needs.build.result != 'failure' &&
+      needs.windows.result != 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Checks out github.sha (fixed at dispatch) — the exact commit the patch
+      # was built from. PAT_TOKEN authorizes the tag push; no submodules needed.
+      - name: Checkout the patched commit
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Tag the source commit with the patch provenance
+        env:
+          TRACK: ${{ inputs.track }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          BUILD_IOS: ${{ inputs.build_ios }}
+          BUILD_ANDROID: ${{ inputs.build_android }}
+          BUILD_MAC: ${{ inputs.build_mac }}
+          BUILD_WINDOWS: ${{ inputs.build_windows }}
+        run: |
+          set -euo pipefail
+          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+          tag="patch/v${version}/${GITHUB_RUN_NUMBER}"
+
+          # Which platforms this run patched (GHA booleans arrive as strings).
+          platforms=""
+          if [ "$BUILD_IOS" = "true" ]; then platforms="$platforms ios"; fi
+          if [ "$BUILD_ANDROID" = "true" ]; then platforms="$platforms android"; fi
+          if [ "$BUILD_MAC" = "true" ]; then platforms="$platforms macos"; fi
+          if [ "$BUILD_WINDOWS" = "true" ]; then platforms="$platforms windows"; fi
+          platforms="${platforms# }"
+
+          # Idempotent: a re-run reuses the run number, so don't fail if it exists.
+          if git ls-remote --tags origin "refs/tags/${tag}" | grep -q .; then
+            echo "Tag ${tag} already exists on origin — skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${tag}" "${GITHUB_SHA}" \
+            -m "Shorebird patch (track ${TRACK})" \
+            -m "release_version: ${RELEASE_VERSION}" \
+            -m "platforms: ${platforms}" \
+            -m "run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          git push origin "refs/tags/${tag}"
+          echo "Tagged ${GITHUB_SHA} as ${tag}"
