@@ -1380,6 +1380,14 @@
       }
     }
   },
+  "onboardingConnectionSubtitleBluetooth": "BikeControl erscheint als Bluetooth-Trainer, damit sich {app} damit verbinden kann.",
+  "@onboardingConnectionSubtitleBluetooth": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
   "onboardingThenInApp": "Dann in {app}",
   "@onboardingThenInApp": {
     "placeholders": {

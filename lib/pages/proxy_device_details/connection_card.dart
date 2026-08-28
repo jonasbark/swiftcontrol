@@ -6,7 +6,7 @@ import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
-import 'package:bike_control/utils/keymap/apps/supported_app.dart' show TrainerConnectionType;
+import 'package:bike_control/utils/keymap/apps/supported_app.dart' show SupportedApp, TrainerConnectionType;
 import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/requirements/platform.dart';
 import 'package:bike_control/widgets/go_pro_dialog.dart';
@@ -64,19 +64,37 @@ class _ConnectionCardState extends State<ConnectionCard> {
       widget.device.trainerKey,
       fallback: widget.device.defaultRetrofitMode,
     );
-    if (saved == RetrofitMode.bluetooth || saved == RetrofitMode.wifi) return saved;
+    if (saved == RetrofitMode.bluetooth || saved == RetrofitMode.wifi) {
+      return _vsTransports.contains(saved) ? saved : _vsTransports.first;
+    }
     return _resolvedVirtualShiftingMode;
   }
 
+  /// The Virtual Shifting transports the selected trainer app can actually find
+  /// our trainer on, in the order the toggle offers them. Both for nearly every
+  /// app; a single entry hides the toggle rather than offering a dead end.
+  List<RetrofitMode> get _vsTransports {
+    final supported = core.settings.getTrainerApp()?.virtualShiftingTransports;
+    final modes = [
+      if (supported?.contains(TrainerConnectionType.wifi) ?? true) RetrofitMode.wifi,
+      if (supported?.contains(TrainerConnectionType.bluetooth) ?? true) RetrofitMode.bluetooth,
+    ];
+    // An app declaring no transport at all would leave the rider with no way to
+    // connect; offer both rather than render an empty toggle.
+    return modes.isEmpty ? const [RetrofitMode.wifi, RetrofitMode.bluetooth] : modes;
+  }
+
   /// Mirrors the active Trainer Connections — BT wins over WiFi, WiFi as the
-  /// fallback when no transport is enabled.
+  /// fallback when no transport is enabled — then falls back to whatever the
+  /// trainer app can actually receive.
   RetrofitMode get _resolvedVirtualShiftingMode {
     final transport = core.logic.preferredBridgeTransport(core.logic.enabledTrainerConnections);
-    return switch (transport) {
+    final mode = switch (transport) {
       TrainerConnectionType.bluetooth => RetrofitMode.bluetooth,
       TrainerConnectionType.wifi => RetrofitMode.wifi,
       null => RetrofitMode.wifi,
     };
+    return _vsTransports.contains(mode) ? mode : _vsTransports.first;
   }
 
   /// `true` when at least one Trainer Connection is enabled, OR the user has
@@ -366,8 +384,20 @@ class _ConnectionCardState extends State<ConnectionCard> {
   }
 
   /// Inline WiFi/Bluetooth toggle shown inside the active Virtual Shifting row.
+  /// Collapses to a plain label when the trainer app only takes one transport
+  /// (see [SupportedApp.virtualShiftingTransports]) — there is nothing to pick.
   Widget _transportToggle(RetrofitMode active) {
     final l10n = AppLocalizations.of(context);
+    final transports = _vsTransports;
+    if (transports.length < 2) {
+      final only = transports.first;
+      return _transportButton(
+        only,
+        only == RetrofitMode.bluetooth ? LucideIcons.bluetooth : LucideIcons.wifi,
+        only == RetrofitMode.bluetooth ? l10n.connectionBluetooth : l10n.connectionWifi,
+        true,
+      );
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

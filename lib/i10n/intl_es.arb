@@ -1380,6 +1380,14 @@
       }
     }
   },
+  "onboardingConnectionSubtitleBluetooth": "BikeControl aparecerá como rodillo Bluetooth para que {app} pueda conectarse.",
+  "@onboardingConnectionSubtitleBluetooth": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
   "onboardingThenInApp": "Después, en {app}",
   "@onboardingThenInApp": {
     "placeholders": {

@@ -699,6 +699,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       } catch (e, s) {
                         recordError(e, s, context: 'onboarding apply trainer app selection');
                       }
+                      // Apps that can only be reached from a second device
+                      // leave the `where` step with a single tile — answer it
+                      // for the rider instead of making them tap the only
+                      // option to move on.
+                      final targets = Target.supportedFor(_selectedApp);
+                      if (targets.length == 1) _selectedTarget = targets.single;
                       _next();
                     },
               child: Text(_selectedApp == null

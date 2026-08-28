@@ -237,7 +237,11 @@ Widget onboardingConnectionBody(
     Gap(6),
     Text(target == Target.thisDevice
             ? context.i18n.onboardingConnectionSubtitleLocal(app.name)
-            : context.i18n.onboardingConnectionSubtitleNetwork(app.name))
+            // Apps that only find trainers over Bluetooth never see the network
+            // advertisement, so promising them one sends riders looking for it.
+            : app.virtualShiftingTransports.contains(TrainerConnectionType.wifi)
+                ? context.i18n.onboardingConnectionSubtitleNetwork(app.name)
+                : context.i18n.onboardingConnectionSubtitleBluetooth(app.name))
         .small
         .muted,
     Gap(18),
