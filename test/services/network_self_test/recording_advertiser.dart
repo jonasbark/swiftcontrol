@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:prop/mdns/service_advertiser.dart';
 
 /// Records register() calls without any real sockets. Shared between the
@@ -6,6 +7,9 @@ import 'package:prop/mdns/service_advertiser.dart';
 /// happened without touching any plugin or real network.
 class RecordingAdvertiser implements ServiceAdvertiser {
   final services = <AdvertisedService>[];
+
+  @override
+  ValueListenable<String?> get advertisedAddress => ServiceAdvertiser.untrackedAddress;
 
   @override
   Future<ServiceAdvertisement> register(AdvertisedService service) async {

@@ -250,7 +250,7 @@ void main() {
       final check = advertisementVisibleCheck(
         ctx(
           snapshot: _diag(
-            advertised: const [
+            advertised: [
               AdvertisedRecord(
                 name: 'BikeControl',
                 type: '_openbikecontrol._tcp',
@@ -284,7 +284,7 @@ void main() {
       final check = advertisementVisibleCheck(
         ctx(
           snapshot: _diag(
-            advertised: const [
+            advertised: [
               AdvertisedRecord(
                 name: 'BikeControl',
                 type: '_openbikecontrol._tcp',

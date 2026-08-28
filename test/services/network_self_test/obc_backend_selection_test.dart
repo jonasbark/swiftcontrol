@@ -33,6 +33,9 @@ class _FakeMdnsSocket implements MdnsSocket {
   InternetAddress? egressInterfaceFor(InternetAddress source) => null;
 
   @override
+  Future<void> setAdvertisedAddress(InternetAddress address) async {}
+
+  @override
   bool get holdsMulticastLock => false;
 
   @override

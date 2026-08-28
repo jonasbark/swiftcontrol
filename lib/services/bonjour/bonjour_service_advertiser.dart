@@ -9,6 +9,7 @@
 library;
 
 import 'package:bike_control/services/bonjour/bonjour_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:prop/mdns/service_advertiser.dart';
 import 'package:prop/utils/advertised_service_registry.dart';
 
@@ -19,6 +20,12 @@ class BonjourServiceAdvertiser implements ServiceAdvertiser {
 
   /// Whether dnssd.dll could be loaded on this machine.
   bool get isAvailable => _api.isAvailable;
+
+  /// Bonjour's daemon publishes and maintains the host records for this
+  /// registration, including following the machine to a new address, so there
+  /// is nothing here for us to track.
+  @override
+  ValueListenable<String?> get advertisedAddress => ServiceAdvertiser.untrackedAddress;
 
   @override
   Future<ServiceAdvertisement> register(AdvertisedService service) async {
