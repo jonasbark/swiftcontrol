@@ -115,6 +115,15 @@ void main() {
     expect(Tacx.mdnsProductId, isNotEmpty);
   });
 
+  test('the product-id is the one both platforms accept', () {
+    // Pinned to the value, not just "non-empty": it was found by measurement,
+    // and the platforms disagree. macOS accepts any of {4614, 4354, 4753,
+    // 4924}; Windows (4.85.2.0) accepts only 4354 — phantom services identical
+    // but for this field were listed for 4354 and ignored for the other three
+    // and for omitting it. Changing this silently drops Windows support.
+    expect(Tacx.mdnsProductId, '4354');
+  });
+
   test('no other app contributes trainer TXT fields', () {
     for (final app in SupportedApp.supportedApps.where((a) => a is! Tacx)) {
       expect(app.trainerMdnsTxt, isEmpty, reason: '${app.name} must not alter the Bridge advertisement');
