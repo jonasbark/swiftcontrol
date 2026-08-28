@@ -391,6 +391,7 @@ class _HomePageState extends State<HomePage> {
             unlockedUntil: _unlockedUntil(device),
             unlockUncertain: device is ZwiftClickV2 && device.isLikelyUnlocked,
             sramSetupDone: device is SramAxs ? !device.needsGuidedSetup : null,
+            sramCanRestore: device is SramAxs && device.canRestoreShifting,
             needsUnlockModeChoice:
                 (device is ZwiftClickV2 || device is ZwiftClickV2RightSide) && ClickV2Onboarding.isPending,
             clickV2NeedsLeftSide:
@@ -955,6 +956,10 @@ class _HomePageState extends State<HomePage> {
           // The same guided sheet the device card and the onboarding wizard
           // run — the derailleur cannot send anything until it has.
           await device.showGuidedSetup(context);
+        } else if (active == SetupStepId.controllerSramRestore && device is SramAxs) {
+          // The optional "restore original shifting" offer runs the same guided
+          // restore sheet the device page does.
+          await device.showGuidedRestore(context);
         } else if (link.status == LinkStatus.off) {
           await openControllerSetupSheet(context);
         } else {

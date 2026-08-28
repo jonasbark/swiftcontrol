@@ -99,6 +99,15 @@ List<ChainLink> _controllerLinks(ChainInputs inputs) {
                 hintArg: controller.unlockedUntil,
                 uncertain: controller.unlockUncertain,
               ),
+            // An offer, not work: once the derailleur's config has been updated
+            // its own shifting is off, and the rider can hand it back at any
+            // time. After the required steps so it never outranks a genuine one,
+            // and only while the derailleur is in range — restore talks to it
+            // over BLE, so an out-of-range line could not act. It clears the
+            // backup when it runs, so it can never sit ticked: like the
+            // keep-awake offer, it is only ever emitted while outstanding.
+            if (controller.sramCanRestore && inRange)
+              const SetupStep(id: SetupStepId.controllerSramRestore, done: false, optional: true),
             // An offer, not work: the right puck stays on with or without a
             // left one, which only keeps its lights lit. Only emitted while
             // outstanding, so it never sits ticked on a card forever.

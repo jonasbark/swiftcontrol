@@ -46,6 +46,7 @@ class ControllerInput {
     this.unlockedUntil,
     this.unlockUncertain = false,
     this.sramSetupDone,
+    this.sramCanRestore = false,
     this.needsUnlockModeChoice = false,
     this.clickV2NeedsLeftSide = false,
   });
@@ -99,6 +100,13 @@ class ControllerInput {
   /// second device with its own guided setup wants its own id, not this one
   /// silently mislabelled.
   final bool? sramSetupDone;
+
+  /// Whether this controller can restore its original on-device shifting — a
+  /// SRAM AXS derailleur whose config setup disabled has already updated, with a
+  /// backup still on hand to put back. It drives the optional "restore" offer,
+  /// so it is about the config, not the connection: presence gating (the
+  /// derailleur has to be here for restore to reach it) lives in [buildChain].
+  final bool sramCanRestore;
 
   /// Whether this controller is a Zwift Click V2 still held out of the connect
   /// queue until the rider picks an unlock mode.
