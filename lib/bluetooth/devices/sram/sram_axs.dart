@@ -305,6 +305,18 @@ class SramAxs extends BluetoothDevice {
         if (known?.deviceType == null) core.settings.setSramShifter(_serialKey, serial, deviceType, known?.model);
       }
       final button = _registerButton(serial, mask, deviceType: deviceType);
+      // TEMP(blip-debug): one line per decoded press so a left-Blip-then-right-Blip
+      // capture reveals whether the two Blips differ on the wire (serial /
+      // deviceType / mask / raw plaintext) or decode identically. If they are
+      // identical they can't be told apart from the button event alone. Remove
+      // this and SramPress.debugPlaintext / SramDecode.buttonVerbose once the
+      // Blip-separation fix lands.
+      actionStreamInternal.add(
+        LogNotification(
+          'SramAxs[BLIP-DEBUG] press serial=$serial deviceType=$deviceType mask=$mask '
+          'name="${button.name}" pt=${press.debugPlaintext == null ? '-' : _bytesToHex(press.debugPlaintext!)}',
+        ),
+      );
       // Once per connection, like _loggedDegradedPress — this fires on every
       // undecoded press otherwise, spamming a warning per shift for the whole ride.
       if (!_warnedSetupNeeded && button.name == "SRAM Button" && _logic?.isBonded == false) {
