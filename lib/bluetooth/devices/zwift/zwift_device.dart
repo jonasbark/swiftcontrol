@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
+import 'package:bike_control/bluetooth/devices/zwift/firmware_support.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/core.dart';
@@ -103,6 +104,12 @@ abstract class ZwiftDevice extends BluetoothDevice {
       return false;
     }
   }
+
+  /// True when the connected firmware is newer than [latestFirmwareVersion],
+  /// the last version we support. For a Zwift Ride that means >1.2.0 — the
+  /// server-locked firmware that stops it working with third-party apps.
+  /// Fail safe: unparseable or missing versions return false.
+  bool get hasFirmwareBeyondSupported => isFirmwareBeyondSupported(firmwareVersion, latestFirmwareVersion);
 
   Future<void> setupHandshake() async {
     await UniversalBle.write(

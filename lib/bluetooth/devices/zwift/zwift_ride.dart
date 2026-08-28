@@ -1,3 +1,4 @@
+import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_device.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
@@ -46,6 +47,12 @@ class ZwiftRide extends ZwiftDevice {
 
   @override
   String? get latestFirmwareVersion => '1.2.0';
+
+  /// True only for an actual Zwift Ride (not subclasses such as Click v2 or
+  /// Play fw2) whose firmware is past [latestFirmwareVersion] — i.e. the
+  /// server-locked firmware that stops it working with third-party apps.
+  static bool hasUnsupportedFirmware(BaseDevice device) =>
+      device.runtimeType == ZwiftRide && (device as ZwiftRide).hasFirmwareBeyondSupported;
 
   @override
   bool get canVibrate => true;

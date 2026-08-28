@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/steering_device.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart' show screenshotMode;
 import 'package:bike_control/pages/customize.dart';
@@ -18,6 +19,7 @@ import 'package:bike_control/widgets/ui/loading_widget.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:bike_control/widgets/ui/trainer_label.dart';
+import 'package:bike_control/widgets/zwift_ride_firmware_notice.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -194,6 +196,17 @@ class _ControllerSettingsPageState extends State<ControllerSettingsPage> {
         ),
       );
     }
+
+    if (ZwiftRide.hasUnsupportedFirmware(device)) {
+      final notice = Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: ZwiftRideFirmwareNotice(device: device as ZwiftRide),
+      );
+      footer = footer == null
+          ? notice
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [footer, notice]);
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(8),

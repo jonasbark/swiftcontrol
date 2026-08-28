@@ -483,6 +483,14 @@ class Settings {
     await prefs.setBool('mywhoosh_gear_hint_dismissed', dismissed);
   }
 
+  bool getRideFirmwareLockDialogShown() {
+    return prefs.getBool('ride_firmware_lock_dialog_shown') ?? false;
+  }
+
+  Future<void> setRideFirmwareLockDialogShown(bool shown) async {
+    await prefs.setBool('ride_firmware_lock_dialog_shown', shown);
+  }
+
   /// Sticky flag: true once the user has opened a support chat at least once
   /// on this device. HelpButton uses it to decide whether to do a background
   /// poll for unread admin replies on app start.
