@@ -14,6 +14,9 @@
 
 default_platform(:ios)
 
+require "fileutils"
+require "tmpdir"
+
 # fastlane chdir's into the fastlane/ folder before running a lane, so relative
 # paths resolve against ios/fastlane/. Anchor everything at the repo root
 # instead (GITHUB_WORKSPACE in CI; two levels up from this file locally).
@@ -136,6 +139,51 @@ def sync_screenshots(platform, root)
   UI.success("#{platform}: screenshots synced")
 end
 
+# Push the per-version "What's New" (release notes) to every managed App Store
+# locale, using the same text for all of them. The release pipeline (build.yml)
+# ships the English changelog everywhere — localizing the release notes per
+# language is a deliberate non-goal for now, but leaving them unset means the
+# store keeps showing the previous version's note, so we overwrite them all.
+#
+# Reads the note text from RELEASE_NOTES_PATH (default: the whatsnew-en-US file
+# the build workflow generates from CHANGELOG.md) and the marketing version from
+# APP_STORE_VERSION. `platform` is deliver's platform string: "ios" (default) or
+# "osx" — the iOS and Mac App Store keep separate version records under the same
+# app, so each needs its own push.
+def push_release_notes(platform)
+  notes_path = ENV["RELEASE_NOTES_PATH"] || File.join(ROOT, "whatsnew/whatsnew-en-US")
+  UI.user_error!("release notes file not found: #{notes_path}") unless File.exist?(notes_path)
+  notes = File.read(notes_path).strip
+  UI.user_error!("release notes file is empty: #{notes_path}") if notes.empty?
+  version = ENV["APP_STORE_VERSION"].to_s.strip
+  UI.user_error!("APP_STORE_VERSION is not set") if version.empty?
+
+  Dir.mktmpdir("release_notes") do |tmp|
+    # deliver only updates the fields it finds files for, so a metadata tree with
+    # just release_notes.txt per locale touches the "What's New" and nothing else.
+    STORE_LOCALES.each do |locale|
+      dir = File.join(tmp, locale)
+      FileUtils.mkdir_p(dir)
+      File.write(File.join(dir, "release_notes.txt"), notes)
+    end
+    # app_version + the default (create/update) version handling makes deliver
+    # target — and create if needed — the editable version for this release,
+    # rather than requiring one to already exist in App Store Connect.
+    deliver(
+      api_key: asc_api_key,
+      app_identifier: APP_IDENTIFIER,
+      platform: platform,
+      app_version: version,
+      metadata_path: tmp,
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      submit_for_review: false,
+      run_precheck_before_submit: false,
+      force: true,
+    )
+  end
+end
+
 platform :ios do
   desc "Upload the localized App Store listing texts & screenshots (no binary)"
   lane :upload_metadata do
@@ -189,5 +237,16 @@ platform :ios do
     ensure
       File.delete(API_KEY_JSON) if File.exist?(API_KEY_JSON)
     end
+  end
+
+  desc "Push the latest release notes to the iOS App Store version (English in "\
+       "every locale — see push_release_notes / build.yml)"
+  lane :upload_release_notes do
+    push_release_notes("ios")
+  end
+
+  desc "Push the latest release notes to the Mac App Store version (English in every locale)"
+  lane :upload_release_notes_macos do
+    push_release_notes("osx")
   end
 end
