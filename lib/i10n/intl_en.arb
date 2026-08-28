@@ -528,6 +528,8 @@
   "overlayGrantAndroidPermission": "Grant overlay permission",
   "overlayHide": "Hide overlay",
   "overlayLowPowerMode": "Live Activities are disabled (Low Power Mode or system setting).",
+  "overlayOpacity": "Overlay opacity",
+  "overlayOpacitySubtitle": "Fade the floating overlay so it blends into your trainer app.",
   "overlayPermissionExplain": "Android needs permission to draw the overlay over your trainer app.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Live gear display while you ride.",

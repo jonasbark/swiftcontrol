@@ -36,4 +36,28 @@ void main() {
     await settings.setOverlayPosition(const Offset(120, 240));
     expect(settings.getOverlayPosition(), const Offset(120, 240));
   });
+
+  test('overlay opacity defaults to 1.0 (fully opaque)', () {
+    expect(settings.getOverlayOpacity(), 1.0);
+  });
+
+  test('overlay opacity round-trips within range', () async {
+    await settings.setOverlayOpacity(0.5);
+    expect(settings.getOverlayOpacity(), 0.5);
+  });
+
+  test('overlay opacity clamps to [0.2, 1.0] on write', () async {
+    await settings.setOverlayOpacity(0.0);
+    expect(settings.getOverlayOpacity(), 0.2);
+    await settings.setOverlayOpacity(1.5);
+    expect(settings.getOverlayOpacity(), 1.0);
+  });
+
+  test('overlay opacity clamps a stale out-of-range stored value on read',
+      () async {
+    // A value written by an older/other build could sit outside the range;
+    // the getter must never hand back something setOpacity would reject.
+    await settings.prefs.setDouble('overlay_opacity', 0.05);
+    expect(settings.getOverlayOpacity(), 0.2);
+  });
 }

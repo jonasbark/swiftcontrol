@@ -192,6 +192,11 @@ class AndroidOverlayController implements TrainerOverlayController {
     _push(force: true);
   }
 
+  @override
+  void updateOpacity(double opacity) {
+    // The Android system overlay window has no adjustable alpha here.
+  }
+
   void _bind() {
     final def = _def;
     if (def == null) return;

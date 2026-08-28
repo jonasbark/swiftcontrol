@@ -21,6 +21,7 @@ const String kOverlayActionMethod = 'trainerOverlay.action';
 const String kOverlayReadyMethod = 'trainerOverlay.ready';
 const String kOverlayPositionMethod = 'trainerOverlay.positionChanged';
 const String kOverlayClosedMethod = 'trainerOverlay.closed';
+const String kOverlayOpacityMethod = 'trainerOverlay.opacity';
 
 // ---------------------------------------------------------------------------
 // Top-level dispatcher: called from main() in the sub-window engine.
@@ -85,6 +86,7 @@ Future<void> _runOverlay(int windowId, List<String> args) async {
   // argsJson) and Windows (map-iteration order), so locate the JSON payload
   // by content rather than by index.
   Offset? initialPosition;
+  double? initialOpacity;
   for (var i = 1; i < args.length; i++) {
     final raw = args[i];
     if (!raw.startsWith('{')) continue;
@@ -94,8 +96,11 @@ Future<void> _runOverlay(int windowId, List<String> args) async {
       final y = (m['y'] as num?)?.toDouble();
       if (x != null && y != null) {
         initialPosition = Offset(x, y);
-        break;
       }
+      initialOpacity = (m['opacity'] as num?)?.toDouble();
+      // The args blob is a single JSON object carrying both position and
+      // opacity, so stop once we've decoded it.
+      break;
     } catch (e, s) {
       recordError(e, s, context: 'overlay.position.decode');
     }
@@ -103,8 +108,37 @@ Future<void> _runOverlay(int windowId, List<String> args) async {
   if (initialPosition != null) {
     await wm.windowManager.setPosition(initialPosition);
   }
+  if (initialOpacity != null) {
+    try {
+      await wm.windowManager.setOpacity(_clampOpacity(initialOpacity));
+    } catch (e, s) {
+      recordError(e, s, context: 'overlay.window.opacity.initial');
+    }
+  }
 
-  final overlayListener = _OverlayWindowListener(windowId, stateListenerId);
+  // Live opacity updates while the overlay is open (the settings slider). The
+  // value the window opens with arrives via argsJson above; this handles the
+  // user dragging the slider afterwards. Applies the native window alpha only —
+  // no Flutter repaint needed, so unlike the state listener it skips
+  // scheduleForcedFrame.
+  final opacityListenerId =
+      MultiWindowNative.registerListener(kOverlayOpacityMethod, (call) async {
+    try {
+      final raw = call.arguments;
+      final Map<String, dynamic> m = raw is String
+          ? jsonDecode(raw) as Map<String, dynamic>
+          : Map<String, dynamic>.from(raw as Map);
+      final o = (m['opacity'] as num?)?.toDouble();
+      if (o != null) {
+        await wm.windowManager.setOpacity(_clampOpacity(o));
+      }
+    } catch (e, s) {
+      recordError(e, s, context: 'overlay.opacity.apply');
+    }
+  });
+
+  final overlayListener =
+      _OverlayWindowListener(windowId, stateListenerId, opacityListenerId);
   wm.windowManager.addListener(overlayListener);
 
   runApp(
@@ -158,7 +192,12 @@ Future<void> _runOverlay(int windowId, List<String> args) async {
 class _OverlayWindowListener extends wm.WindowListener {
   final int _windowId;
   final String _stateListenerId;
-  _OverlayWindowListener(this._windowId, this._stateListenerId);
+  final String _opacityListenerId;
+  _OverlayWindowListener(
+    this._windowId,
+    this._stateListenerId,
+    this._opacityListenerId,
+  );
 
   @override
   void onWindowMoved() {
@@ -195,6 +234,10 @@ class _OverlayWindowListener extends wm.WindowListener {
           methodName: kStateMethod,
           id: _stateListenerId,
         );
+        MultiWindowNative.unregisterListener(
+          methodName: kOverlayOpacityMethod,
+          id: _opacityListenerId,
+        );
       } catch (e, s) {
         recordError(e, s, context: 'overlay.window.close.unregisterListener');
       }
@@ -218,6 +261,11 @@ class _OverlayWindowListener extends wm.WindowListener {
 // ---------------------------------------------------------------------------
 // Shared UI widget
 // ---------------------------------------------------------------------------
+
+/// Guards the native `setOpacity` call against an out-of-range value arriving
+/// over the cross-window channel. Mirrors `Settings.minOverlayOpacity`; kept as
+/// a literal here to avoid pulling the settings layer into the overlay isolate.
+double _clampOpacity(double o) => o.clamp(0.2, 1.0);
 
 TrainerOverlayState _emptyState() => const TrainerOverlayState(
   gear: 0,

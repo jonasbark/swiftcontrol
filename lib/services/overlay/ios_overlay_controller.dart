@@ -193,6 +193,11 @@ class IosOverlayController implements TrainerOverlayController {
     _push(force: true);
   }
 
+  @override
+  void updateOpacity(double opacity) {
+    // iOS overlays (Live Activity / PiP) have no adjustable window alpha.
+  }
+
   void _bind() {
     final def = _def;
     if (def == null) return;

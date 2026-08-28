@@ -7,6 +7,7 @@ import 'package:bike_control/services/overlay/overlay_state.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_controller.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/settings/settings.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -30,6 +31,7 @@ class _OverlaySettingsSectionState extends State<OverlaySettingsSection> {
   late TrainerOverlayController _controller;
   late bool _enabled;
   late Set<OverlayField> _fields;
+  late double _opacity;
   bool _androidPermissionGranted = false;
   bool _pipCapable = false;
   bool _pipAutoDefault = false;
@@ -43,6 +45,7 @@ class _OverlaySettingsSectionState extends State<OverlaySettingsSection> {
     // may be stale after a cold start where no overlay is actually showing.
     _enabled = _controller.isShowing.value;
     _fields = core.settings.getOverlayFields();
+    _opacity = core.settings.getOverlayOpacity();
     _controller.isShowing.addListener(_syncFromController);
     _refreshAndroidPermission();
     _pipPref = core.settings.getOverlayUsePip();
@@ -120,6 +123,18 @@ class _OverlaySettingsSectionState extends State<OverlaySettingsSection> {
     }
   }
 
+  /// Live-preview as the user drags: update the on-screen % and fade the
+  /// overlay window in real time. Persistence happens once on release
+  /// ([_commitOpacity]) to avoid a disk write per drag tick.
+  void _previewOpacity(double v) {
+    setState(() => _opacity = v);
+    _controller.updateOpacity(v);
+  }
+
+  Future<void> _commitOpacity(double v) async {
+    await core.settings.setOverlayOpacity(v);
+  }
+
   Future<void> _toggleField(OverlayField f, bool on) async {
     final next = {..._fields};
     if (on) {
@@ -137,6 +152,7 @@ class _OverlaySettingsSectionState extends State<OverlaySettingsSection> {
     final l10n = AppLocalizations.of(context);
     final isIos = !kIsWeb && Platform.isIOS;
     final isAndroid = !kIsWeb && Platform.isAndroid;
+    final isDesktop = !kIsWeb && (Platform.isMacOS || Platform.isWindows);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -153,6 +169,13 @@ class _OverlaySettingsSectionState extends State<OverlaySettingsSection> {
           trailing: Switch(value: _enabled, onChanged: _toggle),
           child: _enabled ? _fieldsCard(l10n) : null,
         ),
+        if (isDesktop && _enabled)
+          SettingTile(
+            icon: LucideIcons.blend,
+            title: l10n.overlayOpacity,
+            subtitle: l10n.overlayOpacitySubtitle,
+            child: _opacitySlider(),
+          ),
         if (isIos && _pipCapable)
           SettingTile(
             icon: LucideIcons.appWindow,
@@ -188,6 +211,38 @@ class _OverlaySettingsSectionState extends State<OverlaySettingsSection> {
         row(OverlayField.ergTarget, l10n.overlayFieldErgTarget),
         row(OverlayField.gearRatio, l10n.overlayFieldGearRatio),
         row(OverlayField.controls, l10n.overlayFieldControls),
+      ],
+    );
+  }
+
+  Widget _opacitySlider() {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Slider(
+            value: SliderValue.single(_opacity),
+            min: Settings.minOverlayOpacity,
+            max: 1.0,
+            // 5% steps across the 20–100% range.
+            divisions: 16,
+            onChanged: (v) => _previewOpacity(v.value),
+            onChangeEnd: (v) => _commitOpacity(v.value),
+          ),
+        ),
+        const Gap(12),
+        SizedBox(
+          width: 40,
+          child: Text(
+            '${(_opacity * 100).round()}%',
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: cs.mutedForeground,
+            ),
+          ),
+        ),
       ],
     );
   }

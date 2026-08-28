@@ -925,6 +925,21 @@ class Settings {
     await prefs.setDouble('overlay_position_y', p.dy);
   }
 
+  /// Desktop overlay window opacity, in `[0.2, 1.0]`. `1.0` (fully opaque) is
+  /// the default so the overlay looks unchanged until the user dials it down.
+  /// The floor keeps the card from fading to the point of being unclickable.
+  static const double minOverlayOpacity = 0.2;
+
+  double getOverlayOpacity() =>
+      (prefs.getDouble('overlay_opacity') ?? 1.0).clamp(minOverlayOpacity, 1.0);
+
+  Future<void> setOverlayOpacity(double value) async {
+    await prefs.setDouble(
+      'overlay_opacity',
+      value.clamp(minOverlayOpacity, 1.0),
+    );
+  }
+
   Future<void> setShowExperimental(bool value) async {
     await prefs.setBool('show_experimental', value);
   }
