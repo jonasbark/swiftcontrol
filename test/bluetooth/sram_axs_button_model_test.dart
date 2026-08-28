@@ -51,6 +51,20 @@ void main() {
     expect(d.logicalButtonName(null, 2, deviceType: 0), 'SRAM Left – Aux Top');
   });
 
+  test('two wireless blips (WB_2=97, WB_3=98) get distinct names → separate keymap entries', () {
+    final d = _device();
+    // Real capture (support 650f1851): a rider's left/right Blips decoded as
+    // WB_2 (device_type 97) and WB_3 (98), both mask 1. They both named to
+    // "SRAM Wireless Blip" and so shared one control; each is now its own button
+    // so one can be shift-up and the other shift-down.
+    expect(d.logicalButtonName(null, 1, deviceType: 97), 'SRAM Wireless Blip 2');
+    expect(d.logicalButtonName(null, 1, deviceType: 98), 'SRAM Wireless Blip 3');
+    expect(
+      d.logicalButtonName(null, 1, deviceType: 97),
+      isNot(d.logicalButtonName(null, 1, deviceType: 98)),
+    );
+  });
+
   test('a stored device_type re-registers under the same name as the live press', () {
     final d = _device();
     // Live press named it "SRAM Left Shifter"; the persisted record (serial -1,
