@@ -204,6 +204,10 @@ String describeProxyDevice(ProxyDevice device) {
     // lastCtl=ok reads identically in both cases.
     final handshake = def.zwiftHandshakeSummary;
     if (handshake != 'n/a') parts.add('zwiftHandshake=$handshake');
+    // The trainer accepted our native gear commands but never applied them,
+    // so delivery moved to FTMS on its own — the one line that explains a
+    // proto=ftms on a trainer that advertises the native path.
+    if (def.zwiftHubIgnoresGearCommands) parts.add('zwiftGearEcho=ignored');
     final ctl = def.lastControlWrite;
     if (ctl != null) {
       final age = DateTime.now().difference(ctl.at).inSeconds;
