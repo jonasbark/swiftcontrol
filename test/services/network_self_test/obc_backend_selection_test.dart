@@ -3,11 +3,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/devices/openbikecontrol/obp_mdns_backend.dart';
+import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/services/bonjour/bonjour_service_advertiser.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/widgets/ui/connection_method.dart' show ConnectionMethodType;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop/mdns/mdns_socket.dart';
 import 'package:prop/mdns/service_advertiser.dart';
+import 'package:prop/prop.dart' show LogLevel;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../integration/harness/test_env.dart';
@@ -31,6 +34,9 @@ class _FakeMdnsSocket implements MdnsSocket {
 
   @override
   InternetAddress? egressInterfaceFor(InternetAddress source) => null;
+
+  @override
+  Future<void> setAdvertisedAddress(InternetAddress address) async {}
 
   @override
   bool get holdsMulticastLock => false;
@@ -185,6 +191,49 @@ Future<void> main() async {
 
       expect(core.obpMdnsEmulator.activeBackend, ObpMdnsBackend.osResponder);
       expect(core.obpMdnsEmulator.advertisedHostname, '${Platform.localHostname}.local');
+    });
+  });
+
+  group('network-change alert', () {
+    List<AlertNotification> reAdvertiseAlerts(List<BaseNotification> seen) => seen
+        .whereType<AlertNotification>()
+        .where((a) => a.alertMessage.contains('re-advertising'))
+        .toList();
+
+    test('a mid-session address move raises one WARNING re-advertise alert', () async {
+      final seen = <BaseNotification>[];
+      final sub = core.connection.actionStream.listen(seen.add);
+      addTearDown(sub.cancel);
+
+      await core.obpMdnsEmulator.startServer();
+      await pumpEventQueue();
+      expect(reAdvertiseAlerts(seen), isEmpty,
+          reason: 'the initial registration is the baseline, not a change');
+
+      // The advertiser followed the host to a new network and re-announced.
+      instanceAdvertiser.addressN.value = '203.0.113.7';
+      await pumpEventQueue();
+
+      final alerts = reAdvertiseAlerts(seen);
+      expect(alerts, hasLength(1));
+      expect(alerts.single.level, LogLevel.LOGLEVEL_WARNING);
+      expect(alerts.single.alertMessage, contains('203.0.113.7'));
+      expect(alerts.single.connectionType, ConnectionMethodType.network,
+          reason: 'a network move shows the WiFi icon in the activity log');
+    });
+
+    test('stopServer stops the watch: a later address change raises nothing', () async {
+      final seen = <BaseNotification>[];
+      final sub = core.connection.actionStream.listen(seen.add);
+      addTearDown(sub.cancel);
+
+      await core.obpMdnsEmulator.startServer();
+      await core.obpMdnsEmulator.stopServer();
+
+      instanceAdvertiser.addressN.value = '203.0.113.9';
+      await pumpEventQueue();
+
+      expect(reAdvertiseAlerts(seen), isEmpty);
     });
   });
 }
