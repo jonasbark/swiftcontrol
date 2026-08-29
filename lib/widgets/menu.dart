@@ -113,34 +113,60 @@ List<Widget> buildMenuButtons(BuildContext context) {
 }
 
 Future<String> debugText({bool includeDiscovery = true}) async {
-  final userId = IAPManager.instance.isUsingRevenueCat ? (await Purchases.appUserID) : null;
-  final proxies = core.connection.proxyDevices;
-  final proxyBlock = proxies.isEmpty ? '-' : proxies.map(describeProxyDevice).join('\n  ');
+  // Every value here is read defensively. debugText also runs on the
+  // startup-failure path (the recovery screen's "won't start" support mail),
+  // where the app is only half-initialised: a naive field read throws
+  // LateInitializationError (e.g. settings.prefs before init finished) and the
+  // whole block used to be dropped. A guard per value degrades one field to '?'
+  // instead of losing the entire report, and the two awaited calls get a
+  // timeout so a stuck plugin can't hang the report either.
+  String guard(String Function() f) {
+    try {
+      return f();
+    } catch (_) {
+      return '?';
+    }
+  }
+
+  String? userId;
+  try {
+    userId = IAPManager.instance.isUsingRevenueCat
+        ? await Purchases.appUserID.timeout(const Duration(seconds: 3))
+        : null;
+  } catch (_) {
+    userId = null;
+  }
+
+  final proxyBlock = guard(() {
+    final proxies = core.connection.proxyDevices;
+    return proxies.isEmpty ? '-' : proxies.map(describeProxyDevice).join('\n  ');
+  });
+
   String diagnostics;
   try {
-    final diag = await DebugDiagnostics.gather(includeDiscovery: includeDiscovery);
+    final diag = await DebugDiagnostics.gather(includeDiscovery: includeDiscovery).timeout(const Duration(seconds: 6));
     diagnostics = diag.toText();
   } catch (e, s) {
     recordError(e, s, context: 'debugText.diagnostics');
     diagnostics = 'Diagnostics: (unavailable)';
   }
-  final networkTest = NetworkSelfTestStore.bundleSection();
+  final networkTest = guard(() => NetworkSelfTestStore.bundleSection());
   return '''
 
 ---
-App Version: ${packageInfoValue?.version}${shorebirdPatch?.number != null ? '+${shorebirdPatch!.number}' : ''}
-Update Track: ${IAPManager.instance.isBetaTester ? 'beta' : 'stable'}
+App Version: ${guard(() => '${packageInfoValue?.version}${shorebirdPatch?.number != null ? '+${shorebirdPatch!.number}' : ''}')}
+Update Track: ${guard(() => IAPManager.instance.isBetaTester ? 'beta' : 'stable')}
 Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}
-Target: ${core.settings.getLastTarget()?.name ?? '-'}
-Trainer App: ${core.settings.getTrainerApp()?.name ?? '-'}
-Connected Controllers: ${describeControllers(core.connection.devices)}
-Connected Trainers: ${core.logic.connectedTrainerConnections.map((e) => e.title).join(', ')}
+Target: ${guard(() => core.settings.getLastTarget()?.name ?? '-')}
+Trainer App: ${guard(() => core.settings.getTrainerApp()?.name ?? '-')}
+Connected Controllers: ${guard(() => describeControllers(core.connection.devices))}
+Connected Trainers: ${guard(() => core.logic.connectedTrainerConnections.map((e) => e.title).join(', '))}
 Smart Trainers:
   $proxyBlock
-Status: ${IAPManager.instance.getStatusMessage()}${userId != null ? ' (User ID: $userId)' : ''}
+Status: ${guard(() => IAPManager.instance.getStatusMessage())}${userId != null ? ' (User ID: $userId)' : ''}
 $diagnostics
 ${networkTest.isEmpty ? '' : '$networkTest\n'}Logs:
-${core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}')}
+${guard(() => core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}'))}
 ''';
 }
 

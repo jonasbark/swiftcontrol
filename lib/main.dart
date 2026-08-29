@@ -393,10 +393,12 @@ class _StartupRecoveryState extends State<_StartupRecovery> {
       }
     } catch (_) {}
 
-    // The full bundle is nice to have but touches app state that may be
-    // uninitialised on the failure path — treat it as an optional extra.
+    // The full bundle. debugText() is defensive (each field guarded, awaited
+    // calls bounded), so it returns even half-initialised; the outer timeout is
+    // a last resort so the mail button can never hang.
     try {
-      buffer.writeln('\n${await debugText(includeDiscovery: false)}');
+      final full = await debugText(includeDiscovery: false).timeout(const Duration(seconds: 12));
+      buffer.writeln('\n$full');
     } catch (e) {
       buffer.writeln('\n(full diagnostics unavailable: $e)');
     }
