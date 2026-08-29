@@ -237,14 +237,23 @@ Widget onboardingConnectionBody(
     Gap(6),
     Text(target == Target.thisDevice
             ? context.i18n.onboardingConnectionSubtitleLocal(app.name)
-            : context.i18n.onboardingConnectionSubtitleNetwork(app.name))
+            // Apps that only find trainers over Bluetooth never see the network
+            // advertisement, so promising them one sends riders looking for it.
+            : app.virtualShiftingTransports.contains(TrainerConnectionType.wifi)
+                ? context.i18n.onboardingConnectionSubtitleNetwork(app.name)
+                : context.i18n.onboardingConnectionSubtitleBluetooth(app.name))
         .small
         .muted,
     Gap(18),
-    OnboardingGroupLabel(context.i18n.onboardingConnectionMethods),
-    for (final method in OnboardingMethod.values)
-      if (onboardingMethodVisible(method, app))
-        Padding(padding: const EdgeInsets.only(bottom: 10), child: methodTile(method)),
+    // An app with no controller integration at all (Tacx Training) offers no
+    // method on a second device — only the Bridge below. Drop the heading
+    // rather than leave it standing over nothing.
+    if (OnboardingMethod.values.any((m) => onboardingMethodVisible(m, app))) ...[
+      OnboardingGroupLabel(context.i18n.onboardingConnectionMethods),
+      for (final method in OnboardingMethod.values)
+        if (onboardingMethodVisible(method, app))
+          Padding(padding: const EdgeInsets.only(bottom: 10), child: methodTile(method)),
+    ],
     Gap(10),
     OnboardingGroupLabel(context.i18n.onboardingThenInApp(app.name)),
     OnboardingAppGuideCard(app: app),

@@ -361,13 +361,53 @@ class _StartupRecoveryState extends State<_StartupRecovery> {
     });
   }
 
-  Future<void> _emailSupport() async {
-    String logs;
+  /// Assemble a diagnostic report that is safe to build on the startup-failure
+  /// path. The app isn't initialised here, so [debugText] often throws a
+  /// LateInitializationError — every piece is guarded independently so one
+  /// failure can't blank the whole report, and the actual startup failure and
+  /// the captured logs are always included even if the full bundle can't be.
+  Future<String> _gatherDiagnostics() async {
+    final buffer = StringBuffer();
+
+    // The failure itself — the single most useful line, always first.
+    buffer.writeln('Startup failure: ${widget.error ?? 'timed out before the app finished starting'}');
+
     try {
-      logs = await debugText(includeDiscovery: false);
+      buffer.writeln('Platform: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}');
+    } catch (_) {}
+    try {
+      final version = packageInfoValue?.version;
+      if (version != null) buffer.writeln('App Version: $version');
+    } catch (_) {}
+
+    // Logs captured since startup: startLogCapture() runs before the bootstrap,
+    // so a handled error during init (with its stack) lands here even when the
+    // app never mounted.
+    try {
+      final entries = core.connection.lastLogEntries;
+      if (entries.isNotEmpty) {
+        buffer.writeln('\nLogs:');
+        for (final e in entries) {
+          buffer.writeln('${e.date.toString().split('.').first} - ${e.entry}');
+        }
+      }
+    } catch (_) {}
+
+    // The full bundle. debugText() is defensive (each field guarded, awaited
+    // calls bounded), so it returns even half-initialised; the outer timeout is
+    // a last resort so the mail button can never hang.
+    try {
+      final full = await debugText(includeDiscovery: false).timeout(const Duration(seconds: 12));
+      buffer.writeln('\n$full');
     } catch (e) {
-      logs = 'Could not gather logs: $e';
+      buffer.writeln('\n(full diagnostics unavailable: $e)');
     }
+
+    return buffer.toString();
+  }
+
+  Future<void> _emailSupport() async {
+    final logs = await _gatherDiagnostics();
     final version = packageInfoValue?.version ?? '';
     final subject = Uri.encodeComponent("BikeControl won't start${version.isEmpty ? '' : ' ($version)'}");
     final body = Uri.encodeComponent('Describe what happened here.\n\n--- diagnostic logs ---\n$logs');

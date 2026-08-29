@@ -3,13 +3,13 @@ import 'package:bike_control/widgets/ui/warning.dart';
 import 'package:prop/prop.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-/// Tells the rider why their right puck is still going to power itself off.
+/// Tells the rider why their right puck's lights keep going dark.
 ///
-/// Keeping it awake needs both pucks on the air once. When only the right one
-/// is connected there is nothing the app can do about it, and nothing on the
-/// card would otherwise say so — the puck simply switches off a minute later
-/// and looks broken. Shown only in that state; the moment the left puck
-/// connects the sequence runs and this goes away on its own.
+/// The puck itself stays on regardless — BikeControl sees to that with or
+/// without a sibling. What a nearby left puck buys is the lights, and nothing
+/// on the card would otherwise explain why they go out on a controller that is
+/// plainly still working. Shown only in that state; once a left puck turns up
+/// the sequence re-runs and this goes away on its own.
 class ClickV2KeepAwakeWarning extends StatelessWidget {
   const ClickV2KeepAwakeWarning({super.key});
 

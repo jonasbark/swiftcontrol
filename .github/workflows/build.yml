@@ -54,6 +54,16 @@ jobs:
       - name: Rename pubspec_overrides_ci.yaml to pubspec_overrides.yaml
         uses: ./.github/actions/rename-pubspec-overrides
 
+      # fastlane (deliver) pushes the App Store "What's New" for every locale
+      # after the binary upload; altool can't set release notes. Only needed for
+      # the Apple targets.
+      - name: Set up Ruby (fastlane)
+        if: inputs.build_ios || inputs.build_mac
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
       - name: Install certificates
         if: inputs.build_mac || inputs.build_ios
         uses: ./.github/actions/install-certificates
@@ -117,7 +127,17 @@ jobs:
         run: |
           chmod +x scripts/get_latest_changelog.sh
           mkdir -p whatsnew
-          ./scripts/get_latest_changelog.sh | head -c 500 > whatsnew/whatsnew-en-US
+          ./scripts/get_latest_changelog.sh | head -c 500 > /tmp/whatsnew.txt
+          # Both stores keep showing the previous (stale) note for any locale we
+          # don't provide, so ship the same English note to every managed locale.
+          # Keep this list in sync with scripts/prepare_store_screenshots.sh
+          # (ANDROID_LOCALES); iOS locales are handled by the fastlane lane.
+          for loc in en-US de-DE fr-FR es-ES it-IT pl-PL; do
+            cp /tmp/whatsnew.txt "whatsnew/whatsnew-$loc"
+          done
+          # Marketing version (without the +build) for the App Store release-notes push.
+          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+          echo "APP_STORE_VERSION=${version%%+*}" >> "$GITHUB_ENV"
 
       - name: Generate release body
         if: inputs.build_github
@@ -161,6 +181,20 @@ jobs:
           productbuild --component "build/macos/Build/Products/Release/BikeControl.app" /Applications "BikeControl.pkg" --sign "3rd Party Mac Developer Installer: JONAS TASSILO BARK (UZRHKPVWN9)";    
           xcrun altool --upload-app -f BikeControl.pkg -t osx --apiKey "$APPSTORE_API_KEY" --apiIssuer "$APPSTORE_API_ISSUER_ID"; 
 
+      # macOS shares the App Store record with iOS but keeps its own version, so
+      # push its "What's New" separately. Best-effort: never fail the release
+      # over release notes (e.g. no editable version yet in App Store Connect).
+      - name: Push macOS App Store release notes (all locales)
+        if: inputs.build_mac
+        continue-on-error: true
+        working-directory: ios
+        env:
+          APPSTORE_API_KEY: ${{ secrets.APPSTORE_API_KEY }}
+          APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          RELEASE_NOTES_PATH: ${{ github.workspace }}/whatsnew/whatsnew-en-US
+          APP_STORE_VERSION: ${{ env.APP_STORE_VERSION }}
+        run: bundle exec fastlane upload_release_notes_macos
+
       - name: Upload to iOS App Store
         if: inputs.build_ios
         env:
@@ -168,6 +202,20 @@ jobs:
           APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
         run: |
           xcrun altool --upload-app -f build/ios/ipa/swift_play.ipa -t ios --apiKey "$APPSTORE_API_KEY" --apiIssuer "$APPSTORE_API_ISSUER_ID";
+
+      # altool ships the binary but can't set "What's New"; deliver pushes the
+      # English changelog to every managed App Store locale (see the fastlane
+      # lane). Best-effort so it can't break the binary release.
+      - name: Push iOS App Store release notes (all locales)
+        if: inputs.build_ios
+        continue-on-error: true
+        working-directory: ios
+        env:
+          APPSTORE_API_KEY: ${{ secrets.APPSTORE_API_KEY }}
+          APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          RELEASE_NOTES_PATH: ${{ github.workspace }}/whatsnew/whatsnew-en-US
+          APP_STORE_VERSION: ${{ env.APP_STORE_VERSION }}
+        run: bundle exec fastlane upload_release_notes
 
 
         #10 Extract Version

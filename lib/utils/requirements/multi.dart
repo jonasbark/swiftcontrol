@@ -157,6 +157,12 @@ enum Target {
 
   const Target({required this.icon});
 
+  /// The targets worth offering for [app]. Everything, unless no button press
+  /// can reach it on the device BikeControl runs on — then a second device is
+  /// the only answer, and the picker says so by having nothing else in it.
+  static List<Target> supportedFor(SupportedApp? app) =>
+      app != null && !app.receivesButtonEvents ? const [Target.otherDevice] : Target.values;
+
   String getTitle(BuildContext context) {
     return switch (this) {
       Target.thisDevice => context.i18n.targetThisDevice,

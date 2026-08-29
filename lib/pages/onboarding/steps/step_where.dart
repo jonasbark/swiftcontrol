@@ -89,7 +89,7 @@ Widget onboardingWhereBody(BuildContext context,
       Gap(6),
       Text(context.i18n.onboardingWhereSubtitle).small.muted,
       Gap(18),
-      for (final target in [Target.thisDevice, Target.otherDevice]) ...[
+      for (final target in Target.supportedFor(app)) ...[
         KeyedSubtree(
           key: ValueKey('onboarding-where-${target.name}'),
           child: _whereTile(

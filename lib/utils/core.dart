@@ -208,6 +208,7 @@ extension Granted on List<PlatformRequirement> {
 class CoreLogic {
   bool get showLocalControl {
     return core.settings.getLastTarget()?.connectionType == ConnectionType.local &&
+        core.settings.getTrainerApp()?.acceptsSimulatedInput != false &&
         (Platform.isMacOS || Platform.isWindows || Platform.isAndroid);
   }
 
@@ -290,7 +291,12 @@ class CoreLogic {
       core.settings.getLastTarget() != null &&
       core.whooshLink.isCompatible(core.settings.getLastTarget()!);
 
-  bool get showRemote => core.settings.getLastTarget() != Target.thisDevice && core.actionHandler is RemoteActions;
+  /// Remote control pairs BikeControl as a Bluetooth keyboard/mouse to the other
+  /// device, so it is only worth offering for apps that read that input at all.
+  bool get showRemote =>
+      core.settings.getLastTarget() != Target.thisDevice &&
+      core.settings.getTrainerApp()?.acceptsSimulatedInput != false &&
+      core.actionHandler is RemoteActions;
 
   bool get showForegroundMessage =>
       core.actionHandler is RemoteActions && !kIsWeb && Platform.isIOS && core.remotePairing.isConnected.value;
@@ -365,6 +371,9 @@ class CoreLogic {
 
   bool get hasNoConnectionMethod =>
       !screenshotMode &&
+      // Apps that take no controller input have no method to pick, so the
+      // absence of one is the finished state rather than an unfinished setup.
+      (core.settings.getTrainerApp()?.receivesButtonEvents ?? true) &&
       !isZwiftBleEnabled &&
       !isZwiftMdnsEnabled &&
       !showObpActions &&

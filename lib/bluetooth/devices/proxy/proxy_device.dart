@@ -12,7 +12,7 @@ import 'package:bike_control/utils/erg_power_stepping.dart';
 import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
-import 'package:bike_control/utils/keymap/apps/supported_app.dart' show TrainerConnectionType;
+import 'package:bike_control/utils/keymap/apps/supported_app.dart' show SupportedApp, TrainerConnectionType;
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/units.dart';
@@ -417,9 +417,22 @@ class ProxyDevice extends BluetoothDevice {
   /// getter.
   String get advertisementName => emulator.advertisementName;
 
-  Map<String, Uint8List> _trainerMdnsTxt() => {
+  Map<String, Uint8List> _trainerMdnsTxt() => trainerMdnsTxtFor(
+    core.settings.getTrainerApp(),
+    serialNumber: mdnsSerialNumber(scanResult.deviceId),
+  );
+
+  /// TXT record for the Bridge's `_wahoo-fitness-tnp._tcp` advertisement.
+  ///
+  /// [SupportedApp.trainerMdnsTxt] contributes whatever fields the selected app
+  /// needs on top of these. It is applied last so an app can also correct one
+  /// of the defaults if it ever has to.
+  @visibleForTesting
+  static Map<String, Uint8List> trainerMdnsTxtFor(SupportedApp? app, {required String serialNumber}) => {
     'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.macAddress.codeUnits),
-    'serial-number': Uint8List.fromList(mdnsSerialNumber(scanResult.deviceId).codeUnits),
+    'serial-number': Uint8List.fromList(serialNumber.codeUnits),
+    for (final e in (app?.trainerMdnsTxt ?? const <String, String>{}).entries)
+      e.key: Uint8List.fromList(e.value.codeUnits),
   };
 
   void _seedFitnessBikeDefinition(FitnessBikeDefinition def) {
@@ -448,6 +461,27 @@ class ProxyDevice extends BluetoothDevice {
     // a stale pref can never strand the trainer on a dead write path.
     final storedProtocol = core.settings.getControlProtocolOverride(trainerKey);
     def.setControlProtocolOverride(TrainerControlProtocol.values.asNameMap()[storedProtocol]);
+
+    // A trainer that accepts our gear commands but never acknowledges them
+    // is switched to FTMS by the definition itself. Put that in the support
+    // log for every rider — the definition's own logging only reaches debug
+    // consoles and beta traces, and "why is proto=ftms on a native trainer"
+    // is the first question on any shifting report. The definition is
+    // rebuilt per connection, so the listener dies with it.
+    def.gearEchoVerdict.addListener(() {
+      final verdict = def.gearEchoVerdict.value;
+      if (verdict == null) return;
+      core.connection.signalNotification(
+        LogNotification(switch (verdict) {
+          ZwiftGearEchoVerdict.fellBackToFtms =>
+            '${scanResult.name}: trainer did not acknowledge gear changes — virtual shifting now delivered over FTMS',
+          ZwiftGearEchoVerdict.noFtmsToFallBackTo =>
+            '${scanResult.name}: trainer did not acknowledge gear changes and has no FTMS control point to fall back to',
+          ZwiftGearEchoVerdict.riderOverrideKept =>
+            '${scanResult.name}: trainer did not acknowledge gear changes — keeping the manually chosen control protocol',
+        }),
+      );
+    });
   }
 
   /// Is the connected trainer reporting any sign of riding right now? Used to

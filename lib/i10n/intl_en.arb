@@ -528,6 +528,8 @@
   "overlayGrantAndroidPermission": "Grant overlay permission",
   "overlayHide": "Hide overlay",
   "overlayLowPowerMode": "Live Activities are disabled (Low Power Mode or system setting).",
+  "overlayOpacity": "Overlay opacity",
+  "overlayOpacitySubtitle": "Fade the floating overlay so it blends into your trainer app.",
   "overlayPermissionExplain": "Android needs permission to draw the overlay over your trainer app.",
   "overlaySection": "Overlay",
   "overlaySectionSubtitle": "Live gear display while you ride.",
@@ -649,6 +651,12 @@
   "@firmwareUpdateRequired": {"placeholders": {"device": {"type": "String"}}},
   "firmwareUpdateAvailable": "A new firmware version is available for {device}: {latest} (current: {current}). Update it in the Zwift Companion app.",
   "@firmwareUpdateAvailable": {"placeholders": {"device": {"type": "String"}, "latest": {"type": "String"}, "current": {"type": "String"}}},
+  "zwiftRideFirmwareNoticeTitle": "This Zwift Ride may not work correctly",
+  "zwiftRideFirmwareNoticeBody": "Your Zwift Ride is running firmware {version}, which can stop it working with third-party apps like this one. Get in touch and we'll help you sort it out.",
+  "@zwiftRideFirmwareNoticeBody": {"placeholders": {"version": {"type": "String"}}},
+  "zwiftRideFirmwareLater": "Later",
+  "zwiftRideFirmwareSupportPrefill": "Hi! My Zwift Ride is on firmware {version} and I think it has stopped working with other apps. Can you help?",
+  "@zwiftRideFirmwareSupportPrefill": {"placeholders": {"version": {"type": "String"}}},
   "onboardingScanAgain": "Scan again",
   "onboardingSetUpLater": "Set this up later",
   "onboardingCantFindController": "Can't find your controller?",
@@ -785,6 +793,14 @@
   },
   "onboardingConnectionSubtitleNetwork": "BikeControl will announce itself on your network so {app} can find it.",
   "@onboardingConnectionSubtitleNetwork": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleBluetooth": "BikeControl will appear as a Bluetooth trainer so {app} can connect to it.",
+  "@onboardingConnectionSubtitleBluetooth": {
     "placeholders": {
       "app": {
         "type": "String"
@@ -1122,7 +1138,7 @@
   "unlock_newMethod": "Use new unlock method",
   "unlock_newMethodDescription": "Connect the left and right sides as separate controllers. The right side needs no unlocking. Turn off to use a single combined controller.",
   "unlock_newMethodReconnecting": "Applying… reconnecting your Zwift Click.",
-  "clickV2_keepAwakeNeedsLeftSide": "Switch the left side on to stop this controller powering off after a minute of not being used. It only needs to be nearby — BikeControl does not have to connect to it.",
+  "clickV2_keepAwakeNeedsLeftSide": "This controller stays on by itself, but its lights go dark without the left side. Switch the left side on to keep them lit — it only needs to be nearby, BikeControl does not have to connect to it.",
   "unlock_useRightSideOnly": "Use the right side only",
   "unlock_useRightSideOnlyDescription": "The right side needs no unlocking. Drop the left side and let the right side handle shifting — + shifts up, B shifts down.",
   "unlock_rightSideOnlyConfigured": "Done — using the right side only. Re-enable the left side anytime under Ignored devices.",
@@ -1669,7 +1685,7 @@
   "sramPanelIntro": "Let BikeControl control your shifting: it backs up your current shifter configuration, then disables the derailleur's own shifting so it only sends button presses. You can restore it anytime.",
   "sramSetupIntro": "BikeControl backs up your current shifter configuration and disables the derailleur's own shifting, so the paddles send button presses instead. You can restore it anytime.",
   "sramSetupSuccess": "BikeControl now controls your gears. Each shifter button is a controller input you can map in the app.",
-  "sramRestoreIntro": "This restores your derailleur's original shifting.",
+  "sramRestoreIntro": "If you want to go back riding outdoors, use this to reset your SRAM configuration to re-enable shifting",
   "sramRestoreSuccess": "Your original shifter configuration has been restored.",
   "sramDialogRunning": "Talking to your derailleur — keep it close and awake.",
   "sramAuthorizeTitle": "Authorize BikeControl",
@@ -1780,8 +1796,8 @@
   "chainStepSramSetupHint": "Its own shifting still runs the gears — hand them to BikeControl so the paddles send button presses.",
   "chainStepClickV2Setup": "Choose how it unlocks",
   "chainStepClickV2SetupHint": "Zwift locks the Click V2 to their own app. Pick how BikeControl works around it and it connects straight away.",
-  "chainStepClickV2KeepAwake": "Switch the left side on to stop the controller powering off",
-  "chainStepClickV2KeepAwakeHint": "On its own, the right side switches itself off after a minute of not being used. With the left side switched on nearby, BikeControl can keep it awake — it only needs to be in range, not paired.",
+  "chainStepClickV2KeepAwake": "Switch the left side on to keep the lights on",
+  "chainStepClickV2KeepAwakeHint": "BikeControl already stops the right side switching itself off. Its lights still go dark on their own, though — switching the left side on nearby keeps them lit. It only needs to be in range, not paired.",
   "chainStepTrainerPaired": "Trainer connected",
   "chainStepTrainerPairedPending": "Connect your trainer",
   "chainStepOverlay": "Show your gear on screen",

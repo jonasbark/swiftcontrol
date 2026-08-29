@@ -169,8 +169,13 @@ def shorebird_google_oauth_client
 end
 
 def shorebird_api_token
-  if ENV["SHOREBIRD_TOKEN"].to_s.strip != ""
-    ci_token = JSON.parse(Base64.decode64(ENV.fetch("SHOREBIRD_TOKEN")))
+  env_token = ENV["SHOREBIRD_TOKEN"].to_s.strip
+  unless env_token.empty?
+    # Console API keys (sb_api_...) are already bearer tokens; only the legacy
+    # `shorebird login:ci` blob needs the base64 + OAuth refresh dance.
+    return env_token if env_token.start_with?("sb_api_")
+
+    ci_token = JSON.parse(Base64.decode64(env_token))
     die("Unsupported Shorebird auth provider: #{ci_token["auth_provider"]}") unless ci_token["auth_provider"] == "google"
     client_id, client_secret = shorebird_google_oauth_client
 

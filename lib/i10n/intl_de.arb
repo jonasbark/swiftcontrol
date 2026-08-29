@@ -704,7 +704,7 @@
   "unlock_newMethod": "Neue Entsperrmethode verwenden",
   "unlock_newMethodDescription": "Verbinde die linke und rechte Seite als getrennte Controller. Die rechte Seite muss nicht entsperrt werden. Deaktivieren, um einen einzelnen kombinierten Controller zu verwenden.",
   "unlock_newMethodReconnecting": "Wird übernommen… dein Zwift Click wird neu verbunden.",
-  "clickV2_keepAwakeNeedsLeftSide": "Schalte die linke Seite ein, damit sich dieser Controller nicht nach einer Minute ohne Nutzung abschaltet. Sie muss nur in der Nähe sein – BikeControl muss sich nicht mit ihr verbinden.",
+  "clickV2_keepAwakeNeedsLeftSide": "Dieser Controller bleibt von allein an, aber ohne die linke Seite gehen seine Lichter aus. Schalte die linke Seite ein, damit sie leuchten – sie muss nur in der Nähe sein, BikeControl muss sich nicht mit ihr verbinden.",
   "unlock_useRightSideOnly": "Nur die rechte Seite verwenden",
   "unlock_useRightSideOnlyDescription": "Die rechte Seite muss nicht entsperrt werden. Trenne die linke Seite und lass die rechte Seite das Schalten übernehmen – + schaltet hoch, B schaltet runter.",
   "unlock_rightSideOnlyConfigured": "Fertig – es wird nur die rechte Seite verwendet. Du kannst die linke Seite jederzeit unter „Ignorierte Geräte“ wieder aktivieren.",
@@ -1094,7 +1094,7 @@
   "sramPanelIntro": "Lass BikeControl deine Schaltung steuern: Es sichert deine aktuelle Schaltkonfiguration und deaktiviert dann das eigene Schalten des Schaltwerks, sodass es nur noch Tastendrücke sendet. Du kannst sie jederzeit wiederherstellen.",
   "sramSetupIntro": "BikeControl sichert deine aktuelle Schalthebel-Konfiguration und deaktiviert die eigene Schaltung des Schaltwerks, damit die Hebel stattdessen Tastendrücke senden. Du kannst sie jederzeit wiederherstellen.",
   "sramSetupSuccess": "BikeControl steuert jetzt deine Gänge. Jede Schalthebeltaste ist eine Controller-Eingabe, die du in der App zuweisen kannst.",
-  "sramRestoreIntro": "Dadurch wird das ursprüngliche Schalten deines Schaltwerks wiederhergestellt.",
+  "sramRestoreIntro": "Wenn du wieder draußen fahren möchtest, setze damit deine SRAM-Konfiguration zurück, um das Schalten wieder zu aktivieren",
   "sramRestoreSuccess": "Deine ursprüngliche Schaltkonfiguration wurde wiederhergestellt.",
   "sramDialogRunning": "Verbindung mit deinem Schaltwerk … halte es in der Nähe und aktiv.",
   "sramAuthorizeTitle": "BikeControl autorisieren",
@@ -1233,6 +1233,10 @@
   "firmwareUpdateRequired": "Möglicherweise musst du die Firmware von {device} in der Zwift Companion App aktualisieren.",
   "@firmwareUpdateRequired": {"placeholders": {"device": {"type": "String"}}},
   "firmwareUpdateAvailable": "Für {device} ist eine neue Firmware verfügbar: {latest} (aktuell: {current}). Aktualisiere sie in der Zwift Companion App.",
+  "zwiftRideFirmwareNoticeTitle": "Dieser Zwift Ride funktioniert möglicherweise nicht richtig",
+  "zwiftRideFirmwareNoticeBody": "Auf deinem Zwift Ride läuft Firmware {version}, die verhindern kann, dass er mit Apps von Drittanbietern wie dieser funktioniert. Melde dich bei uns und wir helfen dir weiter.",
+  "zwiftRideFirmwareLater": "Später",
+  "zwiftRideFirmwareSupportPrefill": "Hallo! Auf meinem Zwift Ride läuft Firmware {version} und ich glaube, er funktioniert nicht mehr mit anderen Apps. Könnt ihr mir helfen?",
   "@firmwareUpdateAvailable": {"placeholders": {"device": {"type": "String"}, "latest": {"type": "String"}, "current": {"type": "String"}}},
   "onboardingScanAgain": "Erneut suchen",
   "onboardingSetUpLater": "Später einrichten",
@@ -1370,6 +1374,14 @@
   },
   "onboardingConnectionSubtitleNetwork": "BikeControl meldet sich in deinem Netzwerk an, damit {app} es finden kann.",
   "@onboardingConnectionSubtitleNetwork": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleBluetooth": "BikeControl erscheint als Bluetooth-Trainer, damit sich {app} damit verbinden kann.",
+  "@onboardingConnectionSubtitleBluetooth": {
     "placeholders": {
       "app": {
         "type": "String"
@@ -1583,8 +1595,8 @@
   "chainStepSramSetupHint": "Noch schaltet das Schaltwerk selbst — übergib die Gänge an BikeControl, damit die Hebel Tastendrücke senden.",
   "chainStepClickV2Setup": "Wähle die Entsperrmethode",
   "chainStepClickV2SetupHint": "Zwift bindet den Click V2 an die eigene App. Wähle, wie BikeControl das umgeht — danach verbindet er sich sofort.",
-  "chainStepClickV2KeepAwake": "Linke Seite einschalten, damit der Controller anbleibt",
-  "chainStepClickV2KeepAwakeHint": "Allein schaltet sich die rechte Seite nach einer Minute ohne Nutzung ab. Mit eingeschalteter linker Seite in der Nähe kann BikeControl sie wach halten – sie muss nur in Reichweite sein, nicht verbunden.",
+  "chainStepClickV2KeepAwake": "Linke Seite einschalten, damit die Lichter anbleiben",
+  "chainStepClickV2KeepAwakeHint": "BikeControl verhindert bereits, dass sich die rechte Seite abschaltet. Ihre Lichter gehen trotzdem von allein aus – mit eingeschalteter linker Seite in der Nähe bleiben sie an. Sie muss nur in Reichweite sein, nicht verbunden.",
   "chainStepTrainerPaired": "Trainer verbunden",
   "chainStepTrainerPairedPending": "Verbinde deinen Trainer",
   "chainStepOverlay": "Zeig deinen Gang auf dem Bildschirm",

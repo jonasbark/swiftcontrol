@@ -10,7 +10,7 @@ import 'package:prop/utils/network_address.dart';
 void main() {
   test('toText renders every section with the expected markers', () {
     final diag = DebugDiagnostics(
-      advertised: const [
+      advertised: [
         AdvertisedRecord(
           name: 'BikeControl',
           type: '_openbikecontrol._tcp',

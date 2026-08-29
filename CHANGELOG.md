@@ -1,5 +1,6 @@
 ### 6.5.0 (22-08-2026)
 **Features**:
+- Tacx Training is now selectable as a trainer app: the Bridge shows up in its device list over the network, and your controller buttons drive its keyboard shortcuts (pause/resume, quit, difficulty, screens, skip step).
 - Zwift Click V2: when you use the right side only, the puck no longer falls asleep after a minute of inactivity — and the LEDs stay on.
 - Network issues: you can now troubleshoot network related issues, e.g. connection to MyWhoosh
 - Virtual Shifting:

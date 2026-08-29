@@ -11,7 +11,7 @@ on:
         # step can't happen in CI. Set release_version to x.y.z+build.
         description: 'Patch for macOS (needs local register-baseline first, see scripts/README-shorebird-macos.md)'
         required: false
-        default: false
+        default: true
         type: boolean
       build_windows:
         description: 'Patch for Windows'
@@ -131,15 +131,27 @@ jobs:
         if: inputs.build_mac
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
-          # 'latest' is the workflow default; the script auto-detects the live
-          # READY_FOR_SALE version when RELEASE_VERSION is empty.
-          RELEASE_VERSION: ${{ inputs.release_version == 'latest' && '' || inputs.release_version }}
+          # The workflow's release_version defaults to the string 'latest'. A GHA
+          # `x && '' || y` expression can't yield an empty string (an empty string
+          # is falsy), so translate 'latest' to empty in the shell below instead.
+          INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
           ASC_APP_ID: ${{ secrets.ASC_MACOS_APP_ID }}
           ASC_KEY_ID: ${{ secrets.APPSTORE_API_KEY }}
           ASC_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
           ASC_API_KEY_PATH: ./private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY }}.p8
           SHOREBIRD_PATCH_ARGS: "--track ${{ inputs.track }} --allow-asset-diffs --allow-native-diffs --split-debug-info=symbols -- --dart-define=VERIFYING_SHARED_SECRET=${{ secrets.VERIFYING_SHARED_SECRET }} --dart-define=REVENUECAT_API_KEY_IOS=${{ secrets.REVENUECAT_API_KEY_IOS }} --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
-        run: ruby scripts/shorebird_mas_patch.rb patch
+        run: |
+          # Pass an explicit x.y.z+build (the version you ran register-baseline for).
+          # 'latest' => empty, which makes the script auto-detect the live
+          # READY_FOR_SALE version — that path additionally needs ASC_MACOS_APP_ID.
+          if [ "$INPUT_RELEASE_VERSION" != "latest" ]; then
+            export RELEASE_VERSION="$INPUT_RELEASE_VERSION"
+          fi
+          if [ -z "${RELEASE_VERSION:-}" ] && [ -z "${ASC_APP_ID:-}" ]; then
+            echo "::error::Set release_version to the x.y.z+build you registered the MAS baseline for, or add the ASC_MACOS_APP_ID secret to auto-detect the live version."
+            exit 1
+          fi
+          ruby scripts/shorebird_mas_patch.rb patch
 
       - name: 🚀 Shorebird Patch Android
         if: inputs.build_android
@@ -245,3 +257,71 @@ jobs:
           overwrite: true
           name: Windows Symbols
           path: symbols-win.zip
+
+  tag:
+    name: Tag source commit
+    needs: [build, windows]
+    # Tag the commit this patch was built from, so every OTA patch is traceable
+    # to its source. Runs only when a patch actually succeeded: at least one
+    # platform job succeeded and neither failed. always() lets it evaluate even
+    # when a platform job was skipped (e.g. a Windows-only patch skips `build`);
+    # a skipped job's result is 'skipped', not 'failure', so it's tolerated. If
+    # the main-branch guard tripped, both patch jobs are skipped and this is
+    # skipped too — no tag off main. !cancelled() avoids tagging a cancelled run.
+    if: >-
+      always() && !cancelled() &&
+      (needs.build.result == 'success' || needs.windows.result == 'success') &&
+      needs.build.result != 'failure' &&
+      needs.windows.result != 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Checks out github.sha (fixed at dispatch) — the exact commit the patch
+      # was built from. Push the tag with the built-in GITHUB_TOKEN: this job
+      # grants it `contents: write` (above), it acts as github-actions[bot] —
+      # the same identity the tagger is set to below — and no tag protection
+      # blocks it. The PAT_TOKEN/TOKEN secrets are only read on this repo
+      # (PAT_TOKEN writes to prop; TOKEN's write scope lapsed after Jan 2026),
+      # so their persisted credentials 403 on the push. No submodules to tag.
+      - name: Checkout the patched commit
+        uses: actions/checkout@v3
+        with:
+          token: ${{ github.token }}
+
+      - name: Tag the source commit with the patch provenance
+        env:
+          TRACK: ${{ inputs.track }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          BUILD_IOS: ${{ inputs.build_ios }}
+          BUILD_ANDROID: ${{ inputs.build_android }}
+          BUILD_MAC: ${{ inputs.build_mac }}
+          BUILD_WINDOWS: ${{ inputs.build_windows }}
+        run: |
+          set -euo pipefail
+          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
+          tag="patch/v${version}/${GITHUB_RUN_NUMBER}"
+
+          # Which platforms this run patched (GHA booleans arrive as strings).
+          platforms=""
+          if [ "$BUILD_IOS" = "true" ]; then platforms="$platforms ios"; fi
+          if [ "$BUILD_ANDROID" = "true" ]; then platforms="$platforms android"; fi
+          if [ "$BUILD_MAC" = "true" ]; then platforms="$platforms macos"; fi
+          if [ "$BUILD_WINDOWS" = "true" ]; then platforms="$platforms windows"; fi
+          platforms="${platforms# }"
+
+          # Idempotent: a re-run reuses the run number, so don't fail if it exists.
+          if git ls-remote --tags origin "refs/tags/${tag}" | grep -q .; then
+            echo "Tag ${tag} already exists on origin — skipping."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${tag}" "${GITHUB_SHA}" \
+            -m "Shorebird patch (track ${TRACK})" \
+            -m "release_version: ${RELEASE_VERSION}" \
+            -m "platforms: ${platforms}" \
+            -m "run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          git push origin "refs/tags/${tag}"
+          echo "Tagged ${GITHUB_SHA} as ${tag}"

@@ -305,6 +305,18 @@ class SramAxs extends BluetoothDevice {
         if (known?.deviceType == null) core.settings.setSramShifter(_serialKey, serial, deviceType, known?.model);
       }
       final button = _registerButton(serial, mask, deviceType: deviceType);
+      // TEMP(blip-debug): one line per decoded press so a left-Blip-then-right-Blip
+      // capture reveals whether the two Blips differ on the wire (serial /
+      // deviceType / mask / raw plaintext) or decode identically. If they are
+      // identical they can't be told apart from the button event alone. Remove
+      // this and SramPress.debugPlaintext / SramDecode.buttonVerbose once the
+      // Blip-separation fix lands.
+      actionStreamInternal.add(
+        LogNotification(
+          'SramAxs[BLIP-DEBUG] press serial=$serial deviceType=$deviceType mask=$mask '
+          'name="${button.name}" pt=${press.debugPlaintext == null ? '-' : _bytesToHex(press.debugPlaintext!)}',
+        ),
+      );
       // Once per connection, like _loggedDegradedPress — this fires on every
       // undecoded press otherwise, spamming a warning per shift for the whole ride.
       if (!_warnedSetupNeeded && button.name == "SRAM Button" && _logic?.isBonded == false) {
@@ -422,6 +434,14 @@ class SramAxs extends BluetoothDevice {
   /// this derailleur. Uses the same serial key as the setup itself.
   bool get needsGuidedSetup => !core.settings.getSramShiftingDisabled(_serialKey);
 
+  /// Whether the rider can hand the derailleur's own shifting back: setup has
+  /// already disabled it, and the original config is still backed up to put
+  /// back. Keyed off persisted state, not the live bond, so the home card can
+  /// offer restore even before the session key is re-established — the guided
+  /// flow re-bonds ([restoreConfig] calls `ensureBonded`). Presence gating (the
+  /// derailleur must be here for BLE to reach it) is the caller's job.
+  bool get canRestoreShifting => isShiftingDisabled && core.settings.getSramBackup(_serialKey) != null;
+
   /// Opens the same guided setup sheet as the device card's
   /// "Set up SRAM control" button. Used by the onboarding wizard.
   Future<void> showGuidedSetup(BuildContext context) {
@@ -436,6 +456,24 @@ class SramAxs extends BluetoothDevice {
       successTitle: l.sramAllSet,
       checklistItems: [l.sramChecklistPairing, l.sramChecklistBackingUp, l.sramChecklistDisabling],
       operation: setupControl,
+    );
+  }
+
+  /// Opens the same guided restore sheet as the device card's "Restore original
+  /// shifting" button. Shared with the home card's optional restore offer so the
+  /// two run the identical flow.
+  Future<void> showGuidedRestore(BuildContext context) {
+    final l = context.i18n;
+    return _runGuidedOperation(
+      context,
+      title: l.sramRestore,
+      intro: l.sramRestoreIntro,
+      successMessage: l.sramRestoreSuccess,
+      confirmIcon: LucideIcons.rotateCcw,
+      runningTitle: l.sramRestoringShifting,
+      successTitle: l.sramRestoredTitle,
+      checklistItems: [l.sramChecklistPairing, l.sramChecklistRestoring],
+      operation: restoreShifting,
     );
   }
 
@@ -518,19 +556,7 @@ class SramAxs extends BluetoothDevice {
             width: double.infinity,
             child: SecondaryButton(
               leading: const Icon(LucideIcons.rotateCcw, size: 16),
-              onPressed: () => unawaited(
-                _runGuidedOperation(
-                  context,
-                  title: l.sramRestore,
-                  intro: l.sramRestoreIntro,
-                  successMessage: l.sramRestoreSuccess,
-                  confirmIcon: LucideIcons.rotateCcw,
-                  runningTitle: l.sramRestoringShifting,
-                  successTitle: l.sramRestoredTitle,
-                  checklistItems: [l.sramChecklistPairing, l.sramChecklistRestoring],
-                  operation: restoreShifting,
-                ),
-              ),
+              onPressed: () => unawaited(showGuidedRestore(context)),
               child: Text(l.sramRestore),
             ),
           ),

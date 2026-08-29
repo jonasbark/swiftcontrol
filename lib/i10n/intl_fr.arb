@@ -704,7 +704,7 @@
   "unlock_newMethod": "Utiliser la nouvelle méthode de déverrouillage",
   "unlock_newMethodDescription": "Connecte les côtés gauche et droit comme des manettes distinctes. Le côté droit ne nécessite aucun déverrouillage. Désactive pour utiliser une seule manette combinée.",
   "unlock_newMethodReconnecting": "Application… reconnexion de ton Zwift Click.",
-  "clickV2_keepAwakeNeedsLeftSide": "Allume le côté gauche pour éviter que cette manette ne s'éteigne après une minute sans utilisation. Il suffit qu'il soit à proximité : BikeControl n'a pas besoin de s'y connecter.",
+  "clickV2_keepAwakeNeedsLeftSide": "Cette manette reste allumée d'elle-même, mais ses voyants s'éteignent sans le côté gauche. Allume le côté gauche pour les garder allumés : il suffit qu'il soit à proximité, BikeControl n'a pas besoin de s'y connecter.",
   "unlock_useRightSideOnly": "Utiliser uniquement le côté droit",
   "unlock_useRightSideOnlyDescription": "Le côté droit ne nécessite aucun déverrouillage. Déconnecte le côté gauche et laisse le côté droit gérer les changements de vitesse : + monte, B descend.",
   "unlock_rightSideOnlyConfigured": "Terminé — seul le côté droit est utilisé. Tu peux réactiver le côté gauche à tout moment dans Appareils ignorés.",
@@ -1094,7 +1094,7 @@
   "sramPanelIntro": "Laissez BikeControl gérer votre transmission : il sauvegarde la configuration actuelle de vos manettes, puis désactive le passage des vitesses du dérailleur pour qu'il n'envoie que des appuis de boutons. Vous pouvez la restaurer à tout moment.",
   "sramSetupIntro": "BikeControl sauvegarde ta configuration de manettes actuelle et désactive le passage de vitesses propre au dérailleur, afin que les palettes envoient des appuis de boutons. Tu peux la restaurer à tout moment.",
   "sramSetupSuccess": "BikeControl contrôle désormais vos vitesses. Chaque bouton de manette est une entrée de contrôleur que vous pouvez attribuer dans l'application.",
-  "sramRestoreIntro": "Cela restaure le fonctionnement d'origine de votre dérailleur.",
+  "sramRestoreIntro": "Si vous voulez retourner rouler en extérieur, utilisez ceci pour réinitialiser votre configuration SRAM et réactiver le passage des vitesses",
   "sramRestoreSuccess": "La configuration d'origine de vos manettes a été restaurée.",
   "sramDialogRunning": "Communication avec votre dérailleur… gardez-le à proximité et actif.",
   "sramAuthorizeTitle": "Autoriser BikeControl",
@@ -1233,6 +1233,10 @@
   "firmwareUpdateRequired": "Tu dois peut-être mettre à jour le firmware de {device} dans l'application Zwift Companion.",
   "@firmwareUpdateRequired": {"placeholders": {"device": {"type": "String"}}},
   "firmwareUpdateAvailable": "Une nouvelle version du firmware est disponible pour {device} : {latest} (actuelle : {current}). Mets-la à jour dans l'application Zwift Companion.",
+  "zwiftRideFirmwareNoticeTitle": "Ce Zwift Ride pourrait ne pas fonctionner correctement",
+  "zwiftRideFirmwareNoticeBody": "Ton Zwift Ride utilise le firmware {version}, qui peut l'empêcher de fonctionner avec des applications tierces comme celle-ci. Contacte-nous et nous t'aiderons à résoudre le problème.",
+  "zwiftRideFirmwareLater": "Plus tard",
+  "zwiftRideFirmwareSupportPrefill": "Bonjour ! Mon Zwift Ride est en firmware {version} et je pense qu'il ne fonctionne plus avec les autres applications. Pouvez-vous m'aider ?",
   "@firmwareUpdateAvailable": {"placeholders": {"device": {"type": "String"}, "latest": {"type": "String"}, "current": {"type": "String"}}},
   "onboardingScanAgain": "Rechercher à nouveau",
   "onboardingSetUpLater": "Configurer plus tard",
@@ -1370,6 +1374,14 @@
   },
   "onboardingConnectionSubtitleNetwork": "BikeControl s'annoncera sur ton réseau pour que {app} puisse le trouver.",
   "@onboardingConnectionSubtitleNetwork": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingConnectionSubtitleBluetooth": "BikeControl apparaîtra comme home-trainer Bluetooth pour que {app} puisse s'y connecter.",
+  "@onboardingConnectionSubtitleBluetooth": {
     "placeholders": {
       "app": {
         "type": "String"
@@ -1583,8 +1595,8 @@
   "chainStepSramSetupHint": "Le dérailleur gère encore les vitesses lui-même : confie-les à BikeControl pour que les leviers envoient des appuis.",
   "chainStepClickV2Setup": "Choisis le mode de déverrouillage",
   "chainStepClickV2SetupHint": "Zwift réserve le Click V2 à sa propre application. Choisis comment BikeControl contourne cela et il se connecte aussitôt.",
-  "chainStepClickV2KeepAwake": "Allume le côté gauche pour que la manette reste allumée",
-  "chainStepClickV2KeepAwakeHint": "Seul, le côté droit s'éteint après une minute sans utilisation. Avec le côté gauche allumé à proximité, BikeControl peut le garder actif : il suffit qu'il soit à portée, sans être connecté.",
+  "chainStepClickV2KeepAwake": "Allume le côté gauche pour garder les voyants allumés",
+  "chainStepClickV2KeepAwakeHint": "BikeControl empêche déjà le côté droit de s'éteindre. Ses voyants s'éteignent malgré tout d'eux-mêmes — allumer le côté gauche à proximité les garde allumés. Il suffit qu'il soit à portée, sans être connecté.",
   "chainStepTrainerPaired": "Home trainer connecté",
   "chainStepTrainerPairedPending": "Connecte ton home trainer",
   "chainStepOverlay": "Affiche ta vitesse à l'écran",

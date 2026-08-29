@@ -47,6 +47,9 @@ class _FakeOverlayController implements TrainerOverlayController {
 
   @override
   void updateFields(Set<OverlayField> fields) {}
+
+  @override
+  void updateOpacity(double opacity) {}
 }
 
 void main() {

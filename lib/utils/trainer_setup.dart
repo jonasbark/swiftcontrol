@@ -51,6 +51,10 @@ Future<void> applyTrainerAppSelection(SupportedApp selectedApp) async {
 
   if (selectedApp is BikeControl) {
     core.settings.setLastTarget(Target.thisDevice);
+  } else if (!selectedApp.receivesButtonEvents) {
+    // Nothing we can send reaches this app locally, so a stale "this device"
+    // would leave the rider on a target that cannot work.
+    core.settings.setLastTarget(Target.otherDevice);
   }
 }
 

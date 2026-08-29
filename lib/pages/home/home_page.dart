@@ -7,6 +7,7 @@ import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_device.dart';
+import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2_left_side.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/main.dart';
@@ -43,6 +44,7 @@ import 'package:bike_control/widgets/home/chain_card.dart';
 import 'package:bike_control/widgets/home/chain_labels.dart';
 import 'package:bike_control/widgets/home/ready_banner.dart';
 import 'package:bike_control/widgets/home/trial_card.dart';
+import 'package:bike_control/widgets/zwift_ride_firmware_notice.dart';
 import 'package:bike_control/widgets/ui/animated_button_widget.dart';
 import 'package:bike_control/widgets/ui/connection_method.dart' show enableLocalControl, ensureLocalNetworkAccess;
 import 'package:bike_control/widgets/ui/toast.dart';
@@ -158,6 +160,7 @@ class _HomePageState extends State<HomePage> {
     _connectionListener = core.connection.connectionStream.listen((_) {
       _syncProxyListeners();
       if (mounted) setState(() {});
+      _maybeShowRideFirmwareDialog();
     });
     _syncProxyListeners();
     _actionListener = core.connection.actionStream.listen((notification) {
@@ -187,10 +190,34 @@ class _HomePageState extends State<HomePage> {
     // is not a connection event — without this the offer would linger on the
     // card after it had already been taken up.
     ClickLogic.keepAwakeStatus.addListener(_onKeepAwakeChanged);
+
+    _maybeShowRideFirmwareDialog();
   }
 
   void _onKeepAwakeChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// Once per install, when a Zwift Ride first shows up on server-locked
+  /// firmware (>1.2.0), surface a one-time dialog pointing the rider at support.
+  /// The persistent card notice in controller settings is the standing fallback.
+  bool _rideFirmwareDialogHandled = false;
+
+  void _maybeShowRideFirmwareDialog() {
+    if (screenshotMode || _rideFirmwareDialogHandled) return;
+    if (core.settings.getRideFirmwareLockDialogShown()) {
+      _rideFirmwareDialogHandled = true;
+      return;
+    }
+    final affected = core.connection.controllerDevices.firstOrNullWhere(ZwiftRide.hasUnsupportedFirmware);
+    if (affected == null) return;
+    _rideFirmwareDialogHandled = true;
+    unawaited(core.settings.setRideFirmwareLockDialogShown(true));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        showZwiftRideFirmwareDialog(context, affected as ZwiftRide);
+      }
+    });
   }
 
   /// Whether the bridge is running and whether the trainer app holds it are
@@ -364,6 +391,7 @@ class _HomePageState extends State<HomePage> {
             unlockedUntil: _unlockedUntil(device),
             unlockUncertain: device is ZwiftClickV2 && device.isLikelyUnlocked,
             sramSetupDone: device is SramAxs ? !device.needsGuidedSetup : null,
+            sramCanRestore: device is SramAxs && device.canRestoreShifting,
             needsUnlockModeChoice:
                 (device is ZwiftClickV2 || device is ZwiftClickV2RightSide) && ClickV2Onboarding.isPending,
             clickV2NeedsLeftSide:
@@ -928,6 +956,10 @@ class _HomePageState extends State<HomePage> {
           // The same guided sheet the device card and the onboarding wizard
           // run — the derailleur cannot send anything until it has.
           await device.showGuidedSetup(context);
+        } else if (active == SetupStepId.controllerSramRestore && device is SramAxs) {
+          // The optional "restore original shifting" offer runs the same guided
+          // restore sheet the device page does.
+          await device.showGuidedRestore(context);
         } else if (link.status == LinkStatus.off) {
           await openControllerSetupSheet(context);
         } else {

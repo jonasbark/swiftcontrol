@@ -36,6 +36,10 @@ abstract class TrainerOverlayController {
   });
   Future<void> hide();
   void updateFields(Set<OverlayField> fields);
+
+  /// Live-update the overlay window opacity in `[0.2, 1.0]`. Desktop-only;
+  /// no-op on platforms whose overlay has no adjustable window alpha.
+  void updateOpacity(double opacity);
 }
 
 class NoOpOverlayController implements TrainerOverlayController {
@@ -55,4 +59,6 @@ class NoOpOverlayController implements TrainerOverlayController {
   Future<void> hide() async {}
   @override
   void updateFields(Set<OverlayField> fields) {}
+  @override
+  void updateOpacity(double opacity) {}
 }

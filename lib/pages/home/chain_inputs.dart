@@ -46,6 +46,7 @@ class ControllerInput {
     this.unlockedUntil,
     this.unlockUncertain = false,
     this.sramSetupDone,
+    this.sramCanRestore = false,
     this.needsUnlockModeChoice = false,
     this.clickV2NeedsLeftSide = false,
   });
@@ -100,6 +101,13 @@ class ControllerInput {
   /// silently mislabelled.
   final bool? sramSetupDone;
 
+  /// Whether this controller can restore its original on-device shifting — a
+  /// SRAM AXS derailleur whose config setup disabled has already updated, with a
+  /// backup still on hand to put back. It drives the optional "restore" offer,
+  /// so it is about the config, not the connection: presence gating (the
+  /// derailleur has to be here for restore to reach it) lives in [buildChain].
+  final bool sramCanRestore;
+
   /// Whether this controller is a Zwift Click V2 still held out of the connect
   /// queue until the rider picks an unlock mode.
   ///
@@ -110,9 +118,9 @@ class ControllerInput {
   /// range" about a controller sitting switched on beside the rider.
   final bool needsUnlockModeChoice;
 
-  /// Whether this is a Click V2 right puck that would stop powering itself off
-  /// if a left puck were switched on nearby. An offer, never a requirement —
-  /// the controller works either way, it just switches off after a minute.
+  /// Whether this is a Click V2 right puck whose lights would stay lit if a
+  /// left puck were switched on nearby. An offer, never a requirement — the
+  /// puck stays powered on either way, only its lights differ.
   final bool clickV2NeedsLeftSide;
 }
 

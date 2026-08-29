@@ -13,6 +13,7 @@ void main() {
       'Zwift',
       'Biketerra',
       'TrainingPeaks Virtual',
+      'Tacx Training',
     ];
     for (final name in named) {
       final url = byName(name).officialUrl;

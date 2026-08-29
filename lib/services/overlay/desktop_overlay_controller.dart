@@ -68,6 +68,25 @@ class DesktopOverlayController implements TrainerOverlayController {
     _push(force: true);
   }
 
+  @override
+  void updateOpacity(double opacity) {
+    // Only meaningful while the sub-window is live; the value the overlay opens
+    // with is carried in `argsJson` at creation, so a no-op here when hidden is
+    // correct — the next show() will pick up the persisted setting.
+    if (!_showing.value) return;
+    final id = _overlayWindowId;
+    () async {
+      try {
+        await MultiWindowNative.notifyAllWindows(kOverlayOpacityMethod, {
+          if (id != null) 'windowId': id,
+          'opacity': opacity,
+        });
+      } catch (e, s) {
+        recordError(e, s, context: 'overlay.controller.updateOpacity');
+      }
+    }();
+  }
+
   // ---------------------------------------------------------------------------
   // Implementation (multi_window_native)
   // ---------------------------------------------------------------------------
@@ -79,6 +98,7 @@ class DesktopOverlayController implements TrainerOverlayController {
     final saved = core.settings.getOverlayPosition();
     final argsJson = jsonEncode({
       if (saved != null) ...{'x': saved.dx, 'y': saved.dy},
+      'opacity': core.settings.getOverlayOpacity(),
     });
 
     try {

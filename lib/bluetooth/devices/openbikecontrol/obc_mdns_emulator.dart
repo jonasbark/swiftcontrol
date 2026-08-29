@@ -56,6 +56,13 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
   /// disagree about which advertiser is actually serving.
   ServiceAdvertiser? _activeAdvertiser;
 
+  /// The advertiser's [ServiceAdvertiser.advertisedAddress] we are watching for
+  /// mid-session network moves, and the listener + last value that let us fire
+  /// a single alert per change. Null while the server is stopped.
+  ValueListenable<String?>? _watchedAddress;
+  VoidCallback? _addressListener;
+  String? _lastAdvertisedAddress;
+
   @visibleForTesting
   ServiceAdvertiser? debugAdvertiserOverride;
 
@@ -195,6 +202,7 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
       );
       _activeBackend = selection.resolved;
       _activeAdvertiser = selection.advertiser;
+      _watchAdvertisedAddress(selection.advertiser);
       _registeredEntry = (name: 'BikeControl', port: boundPort);
       SelfAdvertisementRegistry.instance.add(name: 'BikeControl', port: boundPort);
       print('Server started - advertising service at ${localIP.address}:$boundPort!');
@@ -232,6 +240,46 @@ class OpenBikeControlMdnsEmulator extends TrainerConnection implements OnMessage
     connectedApp.value = null;
     _activeBackend = ObpMdnsBackend.platformDefault;
     _activeAdvertiser = null;
+    _stopWatchingAdvertisedAddress();
+  }
+
+  /// Watch [advertiser] for a mid-session address move (Wi-Fi switch, Ethernet
+  /// unplug, DHCP renumber). The responder backend re-pins its socket and
+  /// re-announces the new A record on its own; this only surfaces the change to
+  /// the rider — a WARNING alert naming the address we now advertise, so a
+  /// trainer app that briefly lost us is explained rather than mysterious.
+  ///
+  /// The initial address is the baseline, not a change, so registering fires
+  /// nothing. Backends whose daemon owns the records report
+  /// [ServiceAdvertiser.untrackedAddress] (a constant null), so this is inert
+  /// for them.
+  void _watchAdvertisedAddress(ServiceAdvertiser advertiser) {
+    _stopWatchingAdvertisedAddress();
+    final listenable = advertiser.advertisedAddress;
+    _lastAdvertisedAddress = listenable.value;
+    void onChange() {
+      final next = listenable.value;
+      // A drop to null is the server winding down, not a move to announce.
+      if (next == null || next == _lastAdvertisedAddress) return;
+      _lastAdvertisedAddress = next;
+      core.connection.signalNotification(AlertNotification(
+        LogLevel.LOGLEVEL_WARNING,
+        'Network changed — re-advertising BikeControl at $next',
+        connectionType: ConnectionMethodType.network,
+      ));
+    }
+
+    listenable.addListener(onChange);
+    _watchedAddress = listenable;
+    _addressListener = onChange;
+  }
+
+  void _stopWatchingAdvertisedAddress() {
+    final listener = _addressListener;
+    if (listener != null) _watchedAddress?.removeListener(listener);
+    _watchedAddress = null;
+    _addressListener = null;
+    _lastAdvertisedAddress = null;
   }
 
   /// Binds the OpenBikeControl TCP server. The preferred port is 36867 but it

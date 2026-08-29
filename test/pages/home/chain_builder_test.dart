@@ -22,6 +22,7 @@ ControllerInput controller({
   String? unlockedUntil,
   bool unlockUncertain = false,
   bool? sramSetupDone,
+  bool sramCanRestore = false,
   bool needsUnlockModeChoice = false,
   bool clickV2NeedsLeftSide = false,
 }) {
@@ -36,6 +37,7 @@ ControllerInput controller({
     unlockedUntil: unlockedUntil,
     unlockUncertain: unlockUncertain,
     sramSetupDone: sramSetupDone,
+    sramCanRestore: sramCanRestore,
     needsUnlockModeChoice: needsUnlockModeChoice,
     clickV2NeedsLeftSide: clickV2NeedsLeftSide,
   );
@@ -285,6 +287,79 @@ void main() {
       final chain = buildChain(ChainInputs(controllers: [controller()], app: _readyApp));
       final link = chain.byKey(ChainLinkKey.controller);
       expect(link.steps.any((s) => s.id == SetupStepId.controllerSramSetup), isFalse);
+    });
+
+    // Once a SRAM derailleur's config has been updated (its own shifting
+    // disabled, a backup captured) the rider can hand the gears back — an offer,
+    // not work, so it lives on the card as an optional line rather than a toast.
+    test('offers restore when the config was updated and a backup is on hand', () {
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(sramSetupDone: true, sramCanRestore: true)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      final step = link.steps.firstWhere((s) => s.id == SetupStepId.controllerSramRestore);
+      expect(step.optional, isTrue, reason: 'restoring is an offer, not something the rider must do');
+      expect(step.done, isFalse);
+    });
+
+    test('the restore offer never colours the card or blocks riding', () {
+      // Same regression the keep-awake offer guards: an undone optional step
+      // must not turn a working, mapped controller amber or hold back riding.
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(sramSetupDone: true, sramCanRestore: true)],
+          trainer: trainer(),
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.status, LinkStatus.ready);
+      expect(link.steps.where((s) => !s.done && !s.optional), isEmpty);
+    });
+
+    test('no restore offer when there is nothing to restore', () {
+      // Setup done but no backup to put back — offering restore would be a dead
+      // button.
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(sramSetupDone: true, sramCanRestore: false)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerSramRestore), isFalse);
+    });
+
+    test('the restore offer is withheld while the derailleur is out of range', () {
+      // Restore talks to the derailleur over BLE, so an out-of-range one would
+      // show a line that cannot act — mirror the setup step, which is likewise
+      // presence-gated.
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [
+            controller(presence: DevicePresence.remembered, sramSetupDone: true, sramCanRestore: true),
+          ],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(_hasStep(link, SetupStepId.controllerSramRestore), isFalse);
+    });
+
+    test('a real outstanding step still outranks the restore offer', () {
+      // The optional offer must not mask a genuine one sitting beside it.
+      final chain = buildChain(
+        ChainInputs(
+          controllers: [controller(sramSetupDone: true, sramCanRestore: true, hasMappedButtons: false)],
+          app: _readyApp,
+        ),
+      );
+      final link = chain.byKey(ChainLinkKey.controller);
+      expect(link.status, LinkStatus.attention);
+      expect(link.activeStep?.id, SetupStepId.controllerButtonsMapped);
     });
 
     test('offers the keep-awake step when a right puck has no left one in range', () {

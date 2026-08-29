@@ -32,6 +32,26 @@ Locales currently maintained: **en, de, fr, es, it, pl**
 To add a language, create the matching locale folder (in the `prop` submodule)
 with the same files.
 
+## Release notes ("What's New")
+
+The per-release "What's New" is **not** part of the listing sync below and is
+**not** read from the `release_notes.txt` / `changelogs/` files in `prop` (those
+only matter for a manual `deliver`/`supply` run). Instead the **Build** workflow
+(`.github/workflows/build.yml`) sets it from the top entry of `CHANGELOG.md`
+(via `scripts/get_latest_changelog.sh`) on every release:
+
+- **Google Play**: the English note is copied to `whatsnew/whatsnew-<locale>`
+  for every managed locale and passed to the upload action's `whatsNewDirectory`.
+- **App Store / Mac App Store**: `altool` only ships the binary, so a fastlane
+  `deliver` step (`upload_release_notes` / `upload_release_notes_macos`) pushes
+  the note to every `STORE_LOCALES` locale for the release version.
+
+The note is the **English text in every language** — the per-release changelog
+is not translated. Any locale we don't push keeps showing the *previous*
+version's note (this is why the non-English App Store notes were stuck on an old
+release). Both push steps are best-effort (`continue-on-error`), so a store-side
+issue can't fail the binary release — check their logs after a release.
+
 ## Editing
 
 Just edit the `.txt` files and keep an eye on the store length limits:

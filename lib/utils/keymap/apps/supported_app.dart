@@ -1,9 +1,11 @@
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/bike_control.dart';
 import 'package:bike_control/utils/keymap/apps/biketerra.dart';
+import 'package:bike_control/utils/keymap/apps/fulgaz.dart';
 import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/strappo.dart';
+import 'package:bike_control/utils/keymap/apps/tacx.dart';
 import 'package:bike_control/utils/keymap/apps/training_peaks.dart';
 import 'package:bike_control/utils/keymap/apps/wahoo_element.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
@@ -70,9 +72,51 @@ abstract class SupportedApp {
   /// Apps without a dedicated page fall back to the generic guide.
   String get helpSlug => 'other-training-app';
 
+  /// Extra mDNS TXT entries the Bridge adds to its `_wahoo-fitness-tnp._tcp`
+  /// trainer advertisement while this app is selected, on top of the
+  /// `mac-address` / `serial-number` / `ble-service-uuids` every advertisement
+  /// carries.
+  ///
+  /// For apps that want to see a field of their own before they list a trainer
+  /// (see [Tacx.mdnsProductId]). Values are ASCII; the caller encodes them.
+  ///
+  /// Scoped to the selected app on purpose: an identity a specific app needs
+  /// is noise (at best) to every other one, and the emulator re-advertises on
+  /// every trainer-app change, so switching apps swaps the TXT with it.
+  Map<String, String> get trainerMdnsTxt => const {};
+
   /// Maps Zwift Click V2 actions to this app's corresponding actions.
   /// E.g. for Rouvy: {InGameAction.usePowerUp: InGameAction.pause, InGameAction.select: InGameAction.kudos}
   Map<InGameAction, InGameAction> get inGameActionsMapping => const {};
+
+  /// Which Bridge transports this app can pick our trainer up on. Both by
+  /// default; narrow it on apps that only look for trainers one way, so the
+  /// picker stops offering a transport they will never find us on (see
+  /// [FulGaz], which has no network trainer discovery at all).
+  Set<TrainerConnectionType> get virtualShiftingTransports => const {
+    TrainerConnectionType.bluetooth,
+    TrainerConnectionType.wifi,
+  };
+
+  /// Whether button presses can reach this app as simulated input — keystrokes
+  /// typed locally, or the Bluetooth keyboard/mouse we pair to another device.
+  ///
+  /// True for nearly every app: even those with no controller protocol of their
+  /// own (see [Tacx]) still have keyboard shortcuts we can type into. False
+  /// only where the app reads no key and no pointer input at all, so we stop
+  /// offering methods that provably cannot reach it.
+  bool get acceptsSimulatedInput => true;
+
+  /// Whether button presses can reach this app at all — over a controller
+  /// protocol it speaks, or as simulated input we type or click.
+  ///
+  /// False only for apps that read no controller input of any kind (see
+  /// [FulGaz]). For those the Bridge's own virtual shifting is the whole
+  /// integration, which settles three things at once: there is no connection
+  /// method left to pick, so not picking one is not an error; there is no
+  /// reason to run on the same device; and the one thing we can be to them is
+  /// a trainer, seen from a second device.
+  bool get receivesButtonEvents => connections.isNotEmpty || acceptsSimulatedInput;
 
   /// How many virtual gears this trainer app exposes in its shifter. Drives
   /// [FitnessBikeDefinition.maxGear] when this app is active. Default 24
@@ -110,6 +154,8 @@ abstract class SupportedApp {
     Biketerra(),
     Rouvy(),
     Strappo(),
+    Tacx(),
+    FulGaz(),
     BikeControl(),
     OpenBikeControl(),
     if (kDebugMode) WahooElement(),

@@ -83,7 +83,7 @@ class _ConfigurationPageState extends State<ConfigurationPage> {
                       ).small,
                       Row(
                         spacing: 8,
-                        children: [Target.thisDevice, Target.otherDevice]
+                        children: Target.supportedFor(core.settings.getTrainerApp())
                             .map(
                               (target) => Expanded(
                                 child: SelectableCard(
@@ -107,6 +107,9 @@ class _ConfigurationPageState extends State<ConfigurationPage> {
 
                   if (core.settings.getLastTarget() == Target.otherDevice &&
                       !core.logic.hasRecommendedConnectionMethods &&
+                      // Nothing to install alongside an app that takes no
+                      // controller input — it only ever sees us as a trainer.
+                      core.settings.getTrainerApp()?.receivesButtonEvents != false &&
                       core.settings.getTrainerApp() is! BikeControl) ...[
                     SizedBox(height: 8),
                     Warning(
