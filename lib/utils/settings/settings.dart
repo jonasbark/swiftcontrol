@@ -52,21 +52,27 @@ class Settings {
 
   Future<String?> init({bool retried = false}) async {
     try {
-      prefs = await SharedPreferences.getInstance();
+      // SharedPreferences is the one step the whole app depends on, so it can't
+      // be skipped — but bound it so a stuck platform channel surfaces as a
+      // recoverable error instead of an infinite freeze.
+      prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 10));
       propPrefs.initialize(prefs);
       trainerAppListenable.value = getTrainerApp();
+
+      // Everything below is a native or network call that has, on some users'
+      // machines, hung forever and bricked startup (the app reaches here, logs
+      // "NOTIFICATION SETUP", and never paints). Each runs under a timeout that
+      // logs which step stalled and then lets startup continue degraded rather
+      // than freeze — see [_guardedInitStep]. The offending step's name reaches
+      // the support bundle via lastLogEntries, so a report names the culprit we
+      // cannot reproduce.
       if (!screenshotMode) {
-        try {
-          await NotificationRequirement.setup();
-        } catch (error, stack) {
-          recordError(error, stack, context: 'Notification setup');
-        }
+        await _guardedInitStep('notifications', () => NotificationRequirement.setup());
       }
       initializeActions(getLastTarget()?.connectionType ?? ConnectionType.unknown);
 
       if (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS) {
-        // Must add this line.
-        await windowManager.ensureInitialized();
+        await _guardedInitStep('windowManager', () => windowManager.ensureInitialized());
       }
 
       // Fall back to the selected trainer app when the keymap pref ('app') is
@@ -75,35 +81,33 @@ class Settings {
       final app = getKeyMap() ?? getTrainerApp();
       core.actionHandler.init(app);
 
-      try {
+      await _guardedInitStep('supabase', () async {
         await Supabase.initialize(
           url: 'https://pikrcyynovdvogrldfnw.supabase.co',
           anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
         );
-      } catch (e, s) {
-        recordError(e, s, context: 'Supabase initialization');
-      }
+      });
 
       if (!kIsWeb && Platform.isWindows) {
-        await WindowsStoreEnvironment.initialize();
+        await _guardedInitStep('windowsStoreEnv', () => WindowsStoreEnvironment.initialize());
       }
 
-      // Initialize IAP manager
-      await IAPManager.instance.initialize();
+      // Initialize IAP manager (StoreKit / RevenueCat — a network round trip).
+      await _guardedInitStep('iap', () => IAPManager.instance.initialize(), timeout: const Duration(seconds: 8));
 
-      // Start trial if this is the first launch
-      if (!IAPManager.instance.hasTrialStarted && !IAPManager.instance.isPurchased.value) {
-        await IAPManager.instance.startTrial();
+      // Start trial if this is the first launch. Guarded as a whole: reading the
+      // IAP state can throw when the manager above timed out mid-init.
+      try {
+        if (!IAPManager.instance.hasTrialStarted && !IAPManager.instance.isPurchased.value) {
+          await _guardedInitStep('trial', () => IAPManager.instance.startTrial());
+        }
+      } catch (e, s) {
+        recordError(e, s, context: 'Init.trialCheck');
       }
 
       // Initialize settings sync service for Pro users
-      try {
-        _syncService = SettingsSyncService();
-        await _syncService!.initialize();
-      } catch (e) {
-        // Sync service is not critical, continue without it
-        print('Failed to initialize settings sync: $e');
-      }
+      _syncService = SettingsSyncService();
+      await _guardedInitStep('settingsSync', () => _syncService!.initialize());
 
       return null;
     } catch (e, s) {
@@ -128,6 +132,25 @@ class Settings {
       } else {
         return '$e\n$s';
       }
+    }
+  }
+
+  /// Runs a non-critical startup [step] under a [timeout] so a hung native or
+  /// network call can't stop the app from ever starting. On timeout or error it
+  /// records which step stalled — the message lands in `lastLogEntries` and so
+  /// in the support bundle, naming a culprit we otherwise can't reproduce — and
+  /// returns, letting startup continue in a degraded state.
+  Future<void> _guardedInitStep(
+    String name,
+    Future<void> Function() step, {
+    Duration timeout = const Duration(seconds: 6),
+  }) async {
+    try {
+      await step().timeout(timeout);
+    } on TimeoutException catch (_, s) {
+      recordError('Startup step "$name" timed out after ${timeout.inSeconds}s', s, context: 'Init.$name');
+    } catch (e, s) {
+      recordError(e, s, context: 'Init.$name');
     }
   }
 
