@@ -33,6 +33,9 @@ class MainActivity: FlutterFragmentActivity(), GamepadsCompatibleActivity {
                     OverlayActionBridge.uninstallOverlayHandler()
                     result.success(null)
                 }
+                "reassertOverlay" -> {
+                    result.success(OverlayActionBridge.reassertOverlay())
+                }
                 else -> result.notImplemented()
             }
         }

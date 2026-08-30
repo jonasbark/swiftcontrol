@@ -50,6 +50,9 @@ class _FakeOverlayController implements TrainerOverlayController {
 
   @override
   void updateOpacity(double opacity) {}
+
+  @override
+  Future<void> reassert() async {}
 }
 
 void main() {

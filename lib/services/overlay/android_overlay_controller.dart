@@ -197,6 +197,21 @@ class AndroidOverlayController implements TrainerOverlayController {
     // The Android system overlay window has no adjustable alpha here.
   }
 
+  @override
+  Future<void> reassert() async {
+    // Only meaningful while our system window is up. Re-adding is handled
+    // natively by the already-running overlay foreground service — we cannot
+    // close+show here because `showOverlay` uses `startService`, which Android
+    // blocks from the background (i.e. while the trainer app is foreground,
+    // which is exactly when this fires).
+    if (!_showing.value) return;
+    try {
+      await _overlayActionsChannel.invokeMethod('reassertOverlay');
+    } catch (e, s) {
+      recordError(e, s, context: 'overlay.android.reassert');
+    }
+  }
+
   void _bind() {
     final def = _def;
     if (def == null) return;
