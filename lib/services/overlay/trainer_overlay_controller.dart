@@ -40,6 +40,20 @@ abstract class TrainerOverlayController {
   /// Live-update the overlay window opacity in `[0.2, 1.0]`. Desktop-only;
   /// no-op on platforms whose overlay has no adjustable window alpha.
   void updateOpacity(double opacity);
+
+  /// Re-assert the overlay's position at the top of the system window stack
+  /// without tearing down its Dart state.
+  ///
+  /// Android-only in practice: the overlay is a `TYPE_APPLICATION_OVERLAY`
+  /// window added while BikeControl is in the foreground, and it ends up buried
+  /// beneath a trainer app (e.g. Rouvy) that comes to the foreground afterwards
+  /// — it stays hidden until the window is re-added. Callers invoke this on the
+  /// rising edge of "a trainer app connected to the proxy" so the overlay
+  /// re-tops itself the moment the trainer app grabs the virtual trainer. A
+  /// no-op when nothing is showing, and on platforms whose overlay is not a
+  /// re-stackable system window (iOS Live Activity, the desktop floating
+  /// window, which handle fullscreen elevation their own way).
+  Future<void> reassert();
 }
 
 class NoOpOverlayController implements TrainerOverlayController {
@@ -61,4 +75,6 @@ class NoOpOverlayController implements TrainerOverlayController {
   void updateFields(Set<OverlayField> fields) {}
   @override
   void updateOpacity(double opacity) {}
+  @override
+  Future<void> reassert() async {}
 }

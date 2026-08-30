@@ -87,6 +87,13 @@ class DesktopOverlayController implements TrainerOverlayController {
     }();
   }
 
+  @override
+  Future<void> reassert() async {
+    // The desktop sub-window handles fullscreen elevation natively (statusBar
+    // level + fullScreenAuxiliary in MainFlutterWindow), so there is no
+    // add-order z-stacking to re-assert here.
+  }
+
   // ---------------------------------------------------------------------------
   // Implementation (multi_window_native)
   // ---------------------------------------------------------------------------

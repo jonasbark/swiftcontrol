@@ -1,6 +1,8 @@
 package de.jonasbark.swiftcontrol
 
 import android.util.Log
+import android.view.View
+import android.view.WindowManager
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 
@@ -68,5 +70,57 @@ object OverlayActionBridge {
     fun uninstallOverlayHandler() {
         overlayChannel?.setMethodCallHandler(null)
         overlayChannel = null
+    }
+
+    /**
+     * Re-tops the overlay window in place, without tearing down the overlay
+     * engine or restarting the service.
+     *
+     * The overlay is a `TYPE_APPLICATION_OVERLAY` window added by the package's
+     * `OverlayService` while BikeControl was in the foreground. Once a trainer
+     * app (e.g. Rouvy) comes to the foreground the overlay can end up buried
+     * beneath it and stays hidden until the window is re-added — the rider sees
+     * it over every other app "but only not with Rouvy" (support 73367365).
+     *
+     * We can't fix it with close+show from Dart: the package's `showOverlay`
+     * uses `startService`, which Android blocks from the background, and the
+     * trainer app being foreground is exactly the background case. So instead we
+     * reach into the already-running service and re-add its view in place —
+     * `removeViewImmediate` is synchronous, so the following `addView`
+     * re-enters the top of the overlay z-order (and re-attaches the surface)
+     * with no service start involved.
+     *
+     * flutter_overlay_window 0.5.0 exposes no API for this, so we reflect into
+     * the service's private fields. A null service (overlay not running)
+     * returns false and the caller treats it as a no-op; anything else — a
+     * renamed field on a package bump, a detached view — is rethrown as a
+     * [RuntimeException] so Flutter's method-channel wrapper turns it into a
+     * Dart error the caller records, rather than a silent no-op (a raw checked
+     * reflection exception would escape that wrapper and crash the platform
+     * thread). Runs on the platform (main) thread, as WindowManager view ops
+     * require; method-call handlers already dispatch there.
+     */
+    fun reassertOverlay(): Boolean {
+        try {
+            val serviceClass = Class.forName(
+                "flutter.overlay.window.flutter_overlay_window.OverlayService",
+            )
+            val service = serviceClass.getDeclaredField("instance")
+                .apply { isAccessible = true }
+                .get(null) ?: return false
+            val flutterView = serviceClass.getDeclaredField("flutterView")
+                .apply { isAccessible = true }
+                .get(service) as? View ?: return false
+            val windowManager = serviceClass.getDeclaredField("windowManager")
+                .apply { isAccessible = true }
+                .get(service) as? WindowManager ?: return false
+            val params = flutterView.layoutParams as? WindowManager.LayoutParams ?: return false
+            windowManager.removeViewImmediate(flutterView)
+            windowManager.addView(flutterView, params)
+            return true
+        } catch (t: Throwable) {
+            Log.w(TAG, "reassertOverlay failed", t)
+            throw RuntimeException("reassertOverlay failed: ${t.message}", t)
+        }
     }
 }
