@@ -13,6 +13,7 @@ import 'package:bike_control/utils/gear_readout.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/supported_app.dart' show SupportedApp, TrainerConnectionType;
+import 'package:bike_control/utils/keymap/apps/tacx.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/units.dart';
@@ -428,6 +429,14 @@ class ProxyDevice extends BluetoothDevice {
   /// needs on top of these. It is applied last so an app can also correct one
   /// of the defaults if it ever has to.
   @visibleForTesting
+  /// Whether the bridge advertises 16-bit services bare (`1826`) or in the
+  /// `0x1826` form. Rouvy (and Zwift, MyWhoosh, TPV) parse the `0x` form and
+  /// silently drop a bare one; Tacx Training does the opposite. So it follows
+  /// the selected trainer app, re-evaluated on every advertisement.
+  static bool bareShortServiceUuidsFor(SupportedApp? app) => app is Tacx;
+
+  bool _bareShortServiceUuids() => bareShortServiceUuidsFor(core.settings.getTrainerApp());
+
   static Map<String, Uint8List> trainerMdnsTxtFor(SupportedApp? app, {required String serialNumber}) => {
     'mac-address': Uint8List.fromList(BikeControlMdnsMarkers.macAddress.codeUnits),
     'serial-number': Uint8List.fromList(serialNumber.codeUnits),
@@ -521,6 +530,7 @@ class ProxyDevice extends BluetoothDevice {
     try {
       if (mode == RetrofitMode.proxy) {
         await _proxyEmulator.attachDefinition(_proxyDef!);
+        _proxyEmulator.bareShortServiceUuids = _bareShortServiceUuids;
         await _proxyEmulator.startServer(
           mode: RetrofitMode.proxy,
           mdnsTxt: _trainerMdnsTxt(),
@@ -531,6 +541,7 @@ class ProxyDevice extends BluetoothDevice {
         ftmsEmulator.deviceName = () => scanResult.name;
         ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
         ftmsEmulator.forceIPv4 = rouvyNeedsIPv4;
+      ftmsEmulator.bareShortServiceUuids = _bareShortServiceUuids;
         _fbd = fbd;
         _currentFbd = fbd;
         await ftmsEmulator.attachDefinition(_fbd!);
@@ -1012,6 +1023,7 @@ class ProxyDevice extends BluetoothDevice {
       ftmsEmulator.deviceName = () => scanResult.name;
       ftmsEmulator.advertisementNameOverride = rouvyAdvertisementName;
       ftmsEmulator.forceIPv4 = rouvyNeedsIPv4;
+      ftmsEmulator.bareShortServiceUuids = _bareShortServiceUuids;
       _bindToActiveEmulator();
 
       if (_fbd != null) {
@@ -1050,6 +1062,7 @@ class ProxyDevice extends BluetoothDevice {
       if (_proxyDef != null) {
         await _proxyEmulator.attachDefinition(_proxyDef!);
       }
+      _proxyEmulator.bareShortServiceUuids = _bareShortServiceUuids;
       await _proxyEmulator.startServer(
         mode: RetrofitMode.proxy,
         mdnsTxt: _trainerMdnsTxt(),
