@@ -105,6 +105,7 @@
         <service
             android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
             android:exported="false"
+            android:stopWithTask="true"
             android:foregroundServiceType="specialUse">
             <!-- Android 14+ requires a description of the special-use subtype -->
             <property

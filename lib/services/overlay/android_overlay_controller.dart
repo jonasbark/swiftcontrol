@@ -96,6 +96,13 @@ class AndroidOverlayController implements TrainerOverlayController {
     // OEMs (Oppo / OnePlus) and the cache lookup can race the show call.
     unawaited(_installOverlayHandlerWithRetry());
 
+    // Keep the screen on while the overlay is visible. wakelock_plus only holds
+    // the screen on via BikeControl's activity window, which is inert once the
+    // activity is backgrounded (the norm during a ride, where only this overlay
+    // is on screen), so the flag has to live on the overlay window itself. Same
+    // service-attach race as the handler install, hence the retry.
+    unawaited(_setKeepScreenOnWithRetry(true));
+
     _showing.value = true;
     // Send an initial state immediately.
     _push(force: true);
@@ -121,6 +128,30 @@ class AndroidOverlayController implements TrainerOverlayController {
     if (lastError != null) {
       recordError(lastError, lastStack,
           context: 'overlay.android.installHandler');
+    }
+  }
+
+  Future<void> _setKeepScreenOnWithRetry(bool enable) async {
+    Object? lastError;
+    StackTrace? lastStack;
+    for (var i = 0; i < 10; i++) {
+      try {
+        final ok = await _overlayActionsChannel.invokeMethod<bool>(
+          'setOverlayKeepScreenOn',
+          {'enable': enable},
+        );
+        if (ok == true) return;
+      } catch (e, s) {
+        // Expected to fail until the overlay service's window is attached;
+        // only surface the final attempt's failure.
+        lastError = e;
+        lastStack = s;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    if (lastError != null) {
+      recordError(lastError, lastStack,
+          context: 'overlay.android.keepScreenOn');
     }
   }
 

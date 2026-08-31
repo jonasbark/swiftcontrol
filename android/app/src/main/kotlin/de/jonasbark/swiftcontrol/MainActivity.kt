@@ -36,6 +36,10 @@ class MainActivity: FlutterFragmentActivity(), GamepadsCompatibleActivity {
                 "reassertOverlay" -> {
                     result.success(OverlayActionBridge.reassertOverlay())
                 }
+                "setOverlayKeepScreenOn" -> {
+                    val enable = call.argument<Boolean>("enable") ?: true
+                    result.success(OverlayActionBridge.setKeepScreenOn(enable))
+                }
                 else -> result.notImplemented()
             }
         }
