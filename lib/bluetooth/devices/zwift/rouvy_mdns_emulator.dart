@@ -36,6 +36,12 @@ class RouvyMdnsEmulator extends TrainerConnection {
           InGameAction.steerLeft,
           InGameAction.steerRight,
           InGameAction.openActionBar,
+          // Raw D-pad up/down: the Zwift Ride's navigation buttons fall back to
+          // these when the active app's keymap (e.g. Rouvy's) has no explicit
+          // navigation entry, so the emulator must deliver them to the physical
+          // UP/DOWN buttons rather than reporting the action unsupported.
+          InGameAction.up,
+          InGameAction.down,
           InGameAction.usePowerUp,
           InGameAction.select,
           InGameAction.back,
@@ -95,9 +101,11 @@ class RouvyMdnsEmulator extends TrainerConnection {
       InGameAction.shiftUp => RideButtonMask.SHFT_UP_R_BTN,
       InGameAction.shiftDown => RideButtonMask.SHFT_UP_L_BTN,
       InGameAction.uturn => RideButtonMask.DOWN_BTN,
+      InGameAction.down => RideButtonMask.DOWN_BTN,
       InGameAction.steerLeft => RideButtonMask.LEFT_BTN,
       InGameAction.steerRight => RideButtonMask.RIGHT_BTN,
       InGameAction.openActionBar => RideButtonMask.UP_BTN,
+      InGameAction.up => RideButtonMask.UP_BTN,
       InGameAction.usePowerUp => RideButtonMask.Y_BTN,
       InGameAction.select => RideButtonMask.A_BTN,
       InGameAction.back => RideButtonMask.B_BTN,

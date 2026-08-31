@@ -502,6 +502,17 @@
       }
     }
   },
+  "trainerAppActionUnsupportedForButton": "Could not perform {button}: {app} does not support it",
+  "@trainerAppActionUnsupportedForButton": {
+    "placeholders": {
+      "button": {
+        "type": "Object"
+      },
+      "app": {
+        "type": "Object"
+      }
+    }
+  },
   "noActiveWorkout": "No active workout",
   "noProxyTrainerConnected": "No smart trainer connected",
   "noConnectionMethodIsConnectedOrActive": "No connection method is connected or active.",
