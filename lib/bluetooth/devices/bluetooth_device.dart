@@ -114,6 +114,24 @@ abstract class BluetoothDevice extends BaseDevice {
     return info.isRearDerailleur; // connect only to the rear derailleur
   }
 
+  /// Whether a scan result points at a Zwift Ride on genuinely old,
+  /// third-party-incompatible firmware — the only case the "update the
+  /// firmware" toast should fire for.
+  ///
+  /// A modern Ride advertises two manufacturer-data types: `RIDE_LEFT_SIDE`
+  /// (which builds a [ZwiftRide]) and `RIDE_RIGHT_SIDE` (deliberately mapped to
+  /// null — we only connect to the left half). The right-side advert therefore
+  /// builds no device yet still exposes the Zwift custom service, so
+  /// [hasZwiftCustomService] is what separates it from an old Ride that exposes
+  /// no recognizable Zwift service at all (ticket ed826861, issue #2).
+  @visibleForTesting
+  static bool isLikelyOldRideFirmware({
+    required String? name,
+    required bool deviceRecognized,
+    required bool hasZwiftCustomService,
+  }) =>
+      name == 'Zwift Ride' && !deviceRecognized && !hasZwiftCustomService;
+
   static BluetoothDevice? fromScanResult(BleDevice scanResult) {
     // skip devices with ignored names
     if (scanResult.name != null &&
@@ -194,13 +212,15 @@ abstract class BluetoothDevice extends BaseDevice {
       };
     }
 
-    if (device != null) {
-      return device;
-    } else if (scanResult.services.containsAny([
+    final hasZwiftCustomService = scanResult.services.containsAny([
       ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID.toLowerCase(),
       ZwiftConstants.ZWIFT_CUSTOM_SERVICE_SHORT_UUID.toLowerCase(),
       ZwiftConstants.ZWIFT_RIDE_CUSTOM_SERVICE_UUID.toLowerCase(),
-    ])) {
+    ]);
+
+    if (device != null) {
+      return device;
+    } else if (hasZwiftCustomService) {
       // otherwise use the manufacturer data to identify the device
       final manufacturerData = scanResult.manufacturerDataList;
       final data = manufacturerData
@@ -232,8 +252,11 @@ abstract class BluetoothDevice extends BaseDevice {
     // they are recognized by their manufacturer-data prefix alone.
     device ??= WheeltopEds.tryFrom(scanResult);
 
-    if (scanResult.name == 'Zwift Ride' &&
-        device == null &&
+    if (isLikelyOldRideFirmware(
+          name: scanResult.name,
+          deviceRecognized: device != null,
+          hasZwiftCustomService: hasZwiftCustomService,
+        ) &&
         core.connection.controllerDevices.none((d) => d is ZwiftRide)) {
       // Fallback for Zwift Ride if nothing else matched => old firmware.
       // Naming the Companion app isn't enough — riders don't know firmware
