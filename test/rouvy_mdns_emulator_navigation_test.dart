@@ -46,10 +46,25 @@ void main() {
     // buttons reach the emulator carrying the raw actions — which must map to
     // the physical UP/DOWN buttons rather than falling through to NotHandled
     // (which produced the misleading "Rouvy is not connected" log).
-    test('supportedActions includes raw up and down', () {
+    test('supportedActions includes raw up/down and navigate left/right', () {
       final emulator = RouvyMdnsEmulator(clickEmulator: _RecordingClickEmulator());
       expect(emulator.supportedActions, contains(InGameAction.up));
       expect(emulator.supportedActions, contains(InGameAction.down));
+      expect(emulator.supportedActions, contains(InGameAction.navigateLeft));
+      expect(emulator.supportedActions, contains(InGameAction.navigateRight));
+    });
+
+    test('navigate left/right press LEFT_BTN / RIGHT_BTN for in-menu navigation', () async {
+      final click = _RecordingClickEmulator();
+      final emulator = RouvyMdnsEmulator(clickEmulator: click);
+
+      final left = await emulator.sendAction(_navPair(InGameAction.navigateLeft), isKeyDown: true, isKeyUp: false);
+      expect(left, isA<Success>());
+      expect(_buttonMapOf(click.notifications.single), (~RideButtonMask.LEFT_BTN.mask) & 0xFFFFFFFF);
+
+      final right = await emulator.sendAction(_navPair(InGameAction.navigateRight), isKeyDown: true, isKeyUp: false);
+      expect(right, isA<Success>());
+      expect(_buttonMapOf(click.notifications.last), (~RideButtonMask.RIGHT_BTN.mask) & 0xFFFFFFFF);
     });
 
     test('InGameAction.up presses UP_BTN and releases on key-up', () async {
