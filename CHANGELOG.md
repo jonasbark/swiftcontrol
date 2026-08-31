@@ -1,12 +1,8 @@
 ### 6.6.0 (31-08-2026)
 **Features**:
-- FulGaz is now supported as a trainer app: BikeControl acts as a Bluetooth smart trainer to it on a second device and provides the virtual shifting.
-- New Help Center behind the help button: guides & videos, troubleshooting, a personalized "Your Setup" section, known issues, and pricing & account FAQs in one scrollable page.
-- New feedback flow: a quick thumbs up/down after a ride sends you to a rating, a suggestion box, or straight into the Help Center for whatever isn't working — replacing the old review banner.
-- Live drivetrain view: your current gear now shows as an animated side-on drivetrain on the home card and the trainer's gear page, with the chain and chainrings turning as you pedal.
-- Support chat: write your message first and sign in afterwards, attach zip and log files, and every message now carries a fresh diagnostic snapshot.
-- Trainers that accept gear commands but silently ignore them now switch to FTMS virtual shifting on their own, so you no longer have to find the Control protocol setting yourself.
-- SRAM AXS: an optional "restore original shifting" step puts your levers back to their original behaviour for outdoor rides.
+- FulGaz & Tacx Training apps are now supported: BikeControl acts as a Bluetooth smart trainer to it on a second device and provides the virtual shifting.
+- New Help Center
+- Improved compatibility with Zwift Ready & FTMS smart trainers
 - Desktop floating overlay: a new 20-100% opacity slider lets you fade it over your trainer app.
 
 **Fixes**:
@@ -14,11 +10,7 @@
 - Android gear overlay: it now closes when you close the app, keeps the screen awake during a ride, and re-tops itself when a trainer app comes to the front.
 - Zwift Ride: no more false "update firmware" prompt on a healthy unit.
 - Zwift Click V2: one press now triggers exactly one action in Zwift.
-- macOS: fixed the black window on launch, added a startup recovery screen, and removed the black flash between the splash and the app.
-- Startup is now guarded step by step, so one hung call can no longer stop the app from launching.
-- Network: BikeControl warns you when its advertised address changes after a network switch, and re-announces itself when the controller stops or you switch trainer apps.
-- More smart trainers are detected; the Magene T600 and Van Rysel HT RCR now pick FTMS automatically, and Tacx trainers advertise the product id Windows needs.
-- Windows: the Stripe checkout resumes correctly after the login step.
+- Improved network recovery when e.g. your internal IP changes
 
 ### 6.5.0 (22-08-2026)
 **Features**:
