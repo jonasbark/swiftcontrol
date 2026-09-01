@@ -231,6 +231,15 @@ String describeProxyDevice(ProxyDevice device) {
     }
     parts.add('vsMode=${def.virtualShiftingMode.value.name}');
     parts.add('ftms=${def.ftmsCapabilitySummary}');
+    // Live telemetry BikeControl is reading from the trainer: cad shows raw /
+    // filtered rpm. The whole VS resistance calc is cadence-driven, so a "no
+    // resistance" bundle with cad:0 (while pedalling) means we aren't getting
+    // cadence — non-zero means the trainer is understood and the cause is
+    // downstream. spd in km/h.
+    parts.add(
+      'read=cad:${def.cadenceRpm.value ?? '-'}/${def.filteredCadence} '
+      'pwr:${def.powerW.value ?? '-'} spd:${def.speedKph.value?.toStringAsFixed(1) ?? '-'}',
+    );
     // Only for trainers that actually speak Zwift Sync; 'n/a' everywhere else
     // would be noise. `timeout` here is what separates "the trainer ignores
     // our commands" from "the trainer never opened its command interface" —

@@ -234,6 +234,16 @@ Future<void> main() async {
       expect(line, isNot(contains('lastCtl='))); // no control write happened
     });
 
+    test('trainer line carries the live cadence/power/speed readout', () {
+      // A "no resistance" report is settled by whether BikeControl is reading
+      // cadence: the VS resistance calc is entirely cadence-driven, so the
+      // bundle surfaces raw/filtered cadence plus power and speed.
+      final line = describeProxyDevice(trainerWithFitnessBike());
+      expect(line, contains('read=cad:'));
+      expect(line, contains('pwr:'));
+      expect(line, contains('spd:'));
+    });
+
     test('a forced protocol is marked manual and lists what else was available', () {
       // Support's first question on a "my trainer ignores BikeControl" report
       // is whether the rider forced a delivery — auto-picked and rider-picked
