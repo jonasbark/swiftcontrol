@@ -16,10 +16,10 @@ import 'package:universal_ble/universal_ble.dart';
 /// way the real main() does it — swallow show() instead of throwing.
 class _NoopLocalNotifications extends FlutterLocalNotificationsPlatform {
   @override
-  Future<void> show(int id, String? title, String? body, {String? payload}) async {}
+  Future<void> show({required int id, String? title, String? body, String? payload}) async {}
 
   @override
-  Future<void> cancel(int id) async {}
+  Future<void> cancel({required int id}) async {}
 
   @override
   Future<void> cancelAll() async {}

@@ -209,8 +209,12 @@ class NotificationRequirement extends PlatformRequirement {
 
   static Future<void> setup() async {
     print('NOTIFICATION SETUP');
+    // macOS has no background-isolate support for notification responses, and
+    // registering that callback there is the prime suspect for the startup
+    // hang some macOS users hit — so only wire the background handler off
+    // macOS. Foreground responses still route through the same handler.
     await core.flutterLocalNotificationsPlugin.initialize(
-      InitializationSettings(
+      settings: InitializationSettings(
         android: AndroidInitializationSettings(
           '@drawable/ic_notification',
         ),
@@ -228,7 +232,7 @@ class NotificationRequirement extends PlatformRequirement {
           guid: '00000012-0000-1000-8000-00805f9b34fb',
         ),
       ),
-      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+      onDidReceiveBackgroundNotificationResponse: Platform.isMacOS ? null : notificationTapBackground,
       onDidReceiveNotificationResponse: (n) {
         notificationTapBackground(n);
       },
@@ -257,9 +261,9 @@ class NotificationRequirement extends PlatformRequirement {
         );
 
     await AndroidFlutterLocalNotificationsPlugin().startForegroundService(
-      1,
-      channelGroupId,
-      AppLocalizations.current.allowsRunningInBackground,
+      id: 1,
+      title: channelGroupId,
+      body: AppLocalizations.current.allowsRunningInBackground,
       foregroundServiceTypes: {AndroidServiceForegroundType.foregroundServiceTypeConnectedDevice},
       startType: AndroidServiceStartType.startRedeliverIntent,
       notificationDetails: AndroidNotificationDetails(
