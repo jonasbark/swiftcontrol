@@ -23,10 +23,10 @@ import 'fake_nsd_platform.dart';
 /// connection-state notification crashes with a LateInitializationError.
 class _FakeLocalNotificationsPlatform extends FlutterLocalNotificationsPlatform {
   @override
-  Future<void> show(int id, String? title, String? body, {String? payload}) async {}
+  Future<void> show({required int id, String? title, String? body, String? payload}) async {}
 
   @override
-  Future<void> cancel(int id) async {}
+  Future<void> cancel({required int id}) async {}
 
   @override
   Future<void> cancelAll() async {}

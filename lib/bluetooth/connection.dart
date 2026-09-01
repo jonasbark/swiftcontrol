@@ -1065,10 +1065,11 @@ class Connection {
         }
         if (!isSilentReset && !isSilentBackoff) {
           core.flutterLocalNotificationsPlugin.show(
-            1338,
-            '${device.toString()} ${state ? AppLocalizations.current.connected.decapitalize() : AppLocalizations.current.disconnected.decapitalize()}',
-            !state ? AppLocalizations.current.tryingToConnectAgain : null,
-            NotificationDetails(
+            id: 1338,
+            title:
+                '${device.toString()} ${state ? AppLocalizations.current.connected.decapitalize() : AppLocalizations.current.disconnected.decapitalize()}',
+            body: !state ? AppLocalizations.current.tryingToConnectAgain : null,
+            notificationDetails: NotificationDetails(
               android: AndroidNotificationDetails('Connection', 'Connection Status'),
               iOS: DarwinNotificationDetails(presentAlert: true, presentSound: false),
             ),
@@ -1324,10 +1325,10 @@ class Connection {
 
     if (!kIsWeb) {
       core.flutterLocalNotificationsPlugin.show(
-        1339,
-        AppLocalizations.current.batterySaverTitle,
-        AppLocalizations.current.controllersDisconnectedInactivity(timeout.inMinutes),
-        NotificationDetails(
+        id: 1339,
+        title: AppLocalizations.current.batterySaverTitle,
+        body: AppLocalizations.current.controllersDisconnectedInactivity(timeout.inMinutes),
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails('BatterySaver', 'Battery Saver'),
           iOS: DarwinNotificationDetails(presentAlert: true, presentSound: false),
         ),

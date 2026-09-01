@@ -344,10 +344,10 @@ class ProxyDevice extends BluetoothDevice {
       AlertNotification(LogLevel.LOGLEVEL_WARNING, '$title — $body'),
     );
     core.flutterLocalNotificationsPlugin.show(
-      1340,
-      title,
-      body,
-      const NotificationDetails(
+      id: 1340,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails('BridgeTrial', 'Bridge Trial Status'),
         iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
       ),

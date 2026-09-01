@@ -67,7 +67,10 @@ class Settings {
       // the support bundle via lastLogEntries, so a report names the culprit we
       // cannot reproduce.
       if (!screenshotMode) {
-        await _guardedInitStep('notifications', () => NotificationRequirement.setup());
+        // Fire-and-forget: notification setup has hung on some macOS machines,
+        // and it's not needed for the app to function — so never let startup
+        // wait on it at all. The guard still logs if it stalls.
+        unawaited(_guardedInitStep('notifications', () => NotificationRequirement.setup()));
       }
       initializeActions(getLastTarget()?.connectionType ?? ConnectionType.unknown);
 
