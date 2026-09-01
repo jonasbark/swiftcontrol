@@ -7,10 +7,11 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// A real diagnostic payload includes the full log buffer, so the sheet grew
 /// past the screen and left no barrier to tap — with no close button, drag
 /// handle or back-route the user had to kill the app to escape.
-void main() {
+Future<void> main() async {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final l10n = await AppLocalizations.load(const Locale('en'));
 
-  Widget app(String payload) {
+  Widget app({String? payload}) {
     return ShadcnApp(
       localizationsDelegates: [
         ...ShadcnLocalizations.localizationsDelegates,
@@ -30,7 +31,7 @@ void main() {
   testWidgets('diagnostic sheet with a huge payload can be closed via its X button', (tester) async {
     // Realistic payload: JSON-encoded telemetry incl. hundreds of log lines.
     final payload = List.generate(400, (i) => '"log$i": "2026-07-09 10:00:$i - entry"').join('\n');
-    await tester.pumpWidget(app(payload));
+    await tester.pumpWidget(app(payload: payload));
     await tester.pump();
 
     await tester.tap(find.byIcon(LucideIcons.info));
@@ -46,5 +47,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('"log0"'), findsNothing);
+  });
+
+  // GDPR transparency: when a support message will carry diagnostics (and, on
+  // the first message, a screenshot), the composer must say so up front rather
+  // than attaching them silently — a user should never be surprised by what
+  // was sent. Ties to the "I never agreed to a screenshot" support ticket.
+  testWidgets('shows the diagnostics/screenshot notice when a diagnostic payload is attached', (tester) async {
+    await tester.pumpWidget(app(payload: 'app_version: 6.5.2'));
+    await tester.pump();
+
+    expect(find.text(l10n.supportDiagnosticsNotice), findsOneWidget);
+  });
+
+  testWidgets('hides the notice when there is no diagnostic payload', (tester) async {
+    await tester.pumpWidget(app(payload: null));
+    await tester.pump();
+
+    expect(find.text(l10n.supportDiagnosticsNotice), findsNothing);
   });
 }
