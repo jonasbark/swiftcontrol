@@ -1854,5 +1854,155 @@
   "faqCrossStoreQ": "Kupiłem w jednym sklepie — czy mogę używać BikeControl w innym?",
   "faqCrossStoreA": "Jednorazowy zakup należy do sklepu, w którym go dokonano (App Store, Google Play, Mac App Store, Microsoft Store), i nie da się go przenieść do innego — ponowny zakup to jedyny sposób na odblokowanie wersji z innego sklepu. Z Pro jest inaczej: jest powiązane z Twoim kontem BikeControl, a nie ze sklepem, więc zalogowanie się na to konto odblokowuje je też na innych platformach.",
   "faqRestoreQ": "Przywróć zakupy nic nie przywraca",
-  "faqRestoreA": "Przywróć zakupy sprawdza tylko konto sklepu aktualnie zalogowane na tym urządzeniu — musi to być dokładnie to konto (Apple ID, konto Google, konto Microsoft), na którym dokonano zakupu, a jednorazowy zakup da się przywrócić tylko w sklepie, w którym go kupiono, nigdy w innym. Na Windows poza Microsoft Store zakup idzie przez Stripe, a nie przez sklep, więc nie ma tam niczego, co mogłoby znaleźć Przywróć zakupy — zaloguj się tam zamiast tego na swoje konto BikeControl. Nadal nic? Skontaktuj się z pomocą techniczną z tej strony i podaj e-mail użyty przy zakupie."
+  "faqRestoreA": "Przywróć zakupy sprawdza tylko konto sklepu aktualnie zalogowane na tym urządzeniu — musi to być dokładnie to konto (Apple ID, konto Google, konto Microsoft), na którym dokonano zakupu, a jednorazowy zakup da się przywrócić tylko w sklepie, w którym go kupiono, nigdy w innym. Na Windows poza Microsoft Store zakup idzie przez Stripe, a nie przez sklep, więc nie ma tam niczego, co mogłoby znaleźć Przywróć zakupy — zaloguj się tam zamiast tego na swoje konto BikeControl. Nadal nic? Skontaktuj się z pomocą techniczną z tej strony i podaj e-mail użyty przy zakupie.",
+  "localNetworkAccess": "Dostęp do sieci lokalnej",
+  "localNetworkAccessDeniedIos": "Bez dostępu do sieci lokalnej BikeControl nie może połączyć się z twoją aplikacją treningową. Włącz go w Ustawienia → BikeControl → Sieć lokalna.",
+  "localNetworkAccessDeniedMacos": "Bez dostępu do sieci lokalnej BikeControl nie może połączyć się z twoją aplikacją treningową. Włącz go w Ustawienia systemowe → Prywatność i bezpieczeństwo → Sieć lokalna.",
+  "overlayOpacity": "Krycie Overlay",
+  "overlayOpacitySubtitle": "Przyciemnij pływający Overlay, aby wtapiał się w twoją aplikację treningową.",
+  "chainStepAppLocalNetwork": "Sieć lokalna dozwolona",
+  "chainStepAppLocalNetworkPending": "Zezwól na dostęp do sieci lokalnej",
+  "chainStepAppLocalNetworkHint": "Bez niego BikeControl nie jest widoczny w twojej sieci, a nic, co wysyła, nie opuszcza tego urządzenia.",
+  "networkSummaryMethodListening": "Metoda połączenia sieciowego jest włączona i działa",
+  "networkSummaryAdvertisedAddress": "Adres, do którego BikeControl każe łączyć się twojej aplikacji",
+  "networkSummaryVpn": "Czy tunel przechwytuje ruch lokalny",
+  "networkSummaryAdvertisementVisible": "Czy ogłoszenie BikeControl dociera do sieci",
+  "networkSummaryLocalNetworkPermission": "Uprawnienie do komunikacji z urządzeniami w twojej sieci",
+  "networkSummaryBackend": "Która usługa publikuje nazwę BikeControl",
+  "networkSummaryResolveOwnHostname": "To urządzenie potrafi rozwiązać nazwę, którą ogłasza",
+  "networkSummaryTcpSelfConnect": "Port przyjmuje połączenie, więc nic go nie blokuje",
+  "networkSummaryGuidedWatch": "Prawdziwa próba połączenia z twojej aplikacji treningowej",
+  "networkSummaryBonjourService": "Usługa Bonjour firmy Apple, której Windows potrzebuje do tego",
+  "networkSummaryBonjourNsp": "Wtyczka rozwiązywania nazw Windows instalowana przez Bonjour",
+  "networkSummaryWindowsMdnsResolver": "Własne rozwiązywanie nazw Windows dla adresów .local",
+  "networkSummaryNetworkProfile": "Windows traktuje tę sieć jako prywatną, nie publiczną",
+  "networkSummaryFirewallRule": "Reguła zapory przepuszcza BikeControl",
+  "networkSummaryMulticastLock": "Android utrzymuje moduł Wi-Fi w nasłuchu ogłoszeń",
+  "networkGroupThisDevice": "To urządzenie",
+  "networkGroupOnTheNetwork": "W sieci",
+  "networkGroupReaching": "Docieranie do BikeControl",
+  "networkGroupLiveTest": "Test na żywo",
+  "networkChecksPassedOf": "z {total}",
+  "@networkChecksPassedOf": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "networkOverallPassBody": "Nic tutaj nie blokuje BikeControl. Jeśli aplikacja nadal go nie znajduje, rozstrzygnie to test na żywo poniżej.",
+  "networkOverallWarnBody": "BikeControl jest osiągalny, ale coś w tej sieci może zakłócać. Warto sprawdzić, jeśli połączenie się zrywa.",
+  "networkOverallFailBody": "Coś tutaj uniemożliwia twojej aplikacji treningowej dotarcie do BikeControl. Napraw zaznaczoną kontrolę i uruchom ponownie.",
+  "networkOverallUnknownBody": "Niektórych kontroli nie udało się odczytać w tym systemie. Test na żywo poniżej pokazuje to, co naprawdę ważne: czy twoja aplikacja się przebija.",
+  "networkWatchTitle": "Oczekiwanie na twoją aplikację treningową",
+  "networkWatchEndsItself": "Test kończy się sam, gdy tylko twoja aplikacja się połączy.",
+  "networkFooterTitle": "Nadal brak połączenia?",
+  "networkFooterBody": "Wyślij pełny raport — zawiera wszystko z tej strony oraz surowe dzienniki.",
+  "networkTroubleshootingTitle": "Rozwiązywanie problemów z siecią",
+  "networkTroubleshootRun": "Uruchom kontrole",
+  "networkTroubleshootRunAgain": "Uruchom ponownie",
+  "networkTroubleshootCancel": "Anuluj",
+  "networkTroubleshootConnectedRefusal": "Połączono z {app} — wszystko działa. Uruchomić kontrole mimo to?",
+  "@networkTroubleshootConnectedRefusal": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "networkTroubleshootRecommendedFix": "Zalecana naprawa",
+  "networkTroubleshootCopyResults": "Kopiuj wyniki",
+  "networkTroubleshootResultsCopied": "Wyniki skopiowano do schowka",
+  "networkTroubleshootSendToSupport": "Wyślij do pomocy technicznej",
+  "networkTroubleshootTroubleshoot": "Rozwiąż problem",
+  "networkCheckMethodListening": "Metoda sieciowa działa",
+  "networkCheckAdvertisedAddress": "Ogłaszany adres",
+  "networkCheckVpn": "VPN",
+  "networkCheckAdvertisementVisible": "Ogłoszenie widoczne w sieci",
+  "networkCheckLocalNetworkPermission": "Uprawnienie do sieci lokalnej",
+  "networkCheckBackend": "Responder mDNS",
+  "networkCheckResolveOwnHostname": "Ten komputer potrafi rozwiązać adres BikeControl",
+  "networkCheckTcpSelfConnect": "Połączenie z portem BikeControl",
+  "networkCheckGuidedWatch": "Próba połączenia na żywo",
+  "networkCheckBonjourService": "Usługa Apple Bonjour",
+  "networkCheckBonjourNsp": "Zaczep resolvera Bonjour (mdnsNSP)",
+  "networkCheckWindowsMdnsResolver": "Rozwiązywanie nazw mDNS w Windows",
+  "networkCheckNetworkProfile": "Profil sieci",
+  "networkCheckFirewallRule": "Reguła zapory dla BikeControl",
+  "networkCheckMulticastLock": "Blokada multicast",
+  "networkVerdictPass": "OK",
+  "networkVerdictWarn": "Sprawdź to",
+  "networkVerdictFail": "Znaleziono problem",
+  "networkVerdictUnknown": "Nie można sprawdzić",
+  "networkVerdictSkipped": "Pominięto",
+  "networkFixRestartMethod": "Uruchom ponownie metodę sieciową",
+  "networkFixUseOsResponder": "Użyj systemowej usługi mDNS",
+  "networkFixRegisterBonjour": "Zarejestruj przez Bonjour",
+  "networkFixUseResponder": "Wróć do respondera BikeControl",
+  "networkFixSwitchToLocal": "Zamiast tego użyj metody Lokalnej",
+  "networkFixOpenFirewallSettings": "Otwórz ustawienia zapory",
+  "networkFixOpenBonjourDownload": "Pobierz Apple Bonjour",
+  "networkFixOpenLocalNetworkSettings": "Otwórz ustawienia",
+  "networkFixFailed": "To nie zadziałało — szczegóły znajdziesz w dziennikach.",
+  "networkFixRefusedConnected": "Nie, gdy {app} jest połączone.",
+  "@networkFixRefusedConnected": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "networkFixRefusedConnectedNoApp": "Nie, gdy aplikacja treningowa jest połączona.",
+  "networkFixBonjourMissing": "Apple Bonjour nie jest zainstalowany — najpierw go zainstaluj.",
+  "networkWatchPrompt": "Teraz otwórz ekran parowania w {app} i naciśnij przycisk BikeControl.",
+  "@networkWatchPrompt": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "networkWatchFoundUs": "{app} znalazł BikeControl",
+  "@networkWatchFoundUs": {
+    "placeholders": {
+      "app": {
+        "type": "String"
+      }
+    }
+  },
+  "networkWatchResolved": "Pobrano szczegóły połączenia",
+  "networkWatchAddressAsks": "Zapytał o nasz adres ×{count}",
+  "@networkWatchAddressAsks": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "networkWatchConnected": "Połączono",
+  "networkWatchSkip": "Pomiń",
+  "networkWatchRemaining": "pozostało {seconds}s",
+  "@networkWatchRemaining": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "networkOverallPass": "Wszystko wygląda dobrze",
+  "networkOverallWarn": "Działa, z ostrzeżeniami",
+  "networkOverallFail": "Znaleźliśmy to, co blokuje połączenie",
+  "networkOverallUnknown": "Niektórych kontroli nie udało się uruchomić",
+  "networkHintBonjourService": "MyWhoosh potrzebuje usługi Bonjour firmy Apple. Uruchom ją, a następnie zrestartuj MyWhoosh.",
+  "networkHintBonjourNsp": "Brakuje zaczepu resolvera Bonjour. Zainstaluj ponownie Bonjour — bez niego przycisk BikeControl w MyWhoosh nie zadziała.",
+  "networkHintResolveFail": "Ten komputer nie mógł rozwiązać adresu BikeControl — dokładnie na tym kroku zawodzi aplikacja treningowa. W systemie Windows uszkodzona instalacja Bonjour może to powodować, nawet gdy usługa działa; pomaga czysta ponowna instalacja.",
+  "supportDiagnosticsNotice": "Aby pomóc rozwiązać twój problem, ten czat dołącza zrzut ekranu BikeControl i dane diagnostyczne. Możesz je sprawdzić lub usunąć przed wysłaniem.",
+  "supportDeleteConversation": "Usuń rozmowę",
+  "supportDeleteAccount": "Usuń konto i wszystkie dane",
+  "supportDeleteConversationTitle": "Usunąć rozmowę?",
+  "supportDeleteConversationBody": "Spowoduje to trwałe usunięcie twojej rozmowy z pomocą techniczną, w tym wszystkich wysłanych wiadomości, zrzutów ekranu i raportów diagnostycznych. Tej operacji nie można cofnąć.",
+  "supportDeleteAccountTitle": "Usunąć konto i wszystkie dane?",
+  "supportDeleteAccountBody": "Spowoduje to trwałe usunięcie twojej rozmowy z pomocą techniczną oraz twojego konta BikeControl wraz z adresem e-mail. Jednorazowy zakup pozostaje w sklepie, w którym go kupiono, a subskrypcja Pro nadal tam działa, ale to urządzenie zostanie wylogowane. Tej operacji nie można cofnąć.",
+  "supportDeleteSuccess": "Twoje dane zostały usunięte.",
+  "supportDeleteFailed": "Nie udało się usunąć twoich danych. Spróbuj ponownie."
 }
