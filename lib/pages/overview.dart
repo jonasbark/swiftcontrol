@@ -65,6 +65,29 @@ class _ActivityEntry {
 
 // ── OverviewPage ─────────────────────────────────────────────────────
 
+/// Decides whether an incoming alert should raise a toast.
+///
+/// The base (historical) rule shows a toast unless the overview is frontmost
+/// AND the relevant surface is already on screen (wide layout, or the mobile
+/// cards page). On top of that, a connection-type alert is suppressed whenever
+/// the connection card is visible — the card already reflects connect/
+/// disconnect state, and a toast there just covers its buttons. Non-connection
+/// alerts keep the base behaviour. The activity-log entry is inserted
+/// regardless of this decision.
+@visibleForTesting
+bool shouldShowConnectionAlertToast({
+  required bool screenshotMode,
+  required bool overviewFrontmost,
+  required double screenWidth,
+  required double? pageViewPage,
+  required bool isConnectionAlert,
+}) {
+  final page = (pageViewPage ?? 0).round();
+  final baseShow = !screenshotMode && (!overviewFrontmost || (screenWidth < 800 && page != 1));
+  final connectionCardVisible = overviewFrontmost && (screenWidth >= 800 || page == 0);
+  return baseShow && !(isConnectionAlert && connectionCardVisible);
+}
+
 class OverviewPage extends StatefulWidget {
   final bool isMobile;
   const OverviewPage({super.key, required this.isMobile});
@@ -263,7 +286,13 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
   void _onAlert(AlertNotification notification) {
     final isInForeground = navigatorKey.currentState?.canPop() == false;
 
-    if (!screenshotMode && (!isInForeground || (_screenWidth < 800 && _horizontalScrollController.page != 1))) {
+    if (shouldShowConnectionAlertToast(
+      screenshotMode: screenshotMode,
+      overviewFrontmost: isInForeground,
+      screenWidth: _screenWidth,
+      pageViewPage: _horizontalScrollController.hasClients ? _horizontalScrollController.page : null,
+      isConnectionAlert: notification.connectionType != null,
+    )) {
       buildToast(
         level: notification.level,
         title: notification.alertMessage,
@@ -701,8 +730,6 @@ class _OverviewPageState extends State<OverviewPage> with TickerProviderStateMix
       ),
     };
   }
-
-
 }
 
 class _Tabs extends StatefulWidget {

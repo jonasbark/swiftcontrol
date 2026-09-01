@@ -1447,6 +1447,8 @@
   "stay": "Stay",
   "leave": "Leave",
   "showExperimental": "Show experimental",
+  "language": "Language",
+  "languageSystemDefault": "System default",
   "notSupportedOnWeb": "Not Supported on Web :)",
   "recommended": "Recommended",
   "workoutPaused": "Workout paused",

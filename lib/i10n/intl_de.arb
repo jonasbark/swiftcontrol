@@ -888,6 +888,8 @@
   "stay": "Bleiben",
   "leave": "Verlassen",
   "showExperimental": "Experimentelle anzeigen",
+  "language": "Sprache",
+  "languageSystemDefault": "Systemstandard",
   "notSupportedOnWeb": "Im Web nicht unterstützt :)",
   "recommended": "Empfohlen",
   "workoutPaused": "Workout pausiert",
