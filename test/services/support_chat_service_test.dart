@@ -16,9 +16,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:yet_another_json_isolate/yet_another_json_isolate.dart';
 
 class _FakeIssuesHttp extends http.BaseClient {
   final List<http.Request> issuesRequests = [];
+  final List<http.Request> deleteRequests = [];
+  int deleteStatus = 200;
+  Map<String, dynamic> deleteBody = const {'ok': true};
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -26,6 +30,10 @@ class _FakeIssuesHttp extends http.BaseClient {
     if (request.url.path.endsWith('/rest/v1/issues')) {
       issuesRequests.add(req);
       return _json(request, <dynamic>[]);
+    }
+    if (request.url.path.endsWith('/functions/v1/delete-support-data')) {
+      deleteRequests.add(req);
+      return _json(request, deleteBody, status: deleteStatus);
     }
     return _json(request, <String, dynamic>{}, status: 404);
   }
@@ -42,6 +50,39 @@ class _FakeIssuesHttp extends http.BaseClient {
     );
   }
 }
+
+/// Decode/encode in-process — see the note in support_chat_page_test.dart.
+/// functions.invoke() would otherwise wait on the real isolate the test loop
+/// never drives.
+class _SynchronousJsonIsolate extends YAJsonIsolate {
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<String> encode(Object? json) async => jsonEncode(json);
+
+  @override
+  Future<dynamic> decode(String json) async => jsonDecode(json);
+
+  @override
+  Future<void> dispose() async {}
+}
+
+Map<String, dynamic> _sessionJson() => {
+  'access_token': 'test-access-token',
+  'token_type': 'bearer',
+  'expires_in': 3600,
+  'refresh_token': 'test-refresh-token',
+  'user': {
+    'id': 'user-id',
+    'aud': 'authenticated',
+    'created_at': '2026-08-24T00:00:00Z',
+    'app_metadata': <String, dynamic>{},
+    'user_metadata': <String, dynamic>{},
+    'is_anonymous': false,
+    'email': 'rider@example.com',
+  },
+};
 
 void main() {
   late _FakeIssuesHttp fakeHttp;
@@ -61,6 +102,7 @@ void main() {
       'test-anon-key',
       httpClient: fakeHttp,
       authOptions: const AuthClientOptions(autoRefreshToken: false),
+      isolate: _SynchronousJsonIsolate(),
     );
     service = SupportChatService(supabase: client, httpClient: fakeHttp);
   });
@@ -79,6 +121,59 @@ void main() {
         'eq.open',
         reason: 'fetchOpenIssues must exclude solved issues despite its own name — see Bug 1',
       );
+    });
+  });
+
+  group('deleteSupportData', () {
+    setUp(() async {
+      await client.auth.recoverSession(jsonEncode(_sessionJson()));
+      // openChat marks the chat active; a deletion must clear it so HelpButton
+      // stops polling for replies to a thread that no longer exists.
+      await core.settings.setSupportChatActive(true);
+    });
+
+    test('conversation scope calls delete-support-data with scope=conversation and the bearer token', () async {
+      await service.deleteSupportData(SupportDeleteScope.conversation);
+
+      expect(fakeHttp.deleteRequests, hasLength(1));
+      final req = fakeHttp.deleteRequests.single;
+      expect(jsonDecode(req.body)['scope'], 'conversation');
+      expect(req.headers['Authorization'], 'Bearer test-access-token');
+    });
+
+    test('account scope calls delete-support-data with scope=account', () async {
+      await service.deleteSupportData(SupportDeleteScope.account);
+
+      expect(fakeHttp.deleteRequests, hasLength(1));
+      expect(jsonDecode(fakeHttp.deleteRequests.single.body)['scope'], 'account');
+    });
+
+    test('clears the "support chat active" flag after a successful delete', () async {
+      expect(core.settings.getSupportChatActive(), isTrue);
+
+      await service.deleteSupportData(SupportDeleteScope.conversation);
+
+      expect(core.settings.getSupportChatActive(), isFalse);
+    });
+
+    test('a non-2xx response surfaces a SupportChatException', () async {
+      fakeHttp.deleteStatus = 500;
+      fakeHttp.deleteBody = const {'error': 'boom'};
+
+      await expectLater(
+        service.deleteSupportData(SupportDeleteScope.conversation),
+        throwsA(isA<SupportChatException>()),
+      );
+    });
+
+    test('throws without a session instead of calling the backend', () async {
+      await client.auth.signOut();
+
+      await expectLater(
+        service.deleteSupportData(SupportDeleteScope.conversation),
+        throwsA(isA<SupportChatException>()),
+      );
+      expect(fakeHttp.deleteRequests, isEmpty);
     });
   });
 }

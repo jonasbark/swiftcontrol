@@ -366,6 +366,15 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
                 onPressed: _openAccountLink,
                 child: Text(context.i18n.signIn),
               ),
+            // Self-serve data deletion — only meaningful once a chat (and thus
+            // data) exists. "Delete account" is gated to signed-in riders; an
+            // anonymous rider's data is fully covered by "Delete conversation".
+            if (_chat != null)
+              IconButton.ghost(
+                key: const ValueKey('support-overflow-menu'),
+                icon: const Icon(LucideIcons.ellipsisVertical, size: 20),
+                onPressed: () => _showDeleteMenu(context, signedIn),
+              ),
           ],
           backgroundColor: Theme.of(context).colorScheme.background,
         ),
@@ -386,6 +395,78 @@ class _SupportChatPageState extends State<SupportChatPage> with WidgetsBindingOb
   void _openAccountLink() {
     if (_showAccountLink) return;
     setState(() => _showAccountLink = true);
+  }
+
+  void _showDeleteMenu(BuildContext anchorContext, bool signedIn) {
+    final i18n = anchorContext.i18n;
+    showDropdown(
+      context: anchorContext,
+      builder: (c) => DropdownMenu(
+        children: [
+          MenuButton(
+            leading: const Icon(LucideIcons.trash2),
+            onPressed: (_) => _confirmAndDelete(SupportDeleteScope.conversation),
+            child: Text(i18n.supportDeleteConversation),
+          ),
+          if (signedIn)
+            MenuButton(
+              leading: const Icon(LucideIcons.userX),
+              onPressed: (_) => _confirmAndDelete(SupportDeleteScope.account),
+              child: Text(i18n.supportDeleteAccount),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAndDelete(SupportDeleteScope scope) async {
+    final i18n = context.i18n;
+    final isAccount = scope == SupportDeleteScope.account;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: Text(isAccount ? i18n.supportDeleteAccountTitle : i18n.supportDeleteConversationTitle),
+        content: Text(isAccount ? i18n.supportDeleteAccountBody : i18n.supportDeleteConversationBody),
+        actions: [
+          Button.ghost(
+            onPressed: () => Navigator.of(dctx).pop(false),
+            child: Text(i18n.cancel),
+          ),
+          Button.destructive(
+            onPressed: () => Navigator.of(dctx).pop(true),
+            child: Text(i18n.delete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _service.deleteSupportData(scope);
+      if (!mounted) return;
+      if (isAccount) {
+        // The auth user no longer exists server-side, so clear the local
+        // session only — a global sign-out would just round-trip to a user
+        // that is already gone.
+        await _client.auth.signOut(scope: SignOutScope.local);
+        if (!mounted) return;
+      }
+      setState(() {
+        _messages = [];
+        _pendingMessages.clear();
+        _chat = null;
+        _intakeSent = false;
+        _intakeAnswers = null;
+        _editingIntake = false;
+        _showAccountLink = false;
+        _retainedUploads.clear();
+      });
+      buildToast(level: LogLevel.LOGLEVEL_INFO, title: i18n.supportDeleteSuccess);
+    } catch (e, s) {
+      recordError(e, s, context: 'support.chat.delete');
+      if (!mounted) return;
+      buildToast(level: LogLevel.LOGLEVEL_ERROR, title: i18n.supportDeleteFailed);
+    }
   }
 
   Widget _body() {
