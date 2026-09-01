@@ -166,7 +166,14 @@ Smart Trainers:
 Status: ${guard(() => IAPManager.instance.getStatusMessage())}${userId != null ? ' (User ID: $userId)' : ''}
 $diagnostics
 ${networkTest.isEmpty ? '' : '$networkTest\n'}Logs:
-${guard(() => core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}'))}
+${guard(() => core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}'))}${guard(() {
+    // Verbose DirCon/trainer wire trace (beta only), in its own section so it
+    // never crowds out the high-level Logs above. Empty for everyone else.
+    final trace = core.connection.lastTraceEntries;
+    return trace.isEmpty
+        ? ''
+        : '\n\nWire trace:\n${trace.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}')}';
+  })}
 ''';
 }
 
