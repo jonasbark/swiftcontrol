@@ -19,6 +19,11 @@ class SelfTestState {
   /// clock is stopped while this holds.
   final bool pausedForCadence;
 
+  /// True once the run has established that this trainer reports no cadence.
+  /// Surfaced in the card while the test runs and again under the verdict —
+  /// the rider should not have to guess why nothing on screen mentions rpm.
+  final bool cadenceless;
+
   /// Non-null during [SelfTestPhase.ergStaircase] — the watt target currently
   /// commanded on the trainer.
   final int? currentErgTarget;
@@ -33,6 +38,7 @@ class SelfTestState {
   const SelfTestState({
     this.phase = SelfTestPhase.idle,
     this.pausedForCadence = false,
+    this.cadenceless = false,
     this.currentErgTarget,
     this.ergStepResults = const [],
     this.shiftStepResults = const [],
@@ -72,6 +78,14 @@ class SelfTestEngine {
 
   /// Cadence must hold [baselineCadenceMin] this long before measuring.
   static const Duration baselineHold = Duration(seconds: 3);
+
+  /// How long to look for any cadence reading before concluding the trainer
+  /// does not report cadence at all.
+  static const Duration cadenceProbe = Duration(seconds: 3);
+
+  /// Power at or below which a rider on a cadence-less trainer counts as
+  /// coasting, W — the stand-in for [pauseCadenceBelow] there.
+  static const int coastingPowerW = 10;
 
   /// Power window whose median becomes `p0`.
   static const Duration baselineWindow = Duration(seconds: 3);
@@ -133,9 +147,22 @@ class SelfTestEngine {
   final List<bool> _shiftResults = [];
   SelfTestResult? _result;
 
+  /// Every diagnostic line the run has emitted, in order. Handed to
+  /// [SelfTestResult.stepLog] in [_buildResult] so a completed test's full trace
+  /// rides along in the support bundle instead of living only in the volatile
+  /// app log. [_record] is the single door that keeps this and the harness log
+  /// in step.
+  final List<String> _stepLog = [];
+
   /// Latest samples, refreshed by [_tick].
   int? _power;
   int? _cadence;
+
+  /// True once any cadence reading has arrived, and its settled inverse:
+  /// [_cadenceless] means this trainer's telemetry carries no cadence field at
+  /// all, so every cadence gate below has to score on power instead.
+  bool _cadenceSeen = false;
+  bool _cadenceless = false;
 
   /// Pause bookkeeping.
   bool _pauseArmed = false;
@@ -171,11 +198,11 @@ class SelfTestEngine {
     final startGear = harness.currentGear;
     SelfTestVerdict? verdict;
     try {
-      harness.log('start: vs=${harness.vsModeName} protocol=${harness.protocolName} gear=$startGear erg=$wasErg');
+      _record('start: vs=${harness.vsModeName} protocol=${harness.protocolName} gear=$startGear erg=$wasErg');
       _phase = SelfTestPhase.baseline;
       _emit();
       if (!await _precheck()) {
-        harness.log('precheck: no power for ${noDataTimeout.inSeconds}s -> NO_DATA');
+        _record('precheck: no power for ${noDataTimeout.inSeconds}s -> NO_DATA');
         verdict = SelfTestVerdict.noData;
       } else {
         final p0 = await _baseline();
@@ -183,11 +210,11 @@ class SelfTestEngine {
         await _shiftSweep(startGear: startGear);
       }
     } on _AbortedException catch (e) {
-      harness.log('aborted: ${e.reason}');
+      _record('aborted: ${e.reason}');
       verdict = SelfTestVerdict.aborted;
     } catch (e, s) {
       recordError(e, s, context: 'self-test run');
-      harness.log('aborted: engine error ($e)');
+      _record('aborted: engine error ($e)');
       verdict = SelfTestVerdict.aborted;
     }
     return _finish(verdict: verdict, wasErg: wasErg, prevErgTarget: prevErgTarget, startGear: startGear);
@@ -199,7 +226,7 @@ class SelfTestEngine {
     for (var i = 0; i < _ticksIn(noDataTimeout); i++) {
       await _tick();
       if (_power != null) {
-        harness.log('precheck: power data present (${_power}W)');
+        _record('precheck: power data present (${_power}W)');
         return true;
       }
     }
@@ -208,16 +235,26 @@ class SelfTestEngine {
 
   /// 3. Baseline — hold cadence, then take the median power as `p0`.
   Future<int> _baseline() async {
+    // Settle the cadence question first, while the pause watchdog is still
+    // disarmed: some firmwares ship cadence disabled entirely, and waiting for
+    // a reading that can never arrive used to hang the baseline until the
+    // watchdog aborted the run — on exactly the trainers whose riders most
+    // need a verdict.
+    await _probeCadence();
     // The pause watchdog only arms here: a slow first sample during the
     // precheck must not count as coasting.
     _pauseArmed = true;
-    harness.log('baseline: waiting for cadence >= $baselineCadenceMin rpm');
-    var held = 0;
-    while (held < _ticksIn(baselineHold)) {
-      if (!await _tick()) {
-        continue;
+    if (_cadenceless) {
+      _record('baseline: no cadence from this trainer, scoring on power alone');
+    } else {
+      _record('baseline: waiting for cadence >= $baselineCadenceMin rpm');
+      var held = 0;
+      while (held < _ticksIn(baselineHold)) {
+        if (!await _tick()) {
+          continue;
+        }
+        held = (_cadence ?? 0) >= baselineCadenceMin ? held + 1 : 0;
       }
-      held = (_cadence ?? 0) >= baselineCadenceMin ? held + 1 : 0;
     }
     var sampled = 0;
     final samples = <int>[];
@@ -232,8 +269,23 @@ class SelfTestEngine {
       }
     }
     final p0 = _median(samples);
-    harness.log('baseline: p0=${p0}W from ${samples.length} samples');
+    _record('baseline: p0=${p0}W from ${samples.length} samples');
     return p0;
+  }
+
+  /// Decides once whether this trainer reports cadence at all.
+  ///
+  /// [SelfTestHarness.cadenceRpm] only ever carries a value when a frame
+  /// actually contained the field, so a probe window with nothing in it means
+  /// the field is absent from the stream — not that the rider is stationary.
+  Future<void> _probeCadence() async {
+    for (var i = 0; i < _ticksIn(cadenceProbe) && !_cadenceSeen; i++) {
+      await _tick();
+    }
+    _cadenceless = !_cadenceSeen;
+    if (_cadenceless) {
+      _emit();
+    }
   }
 
   /// 4. ERG staircase — command targets and watch whether power follows.
@@ -243,24 +295,24 @@ class SelfTestEngine {
         // Skipped, not failed: ergStepsTotal stays 0 and the verdict ignores
         // it. Inside the try on purpose — the finally below still has to take
         // the trainer out of ERG before the sweep measures anything.
-        harness.log('erg: skipped, trainer has no power-target support');
+        _record('erg: skipped, trainer has no power-target support');
         return;
       }
       // Only now, so a skipped phase doesn't flash "Testing power targets".
       _phase = SelfTestPhase.ergStaircase;
       _emit();
-      harness.log('phase: erg staircase');
+      _record('phase: erg staircase');
       final targets = [p0 + ergStepUpW, math.max(ergStepMinW, p0 - ergStepDownW), p0 + ergStepUpW];
       for (final target in targets) {
         _currentErgTarget = target;
         _emit();
-        harness.log('erg: commanding ${target}W');
+        _record('erg: commanding ${target}W');
         _ergDirty = true;
         harness.setErgTarget(target);
         final passed = await _ergStep(target);
         _ergTotal++;
         _ergResults.add(passed);
-        harness.log('erg: ${target}W ${passed ? 'reached' : 'no response'}');
+        _record('erg: ${target}W ${passed ? 'reached' : 'no response'}');
         _emit();
       }
     } finally {
@@ -305,7 +357,7 @@ class SelfTestEngine {
   Future<void> _shiftSweep({required int startGear}) async {
     _phase = SelfTestPhase.shiftSweep;
     _emit();
-    harness.log('phase: shift sweep');
+    _record('phase: shift sweep');
     try {
       // Headroom: leave room for the upshifts before measuring anything.
       // Bounded twice over — a rider can configure maxGear down to 1 (the
@@ -321,18 +373,19 @@ class SelfTestEngine {
         harness.shiftDown();
         headroomShifts++;
         if (harness.currentGear == before) {
-          harness.log('shift: headroom stalled at gear $before');
+          _record('shift: headroom stalled at gear $before');
           break;
         }
-        harness.log('shift: headroom -> gear ${harness.currentGear}');
+        _record('shift: headroom -> gear ${harness.currentGear}');
         if (headroomShifts >= maxHeadroomShifts) {
-          harness.log('shift: headroom gave up at gear ${harness.currentGear}');
+          _record('shift: headroom gave up at gear ${harness.currentGear}');
           break;
         }
       }
       var previous = await _plateau();
-      harness.log(
-        'shift: gear ${harness.currentGear} plateau ${_w(previous.power)} @ ${previous.cadence.round()}rpm',
+      _record(
+        'shift: gear ${harness.currentGear} plateau ${_w(previous.power)}'
+        '${_cadenceless ? '' : ' @ ${previous.cadence.round()}rpm'}',
       );
       for (var i = 0; i < shiftTransitions; i++) {
         _gearDirty = true;
@@ -341,13 +394,13 @@ class SelfTestEngine {
         var passed = _transitionPassed(current, previous);
         if (!passed) {
           // One retry per plateau — re-measure, do not shift again.
-          harness.log('shift: gear ${harness.currentGear} inconclusive, re-measuring');
+          _record('shift: gear ${harness.currentGear} inconclusive, re-measuring');
           current = await _plateau();
           passed = _transitionPassed(current, previous);
         }
         _shiftTotal++;
         _shiftResults.add(passed);
-        harness.log(
+        _record(
           'shift: gear ${harness.currentGear} ${_w(current.power)} vs ${_w(previous.power)} '
           '${passed ? 'harder' : 'no change'}',
         );
@@ -388,9 +441,17 @@ class SelfTestEngine {
 
   /// A transition counts only if power rose while the rider held cadence —
   /// otherwise a spin-up would read as resistance.
+  ///
+  /// A cadence-less trainer gives nothing to hold the rise against, so it is
+  /// taken at face value: the rider was asked to pedal steadily, and the
+  /// alternative is scoring every shift on such a trainer as a failure. The
+  /// baseline log line records which of the two scorings ran.
   bool _transitionPassed(_Plateau current, _Plateau previous) {
     if (current.power <= previous.power) {
       return false;
+    }
+    if (_cadenceless) {
+      return true;
     }
     if (previous.cadence <= 0) {
       return false;
@@ -418,16 +479,26 @@ class SelfTestEngine {
     }
     _power = harness.powerW.value;
     _cadence = harness.cadenceRpm.value;
+    if (_cadence != null) {
+      _cadenceSeen = true;
+    }
     if (!_pauseArmed) {
       return true;
     }
     final rpm = _cadence ?? 0;
+    final watts = _power ?? 0;
+    // Catching the rider stopping is what the watchdog is for, so on a
+    // cadence-less trainer it reads power instead — that falls away just as
+    // cadence would, and without it every remaining step would be scored as
+    // "no response" for a rider who simply took a breather.
+    final pedaling = _cadenceless ? watts > coastingPowerW : rpm >= baselineCadenceMin;
+    final coasting = _cadenceless ? watts <= coastingPowerW : rpm < pauseCadenceBelow;
     if (_paused) {
-      if (rpm >= baselineCadenceMin) {
+      if (pedaling) {
         _paused = false;
         _pausedTicks = 0;
         _lowCadenceTicks = 0;
-        harness.log('resumed: cadence back to ${rpm}rpm');
+        _record(_cadenceless ? 'resumed: power back to ${watts}W' : 'resumed: cadence back to ${rpm}rpm');
         _emit();
         return true;
       }
@@ -437,12 +508,16 @@ class SelfTestEngine {
       }
       return false;
     }
-    if (rpm < pauseCadenceBelow) {
+    if (coasting) {
       _lowCadenceTicks++;
       if (_lowCadenceTicks >= _ticksIn(pauseAfter)) {
         _paused = true;
         _pausedTicks = 0;
-        harness.log('paused: cadence < $pauseCadenceBelow rpm for ${pauseAfter.inSeconds}s');
+        _record(
+          _cadenceless
+              ? 'paused: power <= ${coastingPowerW}W for ${pauseAfter.inSeconds}s'
+              : 'paused: cadence < $pauseCadenceBelow rpm for ${pauseAfter.inSeconds}s',
+        );
         _emit();
         return false;
       }
@@ -485,7 +560,7 @@ class SelfTestEngine {
       _paused = false;
       _currentErgTarget = null;
       _emit();
-      harness.log('verdict: ${result.toBundleString()}');
+      _record('verdict: ${result.toBundleString()}');
     } catch (e, s) {
       recordError(e, s, context: 'self-test finish');
     }
@@ -511,6 +586,10 @@ class SelfTestEngine {
       shiftStepsTotal: _shiftTotal,
       vsMode: vsMode,
       protocol: protocol,
+      cadenceless: _cadenceless,
+      // A copy: the run's own verdict line is recorded after this point, and
+      // must not appear in the result the bundle reads.
+      stepLog: List.of(_stepLog),
     );
   }
 
@@ -526,7 +605,7 @@ class SelfTestEngine {
     }
     _ergDirty = true;
     harness.exitErg();
-    harness.log('erg: exited for the shift sweep');
+    _record('erg: exited for the shift sweep');
   }
 
   /// Restores the ERG state captured at the start of [run] — a rider who was
@@ -544,10 +623,10 @@ class SelfTestEngine {
     }
     if (wasErg && prevErgTarget != null) {
       harness.setErgTarget(prevErgTarget);
-      harness.log('restore: erg target ${prevErgTarget}W');
+      _record('restore: erg target ${prevErgTarget}W');
     } else if (harness.isErgMode) {
       harness.exitErg();
-      harness.log('restore: erg exited');
+      _record('restore: erg exited');
     }
     // Cleared only once the write went through, so a refused restore stays
     // visible to anything that looks after us.
@@ -579,10 +658,10 @@ class SelfTestEngine {
     }
     _gearDirty = false;
     if (harness.currentGear != startGear) {
-      harness.log('restore: gear stuck at ${harness.currentGear}, wanted $startGear');
+      _record('restore: gear stuck at ${harness.currentGear}, wanted $startGear');
       return;
     }
-    harness.log('restore: gear ${harness.currentGear}');
+    _record('restore: gear ${harness.currentGear}');
   }
 
   // ---------------------------------------------------------------- verdict
@@ -608,10 +687,19 @@ class SelfTestEngine {
   }
 
   // ----------------------------------------------------------------- helpers
+  /// Mirrors one diagnostic line into both the persisted step log and the
+  /// harness (Activity / the app log). Every phase and step line goes through
+  /// here so the two never drift apart.
+  void _record(String message) {
+    _stepLog.add(message);
+    harness.log(message);
+  }
+
   void _emit() {
     _state.value = SelfTestState(
       phase: _phase,
       pausedForCadence: _paused,
+      cadenceless: _cadenceless,
       currentErgTarget: _currentErgTarget,
       ergStepResults: List.unmodifiable(_ergResults),
       shiftStepResults: List.unmodifiable(_shiftResults),

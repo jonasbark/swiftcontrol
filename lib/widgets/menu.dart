@@ -166,7 +166,14 @@ Smart Trainers:
 Status: ${guard(() => IAPManager.instance.getStatusMessage())}${userId != null ? ' (User ID: $userId)' : ''}
 $diagnostics
 ${networkTest.isEmpty ? '' : '$networkTest\n'}Logs:
-${guard(() => core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}'))}
+${guard(() => core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}'))}${guard(() {
+    // Verbose DirCon/trainer wire trace (beta only), in its own section so it
+    // never crowds out the high-level Logs above. Empty for everyone else.
+    final trace = core.connection.lastTraceEntries;
+    return trace.isEmpty
+        ? ''
+        : '\n\nWire trace:\n${trace.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}')}';
+  })}
 ''';
 }
 
@@ -194,6 +201,10 @@ String describeProxyDevice(ProxyDevice device) {
   // `debugAttachFitnessBike` test hook (and the self-test harness) reach this.
   final def = device.fitnessBike;
   final defKind = def == null ? 'none' : def.runtimeType.toString();
+  // Hoisted out of the `def != null` block below so its step log can be printed
+  // as its own block after the services block, alongside the inline
+  // `selfTest=` summary field still added inside it.
+  SelfTestResult? selfTest;
 
   final parts = <String>[
     device.scanResult.name ?? device.scanResult.deviceId,
@@ -222,8 +233,26 @@ String describeProxyDevice(ProxyDevice device) {
     if (def.supportedControlProtocols.length > 1) {
       parts.add('protoAvail=${def.supportedControlProtocols.map((p) => p.name).join('+')}');
     }
-    parts.add('vsMode=${def.virtualShiftingMode.value.name}');
+    // `saved→effective` when the trainer reports no cadence: the cadence-driven
+    // modes skip every write there, so BikeControl drives trackResistance
+    // instead. Printing only the saved mode hides what the trainer was actually
+    // given — the one thing a "gears change, nothing happens" bundle is read
+    // for.
+    final savedVsMode = def.virtualShiftingMode.value;
+    final drivenVsMode = def.effectiveVirtualShiftingMode;
+    parts.add(
+      'vsMode=${savedVsMode.name}${drivenVsMode == savedVsMode ? '' : '→${drivenVsMode.name}'}',
+    );
     parts.add('ftms=${def.ftmsCapabilitySummary}');
+    // Live telemetry BikeControl is reading from the trainer: cad shows raw /
+    // filtered rpm. The whole VS resistance calc is cadence-driven, so a "no
+    // resistance" bundle with cad:0 (while pedalling) means we aren't getting
+    // cadence — non-zero means the trainer is understood and the cause is
+    // downstream. spd in km/h.
+    parts.add(
+      'read=cad:${def.cadenceRpm.value ?? '-'}/${def.filteredCadence} '
+      'pwr:${def.powerW.value ?? '-'} spd:${def.speedKph.value?.toStringAsFixed(1) ?? '-'}',
+    );
     // Only for trainers that actually speak Zwift Sync; 'n/a' everywhere else
     // would be noise. `timeout` here is what separates "the trainer ignores
     // our commands" from "the trainer never opened its command interface" —
@@ -240,16 +269,23 @@ String describeProxyDevice(ProxyDevice device) {
       final age = DateTime.now().difference(ctl.at).inSeconds;
       parts.add('lastCtl=${ctl.ok ? 'ok' : 'fail'}·${age}s');
     }
-    final selfTest = SelfTestResult.tryParse(core.settings.getSelfTestResultJson(device.trainerKey));
+    selfTest = SelfTestResult.tryParse(core.settings.getSelfTestResultJson(device.trainerKey));
     if (selfTest != null) parts.add('selfTest=${selfTest.toBundleString()}');
   }
 
-  final summary = parts.join(' · ');
+  final blocks = <String>[parts.join(' · ')];
   final services = buildProxyServicesFreetext(device);
-  if (services == null) return summary;
   // Indent the services block so it visibly belongs to its proxy entry.
-  final indented = services.split('\n').map((l) => '    $l').join('\n');
-  return '$summary\n$indented';
+  if (services != null) blocks.add(services.split('\n').map((l) => '    $l').join('\n'));
+  // The one-line verdict is already the `selfTest=` field above; this is the
+  // full step-by-step trace, indented under the proxy entry like the services
+  // block so a bundle keeps the per-gear plateau numbers the volatile app log
+  // has long since dropped by the time a rider sends it.
+  if (selfTest != null && selfTest.stepLog.isNotEmpty) {
+    final log = selfTest.stepLog.map((l) => '      $l').join('\n');
+    blocks.add('    Self-test log:\n$log');
+  }
+  return blocks.join('\n');
 }
 
 /// Compact `Connected Controllers:` rendering for the support bundle — plain

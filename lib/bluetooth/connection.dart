@@ -14,6 +14,7 @@ import 'package:bike_control/bluetooth/inactivity_disconnector.dart';
 import 'package:bike_control/bluetooth/incline/incline_controller.dart';
 import 'package:bike_control/bluetooth/incline/incline_sink.dart';
 import 'package:bike_control/bluetooth/incline/manual_incline_device.dart';
+import 'package:bike_control/bluetooth/support_log_buffer.dart';
 import 'package:bike_control/bluetooth/wifi_trainer_scanner.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
@@ -59,12 +60,19 @@ class Connection {
   final Map<BaseDevice, StreamSubscription<BaseNotification>> _streamSubscriptions = {};
   final StreamController<BaseNotification> _actionStreams = StreamController<BaseNotification>.broadcast();
   Stream<BaseNotification> get actionStream => _actionStreams.stream;
-  List<({DateTime date, String entry})> lastLogEntries = [];
+  /// High-level app events (shifts, ERG targets, mode changes, handled errors)
+  /// — the "Logs:" section of the support bundle. Kept in its own buffer so the
+  /// verbose wire trace can never evict it (see [lastTraceEntries]).
+  final SupportLogBuffer _appLog = SupportLogBuffer(500);
+  List<({DateTime date, String entry})> get lastLogEntries => _appLog.entries;
 
-  /// How many recent log lines to keep for the Logs page / support bundle.
-  /// Beta testers keep far more so the verbose DirCon/trainer wire trace they
-  /// opt into (see [Logger.onTrace] wiring in [initialize]) doesn't evict the
-  /// high-level events around it.
+  /// Verbose DirCon/trainer wire trace (`IN>`/`OUT<`/`trainer>`/`trainer<`),
+  /// beta only. Separate from [lastLogEntries] so a few dozen frames per second
+  /// can't flush the high-level events a support bundle needs — a beta bundle
+  /// used to arrive as pure wire trace with every shift/ERG/control line gone.
+  final SupportLogBuffer _traceLog = SupportLogBuffer(2000);
+  List<({DateTime date, String entry})> get lastTraceEntries => _traceLog.entries;
+
   /// Beta status, guarded: the log path runs from the very first notification,
   /// which can be before IAP / Supabase have initialised — and reading
   /// [IAPManager.isBetaTester] then throws. Treat "not ready yet" as not-beta.
@@ -76,12 +84,7 @@ class Connection {
     }
   }
 
-  int get _logHistoryCap => (kIsWeb || _isBetaTester) ? 2000 : 200;
-
-  void _appendLogEntry(String entry) {
-    lastLogEntries.add((date: DateTime.now(), entry: entry));
-    lastLogEntries = lastLogEntries.takeLast(_logHistoryCap).toList();
-  }
+  void _appendLogEntry(String entry) => _appLog.add(entry);
 
   bool _logCaptureStarted = false;
 
@@ -96,14 +99,16 @@ class Connection {
 
     actionStream.listen((log) => _appendLogEntry(log.toString()));
 
-    // Beta testers also get the verbose DirCon/trainer wire trace in the log —
-    // a release build (e.g. a tester's) has no console to read `IN>`/`OUT<`
-    // from, so this is the only way that traffic reaches a support bundle. The
-    // gate is re-checked per line so it starts working the moment the
-    // beta_access entitlement loads, and stays a cheap no-op for everyone else.
+    // Beta testers also get the verbose DirCon/trainer wire trace — but in its
+    // OWN buffer ([_traceLog]), so a high-rate trace never evicts the
+    // high-level events in [lastLogEntries]. A release build (e.g. a tester's)
+    // has no console to read `IN>`/`OUT<`/`trainer<` from, so this is the only
+    // way that traffic reaches a support bundle. The gate is re-checked per
+    // line so it starts working the moment the beta_access entitlement loads,
+    // and stays a cheap no-op for everyone else.
     Logger.onTrace = (message) {
       if (!_isBetaTester) return;
-      _appendLogEntry(message);
+      _traceLog.add(message);
     };
   }
 
@@ -1060,10 +1065,11 @@ class Connection {
         }
         if (!isSilentReset && !isSilentBackoff) {
           core.flutterLocalNotificationsPlugin.show(
-            1338,
-            '${device.toString()} ${state ? AppLocalizations.current.connected.decapitalize() : AppLocalizations.current.disconnected.decapitalize()}',
-            !state ? AppLocalizations.current.tryingToConnectAgain : null,
-            NotificationDetails(
+            id: 1338,
+            title:
+                '${device.toString()} ${state ? AppLocalizations.current.connected.decapitalize() : AppLocalizations.current.disconnected.decapitalize()}',
+            body: !state ? AppLocalizations.current.tryingToConnectAgain : null,
+            notificationDetails: NotificationDetails(
               android: AndroidNotificationDetails('Connection', 'Connection Status'),
               iOS: DarwinNotificationDetails(presentAlert: true, presentSound: false),
             ),
@@ -1319,10 +1325,10 @@ class Connection {
 
     if (!kIsWeb) {
       core.flutterLocalNotificationsPlugin.show(
-        1339,
-        AppLocalizations.current.batterySaverTitle,
-        AppLocalizations.current.controllersDisconnectedInactivity(timeout.inMinutes),
-        NotificationDetails(
+        id: 1339,
+        title: AppLocalizations.current.batterySaverTitle,
+        body: AppLocalizations.current.controllersDisconnectedInactivity(timeout.inMinutes),
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails('BatterySaver', 'Battery Saver'),
           iOS: DarwinNotificationDetails(presentAlert: true, presentSound: false),
         ),

@@ -129,7 +129,10 @@ class WifiTrainerScanner {
   }
 
   static String _normalizeUuid(String uuid) {
-    final clean = uuid.toLowerCase();
+    var clean = uuid.toLowerCase();
+    // Both short forms are on the wire: bare ('1826') from real trainers and
+    // Tacx-facing bridges, '0x1826' from Rouvy/Zwift-facing ones.
+    if (clean.startsWith('0x')) clean = clean.substring(2);
     if (clean.length == 4) return '0000$clean-0000-1000-8000-00805f9b34fb';
     return clean;
   }

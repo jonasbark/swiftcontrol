@@ -53,6 +53,7 @@ class _FakeSupportChatHttp extends http.BaseClient {
   final List<http.Request> openChatRequests = [];
   final List<http.Request> getChatRequests = [];
   final List<http.Request> sendMessageRequests = [];
+  final List<http.Request> deleteRequests = [];
 
   Object? signInAnonymouslyError;
 
@@ -85,8 +86,17 @@ class _FakeSupportChatHttp extends http.BaseClient {
         },
       });
     }
+    if (path.endsWith('/functions/v1/delete-support-data')) {
+      deleteRequests.add(req);
+      return _json({'ok': true});
+    }
     if (path.endsWith('/rest/v1/issues')) {
       return _json(<dynamic>[]);
+    }
+    // Local sign-out clears the session without a network call, but keep this
+    // as a safety net so an accidental global sign-out never 404s the test.
+    if (path.endsWith('/auth/v1/logout')) {
+      return _json(<String, dynamic>{}, status: 204);
     }
     if (path.endsWith('/auth/v1/signup')) {
       signupRequests.add(req);
@@ -344,6 +354,73 @@ Future<void> main() async {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('support-account-link-card')), findsOneWidget);
+    });
+  });
+
+  // GDPR self-serve erasure: the rider can delete their support data (and,
+  // signed in, their whole account) from the chat itself. Ties to the "I never
+  // agreed to this / I want it gone" support ticket.
+  group('data deletion', () {
+    testWidgets('no overflow menu until a chat exists', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('support-overflow-menu')), findsNothing);
+    });
+
+    testWidgets('delete conversation: menu -> confirm -> calls delete with scope=conversation', (tester) async {
+      await client.auth.recoverSession(jsonEncode(_sessionJson(anonymous: false, email: 'rider@example.com')));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('support-overflow-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.supportDeleteConversation));
+      await tester.pumpAndSettle();
+
+      // A destructive confirm must stand between the tap and the deletion.
+      expect(find.text(l10n.supportDeleteConversationTitle), findsOneWidget);
+      await tester.tap(find.text(l10n.delete));
+      await tester.pumpAndSettle();
+
+      expect(fakeHttp.deleteRequests, hasLength(1));
+      expect(jsonDecode(fakeHttp.deleteRequests.single.body)['scope'], 'conversation');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cancelling the confirm deletes nothing', (tester) async {
+      await client.auth.recoverSession(jsonEncode(_sessionJson(anonymous: false, email: 'rider@example.com')));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('support-overflow-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.supportDeleteConversation));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.cancel));
+      await tester.pumpAndSettle();
+
+      expect(fakeHttp.deleteRequests, isEmpty);
+    });
+
+    testWidgets('delete account: menu -> confirm -> scope=account and the session is cleared', (tester) async {
+      await client.auth.recoverSession(jsonEncode(_sessionJson(anonymous: false, email: 'rider@example.com')));
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(client.auth.currentSession, isNotNull);
+
+      await tester.tap(find.byKey(const ValueKey('support-overflow-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.supportDeleteAccount));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.supportDeleteAccountTitle), findsOneWidget);
+      await tester.tap(find.text(l10n.delete));
+      await tester.pumpAndSettle();
+
+      expect(jsonDecode(fakeHttp.deleteRequests.single.body)['scope'], 'account');
+      expect(client.auth.currentSession, isNull, reason: 'account deletion signs the device out');
+      expect(tester.takeException(), isNull);
     });
   });
 }

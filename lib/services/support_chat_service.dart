@@ -10,6 +10,15 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// What a [SupportChatService.deleteSupportData] call erases.
+///
+/// - [conversation] removes the support chat, its messages and every attached
+///   screenshot/diagnostic, but keeps the account (and, with it, any Pro
+///   entitlement) and the linked email.
+/// - [account] additionally deletes the auth user, which removes the email and
+///   the account itself (GDPR right to erasure).
+enum SupportDeleteScope { conversation, account }
+
 class SupportChatException implements Exception {
   final String message;
   const SupportChatException(this.message);
@@ -50,6 +59,7 @@ class SupportChatService {
   static const _getChatFunction = 'get-support-chat';
   static const _sendMessageFunction = 'send-support-message';
   static const _uploadAttachmentFunction = 'upload-support-attachment';
+  static const _deleteFunction = 'delete-support-data';
   static const _attachmentBucket = 'support-attachments';
   static const _signedUrlTtlSeconds = 300;
 
@@ -290,6 +300,35 @@ class SupportChatService {
 
   Future<String> signedAttachmentUrl(String storagePath) async {
     return _supabase.storage.from(_attachmentBucket).createSignedUrl(storagePath, _signedUrlTtlSeconds);
+  }
+
+  /// Erases the caller's support data. The heavy lifting runs server-side in
+  /// the [_deleteFunction] edge function (service role): a client can neither
+  /// delete objects in the attachments bucket — there is no DELETE storage
+  /// policy — nor delete its own auth user, so this cannot be done over RLS
+  /// alone. See [SupportDeleteScope] for what each scope removes.
+  ///
+  /// Whichever scope, the local "user has a support chat" flag is cleared on
+  /// success so [HelpButton] stops polling for replies to a thread that no
+  /// longer exists. Sign-out / RevenueCat teardown for [SupportDeleteScope.account]
+  /// is the caller's responsibility — the session's own user is gone.
+  Future<void> deleteSupportData(SupportDeleteScope scope) async {
+    final session = _requireSession();
+    try {
+      await _supabase.functions.invoke(
+        _deleteFunction,
+        method: HttpMethod.post,
+        headers: _authHeaders(session),
+        body: {'scope': scope.name},
+      );
+      await core.settings.setSupportChatActive(false);
+    } on FunctionException catch (e) {
+      throw SupportChatException(_extractError(e.details) ?? 'Failed to delete your data');
+    } on SupportChatException {
+      rethrow;
+    } catch (_) {
+      throw const SupportChatException('Failed to delete your data');
+    }
   }
 
   Session _requireSession() {

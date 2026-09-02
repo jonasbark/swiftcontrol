@@ -1,3 +1,17 @@
+### 6.6.0 (31-08-2026)
+**Features**:
+- FulGaz & Tacx Training apps are now supported: BikeControl acts as a Bluetooth smart trainer to it on a second device and provides the virtual shifting.
+- New Help Center
+- Improved compatibility with Zwift Ready & FTMS smart trainers
+- Desktop floating overlay: a new 20-100% opacity slider lets you fade it over your trainer app.
+
+**Fixes**:
+- Rouvy: Zwift Ride D-pad up/down and left/right now navigate menus over the network, your gear and shifting are no longer overridden by Rouvy's own gear stream, and the trainer's FTMS service is back in Rouvy's device list.
+- Android gear overlay: it now closes when you close the app, keeps the screen awake during a ride, and re-tops itself when a trainer app comes to the front.
+- Zwift Ride: no more false "update firmware" prompt on a healthy unit.
+- Zwift Click V2: one press now triggers exactly one action in Zwift.
+- Improved network recovery when e.g. your internal IP changes
+
 ### 6.5.0 (22-08-2026)
 **Features**:
 - Tacx Training is now selectable as a trainer app: the Bridge shows up in its device list over the network, and your controller buttons drive its keyboard shortcuts (pause/resume, quit, difficulty, screens, skip step).

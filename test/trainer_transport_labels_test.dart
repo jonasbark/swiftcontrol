@@ -2,6 +2,8 @@
 // once over mDNS/DirCon — and the two entries used to be indistinguishable:
 // same name, same "Supports virtual shifting" subtitle, same bike icon. These
 // tests pin the four places that now name the upstream transport.
+import 'dart:typed_data';
+
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/home/home_page.dart';
@@ -232,6 +234,82 @@ Future<void> main() async {
       expect(line, contains('ftms=unknown')); // unprobed definition
       expect(line, contains('selfTest=PASS,2026-08-20,a:3/3,b:3/3,targetPower'));
       expect(line, isNot(contains('lastCtl='))); // no control write happened
+    });
+
+    test('a stored self-test log is printed as its own indented block', () async {
+      // The one-line summary keeps the verdict; the per-step lines carry the
+      // per-gear plateau numbers support actually needs, so they get their own
+      // block under the proxy entry.
+      SharedPreferences.setMockInitialValues({
+        'self_test_KICKR CORE': SelfTestResult(
+          at: DateTime(2026, 8, 20),
+          verdict: SelfTestVerdict.pass,
+          ergStepsPassed: 3,
+          ergStepsTotal: 3,
+          shiftStepsPassed: 3,
+          shiftStepsTotal: 3,
+          vsMode: 'targetPower',
+          protocol: 'ftms',
+          stepLog: const [
+            'start: vs=targetPower protocol=ftms gear=12 erg=false',
+            'shift: gear 22 145W vs 142W harder',
+          ],
+        ).toJsonString(),
+      });
+      core.settings.prefs = await SharedPreferences.getInstance();
+
+      final line = describeProxyDevice(trainerWithFitnessBike());
+      // Inline summary stays put, and the block joins it.
+      expect(line, contains('selfTest=PASS,2026-08-20,a:3/3,b:3/3,targetPower'));
+      expect(line, contains('Self-test log:'));
+      expect(line, contains('shift: gear 22 145W vs 142W harder'));
+    });
+
+    test('a self-test with an empty step log prints no log block', () async {
+      // Every result stored before this feature has no step log; those bundles
+      // must read exactly as before.
+      SharedPreferences.setMockInitialValues({
+        'self_test_KICKR CORE': SelfTestResult(
+          at: DateTime(2026, 8, 20),
+          verdict: SelfTestVerdict.pass,
+          ergStepsPassed: 3,
+          ergStepsTotal: 3,
+          shiftStepsPassed: 3,
+          shiftStepsTotal: 3,
+          vsMode: 'targetPower',
+          protocol: 'ftms',
+        ).toJsonString(),
+      });
+      core.settings.prefs = await SharedPreferences.getInstance();
+
+      expect(describeProxyDevice(trainerWithFitnessBike()), isNot(contains('Self-test log:')));
+    });
+
+    test('vsMode names the cadence-less fallback that actually drove the trainer', () {
+      // A trainer whose telemetry carries no cadence is driven over
+      // trackResistance whatever the rider's saved mode says, because the
+      // cadence-driven modes would write nothing at all. Showing only the saved
+      // mode hides what the trainer was really given — the one thing a "gears
+      // change but nothing happens" bundle is read for.
+      final device = trainerWithFitnessBike();
+      // Power-only IBD (flags 0x41: More Data + power): power lands, cadence
+      // never does.
+      device.fitnessBike!.onNotification(
+        FitnessBikeDefinition.INDOOR_BIKE_DATA_UUID,
+        Uint8List.fromList([0x41, 0x00, 0xFA, 0x00]),
+      );
+
+      expect(describeProxyDevice(device), contains('vsMode=targetPower\u2192trackResistance'));
+    });
+
+    test('trainer line carries the live cadence/power/speed readout', () {
+      // A "no resistance" report is settled by whether BikeControl is reading
+      // cadence: the VS resistance calc is entirely cadence-driven, so the
+      // bundle surfaces raw/filtered cadence plus power and speed.
+      final line = describeProxyDevice(trainerWithFitnessBike());
+      expect(line, contains('read=cad:'));
+      expect(line, contains('pwr:'));
+      expect(line, contains('spd:'));
     });
 
     test('a forced protocol is marked manual and lists what else was available', () {

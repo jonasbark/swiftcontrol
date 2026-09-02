@@ -198,6 +198,12 @@ class IosOverlayController implements TrainerOverlayController {
     // iOS overlays (Live Activity / PiP) have no adjustable window alpha.
   }
 
+  @override
+  Future<void> reassert() async {
+    // iOS overlays are a Live Activity / PiP window, not a re-stackable system
+    // overlay — the OS owns their elevation. Nothing to re-top.
+  }
+
   void _bind() {
     final def = _def;
     if (def == null) return;

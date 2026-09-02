@@ -16,7 +16,7 @@ import 'package:bike_control/utils/requirements/multi.dart';
 import 'package:bike_control/utils/windows_store_environment.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show Offset;
+import 'package:flutter/widgets.dart' show Locale, Offset;
 import 'package:path/path.dart' as path;
 import 'package:path_provider_windows/path_provider_windows.dart';
 import 'package:prop/prop.dart' hide Set;
@@ -58,6 +58,8 @@ class Settings {
       prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 10));
       propPrefs.initialize(prefs);
       trainerAppListenable.value = getTrainerApp();
+      final localeOverride = getLocaleOverride();
+      localeListenable.value = localeOverride == null ? null : Locale(localeOverride);
 
       // Everything below is a native or network call that has, on some users'
       // machines, hung forever and bricked startup (the app reaches here, logs
@@ -67,7 +69,10 @@ class Settings {
       // the support bundle via lastLogEntries, so a report names the culprit we
       // cannot reproduce.
       if (!screenshotMode) {
-        await _guardedInitStep('notifications', () => NotificationRequirement.setup());
+        // Fire-and-forget: notification setup has hung on some macOS machines,
+        // and it's not needed for the app to function — so never let startup
+        // wait on it at all. The guard still logs if it stalls.
+        unawaited(_guardedInitStep('notifications', () => NotificationRequirement.setup()));
       }
       initializeActions(getLastTarget()?.connectionType ?? ConnectionType.unknown);
 
@@ -165,6 +170,28 @@ class Settings {
   /// new advertised name — e.g. Rouvy needs "Zwift Hub" while other apps
   /// expect the device-derived name.
   final ValueNotifier<SupportedApp?> trainerAppListenable = ValueNotifier<SupportedApp?>(null);
+
+  /// The user's in-app language override, or null to follow the OS language.
+  /// The root [ShadcnApp] listens to this so switching languages rebuilds the
+  /// whole app immediately. Defaults to null (=system) and is safe to read
+  /// before [init] (the splash renders in the system language, which is
+  /// correct).
+  final ValueNotifier<Locale?> localeListenable = ValueNotifier<Locale?>(null);
+
+  /// The persisted language override as a locale code (e.g. 'de'), or null when
+  /// the app should follow the OS language.
+  String? getLocaleOverride() {
+    return prefs.getString('locale_override');
+  }
+
+  Future<void> setLocaleOverride(String? code) async {
+    if (code == null) {
+      await prefs.remove('locale_override');
+    } else {
+      await prefs.setString('locale_override', code);
+    }
+    localeListenable.value = code == null ? null : Locale(code);
+  }
 
   void setTrainerApp(SupportedApp app) {
     prefs.setString('trainer_app', app.name);
@@ -953,8 +980,7 @@ class Settings {
   /// The floor keeps the card from fading to the point of being unclickable.
   static const double minOverlayOpacity = 0.2;
 
-  double getOverlayOpacity() =>
-      (prefs.getDouble('overlay_opacity') ?? 1.0).clamp(minOverlayOpacity, 1.0);
+  double getOverlayOpacity() => (prefs.getDouble('overlay_opacity') ?? 1.0).clamp(minOverlayOpacity, 1.0);
 
   Future<void> setOverlayOpacity(double value) async {
     await prefs.setDouble(

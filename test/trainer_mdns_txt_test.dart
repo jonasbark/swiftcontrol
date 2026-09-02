@@ -17,6 +17,14 @@ void main() {
     expect(txt(map, 'serial-number'), '123456789');
   });
 
+  test('16-bit service UUIDs go bare only for Tacx', () {
+    // Rouvy parses '0x1826' and silently drops a bare '1826' — its device
+    // list then has no FTMS service for the bridge; Tacx does the opposite.
+    expect(ProxyDevice.bareShortServiceUuidsFor(Tacx()), isTrue);
+    expect(ProxyDevice.bareShortServiceUuidsFor(Rouvy()), isFalse);
+    expect(ProxyDevice.bareShortServiceUuidsFor(null), isFalse);
+  });
+
   test('Tacx adds the Garmin product-id, other apps leave the record alone', () {
     final forTacx = ProxyDevice.trainerMdnsTxtFor(Tacx(), serialNumber: '1');
     expect(txt(forTacx, 'product-id'), Tacx.mdnsProductId);

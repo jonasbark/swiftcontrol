@@ -476,12 +476,19 @@ abstract class BaseActions {
       // whenever local control is enabled — note `local` is itself a
       // "connected" connection that never handles in-game actions (issue #367).
       if (keyPair.isTrainerAppActionOnly) {
+        final buttonName = button.name.splitByUpperCase();
+        final appName = core.settings.getTrainerApp()?.name ?? supportedApp!.name;
+        // Distinguish "the app isn't connected" from "the app is connected but
+        // this action isn't part of the protocol it exposes" (e.g. a D-pad
+        // button with no matching command). An app-facing connection that is
+        // live means the earlier NotHandled came from an unsupported action,
+        // not a missing connection — so don't offer "Open connection settings".
+        final appConnected = core.logic.appFacingConnections.isNotEmpty;
         return Error(
-          AppLocalizations.current.trainerAppNotConnectedForButton(
-            button.name.splitByUpperCase(),
-            core.settings.getTrainerApp()?.name ?? supportedApp!.name,
-          ),
-          type: ErrorType.trainerNotConnected,
+          appConnected
+              ? AppLocalizations.current.trainerAppActionUnsupportedForButton(buttonName, appName)
+              : AppLocalizations.current.trainerAppNotConnectedForButton(buttonName, appName),
+          type: appConnected ? ErrorType.other : ErrorType.trainerNotConnected,
           button: keyPair.buttons.firstOrNull ?? button,
         );
       }

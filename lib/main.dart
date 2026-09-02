@@ -170,8 +170,7 @@ Future<void> _recordFlutterError(FlutterErrorDetails details) async {
 /// only by the app's top-level guards) rather than an error that was handled in
 /// a try/catch and merely funneled through [recordError]. Controls only the log
 /// label: a handled error must not read as "App crashed" in support logs.
-bool isFatalErrorContext(String context) =>
-    const {'Zone', 'PlatformDispatcher', 'Isolate'}.contains(context);
+bool isFatalErrorContext(String context) => const {'Zone', 'PlatformDispatcher', 'Isolate'}.contains(context);
 
 /// Record a handled error. Funnels through [Logger.recordError]; the listener
 /// installed by [installLoggerErrorListener] prints and persists the entry
@@ -449,13 +448,14 @@ class _StartupRecoveryState extends State<_StartupRecovery> {
     }
     final update = _update;
     if (update != null) {
-      final label = update.isPatch
-          ? 'An update is ready to install.'
-          : 'Version ${update.version} is available.';
+      final label = update.isPatch ? 'An update is ready to install.' : 'Version ${update.version} is available.';
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: _ink)),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600, color: _ink),
+          ),
           const SizedBox(height: 10),
           m.FilledButton.icon(
             onPressed: () => applyAppUpdate(update),
@@ -468,10 +468,11 @@ class _StartupRecoveryState extends State<_StartupRecovery> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_checked) const Padding(
-          padding: EdgeInsets.only(bottom: 10),
-          child: Text("You're on the latest version.", style: TextStyle(color: _muted)),
-        ),
+        if (_checked)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 10),
+            child: Text("You're on the latest version.", style: TextStyle(color: _muted)),
+          ),
         m.FilledButton.icon(
           onPressed: _checkForUpdates,
           icon: const Icon(m.Icons.system_update_alt, size: 18),
@@ -617,48 +618,55 @@ class _BikeControlAppState extends State<BikeControlApp> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
-    return ShadcnApp(
-      navigatorKey: navigatorKey,
-      debugShowCheckedModeBanner: false,
-      menuHandler: OverlayHandler.popover,
-      popoverHandler: OverlayHandler.popover,
-      localizationsDelegates: [
-        ...ShadcnLocalizations.localizationsDelegates,
-        OtherLocalizationsDelegate(),
-        AppLocalizations.delegate,
-      ],
-      supportedLocales: AppLocalizations.delegate.supportedLocales,
-      title: 'BikeControl',
-      darkTheme: ThemeData(
-        colorScheme: ColorSchemes.darkSlate.copyWith(
-          card: () => Color(0xFF001A29),
-          background: () => Color(0xFF232323),
-          muted: () => Color(0xFF3A3A3A),
-          border: () => Color(0xFF3A3A3A),
-          secondary: () => Color(0xFF3A3A3A),
+    // Rebuild the whole app whenever the in-app language override changes so a
+    // language switch takes effect immediately. Defaults to null (=follow the
+    // OS language), which is also what an uninitialised Settings reports during
+    // the splash — so this is safe before core.settings.init() completes.
+    return ValueListenableBuilder<Locale?>(
+      valueListenable: core.settings.localeListenable,
+      builder: (context, localeOverride, _) => ShadcnApp(
+        navigatorKey: navigatorKey,
+        debugShowCheckedModeBanner: false,
+        menuHandler: OverlayHandler.popover,
+        popoverHandler: OverlayHandler.popover,
+        localizationsDelegates: [
+          ...ShadcnLocalizations.localizationsDelegates,
+          OtherLocalizationsDelegate(),
+          AppLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.delegate.supportedLocales,
+        title: 'BikeControl',
+        darkTheme: ThemeData(
+          colorScheme: ColorSchemes.darkSlate.copyWith(
+            card: () => Color(0xFF001A29),
+            background: () => Color(0xFF232323),
+            muted: () => Color(0xFF3A3A3A),
+            border: () => Color(0xFF3A3A3A),
+            secondary: () => Color(0xFF3A3A3A),
+          ),
         ),
-      ),
-      locale: demoLocaleOverride.isNotEmpty
-          ? Locale(demoLocaleOverride)
-          : (screenshotMode ? (screenshotLocale ?? const Locale('en')) : null),
-      theme: ThemeData(
-        colorScheme: ColorSchemes.lightSlate.copyWith(
-          mutedForeground: () => Color(0xFFA1A1AA),
-          primary: () => BKColor.main,
+        locale: demoLocaleOverride.isNotEmpty
+            ? Locale(demoLocaleOverride)
+            : (screenshotMode ? (screenshotLocale ?? const Locale('en')) : localeOverride),
+        theme: ThemeData(
+          colorScheme: ColorSchemes.lightSlate.copyWith(
+            mutedForeground: () => Color(0xFFA1A1AA),
+            primary: () => BKColor.main,
+          ),
+          typography: Typography.geist().scale(isMobile ? 0.9 : 1),
+          radius: 0.7,
         ),
-        typography: Typography.geist().scale(isMobile ? 0.9 : 1),
-        radius: 0.7,
-      ),
-      materialTheme: MediaQuery.platformBrightnessOf(context) == Brightness.dark ? m.ThemeData.dark() : m.ThemeData(),
-      //themeMode: ThemeMode.dark,
-      // Swap splash → content in place inside the always-mounted ShadcnApp so
-      // the themed background is painted the whole time — no black flash while
-      // the real content takes over from the splash. The Builder gives _home a
-      // context *below* ShadcnApp, where its Theme is available.
-      home: m.Builder(
-        builder: (context) => AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: _home(context, isMobile),
+        materialTheme: MediaQuery.platformBrightnessOf(context) == Brightness.dark ? m.ThemeData.dark() : m.ThemeData(),
+        //themeMode: ThemeMode.dark,
+        // Swap splash → content in place inside the always-mounted ShadcnApp so
+        // the themed background is painted the whole time — no black flash while
+        // the real content takes over from the splash. The Builder gives _home a
+        // context *below* ShadcnApp, where its Theme is available.
+        home: m.Builder(
+          builder: (context) => AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: _home(context, isMobile),
+          ),
         ),
       ),
     );

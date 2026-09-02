@@ -240,10 +240,10 @@ class _UnlockPageState extends State<UnlockPage> with SingleTickerProviderStateM
     );
 
     core.flutterLocalNotificationsPlugin.show(
-      1339,
-      title,
-      subtitle,
-      NotificationDetails(
+      id: 1339,
+      title: title,
+      body: subtitle,
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails('Unlocked', 'Device unlocked notification'),
         iOS: DarwinNotificationDetails(presentAlert: true),
       ),

@@ -62,6 +62,56 @@ void main() {
     expect(r.verdict, SelfTestVerdict.pass);
   });
 
+  test('cadence-less trainer completes the test instead of aborting', () async {
+    // Some firmwares ship with cadence disabled, so the field never arrives.
+    // The baseline used to wait for 40 rpm that could never come, the pause
+    // watchdog then read the silence as a rider who had stopped, and the run
+    // aborted — on exactly the trainers whose riders most need a verdict.
+    final (r, h) = await runScenario((h) => h.reportsCadence = false);
+    expect(r.verdict, SelfTestVerdict.pass);
+    expect(r.shiftStepsTotal, 3, reason: 'the sweep must still be scored');
+    expect(h.gear, 12, reason: 'gear restored');
+    // Scoring on power alone is a caveat on the verdict, so the rider is told:
+    // the result carries it and the card renders it.
+    expect(r.cadenceless, isTrue);
+  });
+
+  test('a cadence-reporting trainer produces a result that is not marked cadence-less', () async {
+    final (r, _) = await runScenario((_) {});
+    expect(r.cadenceless, isFalse);
+  });
+
+  test('cadence-less trainer that ignores commands still yields noControl', () async {
+    // Scoring the sweep on power alone must not turn a deaf trainer into a pass.
+    final (r, _) = await runScenario((h) {
+      h.reportsCadence = false;
+      h.obeysErg = false;
+      h.obeysShift = false;
+    });
+    expect(r.verdict, SelfTestVerdict.noControl);
+  });
+
+  test('cadence-less rider who stops pedaling still pauses and aborts', () async {
+    // Without cadence the coasting watchdog reads power instead — otherwise a
+    // rider who stops would have every remaining step scored as "no response".
+    final harness = FakeSelfTestHarness()
+      ..reportsCadence = false
+      ..supportsPowerTarget = false // skip ERG: it pins power to the target
+      ..obeysShift = false;
+    var ticks = 0;
+    final engine = SelfTestEngine(
+      harness: harness,
+      now: () => DateTime(2026, 8, 20),
+      sleep: (_) async {
+        ticks++;
+        if (ticks > 20) harness.riderPower = 0; // stop pedaling mid-test
+        harness.publishTick();
+      },
+    );
+    final r = await engine.run();
+    expect(r.verdict, SelfTestVerdict.aborted);
+  });
+
   test('coasting rider pauses then aborts', () async {
     final harness = FakeSelfTestHarness();
     var ticks = 0;
@@ -186,6 +236,23 @@ void main() {
     expect(r.verdict, SelfTestVerdict.ergOkVsFail, reason: 'scored, not downgraded to aborted');
     expect(r.ergStepsPassed, 3);
     expect(harness.gear, 12, reason: 'gear restore still ran');
+  });
+
+  test('a completed run captures its step log into the result', () async {
+    // The per-step lines used to live only in the volatile app log and were
+    // gone by the time a rider sent a bundle; now they ride along in the result.
+    final (r, _) = await runScenario((_) {});
+    expect(r.stepLog, isNotEmpty);
+    expect(r.stepLog.any((l) => l.startsWith('start:')), isTrue);
+    expect(r.stepLog.any((l) => l.startsWith('shift:')), isTrue);
+  });
+
+  test('the captured step log is a prefix of everything the harness logged', () async {
+    // Every recorded step line also went to the harness, in order. The trailing
+    // verdict line is logged after the result is built, so it only reaches the
+    // harness; hence prefix, not equality.
+    final (r, h) = await runScenario((_) {});
+    expect(h.logLines.sublist(0, r.stepLog.length), r.stepLog);
   });
 }
 

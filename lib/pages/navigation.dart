@@ -5,6 +5,7 @@ import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/pages/overview.dart';
+import 'package:bike_control/services/overlay/overlay_reassert_scheduler.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/utils/core.dart';
@@ -33,12 +34,37 @@ class Navigation extends StatefulWidget {
 class _NavigationState extends State<Navigation> {
   bool _isMobile = false;
   StreamSubscription<BaseDevice>? _overlayAutoShowSub;
+  OverlayReassertScheduler? _reassertScheduler;
+  StreamSubscription<BaseDevice>? _reassertConnSub;
 
   @override
   void initState() {
     super.initState();
 
     core.logic.startEnabledConnectionMethod();
+
+    // Keep the Android gear overlay above a trainer app that comes to the
+    // foreground after the overlay was shown. The overlay is a system window
+    // added while BikeControl is foreground; when Rouvy takes over it ends up
+    // buried and stays hidden until re-added (support 73367365). Re-top it on
+    // the rising edge of a proxy's "trainer app connected" signal — the moment
+    // the trainer app grabs the virtual trainer. Watch every proxy present now
+    // and any that connect later; the scheduler gates on the overlay being
+    // enabled + showing and debounces flapping reconnects, and reassert() is a
+    // no-op off Android, so this is Android-only by construction.
+    if (Platform.isAndroid) {
+      final scheduler = OverlayReassertScheduler(
+        TrainerOverlayService.forCurrentPlatform(),
+        isEnabled: core.settings.getOverlayEnabled,
+      );
+      for (final d in core.connection.proxyDevices) {
+        scheduler.watch(d.isConnectedListenable);
+      }
+      _reassertConnSub = core.connection.connectionStream.listen((d) {
+        if (d is ProxyDevice) scheduler.watch(d.isConnectedListenable);
+      });
+      _reassertScheduler = scheduler;
+    }
 
     if (core.settings.getOverlayEnabled()) {
       // Check whether a smart trainer is already connected (re-mount case).
@@ -73,6 +99,8 @@ class _NavigationState extends State<Navigation> {
   @override
   void dispose() {
     _overlayAutoShowSub?.cancel();
+    _reassertConnSub?.cancel();
+    _reassertScheduler?.dispose();
     super.dispose();
   }
 

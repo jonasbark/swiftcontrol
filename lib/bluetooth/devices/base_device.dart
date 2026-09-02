@@ -655,10 +655,10 @@ abstract class BaseDevice {
       ),
     );
     core.flutterLocalNotificationsPlugin.show(
-      1337,
-      _getCommandLimitTitle(),
-      _getCommandLimitMessage(),
-      NotificationDetails(
+      id: 1337,
+      title: _getCommandLimitTitle(),
+      body: _getCommandLimitMessage(),
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails('Limit', 'Limit reached'),
         iOS: DarwinNotificationDetails(presentAlert: true),
       ),

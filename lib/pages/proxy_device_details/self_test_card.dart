@@ -267,6 +267,11 @@ class _SelfTestCardState extends State<SelfTestCard> {
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, color: cs.mutedForeground),
         ),
+        // Informational, not a fault: the test runs fine without cadence, it
+        // just scores the sweep on power alone. Saying so beats leaving the
+        // rider to wonder why nothing on screen mentions rpm.
+        if (state.cadenceless)
+          _notice(context, icon: LucideIcons.info, message: l10n.selfTestNoCadence, color: cs.mutedForeground),
         if (state.pausedForCadence)
           _notice(context, icon: LucideIcons.rotateCw, message: l10n.selfTestKeepPedaling, color: cs.destructive),
         Button.outline(
@@ -301,6 +306,11 @@ class _SelfTestCardState extends State<SelfTestCard> {
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, color: cs.mutedForeground),
         ),
+        // The shift phase was scored without the "did the rider hold cadence"
+        // cross-check, which is a caveat on the verdict above — so it is shown
+        // with the verdict, not just while the test was running.
+        if (result.cadenceless)
+          _notice(context, icon: LucideIcons.info, message: l10n.selfTestNoCadence, color: cs.mutedForeground),
         ..._verdictCtas(context, l10n, result),
         Button.primary(onPressed: _start, child: Text(l10n.selfTestRerun)),
       ],

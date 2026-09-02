@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:url_launcher/url_launcher_string.dart';
 
 /// A staged attachment ready to be uploaded — wraps the platform file plus
 /// a lightweight thumbnail for image previews.
@@ -192,6 +193,11 @@ class _SupportComposerState extends State<SupportComposer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // GDPR transparency: telemetry is attached to every support message
+          // and a screenshot is pre-staged on the first one. Say so here rather
+          // than sending it silently — the ⓘ button and the attachment chip
+          // both let the user inspect/remove before sending.
+          if (hasDiagnostic) _diagnosticsNotice(cs),
           if (_attachment != null) _stagedAttachmentChip(),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -224,6 +230,34 @@ class _SupportComposerState extends State<SupportComposer> {
                 onPressed: _canSend ? () => unawaited(_submit()) : null,
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _diagnosticsNotice(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.shieldCheck, size: 13, color: cs.mutedForeground),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.i18n.supportDiagnosticsNotice,
+                  style: TextStyle(fontSize: 11, color: cs.mutedForeground, height: 1.3),
+                ),
+                Button.text(
+                  onPressed: () => launchUrlString('https://bikecontrol.app/privacy-policy'),
+                  child: Text(context.i18n.privacyPolicy).xSmall.muted.underline,
+                ),
+              ],
+            ),
           ),
         ],
       ),

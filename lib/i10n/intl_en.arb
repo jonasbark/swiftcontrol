@@ -502,6 +502,17 @@
       }
     }
   },
+  "trainerAppActionUnsupportedForButton": "Could not perform {button}: {app} does not support it",
+  "@trainerAppActionUnsupportedForButton": {
+    "placeholders": {
+      "button": {
+        "type": "Object"
+      },
+      "app": {
+        "type": "Object"
+      }
+    }
+  },
   "noActiveWorkout": "No active workout",
   "noProxyTrainerConnected": "No smart trainer connected",
   "noConnectionMethodIsConnectedOrActive": "No connection method is connected or active.",
@@ -1436,6 +1447,8 @@
   "stay": "Stay",
   "leave": "Leave",
   "showExperimental": "Show experimental",
+  "language": "Language",
+  "languageSystemDefault": "System default",
   "notSupportedOnWeb": "Not Supported on Web :)",
   "recommended": "Recommended",
   "workoutPaused": "Workout paused",
@@ -1459,6 +1472,15 @@
   },
   "feedbackQuestion": "Does it work?",
   "supportChat": "Support Chat",
+  "supportDiagnosticsNotice": "To help fix your issue, this chat attaches a screenshot of BikeControl and diagnostic info. You can review or remove them before sending.",
+  "supportDeleteConversation": "Delete conversation",
+  "supportDeleteAccount": "Delete account & all data",
+  "supportDeleteConversationTitle": "Delete conversation?",
+  "supportDeleteConversationBody": "This permanently deletes your support conversation, including every message, screenshot and diagnostic report you sent. This cannot be undone.",
+  "supportDeleteAccountTitle": "Delete account & all data?",
+  "supportDeleteAccountBody": "This permanently deletes your support conversation and your BikeControl account, including your email address. A one-time purchase stays in the store you bought it from, and a Pro subscription keeps running there too, but this device will be signed out. This cannot be undone.",
+  "supportDeleteSuccess": "Your data was deleted.",
+  "supportDeleteFailed": "Couldn't delete your data. Please try again.",
   "supportAccountStatusAnonymous": "Anonymous · not signed in",
   "supportAccountStatusSignedIn": "Signed in",
   "supportAccountLinkTitle": "Get the reply",
@@ -1981,6 +2003,7 @@
   "selfTestPhaseErg": "Testing power targets",
   "selfTestPhaseShift": "Testing gear shifts",
   "selfTestKeepPedaling": "Keep pedaling to continue the test",
+  "selfTestNoCadence": "Your trainer doesn't report cadence, so this test scores on power alone.",
   "selfTestCancel": "Stop test",
   "selfTestRerun": "Run again",
   "selfTestLastResult": "Last test: {result}",
@@ -1996,7 +2019,7 @@
   "selfTestVerdictNoDataTitle": "No data from the trainer",
   "selfTestVerdictNoDataBody": "No power readings arrived. Reconnect the trainer — if it's connected over WiFi, try Bluetooth instead.",
   "selfTestVerdictAbortedTitle": "Test stopped",
-  "selfTestVerdictAbortedBody": "The test didn't finish. It needs steady pedaling and a cadence reading — keep pedaling throughout and try again.",
+  "selfTestVerdictAbortedBody": "The test didn't finish. It needs steady pedaling from start to end — keep pedaling throughout and try again.",
   "selfTestCtaOverlay": "Show gear overlay setup",
   "selfTestCtaSwitchMode": "Switch mode & run again",
   "selfTestCtaReport": "Send result to support",
