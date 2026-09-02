@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/ble.dart';
 import 'package:bike_control/bluetooth/devices/openbikecontrol/openbikecontrol_device.dart';
@@ -13,6 +12,7 @@ import 'package:bike_control/bluetooth/peripheral_server.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/apps/biketerra.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:bike_control/utils/keymap/keymap.dart';
@@ -70,6 +70,7 @@ class ZwiftEmulator extends TrainerConnection with PeripheralAdvertisingRecovery
     onUpdate();
 
     final isRouvy = core.settings.getTrainerApp() is Rouvy;
+    final isBiketerra = core.settings.getTrainerApp() is Biketerra;
 
     _server.onConnectionChanged((deviceId, connected) {
       print('Peripheral connection state: ${connected ? "connected" : "disconnected"} of $deviceId');
@@ -79,6 +80,18 @@ class ZwiftEmulator extends TrainerConnection with PeripheralAdvertisingRecovery
         core.connection.signalNotification(
           AlertNotification.connection(
             connected: false,
+            type: type,
+            appName: core.settings.getTrainerApp()?.name,
+          ),
+        );
+        onUpdate();
+      } else if (isBiketerra) {
+        _currentDeviceId = deviceId;
+        isConnected.value = true;
+
+        core.connection.signalNotification(
+          AlertNotification.connection(
+            connected: true,
             type: type,
             appName: core.settings.getTrainerApp()?.name,
           ),
@@ -380,22 +393,19 @@ class ZwiftEmulator extends TrainerConnection with PeripheralAdvertisingRecovery
     // Both shift buttons pressed together. NOTE: the exact bit pair Zwift's
     // SRAM detection expects is UNVERIFIED against a live Zwift session —
     // confirm on-device and adjust if needed.
-    final combined =
-        RideButtonMask.SHFT_UP_R_BTN.mask | RideButtonMask.SHFT_UP_L_BTN.mask;
+    final combined = RideButtonMask.SHFT_UP_R_BTN.mask | RideButtonMask.SHFT_UP_L_BTN.mask;
     Logger.info('ZwiftEmulator: front-shift combo (SHFT_UP_R|SHFT_UP_L) — verify bitmask vs Zwift SRAM');
     final status = RideKeyPadStatus()
       ..buttonMap = (~combined) & 0xFFFFFFFF
       ..analogPaddles.clear();
     await _server.notify(
       characteristicId: ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID,
-      value: Uint8List.fromList(
-          [Opcode.CONTROLLER_NOTIFICATION.value, ...status.writeToBuffer()]),
+      value: Uint8List.fromList([Opcode.CONTROLLER_NOTIFICATION.value, ...status.writeToBuffer()]),
       deviceId: _currentDeviceId,
     );
     await _server.notify(
       characteristicId: ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID,
-      value: Uint8List.fromList(
-          [Opcode.CONTROLLER_NOTIFICATION.value, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F]),
+      value: Uint8List.fromList([Opcode.CONTROLLER_NOTIFICATION.value, 0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F]),
       deviceId: _currentDeviceId,
     );
     return Success('Sent front-shift combo', button: keyPair.buttons.firstOrNull);

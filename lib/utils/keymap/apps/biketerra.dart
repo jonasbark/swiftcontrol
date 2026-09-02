@@ -14,7 +14,7 @@ class Biketerra extends SupportedApp {
 
   @override
   List<(AppConnectionMethod, ConnectionSupport)> get connections => [
-    (AppConnectionMethod.zwiftMdns, ConnectionSupport.supported),
+    (AppConnectionMethod.zwiftBle, ConnectionSupport.beta),
   ];
 
   Biketerra()
