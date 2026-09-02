@@ -237,6 +237,23 @@ void main() {
     expect(r.ergStepsPassed, 3);
     expect(harness.gear, 12, reason: 'gear restore still ran');
   });
+
+  test('a completed run captures its step log into the result', () async {
+    // The per-step lines used to live only in the volatile app log and were
+    // gone by the time a rider sent a bundle; now they ride along in the result.
+    final (r, _) = await runScenario((_) {});
+    expect(r.stepLog, isNotEmpty);
+    expect(r.stepLog.any((l) => l.startsWith('start:')), isTrue);
+    expect(r.stepLog.any((l) => l.startsWith('shift:')), isTrue);
+  });
+
+  test('the captured step log is a prefix of everything the harness logged', () async {
+    // Every recorded step line also went to the harness, in order. The trailing
+    // verdict line is logged after the result is built, so it only reaches the
+    // harness; hence prefix, not equality.
+    final (r, h) = await runScenario((_) {});
+    expect(h.logLines.sublist(0, r.stepLog.length), r.stepLog);
+  });
 }
 
 /// Mirrors prop's clamp: the trainer will not shift below its lowest gear.

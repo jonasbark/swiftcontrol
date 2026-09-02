@@ -201,6 +201,10 @@ String describeProxyDevice(ProxyDevice device) {
   // `debugAttachFitnessBike` test hook (and the self-test harness) reach this.
   final def = device.fitnessBike;
   final defKind = def == null ? 'none' : def.runtimeType.toString();
+  // Hoisted out of the `def != null` block below so its step log can be printed
+  // as its own block after the services block, alongside the inline
+  // `selfTest=` summary field still added inside it.
+  SelfTestResult? selfTest;
 
   final parts = <String>[
     device.scanResult.name ?? device.scanResult.deviceId,
@@ -265,16 +269,23 @@ String describeProxyDevice(ProxyDevice device) {
       final age = DateTime.now().difference(ctl.at).inSeconds;
       parts.add('lastCtl=${ctl.ok ? 'ok' : 'fail'}·${age}s');
     }
-    final selfTest = SelfTestResult.tryParse(core.settings.getSelfTestResultJson(device.trainerKey));
+    selfTest = SelfTestResult.tryParse(core.settings.getSelfTestResultJson(device.trainerKey));
     if (selfTest != null) parts.add('selfTest=${selfTest.toBundleString()}');
   }
 
-  final summary = parts.join(' · ');
+  final blocks = <String>[parts.join(' · ')];
   final services = buildProxyServicesFreetext(device);
-  if (services == null) return summary;
   // Indent the services block so it visibly belongs to its proxy entry.
-  final indented = services.split('\n').map((l) => '    $l').join('\n');
-  return '$summary\n$indented';
+  if (services != null) blocks.add(services.split('\n').map((l) => '    $l').join('\n'));
+  // The one-line verdict is already the `selfTest=` field above; this is the
+  // full step-by-step trace, indented under the proxy entry like the services
+  // block so a bundle keeps the per-gear plateau numbers the volatile app log
+  // has long since dropped by the time a rider sends it.
+  if (selfTest != null && selfTest.stepLog.isNotEmpty) {
+    final log = selfTest.stepLog.map((l) => '      $l').join('\n');
+    blocks.add('    Self-test log:\n$log');
+  }
+  return blocks.join('\n');
 }
 
 /// Compact `Connected Controllers:` rendering for the support bundle — plain

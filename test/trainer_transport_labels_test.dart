@@ -236,6 +236,55 @@ Future<void> main() async {
       expect(line, isNot(contains('lastCtl='))); // no control write happened
     });
 
+    test('a stored self-test log is printed as its own indented block', () async {
+      // The one-line summary keeps the verdict; the per-step lines carry the
+      // per-gear plateau numbers support actually needs, so they get their own
+      // block under the proxy entry.
+      SharedPreferences.setMockInitialValues({
+        'self_test_KICKR CORE': SelfTestResult(
+          at: DateTime(2026, 8, 20),
+          verdict: SelfTestVerdict.pass,
+          ergStepsPassed: 3,
+          ergStepsTotal: 3,
+          shiftStepsPassed: 3,
+          shiftStepsTotal: 3,
+          vsMode: 'targetPower',
+          protocol: 'ftms',
+          stepLog: const [
+            'start: vs=targetPower protocol=ftms gear=12 erg=false',
+            'shift: gear 22 145W vs 142W harder',
+          ],
+        ).toJsonString(),
+      });
+      core.settings.prefs = await SharedPreferences.getInstance();
+
+      final line = describeProxyDevice(trainerWithFitnessBike());
+      // Inline summary stays put, and the block joins it.
+      expect(line, contains('selfTest=PASS,2026-08-20,a:3/3,b:3/3,targetPower'));
+      expect(line, contains('Self-test log:'));
+      expect(line, contains('shift: gear 22 145W vs 142W harder'));
+    });
+
+    test('a self-test with an empty step log prints no log block', () async {
+      // Every result stored before this feature has no step log; those bundles
+      // must read exactly as before.
+      SharedPreferences.setMockInitialValues({
+        'self_test_KICKR CORE': SelfTestResult(
+          at: DateTime(2026, 8, 20),
+          verdict: SelfTestVerdict.pass,
+          ergStepsPassed: 3,
+          ergStepsTotal: 3,
+          shiftStepsPassed: 3,
+          shiftStepsTotal: 3,
+          vsMode: 'targetPower',
+          protocol: 'ftms',
+        ).toJsonString(),
+      });
+      core.settings.prefs = await SharedPreferences.getInstance();
+
+      expect(describeProxyDevice(trainerWithFitnessBike()), isNot(contains('Self-test log:')));
+    });
+
     test('vsMode names the cadence-less fallback that actually drove the trainer', () {
       // A trainer whose telemetry carries no cadence is driven over
       // trackResistance whatever the rider's saved mode says, because the

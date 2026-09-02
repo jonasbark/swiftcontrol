@@ -147,6 +147,13 @@ class SelfTestEngine {
   final List<bool> _shiftResults = [];
   SelfTestResult? _result;
 
+  /// Every diagnostic line the run has emitted, in order. Handed to
+  /// [SelfTestResult.stepLog] in [_buildResult] so a completed test's full trace
+  /// rides along in the support bundle instead of living only in the volatile
+  /// app log. [_record] is the single door that keeps this and the harness log
+  /// in step.
+  final List<String> _stepLog = [];
+
   /// Latest samples, refreshed by [_tick].
   int? _power;
   int? _cadence;
@@ -191,11 +198,11 @@ class SelfTestEngine {
     final startGear = harness.currentGear;
     SelfTestVerdict? verdict;
     try {
-      harness.log('start: vs=${harness.vsModeName} protocol=${harness.protocolName} gear=$startGear erg=$wasErg');
+      _record('start: vs=${harness.vsModeName} protocol=${harness.protocolName} gear=$startGear erg=$wasErg');
       _phase = SelfTestPhase.baseline;
       _emit();
       if (!await _precheck()) {
-        harness.log('precheck: no power for ${noDataTimeout.inSeconds}s -> NO_DATA');
+        _record('precheck: no power for ${noDataTimeout.inSeconds}s -> NO_DATA');
         verdict = SelfTestVerdict.noData;
       } else {
         final p0 = await _baseline();
@@ -203,11 +210,11 @@ class SelfTestEngine {
         await _shiftSweep(startGear: startGear);
       }
     } on _AbortedException catch (e) {
-      harness.log('aborted: ${e.reason}');
+      _record('aborted: ${e.reason}');
       verdict = SelfTestVerdict.aborted;
     } catch (e, s) {
       recordError(e, s, context: 'self-test run');
-      harness.log('aborted: engine error ($e)');
+      _record('aborted: engine error ($e)');
       verdict = SelfTestVerdict.aborted;
     }
     return _finish(verdict: verdict, wasErg: wasErg, prevErgTarget: prevErgTarget, startGear: startGear);
@@ -219,7 +226,7 @@ class SelfTestEngine {
     for (var i = 0; i < _ticksIn(noDataTimeout); i++) {
       await _tick();
       if (_power != null) {
-        harness.log('precheck: power data present (${_power}W)');
+        _record('precheck: power data present (${_power}W)');
         return true;
       }
     }
@@ -238,9 +245,9 @@ class SelfTestEngine {
     // precheck must not count as coasting.
     _pauseArmed = true;
     if (_cadenceless) {
-      harness.log('baseline: no cadence from this trainer, scoring on power alone');
+      _record('baseline: no cadence from this trainer, scoring on power alone');
     } else {
-      harness.log('baseline: waiting for cadence >= $baselineCadenceMin rpm');
+      _record('baseline: waiting for cadence >= $baselineCadenceMin rpm');
       var held = 0;
       while (held < _ticksIn(baselineHold)) {
         if (!await _tick()) {
@@ -262,7 +269,7 @@ class SelfTestEngine {
       }
     }
     final p0 = _median(samples);
-    harness.log('baseline: p0=${p0}W from ${samples.length} samples');
+    _record('baseline: p0=${p0}W from ${samples.length} samples');
     return p0;
   }
 
@@ -288,24 +295,24 @@ class SelfTestEngine {
         // Skipped, not failed: ergStepsTotal stays 0 and the verdict ignores
         // it. Inside the try on purpose — the finally below still has to take
         // the trainer out of ERG before the sweep measures anything.
-        harness.log('erg: skipped, trainer has no power-target support');
+        _record('erg: skipped, trainer has no power-target support');
         return;
       }
       // Only now, so a skipped phase doesn't flash "Testing power targets".
       _phase = SelfTestPhase.ergStaircase;
       _emit();
-      harness.log('phase: erg staircase');
+      _record('phase: erg staircase');
       final targets = [p0 + ergStepUpW, math.max(ergStepMinW, p0 - ergStepDownW), p0 + ergStepUpW];
       for (final target in targets) {
         _currentErgTarget = target;
         _emit();
-        harness.log('erg: commanding ${target}W');
+        _record('erg: commanding ${target}W');
         _ergDirty = true;
         harness.setErgTarget(target);
         final passed = await _ergStep(target);
         _ergTotal++;
         _ergResults.add(passed);
-        harness.log('erg: ${target}W ${passed ? 'reached' : 'no response'}');
+        _record('erg: ${target}W ${passed ? 'reached' : 'no response'}');
         _emit();
       }
     } finally {
@@ -350,7 +357,7 @@ class SelfTestEngine {
   Future<void> _shiftSweep({required int startGear}) async {
     _phase = SelfTestPhase.shiftSweep;
     _emit();
-    harness.log('phase: shift sweep');
+    _record('phase: shift sweep');
     try {
       // Headroom: leave room for the upshifts before measuring anything.
       // Bounded twice over — a rider can configure maxGear down to 1 (the
@@ -366,17 +373,17 @@ class SelfTestEngine {
         harness.shiftDown();
         headroomShifts++;
         if (harness.currentGear == before) {
-          harness.log('shift: headroom stalled at gear $before');
+          _record('shift: headroom stalled at gear $before');
           break;
         }
-        harness.log('shift: headroom -> gear ${harness.currentGear}');
+        _record('shift: headroom -> gear ${harness.currentGear}');
         if (headroomShifts >= maxHeadroomShifts) {
-          harness.log('shift: headroom gave up at gear ${harness.currentGear}');
+          _record('shift: headroom gave up at gear ${harness.currentGear}');
           break;
         }
       }
       var previous = await _plateau();
-      harness.log(
+      _record(
         'shift: gear ${harness.currentGear} plateau ${_w(previous.power)}'
         '${_cadenceless ? '' : ' @ ${previous.cadence.round()}rpm'}',
       );
@@ -387,13 +394,13 @@ class SelfTestEngine {
         var passed = _transitionPassed(current, previous);
         if (!passed) {
           // One retry per plateau — re-measure, do not shift again.
-          harness.log('shift: gear ${harness.currentGear} inconclusive, re-measuring');
+          _record('shift: gear ${harness.currentGear} inconclusive, re-measuring');
           current = await _plateau();
           passed = _transitionPassed(current, previous);
         }
         _shiftTotal++;
         _shiftResults.add(passed);
-        harness.log(
+        _record(
           'shift: gear ${harness.currentGear} ${_w(current.power)} vs ${_w(previous.power)} '
           '${passed ? 'harder' : 'no change'}',
         );
@@ -491,7 +498,7 @@ class SelfTestEngine {
         _paused = false;
         _pausedTicks = 0;
         _lowCadenceTicks = 0;
-        harness.log(_cadenceless ? 'resumed: power back to ${watts}W' : 'resumed: cadence back to ${rpm}rpm');
+        _record(_cadenceless ? 'resumed: power back to ${watts}W' : 'resumed: cadence back to ${rpm}rpm');
         _emit();
         return true;
       }
@@ -506,7 +513,7 @@ class SelfTestEngine {
       if (_lowCadenceTicks >= _ticksIn(pauseAfter)) {
         _paused = true;
         _pausedTicks = 0;
-        harness.log(
+        _record(
           _cadenceless
               ? 'paused: power <= ${coastingPowerW}W for ${pauseAfter.inSeconds}s'
               : 'paused: cadence < $pauseCadenceBelow rpm for ${pauseAfter.inSeconds}s',
@@ -553,7 +560,7 @@ class SelfTestEngine {
       _paused = false;
       _currentErgTarget = null;
       _emit();
-      harness.log('verdict: ${result.toBundleString()}');
+      _record('verdict: ${result.toBundleString()}');
     } catch (e, s) {
       recordError(e, s, context: 'self-test finish');
     }
@@ -580,6 +587,9 @@ class SelfTestEngine {
       vsMode: vsMode,
       protocol: protocol,
       cadenceless: _cadenceless,
+      // A copy: the run's own verdict line is recorded after this point, and
+      // must not appear in the result the bundle reads.
+      stepLog: List.of(_stepLog),
     );
   }
 
@@ -595,7 +605,7 @@ class SelfTestEngine {
     }
     _ergDirty = true;
     harness.exitErg();
-    harness.log('erg: exited for the shift sweep');
+    _record('erg: exited for the shift sweep');
   }
 
   /// Restores the ERG state captured at the start of [run] — a rider who was
@@ -613,10 +623,10 @@ class SelfTestEngine {
     }
     if (wasErg && prevErgTarget != null) {
       harness.setErgTarget(prevErgTarget);
-      harness.log('restore: erg target ${prevErgTarget}W');
+      _record('restore: erg target ${prevErgTarget}W');
     } else if (harness.isErgMode) {
       harness.exitErg();
-      harness.log('restore: erg exited');
+      _record('restore: erg exited');
     }
     // Cleared only once the write went through, so a refused restore stays
     // visible to anything that looks after us.
@@ -648,10 +658,10 @@ class SelfTestEngine {
     }
     _gearDirty = false;
     if (harness.currentGear != startGear) {
-      harness.log('restore: gear stuck at ${harness.currentGear}, wanted $startGear');
+      _record('restore: gear stuck at ${harness.currentGear}, wanted $startGear');
       return;
     }
-    harness.log('restore: gear ${harness.currentGear}');
+    _record('restore: gear ${harness.currentGear}');
   }
 
   // ---------------------------------------------------------------- verdict
@@ -677,6 +687,14 @@ class SelfTestEngine {
   }
 
   // ----------------------------------------------------------------- helpers
+  /// Mirrors one diagnostic line into both the persisted step log and the
+  /// harness (Activity / the app log). Every phase and step line goes through
+  /// here so the two never drift apart.
+  void _record(String message) {
+    _stepLog.add(message);
+    harness.log(message);
+  }
+
   void _emit() {
     _state.value = SelfTestState(
       phase: _phase,
