@@ -172,6 +172,65 @@ Future<void> _recordFlutterError(FlutterErrorDetails details) async {
 /// label: a handled error must not read as "App crashed" in support logs.
 bool isFatalErrorContext(String context) => const {'Zone', 'PlatformDispatcher', 'Isolate'}.contains(context);
 
+/// Whether [uri] is a Supabase OAuth callback that must be exchanged into a
+/// session. Mirrors supabase_flutter's private `_isAuthCallbackDeeplink`
+/// (without its auth-flow-type gating): the browser hands "Sign in with Apple"
+/// (and Google / GitHub / Facebook) back as `bikecontrol://login/` carrying
+/// either a PKCE `code` query param, an implicit `access_token` fragment, or an
+/// `error_description` fragment.
+///
+/// Used by the desktop cold-start path in [_StarterState]: supabase_flutter
+/// exchanges the *live* callback (app already running) on all non-web
+/// platforms, but its cold-start `_handleInitialUri` is gated to `kIsWeb`, so
+/// on Windows/macOS/Linux a callback that arrives as the initial deep link —
+/// the exact repro when the user closes the app before completing sign-in — is
+/// otherwise dropped and the session never established.
+bool isSupabaseAuthCallbackUri(Uri uri) {
+  return uri.fragment.contains('access_token') ||
+      uri.queryParameters.containsKey('code') ||
+      uri.fragment.contains('error_description');
+}
+
+/// Desktop cold-start handler for the OAuth callback deep link.
+///
+/// Closes the supabase_flutter gap described on [isSupabaseAuthCallbackUri] by
+/// exchanging the *initial* link ourselves — exactly once — when the app was
+/// NOT already running. The PKCE `code_verifier` persists in Supabase's local
+/// storage, so a freshly launched instance can complete the exchange.
+///
+/// Deliberately does NOT touch the live `uriLinkStream` handler:
+/// supabase_flutter already exchanges the live callback on non-web platforms,
+/// and calling [exchangeSession] a second time would try to redeem an
+/// already-consumed `code` and error.
+///
+/// Dependencies are injected as callbacks so the decision (exchange vs skip)
+/// is unit-testable without booting Flutter or Supabase.
+Future<void> handleDesktopColdStartAuthCallback({
+  required Future<Uri?> Function() getInitialLink,
+  required Future<void> Function(Uri uri) exchangeSession,
+  required Future<void> Function() onSessionEstablished,
+  Future<void> Function(Object error, StackTrace stack)? onError,
+}) async {
+  Uri? uri;
+  try {
+    uri = await getInitialLink();
+  } catch (e, s) {
+    await onError?.call(e, s);
+    return;
+  }
+
+  if (uri == null || uri.scheme != 'bikecontrol' || !isSupabaseAuthCallbackUri(uri)) {
+    return;
+  }
+
+  try {
+    await exchangeSession(uri);
+    await onSessionEstablished();
+  } catch (e, s) {
+    await onError?.call(e, s);
+  }
+}
+
 /// Record a handled error. Funnels through [Logger.recordError]; the listener
 /// installed by [installLoggerErrorListener] prints and persists the entry
 /// (which also feeds the debug log support chats attach).
@@ -774,6 +833,23 @@ class _StarterState extends State<_Starter> with WidgetsBindingObserver {
           recordError(err, stackTrace, context: 'DeepLink');
         },
       );
+
+      // Cold-start OAuth callback: on desktop, supabase_flutter only exchanges
+      // the initial deep link on web, so a callback that arrives while the app
+      // was closed (user shut the app before completing "Sign in with Apple")
+      // never becomes a session. Exchange it ourselves. The live stream above
+      // is left untouched — supabase_flutter handles the app-already-running
+      // case, and a second exchange would redeem an already-consumed code.
+      if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+        unawaited(
+          handleDesktopColdStartAuthCallback(
+            getInitialLink: _appLinks.getInitialLink,
+            exchangeSession: (uri) => core.supabase.auth.getSessionFromUrl(uri),
+            onSessionEstablished: IAPManager.instance.refreshEntitlementsOnAppStart,
+            onError: (e, s) => recordError(e, s, context: 'Desktop cold-start auth callback'),
+          ),
+        );
+      }
     }
     unawaited(IAPManager.instance.refreshEntitlementsOnAppStart());
   }
