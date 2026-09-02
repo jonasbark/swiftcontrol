@@ -229,7 +229,16 @@ String describeProxyDevice(ProxyDevice device) {
     if (def.supportedControlProtocols.length > 1) {
       parts.add('protoAvail=${def.supportedControlProtocols.map((p) => p.name).join('+')}');
     }
-    parts.add('vsMode=${def.virtualShiftingMode.value.name}');
+    // `saved→effective` when the trainer reports no cadence: the cadence-driven
+    // modes skip every write there, so BikeControl drives trackResistance
+    // instead. Printing only the saved mode hides what the trainer was actually
+    // given — the one thing a "gears change, nothing happens" bundle is read
+    // for.
+    final savedVsMode = def.virtualShiftingMode.value;
+    final drivenVsMode = def.effectiveVirtualShiftingMode;
+    parts.add(
+      'vsMode=${savedVsMode.name}${drivenVsMode == savedVsMode ? '' : '→${drivenVsMode.name}'}',
+    );
     parts.add('ftms=${def.ftmsCapabilitySummary}');
     // Live telemetry BikeControl is reading from the trainer: cad shows raw /
     // filtered rpm. The whole VS resistance calc is cadence-driven, so a "no

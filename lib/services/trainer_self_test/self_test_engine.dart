@@ -19,6 +19,11 @@ class SelfTestState {
   /// clock is stopped while this holds.
   final bool pausedForCadence;
 
+  /// True once the run has established that this trainer reports no cadence.
+  /// Surfaced in the card while the test runs and again under the verdict —
+  /// the rider should not have to guess why nothing on screen mentions rpm.
+  final bool cadenceless;
+
   /// Non-null during [SelfTestPhase.ergStaircase] — the watt target currently
   /// commanded on the trainer.
   final int? currentErgTarget;
@@ -33,6 +38,7 @@ class SelfTestState {
   const SelfTestState({
     this.phase = SelfTestPhase.idle,
     this.pausedForCadence = false,
+    this.cadenceless = false,
     this.currentErgTarget,
     this.ergStepResults = const [],
     this.shiftStepResults = const [],
@@ -72,6 +78,14 @@ class SelfTestEngine {
 
   /// Cadence must hold [baselineCadenceMin] this long before measuring.
   static const Duration baselineHold = Duration(seconds: 3);
+
+  /// How long to look for any cadence reading before concluding the trainer
+  /// does not report cadence at all.
+  static const Duration cadenceProbe = Duration(seconds: 3);
+
+  /// Power at or below which a rider on a cadence-less trainer counts as
+  /// coasting, W — the stand-in for [pauseCadenceBelow] there.
+  static const int coastingPowerW = 10;
 
   /// Power window whose median becomes `p0`.
   static const Duration baselineWindow = Duration(seconds: 3);
@@ -136,6 +150,12 @@ class SelfTestEngine {
   /// Latest samples, refreshed by [_tick].
   int? _power;
   int? _cadence;
+
+  /// True once any cadence reading has arrived, and its settled inverse:
+  /// [_cadenceless] means this trainer's telemetry carries no cadence field at
+  /// all, so every cadence gate below has to score on power instead.
+  bool _cadenceSeen = false;
+  bool _cadenceless = false;
 
   /// Pause bookkeeping.
   bool _pauseArmed = false;
@@ -208,16 +228,26 @@ class SelfTestEngine {
 
   /// 3. Baseline — hold cadence, then take the median power as `p0`.
   Future<int> _baseline() async {
+    // Settle the cadence question first, while the pause watchdog is still
+    // disarmed: some firmwares ship cadence disabled entirely, and waiting for
+    // a reading that can never arrive used to hang the baseline until the
+    // watchdog aborted the run — on exactly the trainers whose riders most
+    // need a verdict.
+    await _probeCadence();
     // The pause watchdog only arms here: a slow first sample during the
     // precheck must not count as coasting.
     _pauseArmed = true;
-    harness.log('baseline: waiting for cadence >= $baselineCadenceMin rpm');
-    var held = 0;
-    while (held < _ticksIn(baselineHold)) {
-      if (!await _tick()) {
-        continue;
+    if (_cadenceless) {
+      harness.log('baseline: no cadence from this trainer, scoring on power alone');
+    } else {
+      harness.log('baseline: waiting for cadence >= $baselineCadenceMin rpm');
+      var held = 0;
+      while (held < _ticksIn(baselineHold)) {
+        if (!await _tick()) {
+          continue;
+        }
+        held = (_cadence ?? 0) >= baselineCadenceMin ? held + 1 : 0;
       }
-      held = (_cadence ?? 0) >= baselineCadenceMin ? held + 1 : 0;
     }
     var sampled = 0;
     final samples = <int>[];
@@ -234,6 +264,21 @@ class SelfTestEngine {
     final p0 = _median(samples);
     harness.log('baseline: p0=${p0}W from ${samples.length} samples');
     return p0;
+  }
+
+  /// Decides once whether this trainer reports cadence at all.
+  ///
+  /// [SelfTestHarness.cadenceRpm] only ever carries a value when a frame
+  /// actually contained the field, so a probe window with nothing in it means
+  /// the field is absent from the stream — not that the rider is stationary.
+  Future<void> _probeCadence() async {
+    for (var i = 0; i < _ticksIn(cadenceProbe) && !_cadenceSeen; i++) {
+      await _tick();
+    }
+    _cadenceless = !_cadenceSeen;
+    if (_cadenceless) {
+      _emit();
+    }
   }
 
   /// 4. ERG staircase — command targets and watch whether power follows.
@@ -332,7 +377,8 @@ class SelfTestEngine {
       }
       var previous = await _plateau();
       harness.log(
-        'shift: gear ${harness.currentGear} plateau ${_w(previous.power)} @ ${previous.cadence.round()}rpm',
+        'shift: gear ${harness.currentGear} plateau ${_w(previous.power)}'
+        '${_cadenceless ? '' : ' @ ${previous.cadence.round()}rpm'}',
       );
       for (var i = 0; i < shiftTransitions; i++) {
         _gearDirty = true;
@@ -388,9 +434,17 @@ class SelfTestEngine {
 
   /// A transition counts only if power rose while the rider held cadence —
   /// otherwise a spin-up would read as resistance.
+  ///
+  /// A cadence-less trainer gives nothing to hold the rise against, so it is
+  /// taken at face value: the rider was asked to pedal steadily, and the
+  /// alternative is scoring every shift on such a trainer as a failure. The
+  /// baseline log line records which of the two scorings ran.
   bool _transitionPassed(_Plateau current, _Plateau previous) {
     if (current.power <= previous.power) {
       return false;
+    }
+    if (_cadenceless) {
+      return true;
     }
     if (previous.cadence <= 0) {
       return false;
@@ -418,16 +472,26 @@ class SelfTestEngine {
     }
     _power = harness.powerW.value;
     _cadence = harness.cadenceRpm.value;
+    if (_cadence != null) {
+      _cadenceSeen = true;
+    }
     if (!_pauseArmed) {
       return true;
     }
     final rpm = _cadence ?? 0;
+    final watts = _power ?? 0;
+    // Catching the rider stopping is what the watchdog is for, so on a
+    // cadence-less trainer it reads power instead — that falls away just as
+    // cadence would, and without it every remaining step would be scored as
+    // "no response" for a rider who simply took a breather.
+    final pedaling = _cadenceless ? watts > coastingPowerW : rpm >= baselineCadenceMin;
+    final coasting = _cadenceless ? watts <= coastingPowerW : rpm < pauseCadenceBelow;
     if (_paused) {
-      if (rpm >= baselineCadenceMin) {
+      if (pedaling) {
         _paused = false;
         _pausedTicks = 0;
         _lowCadenceTicks = 0;
-        harness.log('resumed: cadence back to ${rpm}rpm');
+        harness.log(_cadenceless ? 'resumed: power back to ${watts}W' : 'resumed: cadence back to ${rpm}rpm');
         _emit();
         return true;
       }
@@ -437,12 +501,16 @@ class SelfTestEngine {
       }
       return false;
     }
-    if (rpm < pauseCadenceBelow) {
+    if (coasting) {
       _lowCadenceTicks++;
       if (_lowCadenceTicks >= _ticksIn(pauseAfter)) {
         _paused = true;
         _pausedTicks = 0;
-        harness.log('paused: cadence < $pauseCadenceBelow rpm for ${pauseAfter.inSeconds}s');
+        harness.log(
+          _cadenceless
+              ? 'paused: power <= ${coastingPowerW}W for ${pauseAfter.inSeconds}s'
+              : 'paused: cadence < $pauseCadenceBelow rpm for ${pauseAfter.inSeconds}s',
+        );
         _emit();
         return false;
       }
@@ -511,6 +579,7 @@ class SelfTestEngine {
       shiftStepsTotal: _shiftTotal,
       vsMode: vsMode,
       protocol: protocol,
+      cadenceless: _cadenceless,
     );
   }
 
@@ -612,6 +681,7 @@ class SelfTestEngine {
     _state.value = SelfTestState(
       phase: _phase,
       pausedForCadence: _paused,
+      cadenceless: _cadenceless,
       currentErgTarget: _currentErgTarget,
       ergStepResults: List.unmodifiable(_ergResults),
       shiftStepResults: List.unmodifiable(_shiftResults),

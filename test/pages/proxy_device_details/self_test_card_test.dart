@@ -148,6 +148,37 @@ Future<void> main() async {
     expect(core.settings.getSelfTestResultJson('KICKR CORE'), isNotNull);
   });
 
+  testWidgets('a cadence-less trainer is told so during the run and under the verdict', (tester) async {
+    // The card is otherwise silent about cadence, so a rider on a trainer that
+    // reports none has no way to know why — or that the shift scoring lost its
+    // cross-check. Say it while they pedal, and again with the verdict.
+    const notice = "Your trainer doesn't report cadence, so this test scores on power alone.";
+    final harness = FakeSelfTestHarness()..reportsCadence = false;
+
+    await pumpCard(tester, connectedTrainer(), harness);
+    await tester.tap(find.text('Test resistance control'));
+    await tester.pump();
+    expect(find.text(notice), findsNothing, reason: 'not until the probe has settled');
+
+    // Probe window: cadenceProbe worth of ticks with nothing arriving.
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(SelfTestEngine.tick);
+    }
+    expect(find.text(notice), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.text('Your trainer responds correctly'), findsOneWidget);
+    expect(find.text(notice), findsOneWidget, reason: 'the caveat outlives the run');
+  });
+
+  testWidgets('a cadence-reporting trainer never shows the no-cadence notice', (tester) async {
+    final harness = FakeSelfTestHarness();
+    await pumpCard(tester, connectedTrainer(), harness);
+    await tester.tap(find.text('Test resistance control'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining("doesn't report cadence"), findsNothing);
+  });
+
   testWidgets('Run again starts a second run on a fresh engine', (tester) async {
     final harness = FakeSelfTestHarness();
 

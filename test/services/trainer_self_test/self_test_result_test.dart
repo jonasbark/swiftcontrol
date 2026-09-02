@@ -29,6 +29,34 @@ void main() {
     expect(result.toBundleString(), 'VS_OK_ERG_FAIL,2026-08-22,a:1/3,b:2/3,targetPower');
   });
 
+  test('a cadence-less run is marked in the bundle string and survives a round-trip', () {
+    // The shift phase was scored without the cadence cross-check, so a bundle
+    // reader has to be able to see that — and so does the rider (see the card).
+    final noCadence = SelfTestResult(
+      at: DateTime(2026, 9, 1),
+      verdict: SelfTestVerdict.pass,
+      ergStepsPassed: 3,
+      ergStepsTotal: 3,
+      shiftStepsPassed: 3,
+      shiftStepsTotal: 3,
+      vsMode: 'trackResistance',
+      protocol: 'ftms',
+      cadenceless: true,
+    );
+    expect(noCadence.toBundleString(), 'PASS,2026-09-01,a:3/3,b:3/3,trackResistance,no-cadence');
+    expect(SelfTestResult.tryParse(noCadence.toJsonString())?.cadenceless, isTrue);
+  });
+
+  test('a result stored before the cadence-less flag existed still parses', () {
+    // Older stored JSON has no `cadenceless` key at all.
+    final legacy = SelfTestResult.tryParse(
+      '{"at":"2026-08-20T00:00:00.000","verdict":"pass","ergStepsPassed":3,"ergStepsTotal":3,'
+      '"shiftStepsPassed":3,"shiftStepsTotal":3,"vsMode":"targetPower","protocol":"ftms"}',
+    );
+    expect(legacy, isNotNull);
+    expect(legacy!.cadenceless, isFalse);
+  });
+
   test('skipped ERG phase renders a:n/a', () {
     final skipped = SelfTestResult(
       at: DateTime(2026, 8, 20), verdict: SelfTestVerdict.pass,

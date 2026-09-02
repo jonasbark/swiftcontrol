@@ -2,6 +2,8 @@
 // once over mDNS/DirCon — and the two entries used to be indistinguishable:
 // same name, same "Supports virtual shifting" subtitle, same bike icon. These
 // tests pin the four places that now name the upstream transport.
+import 'dart:typed_data';
+
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/home/home_page.dart';
@@ -232,6 +234,23 @@ Future<void> main() async {
       expect(line, contains('ftms=unknown')); // unprobed definition
       expect(line, contains('selfTest=PASS,2026-08-20,a:3/3,b:3/3,targetPower'));
       expect(line, isNot(contains('lastCtl='))); // no control write happened
+    });
+
+    test('vsMode names the cadence-less fallback that actually drove the trainer', () {
+      // A trainer whose telemetry carries no cadence is driven over
+      // trackResistance whatever the rider's saved mode says, because the
+      // cadence-driven modes would write nothing at all. Showing only the saved
+      // mode hides what the trainer was really given — the one thing a "gears
+      // change but nothing happens" bundle is read for.
+      final device = trainerWithFitnessBike();
+      // Power-only IBD (flags 0x41: More Data + power): power lands, cadence
+      // never does.
+      device.fitnessBike!.onNotification(
+        FitnessBikeDefinition.INDOOR_BIKE_DATA_UUID,
+        Uint8List.fromList([0x41, 0x00, 0xFA, 0x00]),
+      );
+
+      expect(describeProxyDevice(device), contains('vsMode=targetPower\u2192trackResistance'));
     });
 
     test('trainer line carries the live cadence/power/speed readout', () {

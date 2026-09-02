@@ -47,8 +47,11 @@ class FakeSelfTestHarness implements SelfTestHarness {
   /// Behavior knobs per scenario:
   /// obeysErg: power converges to erg target next tick.
   /// obeysShift: power rises ~10 W per gear.
+  /// reportsCadence: false leaves [cadenceN] null forever, the way a trainer
+  /// whose telemetry carries no cadence field at all behaves.
   bool obeysErg = true;
   bool obeysShift = true;
+  bool reportsCadence = true;
   int riderPower = 150;
   int riderCadence = 85;
 
@@ -79,7 +82,9 @@ class FakeSelfTestHarness implements SelfTestHarness {
 
   /// Called by the test's fake sleeper each tick to publish samples.
   void publishTick() {
-    cadenceN.value = riderCadence;
+    if (reportsCadence) {
+      cadenceN.value = riderCadence;
+    }
     if (ergMode && obeysErg) {
       powerN.value = _ergTarget;
       return;

@@ -17,6 +17,11 @@ class SelfTestResult {
   final String vsMode;
   final String protocol;
 
+  /// True when the trainer reported no cadence, so the shift sweep was scored
+  /// on power alone without the "did the rider hold cadence" cross-check. A
+  /// caveat on the verdict, and shown to the rider as one.
+  final bool cadenceless;
+
   const SelfTestResult({
     required this.at,
     required this.verdict,
@@ -26,6 +31,7 @@ class SelfTestResult {
     required this.shiftStepsTotal,
     required this.vsMode,
     required this.protocol,
+    this.cadenceless = false,
   });
 
   Map<String, dynamic> toJson() {
@@ -38,6 +44,7 @@ class SelfTestResult {
       'shiftStepsTotal': shiftStepsTotal,
       'vsMode': vsMode,
       'protocol': protocol,
+      'cadenceless': cadenceless,
     };
   }
 
@@ -51,6 +58,8 @@ class SelfTestResult {
       shiftStepsTotal: json['shiftStepsTotal'] as int,
       vsMode: json['vsMode'] as String,
       protocol: json['protocol'] as String,
+      // Absent from every result stored before the flag existed.
+      cadenceless: json['cadenceless'] as bool? ?? false,
     );
   }
 
@@ -75,7 +84,9 @@ class SelfTestResult {
     final dateStr = _formatDate(at);
     final ergStr = ergStepsTotal == 0 ? 'n/a' : '$ergStepsPassed/$ergStepsTotal';
     final shiftStr = '$shiftStepsPassed/$shiftStepsTotal';
-    return '$verdictLabel,$dateStr,a:$ergStr,b:$shiftStr,$vsMode';
+    // Suffix, not a column: every bundle string written before this stays
+    // byte-identical, and `no-cadence` only shows where it actually applies.
+    return '$verdictLabel,$dateStr,a:$ergStr,b:$shiftStr,$vsMode${cadenceless ? ',no-cadence' : ''}';
   }
 
   static String _verdictToLabel(SelfTestVerdict verdict) {
