@@ -43,6 +43,9 @@ Best follow our landing page and the "Get Started" button: [bikecontrol.app](htt
 - TrainingPeaks Virtual
 - Biketerra.com
 - Rouvy
+- Strappo
+- Tacx Training
+- FulGaz
 - [OpenBikeControl](https://openbikecontrol.org) compatible apps
 - any other!
   - You can add custom mapping and adjust touch points or keyboard shortcuts to your liking
