@@ -640,6 +640,30 @@
       }
     }
   },
+  "warningInstallOnTargetDevice": "BikeControl est disponible sur iOS, Android, Windows et macOS. Pour une prise en charge complète de {appName}, téléchargez BikeControl sur cet appareil.",
+  "@warningInstallOnTargetDevice": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlOnly": "{appName} n’accepte aucune manette externe : les boutons ne l’atteignent qu’avec la méthode Local, qui nécessite que BikeControl s’exécute sur le même appareil que {appName}.",
+  "@warningAppLocalControlOnly": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlIosNote": "La méthode Local n’existe que sur macOS, Windows et Android. Sur un iPhone ou un iPad, les boutons n’atteignent pas du tout {appName} — BikeControl peut toujours y relayer votre home trainer, le passage de vitesses virtuel continue donc de fonctionner.",
+  "@warningAppLocalControlIosNote": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
   "selectTrainerApp": "Sélectionner l'application Trainer",
   "selectTrainerAppAndTarget": "Sélectionne l'application Trainer et l'appareil cible",
   "selectTrainerAppPlaceholder": "Sélectionner l'application Trainer",

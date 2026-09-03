@@ -640,6 +640,30 @@
       }
     }
   },
+  "warningInstallOnTargetDevice": "BikeControl ist für iOS, Android, Windows und macOS verfügbar. Für die volle Unterstützung von {appName} lade BikeControl bitte auf diesem Gerät herunter.",
+  "@warningInstallOnTargetDevice": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlOnly": "{appName} akzeptiert keine externen Controller — Tasten erreichen die App nur über die Methode „Lokal“, und dafür muss BikeControl auf demselben Gerät wie {appName} laufen.",
+  "@warningAppLocalControlOnly": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlIosNote": "Die Methode „Lokal“ gibt es nur unter macOS, Windows und Android. Auf einem iPhone oder iPad erreichen Tasten {appName} gar nicht — BikeControl kann deinen Trainer trotzdem dorthin bridgen, Virtual Shifting funktioniert also weiterhin.",
+  "@warningAppLocalControlIosNote": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
   "selectTrainerApp": "Trainer-App auswählen",
   "selectTrainerAppAndTarget": "Trainer-App und Zielgerät auswählen",
   "selectTrainerAppPlaceholder": "Trainer-App auswählen",

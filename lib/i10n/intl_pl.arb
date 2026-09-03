@@ -640,6 +640,30 @@
       }
     }
   },
+  "warningInstallOnTargetDevice": "BikeControl jest dostępny na iOS, Android, Windows i macOS. Aby w pełni korzystać z aplikacji {appName}, pobierz BikeControl na tym urządzeniu.",
+  "@warningInstallOnTargetDevice": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlOnly": "Aplikacja {appName} nie obsługuje zewnętrznych kontrolerów, więc przyciski docierają do niej tylko metodą Lokalna — wymaga to uruchomienia BikeControl na tym samym urządzeniu co {appName}.",
+  "@warningAppLocalControlOnly": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlIosNote": "Metoda Lokalna działa tylko na macOS, Windows i Android. Na iPhonie lub iPadzie przyciski w ogóle nie docierają do aplikacji {appName} — BikeControl może tam jednak nadal mostkować trenażer, więc wirtualna zmiana biegów wciąż działa.",
+  "@warningAppLocalControlIosNote": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
   "selectTrainerApp": "Wybierz aplikację treningową",
   "selectTrainerAppAndTarget": "Wybierz aplikację treningową i docelowe urządzenie",
   "selectTrainerAppPlaceholder": "Wybierz aplikację treningową",

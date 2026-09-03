@@ -640,6 +640,30 @@
       }
     }
   },
+  "warningInstallOnTargetDevice": "BikeControl está disponible para iOS, Android, Windows y macOS. Para que {appName} funcione correctamente, descarga BikeControl en ese dispositivo.",
+  "@warningInstallOnTargetDevice": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlOnly": "{appName} no admite mandos externos, así que los botones solo llegan a la app con el método Local, que requiere que BikeControl se ejecute en el mismo dispositivo que {appName}.",
+  "@warningAppLocalControlOnly": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
+  "warningAppLocalControlIosNote": "El método Local solo existe en macOS, Windows y Android. En un iPhone o iPad los botones no llegan a {appName} en absoluto, pero BikeControl puede seguir haciendo de puente con tu rodillo, así que el cambio virtual sigue funcionando.",
+  "@warningAppLocalControlIosNote": {
+    "placeholders": {
+      "appName": {
+        "type": "String"
+      }
+    }
+  },
   "selectTrainerApp": "Seleccionar la app de entrenamiento",
   "selectTrainerAppAndTarget": "Seleccionar app de entrenamiento y dispositivo de destino",
   "selectTrainerAppPlaceholder": "Seleccionar la app de entrenamiento",
