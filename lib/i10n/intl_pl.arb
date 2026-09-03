@@ -640,7 +640,7 @@
       }
     }
   },
-  "warningInstallOnTargetDevice": "BikeControl jest dostępny na iOS, Android, Windows i macOS. Aby w pełni korzystać z aplikacji {appName}, pobierz BikeControl na tym urządzeniu.",
+  "warningInstallOnTargetDevice": "BikeControl jest dostępny także na iOS, Android, Windows i macOS. Aby w pełni korzystać z aplikacji {appName}, pobierz BikeControl na tamtym urządzeniu.",
   "@warningInstallOnTargetDevice": {
     "placeholders": {
       "appName": {
