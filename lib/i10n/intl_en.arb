@@ -2213,5 +2213,15 @@
   "ltwooHintCloseApp": "Close the LTWOO app while riding — the derailleur only accepts one Bluetooth connection at a time.",
   "ltwooHintCassetteEnds": "Shifting at the ends of the cassette sends no signal — the derailleur can't move further.",
   "ltwooWrongPinAlert": "The L-TWOO derailleur rejected the PIN. Check the device PIN in this controller's preferences.",
-  "ltwooPinLabel": "Device PIN"
+  "ltwooPinLabel": "Device PIN",
+  "sensorsSectionTitle": "Sensors",
+  "sensorsNoPairedSources": "No sensors paired yet.",
+  "sensorSourceTrainer": "Trainer",
+  "sensorSourceHint": "Use a separate sensor instead of your trainer's built-in reading.",
+  "sensorQuantityHeartRate": "Heart Rate",
+  "sensorQuantityCadence": "Cadence",
+  "sensorQuantityPower": "Power",
+  "sensorQuantitySpeed": "Speed",
+  "sensorAwaitingFirstReading": "Waiting for first reading…",
+  "sensorDroppedOut": "Signal lost — using trainer instead."
 }
