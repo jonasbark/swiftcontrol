@@ -42,6 +42,12 @@ class SensorSinkController {
 
   Future<void> _apply(bool bridgeRunning) async {
     if (_lastBridgeRunning == bridgeRunning) return;
+    // Entering a transition means there is no known-good state any more: the
+    // branches below mutate (`detach`, `_attached = false`) BEFORE the fallible
+    // await, so a throw can leave the sink half torn down. Nulling the guard
+    // here means any later call — for either target — retries instead of being
+    // swallowed as a no-op and leaving the sink served nowhere.
+    _lastBridgeRunning = null;
     try {
       if (bridgeRunning) {
         if (_standalone) {

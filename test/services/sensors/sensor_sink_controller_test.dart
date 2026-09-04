@@ -149,4 +149,51 @@ void main() {
     expect(controller.standaloneRunning, isTrue);
     expect(calls.contains('start-success'), isTrue);
   });
+
+  test('failed transition to standalone does not strand when attaching after',
+      () async {
+    int attemptCount = 0;
+
+    controller = SensorSinkController(
+      definition: SensorDefinition(),
+      attach: (_) => calls.add('attach'),
+      detach: (_) => calls.add('detach'),
+      startStandalone: (_) async {
+        attemptCount++;
+        if (attemptCount == 1) {
+          calls.add('start-fail');
+          throw Exception('Standalone startup failed');
+        }
+        calls.add('start-success');
+      },
+      stopStandalone: () async => calls.add('stop'),
+    );
+
+    // Transition to attached (this succeeds and sets _lastBridgeRunning = true)
+    await controller.onBridgeStateChanged(bridgeRunning: true);
+    expect(controller.attachedToComposite, isTrue);
+    calls.clear();
+
+    // Attempt transition to standalone: startStandalone throws
+    // Without the fix: _lastBridgeRunning is still 'true' after the exception
+    // because the assignment was at the end of try and never reached.
+    // With the fix: _lastBridgeRunning is null because it's set on entry.
+    try {
+      await controller.onBridgeStateChanged(bridgeRunning: false);
+    } catch (_) {}
+
+    expect(controller.attachedToComposite, isFalse);
+    expect(controller.standaloneRunning, isFalse);
+    calls.clear();
+
+    // Now attempt to re-attach. Without the fix, _lastBridgeRunning is still
+    // 'true' from the original attach, so the guard check `if (_lastBridgeRunning
+    // == bridgeRunning) return` silently no-ops and attach never runs, leaving
+    // the sink stranded. With the fix, _lastBridgeRunning is null, so the guard
+    // passes and attach runs.
+    await controller.onBridgeStateChanged(bridgeRunning: true);
+
+    expect(calls, contains('attach'));
+    expect(controller.attachedToComposite, isTrue);
+  });
 }
