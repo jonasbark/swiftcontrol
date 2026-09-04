@@ -46,7 +46,7 @@ FakePeripheral heartRateStrapPeripheral({String name = 'Emulated HRM', int bpm =
   // strap is built but never discovered, which looks exactly like a bug in
   // the scan filter.
   final peripheral = FakePeripheral(
-    deviceId: 'emulated-hrm',
+    deviceId: 'emulated:hrm',
     name: name,
     advertisedServices: [lcUuid(BleSensorSource.heartRateServiceUuid)],
   );
@@ -56,6 +56,10 @@ FakePeripheral heartRateStrapPeripheral({String name = 'Emulated HRM', int bpm =
     ]),
     ...deviceInfoServices(peripheral),
   ]);
+  // Store the initial BPM value as a readable characteristic so the emulation
+  // profile can notify it during setup.
+  peripheral.readValues[lcUuid(BleSensorSource.heartRateMeasurementUuid)] =
+      Uint8List.fromList([0x00, bpm]);
   return peripheral;
 }
 
