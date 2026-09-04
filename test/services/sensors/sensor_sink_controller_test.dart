@@ -12,8 +12,8 @@ void main() {
     calls = [];
     controller = SensorSinkController(
       definition: SensorDefinition(),
-      attach: (_) => calls.add('attach'),
-      detach: (_) => calls.add('detach'),
+      attach: (_) async => calls.add('attach'),
+      detach: (_) async => calls.add('detach'),
       startStandalone: (_) async => calls.add('start'),
       stopStandalone: () async => calls.add('stop'),
     );
@@ -71,8 +71,8 @@ void main() {
 
     controller = SensorSinkController(
       definition: SensorDefinition(),
-      attach: (_) => calls.add('attach'),
-      detach: (_) => calls.add('detach'),
+      attach: (_) async => calls.add('attach'),
+      detach: (_) async => calls.add('detach'),
       startStandalone: (_) async {
         startCompleter = Completer<void>();
         calls.add('start');
@@ -112,8 +112,8 @@ void main() {
 
     controller = SensorSinkController(
       definition: SensorDefinition(),
-      attach: (_) => calls.add('attach'),
-      detach: (_) => calls.add('detach'),
+      attach: (_) async => calls.add('attach'),
+      detach: (_) async => calls.add('detach'),
       startStandalone: (_) async {
         startAttempts++;
         if (startAttempts == 1) {
@@ -156,8 +156,8 @@ void main() {
 
     controller = SensorSinkController(
       definition: SensorDefinition(),
-      attach: (_) => calls.add('attach'),
-      detach: (_) => calls.add('detach'),
+      attach: (_) async => calls.add('attach'),
+      detach: (_) async => calls.add('detach'),
       startStandalone: (_) async {
         attemptCount++;
         if (attemptCount == 1) {

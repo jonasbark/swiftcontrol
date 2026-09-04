@@ -27,6 +27,14 @@ class SensorHub {
   /// `Connection`, which is built after `core`.
   SupportLogBuffer? log;
 
+  /// Invoked whenever [select] settles a quantity's source — including the
+  /// no-op-looking paths where it falls back to `null`. Wiring-only hook, not
+  /// an event system: there is exactly one listener in practice (the thing
+  /// that decides whether a sink should be standalone), and it needs to
+  /// re-run whenever the rider's selection changes, not just when the bridge
+  /// does.
+  VoidCallback? onSelectionChanged;
+
   final Map<String, SensorSource> _sources = {};
   final Map<SensorQuantity, String?> _selection = {};
   final Map<SensorQuantity, ValueNotifier<int?>> _resolved = {};
@@ -73,31 +81,38 @@ class SensorHub {
   }
 
   void select(SensorQuantity quantity, String? sourceId) {
-    _detachListener(quantity);
-    _selection[quantity] = sourceId;
+    try {
+      _detachListener(quantity);
+      _selection[quantity] = sourceId;
 
-    if (sourceId == null) {
-      _resolvedNotifier(quantity).value = null;
-      // The trainer cannot drop out.
-      _droppedOutNotifier(quantity).value = false;
-      return;
+      if (sourceId == null) {
+        _resolvedNotifier(quantity).value = null;
+        // The trainer cannot drop out.
+        _droppedOutNotifier(quantity).value = false;
+        return;
+      }
+
+      final source = _sources[sourceId];
+      if (source == null) {
+        _selection[quantity] = null;
+        _resolvedNotifier(quantity).value = null;
+        // A persisted source id that no longer resolves should not leave the
+        // drop-out flag stuck from a previous session.
+        _droppedOutNotifier(quantity).value = false;
+        return;
+      }
+
+      final reading = source.readingFor(quantity);
+      void listener() => _publish(quantity);
+      reading.addListener(listener);
+      _listeners[quantity] = listener;
+      _publish(quantity);
+    } finally {
+      // Every exit path above is "the selection settled," including the two
+      // fall-back-to-null ones — a listener deciding whether to stand up a
+      // standalone sink cares about all of them equally.
+      onSelectionChanged?.call();
     }
-
-    final source = _sources[sourceId];
-    if (source == null) {
-      _selection[quantity] = null;
-      _resolvedNotifier(quantity).value = null;
-      // A persisted source id that no longer resolves should not leave the
-      // drop-out flag stuck from a previous session.
-      _droppedOutNotifier(quantity).value = false;
-      return;
-    }
-
-    final reading = source.readingFor(quantity);
-    void listener() => _publish(quantity);
-    reading.addListener(listener);
-    _listeners[quantity] = listener;
-    _publish(quantity);
   }
 
   void _publish(SensorQuantity quantity) {

@@ -21,6 +21,8 @@ import 'package:bike_control/main.dart';
 import 'package:bike_control/models/remembered_device.dart';
 import 'package:bike_control/services/sensors/sensor_bridge_binding.dart';
 import 'package:bike_control/services/sensors/sensor_sink_controller.dart';
+import 'package:bike_control/services/sensors/sensor_sink_sync.dart';
+import 'package:bike_control/services/sensors/standalone_sensor_lifecycle.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/interpreter.dart';
@@ -452,28 +454,46 @@ class Connection {
     try {
       final sensorDefinition = SensorDefinition();
       final standaloneSensorEmulator = DirconEmulator();
+      // Attach-before-start / stop-before-detach: DirconEmulator.startServer
+      // advertises whatever is already on its composite, so calling it
+      // before the definition is attached leaves nothing to serve. See
+      // StandaloneSensorLifecycle's doc comment for exactly what that fails
+      // with.
+      final standaloneSensorLifecycle = StandaloneSensorLifecycle(
+        attachDefinition: standaloneSensorEmulator.attachDefinition,
+        startServer: () => standaloneSensorEmulator.startServer(mode: RetrofitMode.bluetooth),
+        stopServer: standaloneSensorEmulator.stop,
+        detachDefinition: standaloneSensorEmulator.detachDefinition,
+      );
       final sensorSink = SensorSinkController(
         definition: sensorDefinition,
-        attach: (def) => ftmsEmulator.composite.attach(def),
-        detach: (def) => ftmsEmulator.composite.detach(def),
-        startStandalone: (def) => standaloneSensorEmulator.startServer(mode: RetrofitMode.bluetooth),
-        stopStandalone: () => standaloneSensorEmulator.stop(),
+        // attachDefinition/detachDefinition (not composite.attach/detach
+        // directly) so a mid-ride source selection restarts the live bridge
+        // transport in place when it needs to — composite.attach alone only
+        // updates the composite's bookkeeping.
+        attach: ftmsEmulator.attachDefinition,
+        detach: ftmsEmulator.detachDefinition,
+        startStandalone: standaloneSensorLifecycle.start,
+        stopStandalone: () => standaloneSensorLifecycle.stop(sensorDefinition),
       );
-
-      void syncSensorSink() => unawaited(
-        sensorSink.onBridgeStateChanged(bridgeRunning: ftmsEmulator.isStarted.value),
-      );
-      ftmsEmulator.isStarted.addListener(syncSensorSink);
-      // Also once right away: a cold start with no bridge running fires no
-      // change event, so without this call the standalone sink would never
-      // stand up until the bridge started and stopped at least once.
-      syncSensorSink();
 
       // The buffer this attaches to lives on Connection, built after `core`,
       // which is why `log` is a settable field rather than a constructor arg.
       core.sensors.log = _appLog;
       core.sensors.loadSelections(core.settings);
       Timer.periodic(const Duration(seconds: 1), (_) => core.sensors.tick());
+
+      // Keeps the sink synced to both the bridge's isStarted AND whether the
+      // rider has picked a heart rate source at all — a cold launch with
+      // nothing selected must not stand up an empty "BikeControl" HRM
+      // advertisement (see SensorSinkSync's doc comment). Also the retry path
+      // for a standalone start that failed at launch: any later selection
+      // change re-syncs, not just a bridge transition.
+      SensorSinkSync(
+        hub: core.sensors,
+        isBridgeRunning: ftmsEmulator.isStarted,
+        sink: sensorSink,
+      ).start();
 
       SensorBridgeBinding(
         hub: core.sensors,

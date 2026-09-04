@@ -17,8 +17,8 @@ class SensorSinkController {
   });
 
   final SensorDefinition definition;
-  final void Function(SensorDefinition) attach;
-  final void Function(SensorDefinition) detach;
+  final Future<void> Function(SensorDefinition) attach;
+  final Future<void> Function(SensorDefinition) detach;
   final Future<void> Function(SensorDefinition) startStandalone;
   final Future<void> Function() stopStandalone;
 
@@ -54,11 +54,11 @@ class SensorSinkController {
           await stopStandalone();
           _standalone = false;
         }
-        attach(definition);
+        await attach(definition);
         _attached = true;
       } else {
         if (_attached) {
-          detach(definition);
+          await detach(definition);
           _attached = false;
         }
         await startStandalone(definition);
