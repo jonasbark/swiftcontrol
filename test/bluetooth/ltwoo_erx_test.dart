@@ -10,6 +10,7 @@ import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
 import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/prop.dart' show Logger, bytesToHex;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -239,6 +240,129 @@ Future<void> main() async {
         async.elapse(const Duration(seconds: 5));
         expect(d.written.length, countAfterReset);
       });
+    });
+
+    test('support logging: wire trace masks the PIN in both directions', () async {
+      final lines = <String>[];
+      Logger.onTrace = lines.add;
+      addTearDown(() => Logger.onTrace = null);
+
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 5);
+
+      // startPolling sends the hello (and a battery request) synchronously;
+      // resetConnectionState immediately cancels the timers it armed.
+      d.startPolling();
+      d.resetConnectionState();
+
+      final received = lines.where((l) => l.startsWith('ltwoo< ')).toList();
+      expect(received, isNotEmpty);
+      // pwd field (bytes 1-3) masked, rest of the rear frame intact.
+      expect(received.first, contains('5a??????4646460900'));
+
+      final sent = lines.where((l) => l.startsWith('ltwoo> ')).toList();
+      expect(sent, isNotEmpty);
+      expect(sent.first, matches(RegExp(r'^ltwoo> a5\?{6}464646')));
+
+      // The configured PIN's ASCII hex must never appear in any trace line.
+      final pinHex = bytesToHex(core.settings.getLtwooPin('dev1').codeUnits);
+      for (final line in lines.where((l) => l.startsWith('ltwoo'))) {
+        expect(line, isNot(contains(pinHex)));
+      }
+    });
+
+    test('support logging: a rear gear change emits exactly one descriptive LogNotification', () async {
+      final d = _RecordingLtwooErx();
+      final logs = <String>[];
+      final sub = d.actionStream.listen((n) {
+        if (n is LogNotification) logs.add(n.message);
+      });
+      addTearDown(sub.cancel);
+
+      await _feedHello(d, 12);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs, contains(contains('12 speeds')));
+
+      await _feedRear(d, 5);
+      await Future<void>.delayed(Duration.zero);
+      logs.clear();
+
+      await _feedRear(d, 4);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs, hasLength(1));
+      expect(logs.single, contains('5→4'));
+      expect(logs.single, contains('8→9'));
+      expect(logs.single, contains('Shift Up'));
+    });
+
+    test('support logging: bad-XOR frames log once per connection, again after reconnect', () async {
+      final d = _RecordingLtwooErx();
+      final logs = <String>[];
+      final sub = d.actionStream.listen((n) {
+        if (n is LogNotification) logs.add(n.message);
+      });
+      addTearDown(sub.cancel);
+
+      Uint8List bad() {
+        final b = _frame([0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x09, 0x00, 0x04]);
+        b[b.length - 1] ^= 0x01;
+        return b;
+      }
+
+      await d.processCharacteristic(LtwooErxConstants.TX_CHARACTERISTIC_UUID, bad());
+      await d.processCharacteristic(LtwooErxConstants.TX_CHARACTERISTIC_UUID, bad());
+      await Future<void>.delayed(Duration.zero);
+      expect(logs, hasLength(1));
+      expect(logs.single.toLowerCase(), contains('malformed'));
+
+      // handleServices runs resetConnectionState on every (re)connect.
+      d.resetConnectionState();
+      await d.processCharacteristic(LtwooErxConstants.TX_CHARACTERISTIC_UUID, bad());
+      await Future<void>.delayed(Duration.zero);
+      expect(logs, hasLength(2));
+    });
+
+    test('support logging: unrecognized opcode logs once with hex, then is suppressed', () async {
+      final d = _RecordingLtwooErx();
+      final logs = <String>[];
+      final sub = d.actionStream.listen((n) {
+        if (n is LogNotification) logs.add(n.message);
+      });
+      addTearDown(sub.cancel);
+
+      await _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x30, 0x00, 0x01]);
+      await _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x30, 0x00, 0x01]);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs, hasLength(1));
+      expect(logs.single, contains('3000'));
+    });
+
+    test('support logging: battery and front-gear changes log on change only', () async {
+      final d = _RecordingLtwooErx();
+      final logs = <String>[];
+      final sub = d.actionStream.listen((n) {
+        if (n is LogNotification) logs.add(n.message);
+      });
+      addTearDown(sub.cancel);
+
+      await _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x0A, 0x01, 0x63]);
+      await _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x0A, 0x01, 0x63]);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs.where((l) => l.contains('battery')), hasLength(1));
+
+      await _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x0A, 0x01, 0x62]);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs.where((l) => l.contains('battery')), hasLength(2));
+
+      await _feedFront(d, 1);
+      await _feedFront(d, 1);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs.where((l) => l.contains('front')), isEmpty);
+
+      await _feedFront(d, 2);
+      await Future<void>.delayed(Duration.zero);
+      expect(logs.where((l) => l.contains('front')), hasLength(1));
+      expect(logs.singleWhere((l) => l.contains('front')), contains('1→2'));
     });
 
     test('changing the PIN re-sends the hello with the new PIN bytes', () async {
