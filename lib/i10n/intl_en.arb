@@ -2209,5 +2209,9 @@
   "faqCrossStoreQ": "I bought on one store — can I use BikeControl on another?",
   "faqCrossStoreA": "The one-time purchase belongs to the store you bought it on (App Store, Google Play, Mac App Store, Microsoft Store) and can't move to a different one — buying again is the only way to unlock a different store's build. Pro is different: it's tied to your BikeControl account rather than a store, so logging into that account unlocks it on other platforms too.",
   "faqRestoreQ": "Restore Purchases isn't bringing my purchase back",
-  "faqRestoreA": "Restore Purchases only checks the store account signed in on this device right now — it has to be the exact account (Apple ID, Google account, Microsoft account) that made the purchase, and a one-time purchase only ever restores on the store it was bought on, never a different one. On Windows outside the Microsoft Store, purchases go through Stripe rather than the store, so there's nothing for Restore Purchases to find — log into your BikeControl account there instead. Still stuck? Contact support from this page with your purchase email."
+  "faqRestoreA": "Restore Purchases only checks the store account signed in on this device right now — it has to be the exact account (Apple ID, Google account, Microsoft account) that made the purchase, and a one-time purchase only ever restores on the store it was bought on, never a different one. On Windows outside the Microsoft Store, purchases go through Stripe rather than the store, so there's nothing for Restore Purchases to find — log into your BikeControl account there instead. Still stuck? Contact support from this page with your purchase email.",
+  "ltwooHintCloseApp": "Close the LTWOO app while riding — the derailleur only accepts one Bluetooth connection at a time.",
+  "ltwooHintCassetteEnds": "Shifting at the ends of the cassette sends no signal — the derailleur can't move further.",
+  "ltwooWrongPinAlert": "The L-TWOO derailleur rejected the PIN. Check the device PIN in this controller's preferences.",
+  "ltwooPinLabel": "Device PIN"
 }

@@ -1,0 +1,302 @@
+import 'dart:async';
+
+import 'package:bike_control/bluetooth/messages/notification.dart';
+import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/main.dart';
+import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/i18n_extension.dart';
+import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:dartx/dartx.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:prop/prop.dart' show LogLevel;
+import 'package:shadcn_flutter/shadcn_flutter.dart';
+import 'package:universal_ble/universal_ble.dart';
+
+import '../bluetooth_device.dart';
+import 'ltwoo_protocol.dart';
+
+/// L-TWOO eRX/eR9 electronic shifting.
+///
+/// The shift levers talk to the REAR DERAILLEUR over a proprietary radio; the
+/// derailleur is the only BLE endpoint. BikeControl connects to it, tracks
+/// gear-position changes, and translates them into controller button clicks
+/// that the keymap turns into virtual shifting.
+///
+/// Protocol source: https://github.com/eternal-flame-AD/ltwooShifting
+/// (Apache-2.0) — see [LtwooProtocol] for the frame codec.
+class LtwooErx extends BluetoothDevice {
+  // supportsLongPress: false — we only see gear DELTAS, never press/release
+  // edges, so a hold can't be told from a tap.
+  LtwooErx(super.scanResult) : super(availableButtons: [], isBeta: true, supportsLongPress: false);
+
+  static const String shiftUpButtonName = 'LTWOO Shift Up';
+  static const String shiftDownButtonName = 'LTWOO Shift Down';
+  static const String frontShiftButtonName = 'LTWOO Front Shift';
+
+  /// A multi-cog sweep emits one click per step, capped here — beyond that the
+  /// rider is dumping the cassette, not asking for N virtual shifts.
+  static const int maxClicksPerChange = 3;
+
+  Timer? _rearPollTimer;
+  Timer? _frontPollTimer;
+  Timer? _batteryPollTimer;
+
+  /// Total number of rear gears, learned from the hello response.
+  int? _numSpeeds;
+
+  /// Last RAW rear gear (counts from the LARGEST cog); null until the first
+  /// successful reading, which initializes state without emitting anything.
+  int? _lastRawRearGear;
+
+  /// Last raw front gear; null until first observed. Front shifting is
+  /// optional — the button is only registered once a front frame arrives.
+  int? _lastRawFrontGear;
+
+  /// Wrong-PIN alert shown at most once per connection (SramAxs
+  /// `_warnedSetupNeeded` pattern).
+  bool _warnedWrongPin = false;
+
+  /// The NUS service uuid as discovered, captured in [handleServices].
+  String? _serviceUuid;
+
+  @visibleForTesting
+  int? get debugNumSpeeds => _numSpeeds;
+
+  String get _pin => core.settings.getLtwooPin(device.deviceId);
+
+  @override
+  Future<void> handleServices(List<BleService> services) async {
+    resetConnectionState();
+    final service = services.firstOrNullWhere(
+      (s) => s.uuid.toLowerCase() == LtwooErxConstants.SERVICE_UUID.toLowerCase(),
+    );
+    if (service == null) {
+      throw Exception('Service not found: ${LtwooErxConstants.SERVICE_UUID}');
+    }
+    _serviceUuid = service.uuid;
+
+    await UniversalBle.subscribeNotifications(
+      device.deviceId,
+      service.uuid,
+      LtwooErxConstants.TX_CHARACTERISTIC_UUID,
+    );
+
+    // Pre-register both shift buttons so they appear in the keymap without
+    // needing a shift first (SramAxs advert pre-registration pattern).
+    registerShiftButtons();
+
+    startPolling();
+  }
+
+  /// Sends the hello (to learn numSpeeds) and starts the poll timers. The
+  /// derailleur also pushes unsolicited event frames, which are parsed by the
+  /// same path — the rear poll is the fallback that keeps state fresh.
+  @visibleForTesting
+  void startPolling() {
+    unawaited(_send(LtwooProtocol.opcodeHello));
+    _rearPollTimer?.cancel();
+    _rearPollTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => unawaited(_send(LtwooProtocol.opcodeGetRearGear)),
+    );
+    _frontPollTimer?.cancel();
+    _frontPollTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => unawaited(_send(LtwooProtocol.opcodeGetFrontGear)),
+    );
+    _batteryPollTimer?.cancel();
+    _batteryPollTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => unawaited(_send(LtwooProtocol.opcodeGetBattery)),
+    );
+    unawaited(_send(LtwooProtocol.opcodeGetBattery));
+  }
+
+  Future<void> _send(List<int> opcode) async {
+    try {
+      await writeRequest(LtwooProtocol.buildRequest(_pin, opcode));
+    } catch (e, s) {
+      await recordError(e, s, context: 'LtwooErx: write ${opcode.map((b) => b.toRadixString(16)).join()}');
+      // A failed write means the link is gone — stop the polls instead of
+      // re-reporting at 2 Hz; the reconnect flow re-arms them in handleServices.
+      _cancelTimers();
+    }
+  }
+
+  /// Raw write to the NUS RX characteristic. Overridable seam for tests.
+  @protected
+  @visibleForTesting
+  Future<void> writeRequest(Uint8List data) => UniversalBle.write(
+    device.deviceId,
+    _serviceUuid ?? LtwooErxConstants.SERVICE_UUID,
+    LtwooErxConstants.RX_CHARACTERISTIC_UUID,
+    data,
+    withoutResponse: false,
+  );
+
+  /// Registers the two rear-shift buttons (idempotent).
+  @visibleForTesting
+  void registerShiftButtons() {
+    getOrAddButton(
+      shiftUpButtonName,
+      () => ControllerButton(shiftUpButtonName, action: InGameAction.shiftUp, sourceDeviceId: device.deviceId),
+    );
+    getOrAddButton(
+      shiftDownButtonName,
+      () => ControllerButton(shiftDownButtonName, action: InGameAction.shiftDown, sourceDeviceId: device.deviceId),
+    );
+  }
+
+  ControllerButton _button(String name, InGameAction action) =>
+      getOrAddButton(name, () => ControllerButton(name, action: action, sourceDeviceId: device.deviceId));
+
+  @override
+  Future<void> processCharacteristic(String characteristic, Uint8List bytes) async {
+    if (characteristic.toLowerCase() != LtwooErxConstants.TX_CHARACTERISTIC_UUID.toLowerCase()) return;
+
+    final response = LtwooProtocol.parseResponse(bytes);
+    if (response == null) return; // invalid frame — dropped
+
+    if (response.isWrongPin) {
+      if (!_warnedWrongPin) {
+        _warnedWrongPin = true;
+        core.connection.signalNotification(
+          AlertNotification(LogLevel.LOGLEVEL_WARNING, AppLocalizations.current.ltwooWrongPinAlert),
+        );
+      }
+      return;
+    }
+
+    if (response.payload.isEmpty) return;
+    final value = response.payload.first;
+
+    if (response.isHello) {
+      _numSpeeds = value;
+    } else if (response.isRearGear) {
+      await _onRearGear(value);
+    } else if (response.isFrontGear) {
+      await _onFrontGear(value);
+    } else if (response.isBattery) {
+      batteryLevel = value;
+      core.connection.signalChange(this);
+    }
+  }
+
+  Future<void> _onRearGear(int raw) async {
+    final last = _lastRawRearGear;
+    _lastRawRearGear = raw;
+    if (last == null || raw == last) return; // first reading initializes silently
+
+    // RAW counts from the LARGEST cog: a raw DECREASE is a smaller cog =
+    // harder gear = "Shift Up"; a raw increase is "Shift Down".
+    final button = raw < last
+        ? _button(shiftUpButtonName, InGameAction.shiftUp)
+        : _button(shiftDownButtonName, InGameAction.shiftDown);
+    final steps = (raw - last).abs().coerceAtMost(maxClicksPerChange);
+    for (var i = 0; i < steps; i++) {
+      await _emitClick(button);
+    }
+  }
+
+  Future<void> _onFrontGear(int raw) async {
+    final last = _lastRawFrontGear;
+    _lastRawFrontGear = raw;
+    // Register the button on the first front-gear observation so only bikes
+    // that actually have a front derailleur get the extra keymap entry.
+    final button = _button(frontShiftButtonName, InGameAction.frontShift);
+    if (last == null || raw == last) return;
+    await _emitClick(button);
+  }
+
+  Future<void> _emitClick(ControllerButton button) async {
+    await handleButtonsClicked([button]);
+    await handleButtonsClicked(const []);
+  }
+
+  /// Persists a new PIN and re-sends the hello so the derailleur re-validates
+  /// it (and re-reports numSpeeds).
+  Future<void> setPin(String pin) async {
+    await core.settings.setLtwooPin(device.deviceId, pin);
+    _warnedWrongPin = false; // a wrong new PIN should warn again
+    await _send(LtwooProtocol.opcodeHello);
+  }
+
+  void _cancelTimers() {
+    _rearPollTimer?.cancel();
+    _rearPollTimer = null;
+    _frontPollTimer?.cancel();
+    _frontPollTimer = null;
+    _batteryPollTimer?.cancel();
+    _batteryPollTimer = null;
+  }
+
+  /// Cancels the poll timers and clears per-connection state so a reconnect
+  /// initializes silently again. Extracted from [disconnect] for tests that
+  /// can't reach the BLE platform channel (WheeltopEds pattern).
+  @visibleForTesting
+  void resetConnectionState() {
+    _cancelTimers();
+    _numSpeeds = null;
+    _lastRawRearGear = null;
+    _lastRawFrontGear = null;
+    _warnedWrongPin = false;
+  }
+
+  @override
+  Future<void> disconnect() async {
+    resetConnectionState();
+    await super.disconnect();
+  }
+
+  @override
+  List<Widget> showAdditionalInformation(BuildContext context) => [
+    Text(context.i18n.ltwooHintCloseApp).xSmall,
+    Text(context.i18n.ltwooHintCassetteEnds).xSmall,
+  ];
+
+  @override
+  Widget? buildPreferences(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(context.i18n.ltwooPinLabel).small),
+        SizedBox(
+          width: 80,
+          child: TextField(
+            initialValue: _pin,
+            maxLength: 3,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (value) {
+              if (value.length == 3) unawaited(setPin(value));
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class LtwooErxConstants {
+  /// Nordic UART Service (shared with other NUS devices — matching is
+  /// name-gated, never by this UUID alone).
+  static const String SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+
+  /// Requests are written here (write with response).
+  static const String RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+
+  /// Responses/event frames are notified here.
+  static const String TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+  /// eRX/eR9 derailleurs advertise names like `LTOED2501…` (chars 5–9 encode
+  /// the model). `LTOED00…` is a legacy model with different framing —
+  /// excluded from matching.
+  static const String NAME_PREFIX = 'LTOED';
+  static const String LEGACY_NAME_PREFIX = 'LTOED00';
+
+  static bool matchesName(String? name) {
+    final upper = name?.toUpperCase();
+    if (upper == null) return false;
+    return upper.startsWith(NAME_PREFIX) && !upper.startsWith(LEGACY_NAME_PREFIX);
+  }
+}

@@ -2029,5 +2029,9 @@
   "supportDeleteAccountTitle": "Usunąć konto i wszystkie dane?",
   "supportDeleteAccountBody": "Spowoduje to trwałe usunięcie twojej rozmowy z pomocą techniczną oraz twojego konta BikeControl wraz z adresem e-mail. Jednorazowy zakup pozostaje w sklepie, w którym go kupiono, a subskrypcja Pro nadal tam działa, ale to urządzenie zostanie wylogowane. Tej operacji nie można cofnąć.",
   "supportDeleteSuccess": "Twoje dane zostały usunięte.",
-  "supportDeleteFailed": "Nie udało się usunąć twoich danych. Spróbuj ponownie."
+  "supportDeleteFailed": "Nie udało się usunąć twoich danych. Spróbuj ponownie.",
+  "ltwooHintCloseApp": "Zamknij aplikację LTWOO podczas jazdy — przerzutka obsługuje tylko jedno połączenie Bluetooth naraz.",
+  "ltwooHintCassetteEnds": "Na końcach kasety przerzutka nie wysyła sygnału — nie może przesunąć się dalej.",
+  "ltwooWrongPinAlert": "Przerzutka L-TWOO odrzuciła PIN. Sprawdź PIN urządzenia w ustawieniach tego kontrolera.",
+  "ltwooPinLabel": "PIN urządzenia"
 }

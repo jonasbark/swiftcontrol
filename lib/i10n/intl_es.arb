@@ -2029,5 +2029,9 @@
   "supportDeleteAccountTitle": "¿Eliminar cuenta y todos los datos?",
   "supportDeleteAccountBody": "Esto elimina permanentemente tu conversación de soporte y tu cuenta de BikeControl, incluida tu dirección de correo. Una compra única permanece en la tienda donde la compraste, y una suscripción Pro sigue activa allí también, pero se cerrará la sesión en este dispositivo. No se puede deshacer.",
   "supportDeleteSuccess": "Tus datos se han eliminado.",
-  "supportDeleteFailed": "No se pudieron eliminar tus datos. Inténtalo de nuevo."
+  "supportDeleteFailed": "No se pudieron eliminar tus datos. Inténtalo de nuevo.",
+  "ltwooHintCloseApp": "Cierra la app de LTWOO mientras pedaleas: el cambio solo admite una conexión Bluetooth a la vez.",
+  "ltwooHintCassetteEnds": "Al llegar al final del casete, el cambio no envía señal: no puede moverse más.",
+  "ltwooWrongPinAlert": "El cambio L-TWOO rechazó el PIN. Comprueba el PIN del dispositivo en las preferencias de este controlador.",
+  "ltwooPinLabel": "PIN del dispositivo"
 }

@@ -40,6 +40,7 @@ import 'cycplus/cycplus_bc2.dart';
 import 'elite/elite_rizer.dart';
 import 'elite/elite_square.dart';
 import 'elite/elite_sterzo.dart';
+import 'ltwoo/ltwoo_erx.dart';
 import 'thinkrider/thinkrider_vs200.dart';
 import 'wheeltop/wheeltop_eds.dart';
 
@@ -89,6 +90,9 @@ abstract class BluetoothDevice extends BaseDevice {
     ShimanoDi2Constants.SERVICE_UUID_ALTERNATIVE,
     OpenBikeControlConstants.SERVICE_UUID,
     ThinkRiderVs200Constants.SERVICE_UUID,
+    // Nordic UART Service — needed so L-TWOO derailleurs show up in filtered
+    // scans; device matching itself stays name-gated (NUS is far too generic).
+    LtwooErxConstants.SERVICE_UUID,
   ];
 
   static final List<String> _ignoredNames = ['ASSIOMA', 'QUARQ', 'POWERCRANK'];
@@ -162,6 +166,7 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.name!.toUpperCase().startsWith('CYCPLUS') && scanResult.name!.toUpperCase().contains('BC2') =>
           CycplusBc2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('THINK VS') => ThinkRiderVs200(scanResult),
+        _ when LtwooErxConstants.matchesName(scanResult.name) => LtwooErx(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('RDR') => ShimanoDi2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('SRAM') && _sramIsConnectable(scanResult) => SramAxs(
           scanResult,
@@ -189,6 +194,7 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.name!.toUpperCase().startsWith('CYCPLUS') && scanResult.name!.toUpperCase().contains('BC2') =>
           CycplusBc2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('THINK VS') => ThinkRiderVs200(scanResult),
+        _ when LtwooErxConstants.matchesName(scanResult.name) => LtwooErx(scanResult),
         //_ when scanResult.services.contains(CycplusBc2Constants.SERVICE_UUID.toLowerCase()) => CycplusBc2(scanResult),
         _ when scanResult.services.contains(ShimanoDi2Constants.SERVICE_UUID.toLowerCase()) => ShimanoDi2(scanResult),
         _ when scanResult.services.contains(ShimanoDi2Constants.SERVICE_UUID_ALTERNATIVE.toLowerCase()) => ShimanoDi2(
