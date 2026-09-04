@@ -43,12 +43,29 @@ void main() {
   });
 
   test('a restored-but-missing source leaves droppedOut false', () async {
-    final settings = Settings()..prefs = await SharedPreferences.getInstance();
-    await settings.setSensorSelection(SensorQuantity.heartRate.name, 'ghost');
+    late DateTime clock;
+    clock = DateTime.utc(2026, 9, 4, 12);
 
-    final hub = SensorHub();
-    hub.loadSelections(settings);
+    final hub = SensorHub(now: () => clock);
+    final source = FakeSensorSource(
+      id: 'strap',
+      displayName: 'Strap',
+      provides: {SensorQuantity.heartRate},
+    );
+    hub.register(source);
+    hub.select(SensorQuantity.heartRate, 'strap');
+    source.emit(SensorQuantity.heartRate, 155, at: clock);
 
+    // Advance clock past TTL and tick to drive drop-out flag true (precondition)
+    clock = clock.add(const Duration(seconds: 6));
+    hub.tick();
+    expect(hub.droppedOut(SensorQuantity.heartRate).value, isTrue);
+
+    // Now directly select a non-existent source with the flag already true.
+    // The unknown-source branch should clear the flag even though it was true.
+    hub.select(SensorQuantity.heartRate, 'ghost');
+
+    expect(hub.selectionFor(SensorQuantity.heartRate), isNull);
     expect(hub.droppedOut(SensorQuantity.heartRate).value, isFalse);
   });
 }
