@@ -20,6 +20,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_play.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_play_fw2.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart';
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -95,7 +96,7 @@ abstract class BluetoothDevice extends BaseDevice {
     LtwooErxConstants.SERVICE_UUID,
     // Heart Rate Service — so straps and armbands appear in filtered scans and
     // can be selected as an external source.
-    '0000180d-0000-1000-8000-00805f9b34fb',
+    BleSensorSource.heartRateServiceUuid,
   ];
 
   static final List<String> _ignoredNames = ['ASSIOMA', 'QUARQ', 'POWERCRANK'];
