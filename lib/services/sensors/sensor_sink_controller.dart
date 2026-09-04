@@ -26,12 +26,22 @@ class SensorSinkController {
   bool _standalone = false;
   bool? _lastBridgeRunning;
 
+  /// Serialises transitions. Bridge state flaps, and a second call arriving
+  /// while the first is suspended at an `await` would sail past the
+  /// idempotency guard — leaving the sink attached AND standalone, which is
+  /// the one thing this class exists to prevent.
+  Future<void> _inFlight = Future<void>.value();
+
   bool get attachedToComposite => _attached;
   bool get standaloneRunning => _standalone;
 
-  Future<void> onBridgeStateChanged({required bool bridgeRunning}) async {
+  Future<void> onBridgeStateChanged({required bool bridgeRunning}) {
+    _inFlight = _inFlight.then((_) => _apply(bridgeRunning));
+    return _inFlight;
+  }
+
+  Future<void> _apply(bool bridgeRunning) async {
     if (_lastBridgeRunning == bridgeRunning) return;
-    _lastBridgeRunning = bridgeRunning;
     try {
       if (bridgeRunning) {
         if (_standalone) {
@@ -48,6 +58,7 @@ class SensorSinkController {
         await startStandalone(definition);
         _standalone = true;
       }
+      _lastBridgeRunning = bridgeRunning;
     } catch (e, s) {
       await recordError(e, s, context: 'SensorSinkController');
     }

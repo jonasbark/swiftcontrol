@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bike_control/services/sensors/sensor_sink_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop/emulators/definitions/sensor_definition.dart';
@@ -62,5 +64,89 @@ void main() {
     await controller.onBridgeStateChanged(bridgeRunning: true);
 
     expect(calls, isEmpty);
+  });
+
+  test('concurrent calls are serialized to maintain invariant', () async {
+    late Completer<void> startCompleter;
+
+    controller = SensorSinkController(
+      definition: SensorDefinition(),
+      attach: (_) => calls.add('attach'),
+      detach: (_) => calls.add('detach'),
+      startStandalone: (_) async {
+        startCompleter = Completer<void>();
+        calls.add('start');
+        await startCompleter.future;
+      },
+      stopStandalone: () async => calls.add('stop'),
+    );
+
+    // Start a call to bridge=false (will suspend at startStandalone)
+    final future1 = controller.onBridgeStateChanged(bridgeRunning: false);
+
+    // Let it reach the await point
+    await Future.delayed(Duration(milliseconds: 100));
+
+    // While suspended, call with bridge=true
+    final future2 = controller.onBridgeStateChanged(bridgeRunning: true);
+
+    // Resume the first call
+    startCompleter.complete();
+
+    // Wait for both to finish
+    await future1;
+    await future2;
+
+    // The invariant: never both attached AND standalone
+    expect(controller.attachedToComposite && controller.standaloneRunning, isFalse);
+
+    // Call sequence should be legal: either bridge→standalone or standalone→bridge
+    // With the fix, we expect: detach, start, stop, attach (two transitions)
+    // Without serialization, we might get: detach, attach, start (broken)
+    expect(calls.contains('attach'), isTrue);
+    expect(calls.contains('start'), isTrue);
+  });
+
+  test('failed transition is retried on next call with same state', () async {
+    int startAttempts = 0;
+
+    controller = SensorSinkController(
+      definition: SensorDefinition(),
+      attach: (_) => calls.add('attach'),
+      detach: (_) => calls.add('detach'),
+      startStandalone: (_) async {
+        startAttempts++;
+        if (startAttempts == 1) {
+          calls.add('start-fail');
+          throw Exception('Simulated failure');
+        }
+        calls.add('start-success');
+      },
+      stopStandalone: () async => calls.add('stop'),
+    );
+
+    // First call fails
+    try {
+      await controller.onBridgeStateChanged(bridgeRunning: false);
+    } catch (_) {
+      // Exception is caught and recorded by recordError
+    }
+
+    // Controller should still be in the old state; the sink is served NOWHERE
+    expect(controller.standaloneRunning, isFalse);
+    expect(controller.attachedToComposite, isFalse);
+
+    // Reset the mock
+    calls.clear();
+
+    // Second call with the SAME state should retry
+    try {
+      await controller.onBridgeStateChanged(bridgeRunning: false);
+    } catch (_) {}
+
+    // This time it should succeed
+    expect(startAttempts, 2); // Both attempts were made
+    expect(controller.standaloneRunning, isTrue);
+    expect(calls.contains('start-success'), isTrue);
   });
 }
