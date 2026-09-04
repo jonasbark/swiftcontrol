@@ -93,6 +93,9 @@ abstract class BluetoothDevice extends BaseDevice {
     // Nordic UART Service — needed so L-TWOO derailleurs show up in filtered
     // scans; device matching itself stays name-gated (NUS is far too generic).
     LtwooErxConstants.SERVICE_UUID,
+    // Heart Rate Service — so straps and armbands appear in filtered scans and
+    // can be selected as an external source.
+    '0000180d-0000-1000-8000-00805f9b34fb',
   ];
 
   static final List<String> _ignoredNames = ['ASSIOMA', 'QUARQ', 'POWERCRANK'];
