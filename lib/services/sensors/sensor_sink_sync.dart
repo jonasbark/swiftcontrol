@@ -14,10 +14,18 @@ import 'sensor_sink_controller.dart';
 /// advertising itself as a heart rate monitor the moment it launches — before
 /// the rider has picked any source and with no reading to send. A monitor
 /// that never reports a value reads as broken hardware, not as "nothing
-/// chosen yet." Folding "no source selected" into the same `bridgeRunning`
-/// flag the controller already understands — treat it as if the bridge WERE
-/// running, so nothing standalone stands up — covers that with the flag the
-/// controller already has, rather than adding a third state.
+/// chosen yet."
+///
+/// "No source selected" maps to [SensorSinkMode.none], NOT [SensorSinkMode
+/// .bridge]. An earlier version of this class folded "no source" into
+/// `bridgeRunning: true` because the two looked equivalent — neither stands
+/// up a standalone peripheral — but they are not interchangeable: `bridge`
+/// actually attaches [SensorDefinition] to the shared trainer-bridge
+/// composite, and a value-less definition left attached there forever keeps
+/// that composite's `children` non-empty, which stops
+/// `ProxyDevice._stopFtmsEmulatorIfUnused` from ever seeing it as unused —
+/// the bridge would keep advertising after the trainer disconnected. `none`
+/// is genuinely attached nowhere, which is what "nothing selected" means.
 ///
 /// This also doubles as the retry path for a standalone start that failed at
 /// launch (e.g. BLE permission not granted yet): [hub]'s
@@ -46,14 +54,20 @@ class SensorSinkSync {
     unawaited(sync());
   }
 
-  /// Recomputes the effective bridge state and applies it to [sink].
+  /// Recomputes the effective sink mode and applies it to [sink].
   ///
   /// Returns the `Future` (rather than being `void` and firing-and-forgetting
   /// internally) so a test can await one deterministic sync instead of
   /// pumping the event loop after [start].
   Future<void> sync() {
     final hasSource = hub.selectionFor(SensorQuantity.heartRate) != null;
-    return sink.onBridgeStateChanged(bridgeRunning: isBridgeRunning.value || !hasSource);
+    return sink.onSinkStateChanged(
+      mode: !hasSource
+          ? SensorSinkMode.none
+          : isBridgeRunning.value
+          ? SensorSinkMode.bridge
+          : SensorSinkMode.standalone,
+    );
   }
 
   void dispose() {

@@ -30,15 +30,17 @@ void main() {
 
   tearDown(() => sync.dispose());
 
-  // "No source" is folded into `bridgeRunning` (see SensorSinkSync's doc
-  // comment), so the sink rides the — not-yet-advertising — bridge composite
-  // instead of doing nothing: attach() runs, but startStandalone() must not.
+  // "No source" maps to SensorSinkMode.none (see SensorSinkSync's doc
+  // comment) — attached NOWHERE, not folded into bridge mode. This is the
+  // regression this test guards: an earlier version attached the definition
+  // to the bridge composite even with nothing selected, which kept the
+  // shared trainer bridge from ever seeing itself as unused.
   test('with no source selected, no standalone start is attempted at all', () async {
     await sync.sync();
 
-    expect(calls, isNot(contains('start')));
+    expect(calls, isEmpty);
     expect(sink.standaloneRunning, isFalse);
-    expect(sink.attachedToComposite, isTrue);
+    expect(sink.attachedToComposite, isFalse);
   });
 
   test('a selected source starts the standalone sink when the bridge is not running', () async {
@@ -52,7 +54,7 @@ void main() {
     expect(sink.standaloneRunning, isTrue);
   });
 
-  test('the bridge running takes precedence even with a source selected', () async {
+  test('a selected source attaches to the composite when the bridge is running', () async {
     final source = FakeSensorSource(id: 'strap', displayName: 'Strap', provides: {SensorQuantity.heartRate});
     hub.register(source);
     hub.select(SensorQuantity.heartRate, 'strap');
@@ -66,20 +68,20 @@ void main() {
 
   test('start() re-syncs automatically when a source is selected afterwards', () async {
     sync.start();
-    // Settle the initial sync triggered by start(): cold start, no source,
-    // so it rides the bridge composite (attach), not standalone.
+    // Settle the initial sync triggered by start(): cold start, no source
+    // selected, so the sink is attached nowhere — no calls at all.
     await Future<void>.delayed(Duration.zero);
-    expect(calls, ['attach']);
-    calls.clear();
+    expect(calls, isEmpty);
 
     final source = FakeSensorSource(id: 'strap', displayName: 'Strap', provides: {SensorQuantity.heartRate});
     hub.register(source);
     hub.select(SensorQuantity.heartRate, 'strap');
     // select() invokes the onSelectionChanged hook synchronously; let the
-    // resulting onBridgeStateChanged transition settle.
+    // resulting onSinkStateChanged transition settle. Nothing was attached
+    // before, so this is a plain none -> standalone transition: no detach.
     await Future<void>.delayed(Duration.zero);
 
-    expect(calls, ['detach', 'start']);
+    expect(calls, ['start']);
     expect(sink.standaloneRunning, isTrue);
   });
 
