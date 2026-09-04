@@ -1,0 +1,255 @@
+import 'dart:typed_data';
+import 'dart:ui' show Locale;
+
+import 'package:bike_control/bluetooth/devices/ltwoo/ltwoo_erx.dart';
+import 'package:bike_control/bluetooth/messages/notification.dart';
+import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/utils/actions/base_actions.dart';
+import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
+import 'package:bike_control/utils/keymap/buttons.dart';
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:universal_ble/universal_ble.dart';
+
+/// Records click emits (bypassing the base device's keymap timing) and captures
+/// outgoing protocol writes so no BLE platform channel is needed.
+class _RecordingLtwooErx extends LtwooErx {
+  _RecordingLtwooErx() : super(BleDevice(deviceId: 'dev1', name: 'LTOED2501AB12'));
+
+  final List<List<String>> emitted = [];
+  final List<Uint8List> written = [];
+
+  @override
+  Future<void> handleButtonsClicked(List<ControllerButton>? buttons, {bool longPress = false}) async {
+    emitted.add(buttons == null ? ['<null>'] : buttons.map((b) => b.name).toList());
+  }
+
+  @override
+  Future<void> writeRequest(Uint8List data) async {
+    written.add(data);
+  }
+}
+
+/// Appends the XOR checksum to [body].
+Uint8List _frame(List<int> body) => Uint8List.fromList([...body, body.fold(0, (a, b) => a ^ b)]);
+
+Future<void> _feed(LtwooErx d, List<int> body) =>
+    d.processCharacteristic(LtwooErxConstants.TX_CHARACTERISTIC_UUID, _frame(body));
+
+Future<void> _feedRear(LtwooErx d, int raw, {List<int> opcode = const [0x09, 0x00]}) =>
+    _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, ...opcode, raw]);
+
+Future<void> _feedFront(LtwooErx d, int raw) => _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x11, 0x00, raw]);
+
+Future<void> _feedHello(LtwooErx d, int numSpeeds) =>
+    _feed(d, [0x5A, 0x30, 0x30, 0x30, 0x46, 0x46, 0x46, 0x20, 0x01, numSpeeds]);
+
+Future<void> main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  final stubActions = StubActions();
+  stubActions.supportedApp = OpenBikeControl();
+
+  SharedPreferences.setMockInitialValues({});
+  await core.settings.init();
+  await AppLocalizations.load(const Locale('en'));
+  core.actionHandler = stubActions;
+
+  group('LtwooErx gear -> button behavior', () {
+    test('hello response sets numSpeeds', () async {
+      final d = _RecordingLtwooErx();
+      expect(d.debugNumSpeeds, isNull);
+      await _feedHello(d, 12);
+      expect(d.debugNumSpeeds, 12);
+    });
+
+    test('first rear-gear reading initializes silently', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 5);
+      expect(d.emitted, isEmpty);
+    });
+
+    test('raw 5 -> 4 emits exactly one Shift Up click', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 5);
+      await _feedRear(d, 4);
+      expect(d.emitted, [
+        [LtwooErx.shiftUpButtonName],
+        <String>[],
+      ]);
+    });
+
+    test('raw 4 -> 5 emits one Shift Down click', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 4);
+      await _feedRear(d, 5);
+      expect(d.emitted, [
+        [LtwooErx.shiftDownButtonName],
+        <String>[],
+      ]);
+    });
+
+    test('repeated same gear emits nothing', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 5);
+      await _feedRear(d, 5);
+      await _feedRear(d, 5);
+      expect(d.emitted, isEmpty);
+    });
+
+    test('raw 8 -> 5 emits three Shift Up clicks', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 8);
+      await _feedRear(d, 5);
+      expect(d.emitted, [
+        [LtwooErx.shiftUpButtonName],
+        <String>[],
+        [LtwooErx.shiftUpButtonName],
+        <String>[],
+        [LtwooErx.shiftUpButtonName],
+        <String>[],
+      ]);
+    });
+
+    test('raw 12 -> 5 is capped at three clicks', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 12);
+      await _feedRear(d, 5);
+      expect(d.emitted, hasLength(6));
+      expect(d.emitted.first, [LtwooErx.shiftUpButtonName]);
+    });
+
+    test('event-frame opcode variant (0x00 0x09) drives the same path', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 5, opcode: const [0x00, 0x09]);
+      expect(d.emitted, isEmpty); // init
+      await _feedRear(d, 4, opcode: const [0x00, 0x09]);
+      expect(d.emitted, [
+        [LtwooErx.shiftUpButtonName],
+        <String>[],
+      ]);
+    });
+
+    test('invalid frame (bad XOR) is dropped', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 5);
+      final bad = _frame([0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x09, 0x00, 0x04]);
+      bad[bad.length - 1] ^= 0x01;
+      await d.processCharacteristic(LtwooErxConstants.TX_CHARACTERISTIC_UUID, bad);
+      expect(d.emitted, isEmpty);
+    });
+
+    test('reset makes the next rear reading initialize silently again', () async {
+      final d = _RecordingLtwooErx();
+      await _feedRear(d, 5);
+      d.resetConnectionState();
+      await _feedRear(d, 3);
+      expect(d.emitted, isEmpty);
+    });
+  });
+
+  group('LtwooErx front gear', () {
+    test('first front observation registers the Front Shift button silently', () async {
+      final d = _RecordingLtwooErx();
+      expect(d.availableButtons.map((b) => b.name), isNot(contains(LtwooErx.frontShiftButtonName)));
+      await _feedFront(d, 1);
+      expect(d.emitted, isEmpty);
+      expect(d.availableButtons.map((b) => b.name), contains(LtwooErx.frontShiftButtonName));
+    });
+
+    test('front gear change clicks the Front Shift button', () async {
+      final d = _RecordingLtwooErx();
+      await _feedFront(d, 1);
+      await _feedFront(d, 2);
+      expect(d.emitted, [
+        [LtwooErx.frontShiftButtonName],
+        <String>[],
+      ]);
+    });
+  });
+
+  group('LtwooErx button registration', () {
+    test('shift buttons are pre-registered with default actions and sourceDeviceId', () {
+      final d = _RecordingLtwooErx();
+      d.registerShiftButtons();
+
+      final up = d.availableButtons.firstWhere((b) => b.name == LtwooErx.shiftUpButtonName);
+      expect(up.action, InGameAction.shiftUp);
+      expect(up.sourceDeviceId, 'dev1');
+
+      final down = d.availableButtons.firstWhere((b) => b.name == LtwooErx.shiftDownButtonName);
+      expect(down.action, InGameAction.shiftDown);
+      expect(down.sourceDeviceId, 'dev1');
+    });
+
+    test('Front Shift button defaults to the frontShift action', () async {
+      final d = _RecordingLtwooErx();
+      await _feedFront(d, 1);
+      final front = d.availableButtons.firstWhere((b) => b.name == LtwooErx.frontShiftButtonName);
+      expect(front.action, InGameAction.frontShift);
+      expect(front.sourceDeviceId, 'dev1');
+    });
+  });
+
+  group('LtwooErx wrong PIN', () {
+    test('one AlertNotification per connection, not repeated', () async {
+      final d = _RecordingLtwooErx();
+      final alerts = <AlertNotification>[];
+      final sub = core.connection.actionStream.listen((n) {
+        if (n is AlertNotification) alerts.add(n);
+      });
+
+      await _feed(d, [0x5A, 0xEE, 0xEE, 0xEE, 0x46, 0x46, 0x46]);
+      await Future<void>.delayed(Duration.zero);
+      expect(alerts, hasLength(1));
+
+      await _feed(d, [0x5A, 0xEE, 0xEE, 0xEE, 0x46, 0x46, 0x46]);
+      await Future<void>.delayed(Duration.zero);
+      expect(alerts, hasLength(1));
+
+      await sub.cancel();
+    });
+  });
+
+  group('LtwooErx battery', () {
+    test('battery response updates batteryLevel', () async {
+      final d = _RecordingLtwooErx();
+      await _feed(d, [0x5A, 0xFF, 0xFF, 0xFF, 0x46, 0x46, 0x46, 0x0A, 0x01, 0x63]);
+      expect(d.batteryLevel, 99);
+    });
+  });
+
+  group('LtwooErx polling and PIN', () {
+    test('poll timer sends rear-gear requests every 500 ms until reset', () {
+      fakeAsync((async) {
+        final d = _RecordingLtwooErx();
+        d.startPolling();
+        // The hello is sent immediately on startPolling.
+        final helloCount = d.written.length;
+        expect(helloCount, greaterThanOrEqualTo(1));
+
+        async.elapse(const Duration(milliseconds: 1600));
+        final rearRequests = d.written.where((w) => w.length >= 9 && w[7] == 0x09 && w[8] == 0x00);
+        expect(rearRequests.length, 3);
+
+        d.resetConnectionState();
+        final countAfterReset = d.written.length;
+        async.elapse(const Duration(seconds: 5));
+        expect(d.written.length, countAfterReset);
+      });
+    });
+
+    test('changing the PIN re-sends the hello with the new PIN bytes', () async {
+      final d = _RecordingLtwooErx();
+      await d.setPin('199');
+      expect(core.settings.getLtwooPin('dev1'), '199');
+      expect(d.written, isNotEmpty);
+      final hello = d.written.last;
+      // 0xA5 + PIN "199" + FFF + hello opcode.
+      expect(hello.sublist(0, 7), [0xA5, 0x31, 0x39, 0x39, 0x46, 0x46, 0x46]);
+      expect(hello.sublist(7, 10), [0x20, 0x01, 0x00]);
+    });
+  });
+}

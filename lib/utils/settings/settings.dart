@@ -785,6 +785,13 @@ class Settings {
     return prefs.getInt('phone_steering_threshold')?.toDouble() ?? GyroscopeSteering.STEERING_THRESHOLD;
   }
 
+  // L-TWOO eRX/eR9 Settings
+
+  /// 3-digit ASCII PIN sent in every request frame; "000" is the factory default.
+  String getLtwooPin(String deviceId) => prefs.getString('ltwoo_pin_$deviceId') ?? '000';
+
+  Future<void> setLtwooPin(String deviceId, String pin) async => prefs.setString('ltwoo_pin_$deviceId', pin);
+
   // SRAM AXS Settings
 
   String? getSramKey(String serial) => prefs.getString('sram_key_$serial');

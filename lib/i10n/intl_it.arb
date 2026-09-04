@@ -2005,5 +2005,9 @@
   "supportDeleteAccountTitle": "Eliminare account e tutti i dati?",
   "supportDeleteAccountBody": "Questa operazione elimina definitivamente la tua conversazione di supporto e il tuo account BikeControl, incluso il tuo indirizzo email. Un acquisto una tantum resta nello store da cui l'hai acquistato e anche un abbonamento Pro continua a essere attivo lì, ma questo dispositivo verrà disconnesso. L'operazione non può essere annullata.",
   "supportDeleteSuccess": "I tuoi dati sono stati eliminati.",
-  "supportDeleteFailed": "Impossibile eliminare i tuoi dati. Riprova."
+  "supportDeleteFailed": "Impossibile eliminare i tuoi dati. Riprova.",
+  "ltwooHintCloseApp": "Chiudi l'app LTWOO durante la pedalata: il deragliatore accetta una sola connessione Bluetooth alla volta.",
+  "ltwooHintCassetteEnds": "Alle estremità della cassetta il deragliatore non invia alcun segnale: non può spostarsi oltre.",
+  "ltwooWrongPinAlert": "Il deragliatore L-TWOO ha rifiutato il PIN. Controlla il PIN del dispositivo nelle preferenze di questo controller.",
+  "ltwooPinLabel": "PIN del dispositivo"
 }

@@ -2005,5 +2005,9 @@
   "supportDeleteAccountTitle": "Supprimer le compte et toutes les données ?",
   "supportDeleteAccountBody": "Cela supprime définitivement ta conversation avec le support et ton compte BikeControl, y compris ton adresse e-mail. Un achat unique reste dans le store où tu l'as effectué, et un abonnement Pro continue d'y fonctionner aussi, mais cet appareil sera déconnecté. Cette action est irréversible.",
   "supportDeleteSuccess": "Tes données ont été supprimées.",
-  "supportDeleteFailed": "Impossible de supprimer tes données. Réessaie."
+  "supportDeleteFailed": "Impossible de supprimer tes données. Réessaie.",
+  "ltwooHintCloseApp": "Fermez l'application LTWOO pendant la sortie — le dérailleur n'accepte qu'une seule connexion Bluetooth à la fois.",
+  "ltwooHintCassetteEnds": "En bout de cassette, le dérailleur n'envoie aucun signal — il ne peut pas aller plus loin.",
+  "ltwooWrongPinAlert": "Le dérailleur L-TWOO a refusé le PIN. Vérifiez le PIN de l'appareil dans les préférences de ce contrôleur.",
+  "ltwooPinLabel": "PIN de l'appareil"
 }

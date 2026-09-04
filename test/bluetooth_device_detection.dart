@@ -4,6 +4,7 @@ import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/cycplus/cycplus_bc2.dart';
 import 'package:bike_control/bluetooth/devices/elite/elite_square.dart';
 import 'package:bike_control/bluetooth/devices/elite/elite_sterzo.dart';
+import 'package:bike_control/bluetooth/devices/ltwoo/ltwoo_erx.dart';
 import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
@@ -134,6 +135,21 @@ void main() {
     });
     test('Skip QUARQ', () {
       final device = _createBleDevice(name: 'QUARQ 133', services: [SramAxsConstants.SERVICE_UUID]);
+      expect(BluetoothDevice.fromScanResult(device), isNull);
+    });
+  });
+
+  group('Detect L-TWOO eRX/eR9', () {
+    test('eRX/eR9 derailleur by name', () {
+      final device = _createBleDevice(name: 'LTOED2501AB12');
+      expect(BluetoothDevice.fromScanResult(device), isInstanceOf<LtwooErx>());
+    });
+    test('lowercase advertised name still matches', () {
+      final device = _createBleDevice(name: 'ltoed2501ab12');
+      expect(BluetoothDevice.fromScanResult(device), isInstanceOf<LtwooErx>());
+    });
+    test('legacy LTOED00 model is excluded', () {
+      final device = _createBleDevice(name: 'LTOED001234');
       expect(BluetoothDevice.fromScanResult(device), isNull);
     });
   });
