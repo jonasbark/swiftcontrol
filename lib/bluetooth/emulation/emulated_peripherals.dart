@@ -40,8 +40,10 @@ List<BleService> deviceInfoServices(FakePeripheral peripheral, {String firmware 
 }
 
 /// An emulated heart rate strap, so the whole BLE sensor path can be exercised
-/// in the running app without hardware.
-FakePeripheral heartRateStrapPeripheral({String name = 'Emulated HRM', int bpm = 140}) {
+/// in the running app without hardware. The heart rate strap is notify-only:
+/// testers choose the BPM via EmulatedAction inputs on the profile, not via
+/// peripheral builder parameters.
+FakePeripheral heartRateStrapPeripheral({String name = 'Emulated HRM'}) {
   // advertisedServices is what a filtered scan matches on — without it the
   // strap is built but never discovered, which looks exactly like a bug in
   // the scan filter.
@@ -56,10 +58,6 @@ FakePeripheral heartRateStrapPeripheral({String name = 'Emulated HRM', int bpm =
     ]),
     ...deviceInfoServices(peripheral),
   ]);
-  // Store the initial BPM value as a readable characteristic so the emulation
-  // profile can notify it during setup.
-  peripheral.readValues[lcUuid(BleSensorSource.heartRateMeasurementUuid)] =
-      Uint8List.fromList([0x00, bpm]);
   return peripheral;
 }
 
