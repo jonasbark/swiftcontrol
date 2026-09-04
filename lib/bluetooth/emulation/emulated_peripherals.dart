@@ -5,6 +5,7 @@ import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
 import 'package:bike_control/bluetooth/devices/wheeltop/wheeltop_eds.dart';
 import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart' show RideButtonMask;
+import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/prop.dart' hide RideButtonMask;
 import 'package:universal_ble/universal_ble.dart';
@@ -36,6 +37,26 @@ List<BleService> deviceInfoServices(FakePeripheral peripheral, {String firmware 
       ]),
     ]),
   ];
+}
+
+/// An emulated heart rate strap, so the whole BLE sensor path can be exercised
+/// in the running app without hardware.
+FakePeripheral heartRateStrapPeripheral({String name = 'Emulated HRM', int bpm = 140}) {
+  // advertisedServices is what a filtered scan matches on — without it the
+  // strap is built but never discovered, which looks exactly like a bug in
+  // the scan filter.
+  final peripheral = FakePeripheral(
+    deviceId: 'emulated-hrm',
+    name: name,
+    advertisedServices: [lcUuid(BleSensorSource.heartRateServiceUuid)],
+  );
+  peripheral.services.addAll([
+    BleService(lcUuid(BleSensorSource.heartRateServiceUuid), [
+      bleChar(BleSensorSource.heartRateMeasurementUuid, [CharacteristicProperty.notify]),
+    ]),
+    ...deviceInfoServices(peripheral),
+  ]);
+  return peripheral;
 }
 
 /// A Zwift Click (v1) controller. Detected through the Zwift custom service

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:universal_ble/universal_ble.dart';
 
 import '../../devices/sram/sram_axs.dart' show SramAxsConstants;
+import '../../../services/sensors/ble_sensor_source.dart';
 import '../emulated_ble_platform.dart';
 import '../emulated_peripherals.dart';
 import '../emulation_profile.dart';
@@ -194,4 +195,26 @@ final shimanoDi2Profile = EmulationProfile(
         ),
     ];
   },
+);
+
+// Heart rate strap — notifies heart rate measurement over the standard
+// Heart Rate Service. Simulates a continuous stream of BPM readings.
+final heartRateStrapProfile = EmulationProfile(
+  name: 'Heart Rate Monitor',
+  category: EmulationCategory.accessory,
+  build: () => heartRateStrapPeripheral(),
+  inputs: (session) => [
+    EmulatedAction(
+      'Notify 100 bpm',
+      run: () => session.notify(BleSensorSource.heartRateMeasurementUuid, const [0x00, 100]),
+    ),
+    EmulatedAction(
+      'Notify 140 bpm',
+      run: () => session.notify(BleSensorSource.heartRateMeasurementUuid, const [0x00, 140]),
+    ),
+    EmulatedAction(
+      'Notify 180 bpm',
+      run: () => session.notify(BleSensorSource.heartRateMeasurementUuid, const [0x00, 180]),
+    ),
+  ],
 );
