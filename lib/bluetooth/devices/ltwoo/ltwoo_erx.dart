@@ -9,7 +9,7 @@ import 'package:bike_control/utils/keymap/buttons.dart';
 import 'package:dartx/dartx.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:prop/prop.dart' show LogLevel;
+import 'package:prop/prop.dart' show LogLevel, Logger, bytesToHex;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -56,6 +56,12 @@ class LtwooErx extends BluetoothDevice {
   /// Wrong-PIN alert shown at most once per connection (SramAxs
   /// `_warnedSetupNeeded` pattern).
   bool _warnedWrongPin = false;
+
+  /// Kinds of anomalous frames (malformed, unrecognized opcode) already
+  /// reported to the app-level support log this connection. The first
+  /// occurrence logs with hex; repeats are suppressed so a framing mismatch on
+  /// real hardware can't flood the 500-entry buffer at the 2 Hz poll rate.
+  final Set<String> _loggedFrameKinds = {};
 
   /// The NUS service uuid as discovered, captured in [handleServices].
   String? _serviceUuid;
@@ -114,8 +120,10 @@ class LtwooErx extends BluetoothDevice {
   }
 
   Future<void> _send(List<int> opcode) async {
+    final request = LtwooProtocol.buildRequest(_pin, opcode);
+    Logger.trace(() => 'ltwoo> ${_maskedHex(request)}');
     try {
-      await writeRequest(LtwooProtocol.buildRequest(_pin, opcode));
+      await writeRequest(request);
     } catch (e, s) {
       await recordError(e, s, context: 'LtwooErx: write ${opcode.map((b) => b.toRadixString(16)).join()}');
       // A failed write means the link is gone — stop the polls instead of
@@ -155,8 +163,15 @@ class LtwooErx extends BluetoothDevice {
   Future<void> processCharacteristic(String characteristic, Uint8List bytes) async {
     if (characteristic.toLowerCase() != LtwooErxConstants.TX_CHARACTERISTIC_UUID.toLowerCase()) return;
 
+    Logger.trace(() => 'ltwoo< ${_maskedHex(bytes)}');
+
     final response = LtwooProtocol.parseResponse(bytes);
-    if (response == null) return; // invalid frame — dropped
+    if (response == null) {
+      // Invalid frame — dropped, but a framing mismatch on real hardware must
+      // be visible in a support bundle.
+      _logFrameOnce('malformed', () => 'LtwooErx: malformed frame (bad XOR/framing): ${_maskedHex(bytes)}');
+      return;
+    }
 
     if (response.isWrongPin) {
       if (!_warnedWrongPin) {
@@ -168,32 +183,82 @@ class LtwooErx extends BluetoothDevice {
       return;
     }
 
+    if (!response.isHello && !response.isRearGear && !response.isFrontGear && !response.isBattery) {
+      final opcodeHex = response.opcode.toRadixString(16).padLeft(4, '0');
+      _logFrameOnce('opcode-$opcodeHex', () => 'LtwooErx: unrecognized opcode 0x$opcodeHex: ${_maskedHex(bytes)}');
+      return;
+    }
+
     if (response.payload.isEmpty) return;
     final value = response.payload.first;
 
     if (response.isHello) {
+      if (_numSpeeds != value) {
+        actionStreamInternal.add(LogNotification('LtwooErx: derailleur reports $value speeds'));
+      }
       _numSpeeds = value;
     } else if (response.isRearGear) {
       await _onRearGear(value);
     } else if (response.isFrontGear) {
       await _onFrontGear(value);
     } else if (response.isBattery) {
+      if (batteryLevel != value) {
+        actionStreamInternal.add(LogNotification('LtwooErx: battery $value%'));
+      }
       batteryLevel = value;
       core.connection.signalChange(this);
     }
   }
 
+  /// Adds an app-level support-log line for an anomalous frame [kind], at most
+  /// once per connection ([_loggedFrameKinds] is cleared on reconnect). The
+  /// wrong-PIN alert has its own once-per-connection flag and never routes
+  /// through here, so this suppression cannot hide it.
+  void _logFrameOnce(String kind, String Function() message) {
+    if (!_loggedFrameKinds.add(kind)) return;
+    actionStreamInternal.add(LogNotification(message()));
+  }
+
+  /// Hex dump with the 3 PIN/pwd bytes after the frame header masked as
+  /// `??????` so support bundles never carry a user's derailleur PIN.
+  static String _maskedHex(List<int> bytes) {
+    if (bytes.length < 4 ||
+        (bytes.first != LtwooProtocol.requestHeader && bytes.first != LtwooProtocol.responseHeader)) {
+      return bytesToHex(bytes);
+    }
+    return '${bytesToHex([bytes.first])}??????${bytesToHex(bytes.sublist(4))}';
+  }
+
+  /// The display gear for [raw], or `?` while numSpeeds is still unknown.
+  String _displayGear(int raw) {
+    final numSpeeds = _numSpeeds;
+    return numSpeeds == null ? '?' : '${LtwooProtocol.displayGear(numSpeeds: numSpeeds, rawGear: raw)}';
+  }
+
   Future<void> _onRearGear(int raw) async {
     final last = _lastRawRearGear;
     _lastRawRearGear = raw;
-    if (last == null || raw == last) return; // first reading initializes silently
+    if (last == null) {
+      // First reading initializes silently (no click) — but the starting gear
+      // is a key diagnostic for a support bundle.
+      actionStreamInternal.add(LogNotification('LtwooErx: first rear gear raw $raw (display ${_displayGear(raw)})'));
+      return;
+    }
+    if (raw == last) return;
 
     // RAW counts from the LARGEST cog: a raw DECREASE is a smaller cog =
     // harder gear = "Shift Up"; a raw increase is "Shift Down".
-    final button = raw < last
+    final shiftUp = raw < last;
+    final button = shiftUp
         ? _button(shiftUpButtonName, InGameAction.shiftUp)
         : _button(shiftDownButtonName, InGameAction.shiftDown);
     final steps = (raw - last).abs().coerceAtMost(maxClicksPerChange);
+    actionStreamInternal.add(
+      LogNotification(
+        'LtwooErx: rear $last→$raw (display ${_displayGear(last)}→${_displayGear(raw)}), '
+        '$steps× ${shiftUp ? 'Shift Up' : 'Shift Down'}',
+      ),
+    );
     for (var i = 0; i < steps; i++) {
       await _emitClick(button);
     }
@@ -206,6 +271,7 @@ class LtwooErx extends BluetoothDevice {
     // that actually have a front derailleur get the extra keymap entry.
     final button = _button(frontShiftButtonName, InGameAction.frontShift);
     if (last == null || raw == last) return;
+    actionStreamInternal.add(LogNotification('LtwooErx: front $last→$raw, Front Shift'));
     await _emitClick(button);
   }
 
@@ -241,6 +307,7 @@ class LtwooErx extends BluetoothDevice {
     _lastRawRearGear = null;
     _lastRawFrontGear = null;
     _warnedWrongPin = false;
+    _loggedFrameKinds.clear();
   }
 
   @override
