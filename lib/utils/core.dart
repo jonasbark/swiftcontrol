@@ -17,6 +17,7 @@ import 'package:bike_control/utils/demo_mode.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/services/feedback_prompt_service.dart';
 import 'package:bike_control/services/screen_recording/screen_recording_service.dart';
+import 'package:bike_control/services/sensors/sensor_hub.dart';
 import 'package:bike_control/services/shifting_configs_controller.dart';
 import 'package:bike_control/services/workout/workout_recorder.dart';
 import 'package:bike_control/services/workout/workout_repository.dart';
@@ -84,6 +85,7 @@ class Core {
   late final remoteKeyboardPairing = RemoteKeyboardPairing();
   late final di2Emulator = Di2Emulator();
   late final emulation = EmulationManager();
+  late final sensors = SensorHub();
 
   late final mediaKeyHandler = MediaKeyHandler();
   late final logic = CoreLogic();

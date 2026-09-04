@@ -19,6 +19,8 @@ import 'package:bike_control/bluetooth/wifi_trainer_scanner.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
 import 'package:bike_control/models/remembered_device.dart';
+import 'package:bike_control/services/sensors/sensor_bridge_binding.dart';
+import 'package:bike_control/services/sensors/sensor_sink_controller.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/interpreter.dart';
@@ -28,6 +30,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:gamepads/gamepads.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
+import 'package:prop/emulators/definitions/sensor_definition.dart';
 import 'package:prop/prop.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -440,6 +443,48 @@ class Connection {
     }
 
     ftmsEmulator.isTrial = () => !IAPManager.instance.isProEnabledForCurrentDevice;
+
+    // Rider metrics BikeControl itself sourced (currently just heart rate) are
+    // served through their own definition, which lives either on the bridge's
+    // composite or on a standalone emulator — never both. Isolated in its own
+    // try/catch so a failure here (e.g. a bad persisted sensor selection)
+    // cannot take the rest of connection setup down with it.
+    try {
+      final sensorDefinition = SensorDefinition();
+      final standaloneSensorEmulator = DirconEmulator();
+      final sensorSink = SensorSinkController(
+        definition: sensorDefinition,
+        attach: (def) => ftmsEmulator.composite.attach(def),
+        detach: (def) => ftmsEmulator.composite.detach(def),
+        startStandalone: (def) => standaloneSensorEmulator.startServer(mode: RetrofitMode.bluetooth),
+        stopStandalone: () => standaloneSensorEmulator.stop(),
+      );
+
+      void syncSensorSink() => unawaited(
+        sensorSink.onBridgeStateChanged(bridgeRunning: ftmsEmulator.isStarted.value),
+      );
+      ftmsEmulator.isStarted.addListener(syncSensorSink);
+      // Also once right away: a cold start with no bridge running fires no
+      // change event, so without this call the standalone sink would never
+      // stand up until the bridge started and stopped at least once.
+      syncSensorSink();
+
+      // The buffer this attaches to lives on Connection, built after `core`,
+      // which is why `log` is a settable field rather than a constructor arg.
+      core.sensors.log = _appLog;
+      core.sensors.loadSelections(core.settings);
+      Timer.periodic(const Duration(seconds: 1), (_) => core.sensors.tick());
+
+      SensorBridgeBinding(
+        hub: core.sensors,
+        onHeartRate: (bpm) {
+          ftmsEmulator.fitnessBike?.setExternalHeartRate(bpm);
+          sensorDefinition.setHeartRate(bpm);
+        },
+      ).start();
+    } catch (e, s) {
+      recordError(e, s, context: 'SensorHub wiring');
+    }
 
     // The advertised name depends on the selected trainer app (e.g. Rouvy →
     // "Zwift Hub"). Restart the transport on every change so the new name
