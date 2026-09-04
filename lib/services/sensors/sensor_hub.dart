@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:bike_control/bluetooth/support_log_buffer.dart';
+
 import 'sensor_quantity.dart';
 import 'sensor_source.dart';
 
@@ -9,9 +11,25 @@ import 'sensor_source.dart';
 /// per quantity, or `null` meaning "trainer, use your own". Keeping the policy
 /// here is what makes it testable without any of the hardware it supports.
 class SensorHub {
+  SensorHub({DateTime Function()? now, this.log}) : _now = now ?? DateTime.now;
+
+  /// TUNABLE. BLE heart rate / CSC / power sensors notify at about 1 Hz.
+  static const bleSensorTtl = Duration(seconds: 5);
+
+  /// TUNABLE. HealthKit passive delivery is batched and can lag far behind a
+  /// BLE strap; a 5 s window here would flap continuously.
+  static const healthKitTtl = Duration(seconds: 30);
+
+  final DateTime Function() _now;
+
+  /// Attached during wiring rather than construction: the buffer lives on
+  /// `Connection`, which is built after `core`.
+  SupportLogBuffer? log;
+
   final Map<String, SensorSource> _sources = {};
   final Map<SensorQuantity, String?> _selection = {};
   final Map<SensorQuantity, ValueNotifier<int?>> _resolved = {};
+  final Map<SensorQuantity, ValueNotifier<bool>> _droppedOut = {};
   final Map<SensorQuantity, VoidCallback> _listeners = {};
 
   List<SensorSource> get sources => List.unmodifiable(_sources.values);
@@ -35,11 +53,23 @@ class SensorHub {
 
   String? selectionFor(SensorQuantity quantity) => _selection[quantity];
 
-  ValueListenable<int?> resolved(SensorQuantity quantity) =>
-      _resolvedNotifier(quantity);
+  ValueListenable<int?> resolved(SensorQuantity quantity) => _resolvedNotifier(quantity);
 
   ValueNotifier<int?> _resolvedNotifier(SensorQuantity quantity) =>
       _resolved.putIfAbsent(quantity, () => ValueNotifier<int?>(null));
+
+  ValueListenable<bool> droppedOut(SensorQuantity quantity) => _droppedOutNotifier(quantity);
+
+  ValueNotifier<bool> _droppedOutNotifier(SensorQuantity quantity) =>
+      _droppedOut.putIfAbsent(quantity, () => ValueNotifier<bool>(false));
+
+  /// Re-evaluates freshness for every quantity. Called on a timer by the
+  /// owner and directly by tests.
+  void tick() {
+    for (final quantity in SensorQuantity.values) {
+      if (_selection[quantity] != null) _publish(quantity);
+    }
+  }
 
   void select(SensorQuantity quantity, String? sourceId) {
     _detachListener(quantity);
@@ -47,6 +77,8 @@ class SensorHub {
 
     if (sourceId == null) {
       _resolvedNotifier(quantity).value = null;
+      // The trainer cannot drop out.
+      _droppedOutNotifier(quantity).value = false;
       return;
     }
 
@@ -67,8 +99,19 @@ class SensorHub {
   void _publish(SensorQuantity quantity) {
     final sourceId = _selection[quantity];
     final source = sourceId == null ? null : _sources[sourceId];
-    _resolvedNotifier(quantity).value =
-        source?.readingFor(quantity).value?.value;
+    final reading = source?.readingFor(quantity).value;
+
+    final stale = reading == null || _now().difference(reading.timestamp) > (source?.ttl ?? bleSensorTtl);
+
+    final wasDropped = _droppedOutNotifier(quantity).value;
+    if (stale && !wasDropped && reading != null) {
+      log?.add('sensor drop-out: ${source?.displayName} for ${quantity.name}');
+    }
+    _droppedOutNotifier(quantity).value = stale;
+
+    // `null` hands the quantity back to the trainer; in standalone mode it
+    // simply means there is no value to notify.
+    _resolvedNotifier(quantity).value = stale ? null : reading.value;
   }
 
   void _detachListener(SensorQuantity quantity) {
@@ -87,5 +130,9 @@ class SensorHub {
       notifier.dispose();
     }
     _resolved.clear();
+    for (final notifier in _droppedOut.values) {
+      notifier.dispose();
+    }
+    _droppedOut.clear();
   }
 }

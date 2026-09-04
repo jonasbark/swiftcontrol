@@ -1,6 +1,9 @@
 import 'package:bike_control/services/sensors/fake_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_hub.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
+import 'package:bike_control/services/sensors/sensor_reading.dart';
+import 'package:bike_control/services/sensors/sensor_source.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 FakeSensorSource _hrSource(String id) => FakeSensorSource(
@@ -8,6 +11,33 @@ FakeSensorSource _hrSource(String id) => FakeSensorSource(
   displayName: 'Strap $id',
   provides: {SensorQuantity.heartRate},
 );
+
+class _ProbeNotifier extends ValueNotifier<SensorReading?> {
+  _ProbeNotifier() : super(null);
+  bool get isListenedTo => hasListeners;
+}
+
+class _ProbeSource extends SensorSource {
+  final _notifier = _ProbeNotifier();
+
+  @override
+  String get id => 'probe';
+
+  @override
+  String get displayName => 'Probe';
+
+  @override
+  Set<SensorQuantity> get provides => {SensorQuantity.heartRate};
+
+  @override
+  ValueListenable<SensorReading?> readingFor(SensorQuantity quantity) => _notifier;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> stop() async {}
+}
 
 void main() {
   test('defaults to the trainer, so resolved() is null', () {
@@ -44,11 +74,13 @@ void main() {
   test('sourcesFor only offers sources providing that quantity', () {
     final hub = SensorHub();
     hub.register(_hrSource('a'));
-    hub.register(FakeSensorSource(
-      id: 'p',
-      displayName: 'Meter',
-      provides: {SensorQuantity.power},
-    ));
+    hub.register(
+      FakeSensorSource(
+        id: 'p',
+        displayName: 'Meter',
+        provides: {SensorQuantity.power},
+      ),
+    );
 
     expect(hub.sourcesFor(SensorQuantity.heartRate).map((s) => s.id), ['a']);
     expect(hub.sourcesFor(SensorQuantity.power).map((s) => s.id), ['p']);
@@ -65,5 +97,20 @@ void main() {
 
     expect(hub.selectionFor(SensorQuantity.heartRate), isNull);
     expect(hub.resolved(SensorQuantity.heartRate).value, isNull);
+  });
+
+  test('unregister leaves no listener stranded on the removed source', () {
+    final hub = SensorHub();
+    final source = _ProbeSource();
+    hub.register(source);
+    hub.select(SensorQuantity.heartRate, 'probe');
+    expect(source._notifier.isListenedTo, isTrue);
+
+    hub.unregister('probe');
+
+    // Fails if `unregister` removes the source before dropping the selection:
+    // `_detachListener` would then look up a source that is already gone and
+    // silently no-op through `?.`.
+    expect(source._notifier.isListenedTo, isFalse);
   });
 }
