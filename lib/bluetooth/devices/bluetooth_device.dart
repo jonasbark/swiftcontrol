@@ -42,6 +42,7 @@ import 'elite/elite_rizer.dart';
 import 'elite/elite_square.dart';
 import 'elite/elite_sterzo.dart';
 import 'ltwoo/ltwoo_erx.dart';
+import 'sensors/ble_heart_rate_device.dart';
 import 'thinkrider/thinkrider_vs200.dart';
 import 'wheeltop/wheeltop_eds.dart';
 
@@ -137,8 +138,7 @@ abstract class BluetoothDevice extends BaseDevice {
     required String? name,
     required bool deviceRecognized,
     required bool hasZwiftCustomService,
-  }) =>
-      name == 'Zwift Ride' && !deviceRecognized && !hasZwiftCustomService;
+  }) => name == 'Zwift Ride' && !deviceRecognized && !hasZwiftCustomService;
 
   static BluetoothDevice? fromScanResult(BleDevice scanResult) {
     // skip devices with ignored names
@@ -175,6 +175,12 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.name!.toUpperCase().startsWith('SRAM') && _sramIsConnectable(scanResult) => SramAxs(
           scanResult,
         ),
+        // Heart rate straps are matched by advertised service, never by name
+        // (TICKR, H10, HRM-Dual, Rhythm24, ... vary too widely) — and this
+        // rule MUST stay last: trainers routinely relay a paired strap and
+        // advertise 0x180D themselves, so matching it earlier would steal a
+        // trainer away from its own device class.
+        _ when scanResult.services.contains(BleSensorSource.heartRateServiceUuid) => BleHeartRateDevice(scanResult),
         _ => null,
       };
     } else {
@@ -217,6 +223,13 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.services.contains(WahooKickrHeadwindConstants.SERVICE_UUID.toLowerCase()) =>
           WahooKickrHeadwind(scanResult),
         _ when scanResult.services.contains(wahooClimbServiceUuid.toLowerCase()) => WahooKickrClimb(scanResult),
+        // Heart rate straps are matched by advertised service, never by name
+        // (TICKR, H10, HRM-Dual, Rhythm24, ... vary too widely) — and this
+        // rule MUST stay last: trainers routinely relay a paired strap and
+        // advertise 0x180D themselves, so matching it earlier (including
+        // ahead of the ProxyDevice.proxyServiceUUIDs branch above) would
+        // steal a trainer away from its own device class.
+        _ when scanResult.services.contains(BleSensorSource.heartRateServiceUuid) => BleHeartRateDevice(scanResult),
         // otherwise the service UUIDs will be used
         _ => null,
       };
