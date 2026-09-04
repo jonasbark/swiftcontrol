@@ -264,6 +264,24 @@ class Settings {
     await prefs.setString(_controlProtocolKey(trainerKey), name);
   }
 
+  static String _sensorSelectionKey(String quantityName) =>
+      'sensor_selection_$quantityName';
+
+  /// The rider's chosen source id for a quantity, or null for the trainer
+  /// (the default). Stored as the raw source id so an id that no longer
+  /// resolves degrades to "trainer" at the read site instead of throwing.
+  String? getSensorSelection(String quantityName) {
+    return prefs.getString(_sensorSelectionKey(quantityName));
+  }
+
+  Future<void> setSensorSelection(String quantityName, String? sourceId) async {
+    if (sourceId == null) {
+      await prefs.remove(_sensorSelectionKey(quantityName));
+      return;
+    }
+    await prefs.setString(_sensorSelectionKey(quantityName), sourceId);
+  }
+
   static String _selfTestKey(String trainerKey) => 'self_test_$trainerKey';
 
   String? getSelfTestResultJson(String trainerKey) {

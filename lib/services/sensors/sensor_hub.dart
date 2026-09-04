@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:bike_control/bluetooth/support_log_buffer.dart';
+import 'package:bike_control/utils/settings/settings.dart';
 
 import 'sensor_quantity.dart';
 import 'sensor_source.dart';
@@ -86,6 +87,9 @@ class SensorHub {
     if (source == null) {
       _selection[quantity] = null;
       _resolvedNotifier(quantity).value = null;
+      // A persisted source id that no longer resolves should not leave the
+      // drop-out flag stuck from a previous session.
+      _droppedOutNotifier(quantity).value = false;
       return;
     }
 
@@ -134,5 +138,19 @@ class SensorHub {
       notifier.dispose();
     }
     _droppedOut.clear();
+  }
+
+  /// Restores persisted selections. A stored id with no registered source
+  /// silently becomes "trainer" — `select` already handles that case.
+  void loadSelections(Settings settings) {
+    for (final quantity in SensorQuantity.values) {
+      select(quantity, settings.getSensorSelection(quantity.name));
+    }
+  }
+
+  Future<void> persistSelections(Settings settings) async {
+    for (final quantity in SensorQuantity.values) {
+      await settings.setSensorSelection(quantity.name, _selection[quantity]);
+    }
   }
 }
