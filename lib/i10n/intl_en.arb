@@ -2223,5 +2223,6 @@
   "sensorQuantityPower": "Power",
   "sensorQuantitySpeed": "Speed",
   "sensorAwaitingFirstReading": "Waiting for first reading…",
-  "sensorDroppedOut": "Signal lost — using trainer instead."
+  "sensorDroppedOut": "Signal lost — using trainer instead.",
+  "sensorsNearbyTitle": "Nearby sensors"
 }

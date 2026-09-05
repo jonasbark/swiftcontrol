@@ -1,4 +1,5 @@
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/pages/sensors/sensor_discovery_section.dart';
 import 'package:bike_control/pages/sensors/sensor_quantity_selector.dart';
 import 'package:bike_control/services/sensors/sensor_hub.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
@@ -34,6 +35,9 @@ class SensorsSection extends StatelessWidget {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.2),
         ),
         _pairedSources(context, l10n),
+        // A strap the scanner has found but not yet connected — see its own
+        // doc comment for why that can never be part of `_pairedSources`.
+        const SensorDiscoverySection(),
         SensorQuantitySelector(hub: hub, quantity: SensorQuantity.heartRate),
       ],
     );

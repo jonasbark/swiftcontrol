@@ -3,6 +3,7 @@ import 'package:bike_control/main.dart';
 import 'package:bike_control/services/sensors/sensor_hub.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/services/sensors/sensor_source.dart';
+import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/widgets/ui/pro_badge.dart';
 import 'package:bike_control/widgets/ui/setting_tile.dart';
@@ -64,6 +65,13 @@ class _SensorQuantitySelectorState extends State<SensorQuantitySelector> {
         }
       }
       widget.hub.select(widget.quantity, sourceId);
+      // Persists every quantity's CURRENT selection, not just this one — see
+      // `SensorHub.persistSelections`. That is deliberately safe to call at
+      // any time: a different quantity's still-pending selection (its source
+      // has not registered yet, e.g. the rider opened this page before their
+      // strap connected) lives in the hub's in-memory selection map either
+      // way, so this sweep writes it back unchanged instead of clearing it.
+      await widget.hub.persistSelections(core.settings);
       if (mounted) setState(() {});
     } catch (e, s) {
       await recordError(e, s, context: 'SensorQuantitySelector._handleChanged');

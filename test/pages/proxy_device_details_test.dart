@@ -65,6 +65,22 @@ Future<void> main() async {
     expect(identical(stateBefore, stateAfter), isTrue);
   });
 
+  // V1 (wave 3): `SensorsSection` existed, was fully unit tested, and was
+  // mounted nowhere — a rider looking for "where does my heart rate come
+  // from" has nothing to find on the one page that already displays heart
+  // rate (LiveMetricsSection). Deliberately NOT gated on `fitnessBike != null`
+  // like `_settingsSection` is: a strap has nothing to do with virtual
+  // shifting, so a power-meter/HR-only proxy (no FBD at all, exactly this
+  // fixture) must show it too.
+  testWidgets('mounts the Sensors section regardless of whether the trainer has virtual shifting', (tester) async {
+    final device = ProxyDevice(BleDevice(deviceId: 'x', name: 'Wahoo KICKR'));
+    expect(device.fitnessBike, isNull);
+
+    await pumpPage(tester, device);
+
+    expect(find.text(AppLocalizations.current.sensorsSectionTitle), findsOneWidget);
+  });
+
   testWidgets('ConnectionCard carries a stable key so connection-state reflows cannot remount it', (tester) async {
     // On (dis)connect, conditional siblings appear/disappear both ABOVE
     // (FTMS warning) and BELOW (gear/settings/VS-notice) the ConnectionCard.

@@ -507,6 +507,13 @@ class Connection {
     try {
       final sensorDefinition = SensorDefinition();
       final standaloneSensorEmulator = DirconEmulator();
+      // Mirrors ftmsEmulator's own wiring above: without this, a lapsed
+      // subscriber's standalone heart rate monitor keeps advertising forever,
+      // untrialled and unlabelled — the bridge path already refuses to
+      // advertise once the trial's spent (`shouldAdvertise`) and marks
+      // itself while it still can (`isTrial`); the standalone path must too.
+      standaloneSensorEmulator.isTrial = () => !IAPManager.instance.isProEnabledForCurrentDevice;
+      standaloneSensorEmulator.shouldAdvertise = () => IAPManager.instance.isProEnabledForCurrentDevice;
       // Attach-before-start / stop-before-detach: DirconEmulator.startServer
       // advertises whatever is already on its composite, so calling it
       // before the definition is attached leaves nothing to serve. See
@@ -533,6 +540,11 @@ class Connection {
       // The buffer this attaches to lives on Connection, built after `core`,
       // which is why `log` is a settable field rather than a constructor arg.
       core.sensors.log = _appLog;
+      // Runtime callback, not a one-shot: re-evaluated on every publish (see
+      // SensorHub.isProEnabled's doc comment), so a subscription lapsing
+      // mid-ride stops resolving on the next tick without the rider ever
+      // reselecting anything.
+      core.sensors.isProEnabled = () => IAPManager.instance.isProEnabledForCurrentDevice;
       core.sensors.loadSelections(core.settings);
       Timer.periodic(const Duration(seconds: 1), (_) => core.sensors.tick());
 

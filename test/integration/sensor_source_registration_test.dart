@@ -4,6 +4,7 @@ import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -129,5 +130,54 @@ Future<void> main() async {
     await core.connection.disconnect(device, persistForget: false, forget: true);
 
     expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+  });
+
+  // V3 (wave 3): the Pro gate used to live only in
+  // `SensorQuantitySelector._handleChanged`, a one-shot check at the moment
+  // the rider taps the dropdown — nothing re-evaluated afterwards, so a
+  // rider who selected a sensor while subscribed and then lapsed kept it
+  // resolving indefinitely. This drives the REAL `core.connection.initialize`
+  // wiring end to end (not a hand-built SensorHub) to prove
+  // `core.sensors.isProEnabled` is actually connected to IAPManager in the
+  // running app, not just correct in isolation.
+  test('a lapsed subscription stops the real wiring from resolving heart rate, and resumes once restored', () async {
+    IAPManager.instance.setProForTesting(enabled: true);
+    addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+
+    final peripheral = heartRateStrap(deviceId: 'hr-strap-3');
+    env.ble.addPeripheral(peripheral);
+
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<BleHeartRateDevice>().isNotEmpty,
+      description: 'the strap to be discovered and classified',
+    );
+    final device = core.connection.devices.whereType<BleHeartRateDevice>().first;
+
+    await env.ble.connect(peripheral.deviceId);
+    await IntegrationEnv.waitFor(
+      () => core.sensors.sourcesFor(SensorQuantity.heartRate).isNotEmpty,
+      description: 'the connected strap to register its source with the hub',
+    );
+
+    core.sensors.select(SensorQuantity.heartRate, device.source.id);
+    env.ble.notify(peripheral.deviceId, BleSensorSource.heartRateMeasurementUuid, [0x00, 155]);
+    await IntegrationEnv.waitFor(
+      () => core.sensors.resolved(SensorQuantity.heartRate).value == 155,
+      description: 'the reading to resolve while the rider is subscribed',
+    );
+
+    // The subscription lapses mid-ride — no rider action, no reselecting.
+    IAPManager.instance.setProForTesting(enabled: false);
+    core.sensors.tick();
+
+    expect(core.sensors.resolved(SensorQuantity.heartRate).value, isNull);
+    // Still selected: this must resume on its own once Pro comes back.
+    expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+
+    IAPManager.instance.setProForTesting(enabled: true);
+    core.sensors.tick();
+
+    expect(core.sensors.resolved(SensorQuantity.heartRate).value, 155);
   });
 }

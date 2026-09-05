@@ -65,6 +65,28 @@ void main() {
     expect(settings.getSensorSelection(SensorQuantity.heartRate.name), 'strap');
   });
 
+  // V2's actual production caller (`SensorQuantitySelector._handleChanged`)
+  // persists ALL quantities on every change, not just the one the rider
+  // touched — that is what makes wiring one call site enough for every
+  // quantity. Prove the ordering that makes that safe: a change to one
+  // quantity must not stomp a DIFFERENT quantity's selection while that one
+  // is still pending (source not registered), which is exactly the state a
+  // rider opening the page before their strap connects leaves it in.
+  test('persisting after a change to one quantity leaves a different still-pending quantity untouched', () async {
+    final settings = Settings()..prefs = await SharedPreferences.getInstance();
+    await settings.setSensorSelection(SensorQuantity.heartRate.name, 'strap-pending');
+
+    final hub = SensorHub();
+    hub.loadSelections(settings); // heartRate: pending 'strap-pending'; others: null.
+
+    // Mirrors what the widget does for its OWN quantity on a rider action —
+    // here, a different quantity, to isolate the cross-quantity hazard.
+    hub.select(SensorQuantity.power, null);
+    await hub.persistSelections(settings);
+
+    expect(settings.getSensorSelection(SensorQuantity.heartRate.name), 'strap-pending');
+  });
+
   test('a restored-but-missing source leaves droppedOut false', () async {
     late DateTime clock;
     clock = DateTime.utc(2026, 9, 4, 12);

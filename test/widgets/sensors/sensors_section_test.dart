@@ -51,7 +51,11 @@ void main() {
           AppLocalizations.delegate,
         ],
         supportedLocales: const [Locale('en')],
-        home: SensorsSection(hub: hub),
+        // A bare ShadcnApp gives the Select popup nowhere to mount (shadcn's
+        // popover/drawer overlay lives on Scaffold) — production always hosts
+        // this section inside one (ProxyDeviceDetailsPage, SensorsPage), so
+        // mirror that here rather than only in production.
+        home: Scaffold(child: SensorsSection(hub: hub)),
       ),
     );
     await tester.pumpAndSettle();
@@ -78,6 +82,90 @@ void main() {
 
     expect(hub.selectionFor(SensorQuantity.heartRate), 'strap');
     expect(find.byType(SensorsSection), findsOneWidget);
+  });
+
+  // V2 (wave 3): `SensorHub.persistSelections` existed and was fully unit
+  // tested, but nothing in production ever called it — `_handleChanged`
+  // updated the hub in memory and stopped, so the persisted key never
+  // existed and a rider's choice never survived an app restart. This drives
+  // the actual rider-facing widget, not the hub directly, so it fails unless
+  // `_handleChanged` itself persists.
+  group('persistence', () {
+    testWidgets('picking a source through the selector persists it', (tester) async {
+      IAPManager.instance.setProForTesting(enabled: true);
+      addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+      await pumpSection(tester);
+
+      await tester.tap(find.byType(Select<String?>));
+      await tester.pumpAndSettle();
+      // The closed select also renders the placeholder "Trainer" text, so the
+      // paired source's name only ever matches once — in the popup.
+      await tester.tap(find.text('TICKR 1234').last);
+      await tester.pumpAndSettle();
+
+      expect(core.settings.getSensorSelection(SensorQuantity.heartRate.name), 'strap');
+    });
+
+    testWidgets('picking "Trainer" again persists the selection back to null', (tester) async {
+      IAPManager.instance.setProForTesting(enabled: true);
+      addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+      final hub = await pumpSection(tester);
+      hub.select(SensorQuantity.heartRate, 'strap');
+      await core.settings.setSensorSelection(SensorQuantity.heartRate.name, 'strap');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(Select<String?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(AppLocalizations.current.sensorSourceTrainer).last);
+      await tester.pumpAndSettle();
+
+      expect(core.settings.getSensorSelection(SensorQuantity.heartRate.name), isNull);
+    });
+
+    // The exact ordering wave 1 made possible and wave 3 must not break: a
+    // rider can open this page while a previously-picked strap has not
+    // registered yet (still cold-starting, or just out of range). Changing
+    // the selection here persists every quantity's CURRENT selection (see
+    // `SensorHub.persistSelections`), so this proves that sweep cannot wipe
+    // a different quantity's pending id just because its source isn't live.
+    testWidgets(
+      'persisting a change does not erase a different quantity\'s still-pending selection',
+      (tester) async {
+        await core.settings.setSensorSelection(SensorQuantity.power.name, 'pending-power-strap');
+        final hub = SensorHub();
+        hub.loadSelections(core.settings);
+        hub.register(FakeSensorSource(
+          id: 'strap',
+          displayName: 'TICKR 1234',
+          provides: {SensorQuantity.heartRate},
+        ));
+        IAPManager.instance.setProForTesting(enabled: true);
+        addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+
+        await tester.pumpWidget(
+          ShadcnApp(
+            localizationsDelegates: [
+              ...ShadcnLocalizations.localizationsDelegates,
+              AppLocalizations.delegate,
+            ],
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(child: SensorsSection(hub: hub)),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Change the ONLY quantity this section exposes — heart rate — while
+        // `power`'s selection above is still pending (its source, if it ever
+        // registers, is not part of this test at all).
+        await tester.tap(find.byType(Select<String?>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('TICKR 1234').last);
+        await tester.pumpAndSettle();
+
+        expect(core.settings.getSensorSelection(SensorQuantity.heartRate.name), 'strap');
+        expect(core.settings.getSensorSelection(SensorQuantity.power.name), 'pending-power-strap');
+      },
+    );
   });
 
   testWidgets('a dropped-out source surfaces the fallback indicator', (tester) async {

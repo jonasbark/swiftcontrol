@@ -264,6 +264,23 @@ class Settings {
     await prefs.setString(_controlProtocolKey(trainerKey), name);
   }
 
+  static String _sensorAutoConnectKey(String deviceId) => 'sensor_auto_connect_$deviceId';
+
+  /// Whether the rider has explicitly asked to connect this heart rate strap.
+  /// Mirrors [getAutoConnect]'s per-trainer consent flag, keyed by BLE device
+  /// id instead of trainer key — a strap must never auto-connect on its own
+  /// (see `BleHeartRateDevice.shouldAutoConnect`'s doc comment: most only
+  /// allow one simultaneous BLE link), so this stays false until the rider
+  /// taps Connect on a discovered strap, and from then on it reconnects
+  /// automatically like every other remembered device.
+  bool getSensorAutoConnect(String deviceId) {
+    return prefs.getBool(_sensorAutoConnectKey(deviceId)) ?? false;
+  }
+
+  Future<void> setSensorAutoConnect(String deviceId, bool autoConnect) async {
+    await prefs.setBool(_sensorAutoConnectKey(deviceId), autoConnect);
+  }
+
   static String _sensorSelectionKey(String quantityName) =>
       'sensor_selection_$quantityName';
 

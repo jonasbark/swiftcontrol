@@ -35,6 +35,24 @@ class SensorHub {
   /// does.
   VoidCallback? onSelectionChanged;
 
+  /// Consulted on every [_publish] — i.e. at serve time, each time a
+  /// quantity's value is about to become visible to whatever reads
+  /// [resolved], not once when the rider picks a source. A one-shot check at
+  /// selection time (the tap-time Pro gate `SensorQuantitySelector` already
+  /// has) cannot catch a subscription lapsing later: `loadSelections` also
+  /// calls `select()` directly on every cold launch, with no tap involved at
+  /// all. Gating here instead means a lapsed subscriber's external reading
+  /// stops resolving on the very next tick — without ever touching
+  /// [_selection], so it resumes instantly, with no re-picking, the moment
+  /// the subscription is restored.
+  ///
+  /// Defaults to "allowed" when unset, matching
+  /// `DirconEmulator.shouldAdvertise`'s own convention: most tests (and every
+  /// context that predates this feature) exercise resolution without wiring
+  /// Pro state at all, and a wiring bug here must never silently look like
+  /// "no data" in production either.
+  bool Function()? isProEnabled;
+
   final Map<String, SensorSource> _sources = {};
   final Map<SensorQuantity, String?> _selection = {};
   final Map<SensorQuantity, ValueNotifier<int?>> _resolved = {};
@@ -159,7 +177,11 @@ class SensorHub {
   void _publish(SensorQuantity quantity) {
     final sourceId = _selection[quantity];
     final source = sourceId == null ? null : _sources[sourceId];
-    final reading = source?.readingFor(quantity).value;
+    // A lapsed subscriber's reading is treated exactly like "nothing to
+    // read yet" — never surfaced, but [_selection] itself is untouched, so
+    // resolution resumes with no rider action the moment Pro comes back.
+    final allowed = isProEnabled?.call() ?? true;
+    final reading = (source != null && allowed) ? source.readingFor(quantity).value : null;
 
     final stale = reading == null || _now().difference(reading.timestamp) > (source?.ttl ?? bleSensorTtl);
 

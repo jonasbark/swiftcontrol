@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
+import 'package:bike_control/utils/core.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 /// A standards-compliant heart rate strap paired directly to BikeControl.
@@ -38,12 +39,17 @@ class BleHeartRateDevice extends BluetoothDevice with Accessory {
   /// BLE connection — silently taking the rider's strap away from Zwift,
   /// their bike computer or their watch, for no benefit to them here.
   ///
-  /// There is no rider-facing "connect this strap" action yet (a later phase
-  /// of this feature), so this is a hard `false` for now rather than a
-  /// per-device consent flag like `ProxyDevice.shouldAutoConnect` — the
-  /// priority is stopping the silent takeover, not building the pairing UI.
+  /// Backed by a persisted per-device consent flag, the same idiom
+  /// `ProxyDevice.shouldAutoConnect` uses — false until the rider taps
+  /// Connect on this strap in the discovered-sensors list
+  /// (`SensorDiscoverySection`), which sets the flag before calling
+  /// `Connection.connectDevice`. From then on it reconnects automatically
+  /// like every other remembered device, including across the fresh instance
+  /// `fromScanResult` builds on every rediscovery (see `SensorHub.register`'s
+  /// doc comment) — the flag is keyed by the stable BLE device id, not the
+  /// object.
   @override
-  bool get shouldAutoConnect => false;
+  bool get shouldAutoConnect => core.settings.getSensorAutoConnect(device.deviceId);
 
   @override
   Future<void> connect() async {
