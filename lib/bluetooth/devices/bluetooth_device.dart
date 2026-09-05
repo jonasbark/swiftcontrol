@@ -111,6 +111,14 @@ abstract class BluetoothDevice extends BaseDevice {
 
   static final List<String> _ignoredNames = ['ASSIOMA', 'QUARQ', 'POWERCRANK'];
 
+  /// Whether [name] matches one of the power-meter families in [_ignoredNames].
+  /// The single source of truth for two different consumers in [fromScanResult]
+  /// — the name-based exclusion below, and the narrow opt-in classification
+  /// rule further down — so a name can never be excluded by one and
+  /// misclassified (or missed) by the other.
+  static bool _isKnownPowerMeterName(String name) =>
+      _ignoredNames.any((ignoredName) => name.toUpperCase().startsWith(ignoredName));
+
   List<BleService>? services;
 
   /// §2.1: BikeControl should only connect to the SRAM AXS rear derailleur —
@@ -153,9 +161,7 @@ abstract class BluetoothDevice extends BaseDevice {
     // Skip devices with ignored names — unless the rider has explicitly
     // opted in to power meters that are known to accept only one BLE
     // connection at a time (see Settings.getPowerMeterOptIn's doc comment).
-    if (scanResult.name != null &&
-        !core.settings.getPowerMeterOptIn() &&
-        _ignoredNames.any((ignoredName) => scanResult.name!.toUpperCase().startsWith(ignoredName))) {
+    if (scanResult.name != null && !core.settings.getPowerMeterOptIn() && _isKnownPowerMeterName(scanResult.name!)) {
       return null;
     }
 
@@ -194,14 +200,27 @@ abstract class BluetoothDevice extends BaseDevice {
         // trainer away from its own device class.
         _ when scanResult.services.contains(BleSensorSource.heartRateServiceUuid) => BleHeartRateDevice(scanResult),
         // Cadence sensors and power meters, matched by advertised service
-        // for the same reason heart rate is above — and these two rules MUST
+        // for the same reason heart rate is above — and these rules MUST
         // also stay last: trainers advertise CSC (0x1816) and Cycling Power
         // (0x1818) far more readily than they advertise heart rate, so
         // matching either earlier would misclassify a trainer as a plain
-        // sensor and break bridging entirely. Power is checked before
-        // cadence so a combo device advertising both services (common — many
-        // power meters also expose CSC) resolves to the richer
-        // BlePowerDevice rather than being downgraded to cadence-only.
+        // sensor and break bridging entirely. This branch has no
+        // ProxyDevice case to protect against (web never builds one), so the
+        // narrow, name-gated rule below is redundant with the broad one that
+        // follows it — kept anyway so the two switch branches have the same
+        // shape and do not silently diverge if a ProxyDevice-equivalent is
+        // ever added here. See the non-web branch's version of this rule for
+        // why the narrow form is the one that matters there.
+        _
+            when core.settings.getPowerMeterOptIn() &&
+                scanResult.name != null &&
+                _isKnownPowerMeterName(scanResult.name!) &&
+                scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) =>
+          BlePowerDevice(scanResult),
+        // Power is checked before cadence so a combo device advertising both
+        // services (common — many power meters also expose CSC) resolves to
+        // the richer BlePowerDevice rather than being downgraded to
+        // cadence-only.
         _ when scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) => BlePowerDevice(scanResult),
         _ when scanResult.services.contains(BleSensorSource.cscServiceUuid) => BleCadenceDevice(scanResult),
         _ => null,
@@ -233,6 +252,22 @@ abstract class BluetoothDevice extends BaseDevice {
         _ when scanResult.services.contains(ShimanoDi2Constants.SERVICE_UUID_ALTERNATIVE.toLowerCase()) => ShimanoDi2(
           scanResult,
         ),
+        // Before the ProxyDevice branch below, which claims Cycling Power
+        // (0x1818) unconditionally via containsAny — including for a
+        // legitimately-named, opted-in power meter, which is wrong. This
+        // rule is deliberately narrow to avoid the opposite mistake: it only
+        // fires for a device the rider has explicitly opted in to AND whose
+        // name we already recognise as a power meter (_isKnownPowerMeterName,
+        // the same list the exclusion above uses, so the two cannot drift).
+        // A power-only TRAINER that also advertises bare CPS (no FTMS) is not
+        // in that name list, so it is untouched by this rule and keeps
+        // resolving to ProxyDevice, exactly as before this task.
+        _
+            when core.settings.getPowerMeterOptIn() &&
+                scanResult.name != null &&
+                _isKnownPowerMeterName(scanResult.name!) &&
+                scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) =>
+          BlePowerDevice(scanResult),
         _
             when scanResult.services.containsAny(ProxyDevice.proxyServiceUUIDs) ||
                 scanResult.serviceData.keys.containsAny(ProxyDevice.proxyServiceUUIDs) =>
@@ -253,19 +288,24 @@ abstract class BluetoothDevice extends BaseDevice {
         // ahead of the ProxyDevice.proxyServiceUUIDs branch above) would
         // steal a trainer away from its own device class.
         _ when scanResult.services.contains(BleSensorSource.heartRateServiceUuid) => BleHeartRateDevice(scanResult),
-        // Cadence sensors and power meters, matched by advertised service
-        // for the same reason heart rate is above — and these two rules MUST
-        // also stay last, including after the ProxyDevice.proxyServiceUUIDs
-        // branch: that branch already claims Cycling Power (0x1818) for
-        // bridged trainers, and trainers advertise CSC (0x1816) and Cycling
-        // Power far more readily than they advertise heart rate, so matching
-        // either earlier would misclassify a trainer as a plain sensor and
-        // break bridging entirely. Power is checked before cadence so a
-        // combo device advertising both services (common — many power
-        // meters also expose CSC) resolves to the richer BlePowerDevice
-        // rather than being downgraded to cadence-only.
-        _ when scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) => BlePowerDevice(scanResult),
+        // Cadence sensors, matched by advertised service for the same reason
+        // heart rate is above — and this rule MUST also stay last, including
+        // after the ProxyDevice.proxyServiceUUIDs branch: trainers advertise
+        // CSC (0x1816) far more readily than they advertise heart rate, so
+        // matching it earlier would misclassify a trainer as a plain cadence
+        // sensor and break bridging entirely. CSC has no overlap with
+        // ProxyDevice.proxyServiceUUIDs, so, unlike the power rule above,
+        // there is nothing narrower needed here.
         _ when scanResult.services.contains(BleSensorSource.cscServiceUuid) => BleCadenceDevice(scanResult),
+        // Kept as a fallback for symmetry with the web branch below, but
+        // unreachable here in practice: ProxyDevice.proxyServiceUUIDs already
+        // contains this exact Cycling Power UUID with no name gate, so
+        // anything that would satisfy this condition was already claimed by
+        // the ProxyDevice branch above. The narrow, opted-in, name-gated rule
+        // before ProxyDevice is what actually classifies a rider's power
+        // meter on this branch — see its comment for why a broader
+        // (name-unaware) rule can't safely sit ahead of ProxyDevice.
+        _ when scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) => BlePowerDevice(scanResult),
         // otherwise the service UUIDs will be used
         _ => null,
       };
