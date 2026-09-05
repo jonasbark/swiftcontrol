@@ -10,6 +10,7 @@ import 'package:bike_control/services/sensors/fake_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -297,12 +298,12 @@ Future<void> main() async {
 
   group('WiFi trainer discovery through Connection', () {
     nsd.Service wifiTrainerAd(String name, {int port = 36866}) => nsd.Service(
-          name: name,
-          type: '_wahoo-fitness-tnp._tcp',
-          port: port,
-          addresses: [InternetAddress('192.168.1.55')],
-          txt: {'ble-service-uuids': Uint8List.fromList('1826'.codeUnits)},
-        );
+      name: name,
+      type: '_wahoo-fitness-tnp._tcp',
+      port: port,
+      addresses: [InternetAddress('192.168.1.55')],
+      txt: {'ble-service-uuids': Uint8List.fromList('1826'.codeUnits)},
+    );
 
     test('an mDNS-discovered DirCon trainer appears as a WiFi ProxyDevice', () async {
       await core.connection.performScanning();
@@ -489,9 +490,24 @@ Future<void> main() async {
     // mid-ride, after a steady external heart rate is already flowing, left
     // the freshly-built FitnessBikeDefinition with no heart rate at all until
     // the rider's reading happened to change again.
+    //
+    // Fix round 2: a later wave gated SensorHub._publish on
+    // core.sensors.isProEnabled (wired to IAPManager.instance.
+    // isProEnabledForCurrentDevice by core.connection.initialize(), called for
+    // this whole file above) — correct behaviour, a rider without Pro must
+    // not get an external heart rate. This test predates that gate and drives
+    // the real Connection/IAPManager singleton, so without explicitly opting
+    // in to Pro here the hub correctly refuses to publish and the wait below
+    // times out forever, not because anything is broken but because this
+    // test was never asking for what it needed. Mirrors the exact mechanism
+    // `sensor_source_registration_test.dart`'s "a lapsed subscription..."
+    // wiring test already established for the same singleton.
     test(
       'a freshly attached trainer definition is seeded with the already-resolved external heart rate',
       () async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+
         // The rider already has an external heart rate source selected and
         // reporting BEFORE any trainer connects.
         final source = registerAndSelectHeartRateSource('hr-w4');
@@ -518,6 +534,51 @@ Future<void> main() async {
           reason:
               'a newly attached trainer must be seeded with the already-resolved external heart rate, '
               'not sit silent until the rider\'s heart rate happens to change again',
+        );
+      },
+    );
+
+    // The inverse of the test above, and the one that actually proves the
+    // Pro gate does something rather than just not-breaking anything: with
+    // Pro explicitly OFF (a lapsed subscriber, or a rider who never
+    // subscribed), the exact same mid-ride scenario must NOT seed the
+    // trainer's FitnessBikeDefinition with the external reading. Nothing
+    // before this guarded that — every other test either enables Pro or
+    // never selects an external source at all.
+    test(
+      'a lapsed subscriber does not get the external heart rate seeded into a freshly attached trainer',
+      () async {
+        IAPManager.instance.setProForTesting(enabled: false);
+        addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+
+        final source = registerAndSelectHeartRateSource('hr-w4-lapsed');
+        source.emit(SensorQuantity.heartRate, 128);
+
+        final trainer = buildFtmsTrainer(deviceId: 'fake-kickr-w4-lapsed', name: 'KICKR CORE W4 LAPSED');
+        env.ble.addPeripheral(trainer);
+        await core.settings.setAutoConnect('KICKR CORE W4 LAPSED', true);
+        await core.connection.performScanning();
+        // Waiting on the trainer's own bridge attachment — a milestone that
+        // does not depend on the Pro gate — is what lets this test end
+        // deterministically instead of waiting on the very thing it expects
+        // to never happen.
+        await IntegrationEnv.waitFor(
+          () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.fitnessBike != null,
+          description: 'trainer bridge attaches its FitnessBikeDefinition',
+        );
+
+        expect(
+          core.sensors.resolved(SensorQuantity.heartRate).value,
+          isNull,
+          reason: 'a lapsed subscriber must not have an external heart rate resolve at all',
+        );
+        final device = core.connection.proxyDevices.single;
+        expect(
+          device.fitnessBike!.heartRateBpm.value,
+          isNull,
+          reason:
+              'the gate must keep the external reading off the bridge entirely (heartRateBpm defaults null with '
+              'no relayed trainer sensor here), not merely delay it or land on some other value',
         );
       },
     );
