@@ -6,6 +6,7 @@ import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart' show ftmsEmulator;
 import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
+import 'package:bike_control/models/shifting_config.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
@@ -410,6 +411,39 @@ Future<void> main() async {
         () => ftmsEmulator.composite.children.whereType<ZwiftEmulatorDefinition>().isEmpty,
         description: 'ride-along controller detached on switch to Rouvy',
       );
+    });
+  });
+
+  group('default virtual shifting mode on connect', () {
+    Future<ProxyDevice> connectCog() async {
+      env.ble.addPeripheral(buildZwiftCogTrainer());
+      await core.settings.setAutoConnect('KICKR CORE 5775', true);
+      await core.connection.performScanning();
+      await IntegrationEnv.waitFor(
+        () =>
+            core.connection.proxyDevices.isNotEmpty &&
+            core.connection.proxyDevices.single.isConnected &&
+            core.connection.proxyDevices.single.fitnessBike != null,
+        description: 'cog trainer connected',
+      );
+      return core.connection.proxyDevices.single;
+    }
+
+    test('an unconfigured grade-capable trainer comes up in Track Resistance', () async {
+      // The reported KICKR CORE / Elite Direto footgun: Target Power ran their
+      // virtual shifting like ERG, so shifting felt like nothing. A grade-native
+      // trainer with no saved config must default to Track Resistance.
+      final device = await connectCog();
+      expect(device.fitnessBike!.virtualShiftingMode.value, VirtualShiftingMode.trackResistance);
+    });
+
+    test('a saved Target Power choice is honoured over the capability default', () async {
+      await core.shiftingConfigs.upsert(
+        ShiftingConfig.defaults(trainerKey: 'KICKR CORE 5775')
+            .copyWith(mode: VirtualShiftingMode.targetPower, isActive: true),
+      );
+      final device = await connectCog();
+      expect(device.fitnessBike!.virtualShiftingMode.value, VirtualShiftingMode.targetPower);
     });
   });
 }

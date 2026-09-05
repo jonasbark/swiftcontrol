@@ -445,13 +445,23 @@ class ProxyDevice extends BluetoothDevice {
   };
 
   void _seedFitnessBikeDefinition(FitnessBikeDefinition def) {
-    final cfg = core.shiftingConfigs.activeFor(trainerKey);
+    final stored = core.shiftingConfigs.storedActiveFor(trainerKey);
+    final cfg = stored ?? core.shiftingConfigs.activeFor(trainerKey);
     def.setMaxGear(cfg.maxGear);
     def.setBicycleWeightKg(cfg.bikeWeightKg);
     def.setRiderWeightKg(cfg.riderWeightKg);
     def.setGradeSmoothingEnabled(cfg.gradeSmoothing);
     def.setCadenceFilterEnabled(cfg.cadenceFilterEnabled);
-    def.setVirtualShiftingMode(cfg.mode);
+    // A rider who saved a config chose their mode; honour it. With no saved
+    // config, let the definition manage the capability-based default (Track
+    // Resistance on a grade-capable trainer) rather than the generic Target
+    // Power, which runs virtual shifting like ERG and reads as "shifting does
+    // nothing"; it re-derives once the FTMS feature probe lands.
+    if (stored != null) {
+      def.setVirtualShiftingMode(stored.mode);
+    } else {
+      def.useDefaultVirtualShiftingMode();
+    }
     def.setChainringTeeth(cfg.smallChainringTeeth, cfg.largeChainringTeeth);
     def.setFrontShiftEnabled(cfg.frontShiftEnabled);
     if (cfg.gearRatios != null) {
