@@ -42,7 +42,9 @@ import 'elite/elite_rizer.dart';
 import 'elite/elite_square.dart';
 import 'elite/elite_sterzo.dart';
 import 'ltwoo/ltwoo_erx.dart';
+import 'sensors/ble_cadence_device.dart';
 import 'sensors/ble_heart_rate_device.dart';
+import 'sensors/ble_power_device.dart';
 import 'thinkrider/thinkrider_vs200.dart';
 import 'wheeltop/wheeltop_eds.dart';
 
@@ -98,6 +100,13 @@ abstract class BluetoothDevice extends BaseDevice {
     // Heart Rate Service — so straps and armbands appear in filtered scans and
     // can be selected as an external source.
     BleSensorSource.heartRateServiceUuid,
+    // Cycling Speed and Cadence Service — so cadence-only sensors appear in
+    // filtered scans and can be selected as an external source.
+    BleSensorSource.cscServiceUuid,
+    // Cycling Power Service — so power meters appear in filtered scans; see
+    // the power-meter opt-in gate in fromScanResult for why some of them are
+    // hidden by default even once discovered.
+    BleSensorSource.cyclingPowerServiceUuid,
   ];
 
   static final List<String> _ignoredNames = ['ASSIOMA', 'QUARQ', 'POWERCRANK'];
@@ -141,8 +150,11 @@ abstract class BluetoothDevice extends BaseDevice {
   }) => name == 'Zwift Ride' && !deviceRecognized && !hasZwiftCustomService;
 
   static BluetoothDevice? fromScanResult(BleDevice scanResult) {
-    // skip devices with ignored names
+    // Skip devices with ignored names — unless the rider has explicitly
+    // opted in to power meters that are known to accept only one BLE
+    // connection at a time (see Settings.getPowerMeterOptIn's doc comment).
     if (scanResult.name != null &&
+        !core.settings.getPowerMeterOptIn() &&
         _ignoredNames.any((ignoredName) => scanResult.name!.toUpperCase().startsWith(ignoredName))) {
       return null;
     }
@@ -181,6 +193,17 @@ abstract class BluetoothDevice extends BaseDevice {
         // advertise 0x180D themselves, so matching it earlier would steal a
         // trainer away from its own device class.
         _ when scanResult.services.contains(BleSensorSource.heartRateServiceUuid) => BleHeartRateDevice(scanResult),
+        // Cadence sensors and power meters, matched by advertised service
+        // for the same reason heart rate is above — and these two rules MUST
+        // also stay last: trainers advertise CSC (0x1816) and Cycling Power
+        // (0x1818) far more readily than they advertise heart rate, so
+        // matching either earlier would misclassify a trainer as a plain
+        // sensor and break bridging entirely. Power is checked before
+        // cadence so a combo device advertising both services (common — many
+        // power meters also expose CSC) resolves to the richer
+        // BlePowerDevice rather than being downgraded to cadence-only.
+        _ when scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) => BlePowerDevice(scanResult),
+        _ when scanResult.services.contains(BleSensorSource.cscServiceUuid) => BleCadenceDevice(scanResult),
         _ => null,
       };
     } else {
@@ -230,6 +253,19 @@ abstract class BluetoothDevice extends BaseDevice {
         // ahead of the ProxyDevice.proxyServiceUUIDs branch above) would
         // steal a trainer away from its own device class.
         _ when scanResult.services.contains(BleSensorSource.heartRateServiceUuid) => BleHeartRateDevice(scanResult),
+        // Cadence sensors and power meters, matched by advertised service
+        // for the same reason heart rate is above — and these two rules MUST
+        // also stay last, including after the ProxyDevice.proxyServiceUUIDs
+        // branch: that branch already claims Cycling Power (0x1818) for
+        // bridged trainers, and trainers advertise CSC (0x1816) and Cycling
+        // Power far more readily than they advertise heart rate, so matching
+        // either earlier would misclassify a trainer as a plain sensor and
+        // break bridging entirely. Power is checked before cadence so a
+        // combo device advertising both services (common — many power
+        // meters also expose CSC) resolves to the richer BlePowerDevice
+        // rather than being downgraded to cadence-only.
+        _ when scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) => BlePowerDevice(scanResult),
+        _ when scanResult.services.contains(BleSensorSource.cscServiceUuid) => BleCadenceDevice(scanResult),
         // otherwise the service UUIDs will be used
         _ => null,
       };

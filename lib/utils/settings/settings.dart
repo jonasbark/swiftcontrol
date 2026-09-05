@@ -281,8 +281,7 @@ class Settings {
     await prefs.setBool(_sensorAutoConnectKey(deviceId), autoConnect);
   }
 
-  static String _sensorSelectionKey(String quantityName) =>
-      'sensor_selection_$quantityName';
+  static String _sensorSelectionKey(String quantityName) => 'sensor_selection_$quantityName';
 
   /// The rider's chosen source id for a quantity, or null for the trainer
   /// (the default). Stored as the raw source id so an id that no longer
@@ -297,6 +296,26 @@ class Settings {
       return;
     }
     await prefs.setString(_sensorSelectionKey(quantityName), sourceId);
+  }
+
+  static const String _powerMeterOptInKey = 'power_meter_opt_in';
+
+  /// Whether the rider has explicitly opted in to detecting power meters that
+  /// `BluetoothDevice.fromScanResult`'s `_ignoredNames` would otherwise hide
+  /// (Favero Assioma, Quarq, PowerCrank, ...). Off by default: many power
+  /// meters accept only one simultaneous BLE connection, so BikeControl
+  /// pairing with one of these can silently take it away from a rider's head
+  /// unit mid-ride.
+  ///
+  /// Guarded like [getUseNewUnlockMethod]: device detection can run before
+  /// [init].
+  bool getPowerMeterOptIn() {
+    if (!_initialized) return false;
+    return prefs.getBool(_powerMeterOptInKey) ?? false;
+  }
+
+  Future<void> setPowerMeterOptIn(bool value) async {
+    await prefs.setBool(_powerMeterOptInKey, value);
   }
 
   static String _selfTestKey(String trainerKey) => 'self_test_$trainerKey';
