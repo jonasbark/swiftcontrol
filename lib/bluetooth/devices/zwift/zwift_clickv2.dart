@@ -449,11 +449,14 @@ class ZwiftClickV2 extends ZwiftRide {
       _clickDef = null;
     }
     // Stop the shared emulator if nothing else lives in its composite and no
-    // other Click is still connected.
+    // other Click is still connected. Checks hasNothingToServe rather than
+    // composite.children.isEmpty directly for the same reason
+    // ProxyDevice._stopFtmsEmulatorIfUnused does: a SensorDefinition riding
+    // along must not, on its own, be the reason the bridge looks in use.
     final anotherClick = core.connection.devices.any(
       (d) => d is ZwiftClickV2 && !identical(d, this),
     );
-    if (ftmsEmulator.composite.children.isEmpty && ftmsEmulator.isStarted.value && !anotherClick) {
+    if (ftmsEmulator.hasNothingToServe && ftmsEmulator.isStarted.value && !anotherClick) {
       ftmsEmulator.stop();
     }
     await super.disconnect();

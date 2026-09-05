@@ -6,6 +6,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/main.dart';
+import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/erg_power_stepping.dart';
@@ -240,8 +241,14 @@ class ProxyDevice extends BluetoothDevice {
 
   /// Stop the shared FTMS emulator once this device's definitions are detached
   /// and nothing else is using it.
+  ///
+  /// Checks [DirconEmulator.hasNothingToServe] rather than
+  /// `composite.children.isEmpty` directly: a `SensorDefinition` (rider
+  /// metrics BikeControl sourced itself) can still be riding along after the
+  /// trainer it shared the bridge with is gone, and nothing this feature owns
+  /// may ever be the reason the shared composite looks in use.
   Future<void> _stopFtmsEmulatorIfUnused() async {
-    if (ftmsEmulator.composite.children.isEmpty && ftmsEmulator.isStarted.value) {
+    if (ftmsEmulator.hasNothingToServe && ftmsEmulator.isStarted.value) {
       await ftmsEmulator.stop();
     }
   }
@@ -457,6 +464,16 @@ class ProxyDevice extends BluetoothDevice {
     if (cfg.gearRatios != null) {
       def.setGearRatios(cfg.gearRatios!);
     }
+
+    // Seed whatever external heart rate is already resolved right now — this
+    // is the single funnel every fresh FBD goes through (initial connect,
+    // proxy→VS switch, and applyTrainerSettings re-seeding the current one),
+    // so a trainer that connects mid-ride, after the rider already picked a
+    // steady external source, doesn't sit with no heart rate on the wire
+    // until SensorBridgeBinding's next change-driven push happens to fire.
+    // Harmless no-op (re-sets the same value) on the applyTrainerSettings
+    // path, which re-seeds an already-live FBD rather than a fresh one.
+    def.setExternalHeartRate(core.sensors.resolved(SensorQuantity.heartRate).value);
     // The control-protocol override lives on the definition, and every
     // connect (and every proxy→VS switch) builds a fresh one — so re-applying
     // it belongs here, in the single funnel all three rebuild paths share,

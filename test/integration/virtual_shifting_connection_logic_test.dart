@@ -6,11 +6,14 @@ import 'package:bike_control/bluetooth/devices/zwift/constants.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_click.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart' show ftmsEmulator;
 import 'package:bike_control/bluetooth/emulation/emulated_peripherals.dart';
+import 'package:bike_control/services/sensors/fake_sensor_source.dart';
+import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/rouvy.dart';
 import 'package:bike_control/utils/keymap/apps/zwift.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/emulators/definitions/sensor_definition.dart';
 import 'package:prop/emulators/definitions/zwift_emulator_definition.dart';
 import 'package:nsd/nsd.dart' as nsd;
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
@@ -411,5 +414,112 @@ Future<void> main() async {
         description: 'ride-along controller detached on switch to Rouvy',
       );
     });
+  });
+
+  // Selects a scripted heart-rate source with the real SensorHub, the same
+  // way the rider's pick reaches it regardless of transport — SensorSinkSync
+  // / SensorSinkController / ftmsEmulator (what W1 and W4 below exercise)
+  // only ever see `core.sensors.selectionFor`/`resolved`, never the BLE
+  // strap that produced it. Using FakeSensorSource (a `lib/`, not `test/`,
+  // helper — see its doc comment) keeps these tests about the sink/bridge
+  // wiring instead of the BLE auto-connect queue's timing, which
+  // `sensor_source_registration_test.dart` already covers on its own.
+  FakeSensorSource registerAndSelectHeartRateSource(String id) {
+    final source = FakeSensorSource(id: id, displayName: id, provides: {SensorQuantity.heartRate});
+    core.sensors.register(source);
+    core.sensors.select(SensorQuantity.heartRate, id);
+    addTearDown(() => core.sensors.select(SensorQuantity.heartRate, null));
+    return source;
+  }
+
+  group('a selected sensor source must not keep a disconnected trainer advertised', () {
+    // W1 (fix wave 2): an earlier fix made the sensor sink three-state so "no
+    // source selected" genuinely detaches everywhere (SensorSinkMode.none).
+    // But with a source SELECTED, SensorSinkController attaches
+    // SensorDefinition to the shared ftmsEmulator's composite alongside the
+    // trainer's FitnessBikeDefinition. ProxyDevice._stopFtmsEmulatorIfUnused
+    // used to stop the shared emulator only when its composite was
+    // completely empty — so on trainer disconnect, once the FBD (and any
+    // ride-along controller) detached, a SensorDefinition left riding along
+    // made `children.isEmpty` false forever, and the shared emulator (and its
+    // advertisement) outlived the trainer for the rest of the session.
+    test(
+      'trainer disconnect stops the shared emulator even while a heart-rate source is attached',
+      () async {
+        final trainer = buildFtmsTrainer(deviceId: 'fake-kickr-w1', name: 'KICKR CORE W1');
+        env.ble.addPeripheral(trainer);
+        await core.settings.setAutoConnect('KICKR CORE W1', true);
+
+        await core.connection.performScanning();
+        await IntegrationEnv.waitFor(
+          () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.isConnected,
+          description: 'trainer auto-connected',
+        );
+        final device = core.connection.proxyDevices.single;
+        await IntegrationEnv.waitFor(() => device.isStartedListenable.value, description: 'bridge started');
+
+        // The rider selects a heart rate source while the trainer is
+        // bridged — this is the case the earlier "no source selected" fix
+        // does NOT cover.
+        registerAndSelectHeartRateSource('hr-w1');
+
+        // The sink actually attaches SensorDefinition to the shared bridge
+        // composite now that both a trainer and a source are present.
+        await IntegrationEnv.waitFor(
+          () => ftmsEmulator.composite.children.whereType<SensorDefinition>().isNotEmpty,
+          description: 'sensor definition attached to the bridge',
+        );
+
+        // Disconnect the TRAINER only — the heart rate source stays selected
+        // and attached to whatever the sink lands on next.
+        await core.connection.disconnect(device, persistForget: false, forget: false, keepInList: true);
+
+        // The regression: a SensorDefinition riding along must not, on its
+        // own, keep the shared emulator looking "in use" once the trainer
+        // that actually owned it is gone.
+        await IntegrationEnv.waitFor(() => !ftmsEmulator.isStarted.value, description: 'shared emulator stopped');
+        expect(env.mdns.registrations, isEmpty);
+      },
+    );
+  });
+
+  group('a trainer connecting mid-ride picks up the already-selected heart rate', () {
+    // W4 (fix wave 2): SensorBridgeBinding only pushes the resolved heart
+    // rate once at app start and thereafter on change — connecting a trainer
+    // mid-ride, after a steady external heart rate is already flowing, left
+    // the freshly-built FitnessBikeDefinition with no heart rate at all until
+    // the rider's reading happened to change again.
+    test(
+      'a freshly attached trainer definition is seeded with the already-resolved external heart rate',
+      () async {
+        // The rider already has an external heart rate source selected and
+        // reporting BEFORE any trainer connects.
+        final source = registerAndSelectHeartRateSource('hr-w4');
+        source.emit(SensorQuantity.heartRate, 128);
+        await IntegrationEnv.waitFor(
+          () => core.sensors.resolved(SensorQuantity.heartRate).value == 128,
+          description: 'heart rate resolved before any trainer exists',
+        );
+
+        // A trainer connects mid-ride — a new sink appearing.
+        final trainer = buildFtmsTrainer(deviceId: 'fake-kickr-w4', name: 'KICKR CORE W4');
+        env.ble.addPeripheral(trainer);
+        await core.settings.setAutoConnect('KICKR CORE W4', true);
+        await core.connection.performScanning();
+        await IntegrationEnv.waitFor(
+          () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.fitnessBike != null,
+          description: 'trainer bridge attaches its FitnessBikeDefinition',
+        );
+
+        final device = core.connection.proxyDevices.single;
+        expect(
+          device.fitnessBike!.heartRateBpm.value,
+          128,
+          reason:
+              'a newly attached trainer must be seeded with the already-resolved external heart rate, '
+              'not sit silent until the rider\'s heart rate happens to change again',
+        );
+      },
+    );
   });
 }
