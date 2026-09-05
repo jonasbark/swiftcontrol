@@ -43,8 +43,27 @@ class SensorHub {
 
   List<SensorSource> get sources => List.unmodifiable(_sources.values);
 
+  /// A fresh instance replacing an already-registered id — `fromScanResult`
+  /// builds a new device, and therefore a new `BleSensorSource` with new
+  /// notifiers, every time a strap is rediscovered, which happens constantly
+  /// as straps drop in and out of BLE range. Detach BEFORE overwriting
+  /// [_sources], while it still resolves to the outgoing instance: detaching
+  /// after would look the "current" source up via the map and find the
+  /// incoming one instead, silently no-op on it, and strand the listener on
+  /// the dead notifier — a permanent drop-out plus a leaked listener.
+  ///
+  /// The second loop then (re)binds every quantity currently pointing at this
+  /// id — covering both that replacement and a persisted selection that
+  /// arrived before this source ever existed (see `select`'s not-found
+  /// branch): this is the moment such a selection can finally go live.
   void register(SensorSource source) {
+    for (final quantity in SensorQuantity.values) {
+      if (_selection[quantity] == source.id) _detachListener(quantity);
+    }
     _sources[source.id] = source;
+    for (final quantity in SensorQuantity.values) {
+      if (_selection[quantity] == source.id) select(quantity, source.id);
+    }
   }
 
   void unregister(String id) {
@@ -94,7 +113,14 @@ class SensorHub {
 
       final source = _sources[sourceId];
       if (source == null) {
-        _selection[quantity] = null;
+        // Deliberately NOT resetting `_selection[quantity]` to null here:
+        // `sourceId` is kept as the rider's intent rather than discarded.
+        // `loadSelections` runs during connection setup, before any scan has
+        // even started, so this branch fires on every cold launch for a
+        // perfectly valid source that simply has not registered YET —
+        // `register` re-runs this same binding the moment it does. Nulling
+        // here would also make a later `persistSelections` overwrite the
+        // rider's stored choice with nothing before that ever gets a chance.
         _resolvedNotifier(quantity).value = null;
         // A persisted source id that no longer resolves should not leave the
         // drop-out flag stuck from a previous session.
@@ -155,8 +181,11 @@ class SensorHub {
     _droppedOut.clear();
   }
 
-  /// Restores persisted selections. A stored id with no registered source
-  /// silently becomes "trainer" — `select` already handles that case.
+  /// Restores persisted selections. This runs before any scan has happened,
+  /// so a stored id almost never has a matching source registered yet —
+  /// `select` keeps it as a pending selection rather than discarding it (see
+  /// its not-found branch), and `register` binds it live the moment a
+  /// matching source shows up.
   void loadSelections(Settings settings) {
     for (final quantity in SensorQuantity.values) {
       select(quantity, settings.getSensorSelection(quantity.name));

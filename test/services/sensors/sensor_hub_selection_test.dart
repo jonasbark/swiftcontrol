@@ -18,10 +18,12 @@ class _ProbeNotifier extends ValueNotifier<SensorReading?> {
 }
 
 class _ProbeSource extends SensorSource {
+  _ProbeSource({this.id = 'probe'});
+
   final _notifier = _ProbeNotifier();
 
   @override
-  String get id => 'probe';
+  final String id;
 
   @override
   String get displayName => 'Probe';
@@ -112,5 +114,43 @@ void main() {
     // `_detachListener` would then look up a source that is already gone and
     // silently no-op through `?.`.
     expect(source._notifier.isListenedTo, isFalse);
+  });
+
+  // Fix-wave-1 (F3): `BluetoothDevice.fromScanResult` builds a brand new
+  // device — and therefore a brand new `BleSensorSource` with new notifiers —
+  // every time a strap is rediscovered, which happens constantly as straps
+  // drop in and out of BLE range. `register` must notice it is replacing an
+  // already-selected id and rebind, or the hub is left listening to a
+  // notifier that will never fire again.
+  test('register replacing a selected id detaches the old notifier and attaches the new one', () {
+    final hub = SensorHub();
+    final v1 = _ProbeSource(id: 'strap');
+    hub.register(v1);
+    hub.select(SensorQuantity.heartRate, 'strap');
+    expect(v1._notifier.isListenedTo, isTrue);
+
+    final v2 = _ProbeSource(id: 'strap');
+    hub.register(v2);
+
+    // The outgoing instance must not be left with a stranded listener — its
+    // device is gone and it will never emit again.
+    expect(v1._notifier.isListenedTo, isFalse);
+    expect(v2._notifier.isListenedTo, isTrue);
+  });
+
+  test('register replacing a selected id publishes values from the fresh instance', () {
+    final hub = SensorHub();
+    final v1 = _hrSource('strap');
+    hub.register(v1);
+    hub.select(SensorQuantity.heartRate, 'strap');
+    v1.emit(SensorQuantity.heartRate, 150);
+    expect(hub.resolved(SensorQuantity.heartRate).value, 150);
+
+    // A fresh instance under the same id (a rediscovered strap) replaces it.
+    final v2 = _hrSource('strap');
+    hub.register(v2);
+    v2.emit(SensorQuantity.heartRate, 160);
+
+    expect(hub.resolved(SensorQuantity.heartRate).value, 160);
   });
 }

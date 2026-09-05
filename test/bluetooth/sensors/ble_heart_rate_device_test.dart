@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/sensors/ble_heart_rate_device.dart';
 import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
@@ -63,5 +64,38 @@ void main() {
       () => device.handleServices(const <BleService>[]),
       throwsA(isA<Exception>()),
     );
+  });
+
+  // Fix-wave-1 (F1, urgent): a strap must never be auto-connected. Before this
+  // fix, `shouldAutoConnect` defaulted to true and `Connection.addDevices`
+  // pushed every discovered strap into the connect queue — silently taking it
+  // away from Zwift, a bike computer or a watch, most of which only allow one
+  // BLE connection at a time.
+  test('shouldAutoConnect is false, so a strap is never auto-connected', () {
+    final device = _device();
+
+    expect(device.shouldAutoConnect, isFalse);
+  });
+
+  test('connect() honours shouldAutoConnect by opening no transport', () async {
+    final device = _device();
+
+    // No BLE platform is installed in this plain unit test. If connect()
+    // reached BluetoothDevice's upstream path (UniversalBle.connect), it
+    // would throw trying to invoke a platform channel with nothing bound to
+    // it. Completing cleanly, with isConnected still false, proves the early
+    // return in BleHeartRateDevice.connect() fired instead.
+    await device.connect();
+
+    expect(device.isConnected, isFalse);
+  });
+
+  // Fix-wave-1 (F6): without `Accessory`, `Connection` remembers a strap as
+  // `RememberedDeviceKind.controller` and its settings page renders an empty
+  // Button Mapping table — a strap has no buttons to map.
+  test('is an Accessory, not a controller', () {
+    final device = _device();
+
+    expect(device, isA<Accessory>());
   });
 }

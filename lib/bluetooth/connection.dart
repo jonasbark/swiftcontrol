@@ -6,6 +6,7 @@ import 'package:bike_control/bluetooth/devices/gamepad/gamepad_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/hid/hid_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/devices/sensors/ble_heart_rate_device.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -278,6 +279,41 @@ class Connection {
   void _noteConnected(BaseDevice device) {
     _connectedThisSession.add(device.uniqueId);
     unawaited(_rememberConnectedDevice(device));
+    _registerSensorSource(device);
+  }
+
+  /// Gives the hub a live [SensorSource] the moment a strap actually reaches
+  /// connected state — never at construction, since `fromScanResult` builds
+  /// one object per scan result whether or not the rider ever connects it.
+  ///
+  /// Called from [_noteConnected], so it inherits the same "arriving twice is
+  /// harmless" contract: `SensorHub.register` re-keys a map entry and rebinds
+  /// only the quantities that already point at this id, so registering the
+  /// same instance again is a no-op in every observable way.
+  void _registerSensorSource(BaseDevice device) {
+    if (device is! BleHeartRateDevice) return;
+    try {
+      core.sensors.register(device.source);
+      unawaited(device.source.start());
+    } catch (e, s) {
+      recordError(e, s, context: 'Connection._registerSensorSource ${device.source.id}');
+    }
+  }
+
+  /// The disconnect-side counterpart of [_registerSensorSource]: drops the
+  /// hub's registration and stops the source so its retained reading is
+  /// cleared rather than left to be served stale past its TTL. A rediscovered
+  /// strap arrives as a brand new device and source object (see
+  /// `SensorHub.register`'s doc comment), so there is nothing here worth
+  /// keeping around once this one is gone.
+  Future<void> _unregisterSensorSource(BaseDevice device) async {
+    if (device is! BleHeartRateDevice) return;
+    try {
+      core.sensors.unregister(device.source.id);
+      await device.source.stop();
+    } catch (e, s) {
+      recordError(e, s, context: 'Connection._unregisterSensorSource ${device.source.id}');
+    }
   }
 
   /// Records a device we just connected to. Accessories are skipped — they are
@@ -1227,6 +1263,8 @@ class Connection {
     }
 
     if (device is BluetoothDevice) {
+      await _unregisterSensorSource(device);
+
       if (persistForget) {
         // Add device to ignored list when forgetting
         await core.settings.addIgnoredDevice(device.device.deviceId, device.toString());
@@ -1287,6 +1325,7 @@ class Connection {
       _streamSubscriptions.remove(device);
       _connectionSubscriptions[device]?.cancel();
       _connectionSubscriptions.remove(device);
+      await _unregisterSensorSource(device);
       device.disconnect();
       signalChange(device);
       devices.remove(device);
