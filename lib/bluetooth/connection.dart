@@ -566,6 +566,22 @@ class Connection {
           ftmsEmulator.fitnessBike?.setExternalHeartRate(bpm);
           sensorDefinition.setHeartRate(bpm);
         },
+        // Cadence and power are NOT unconditionally forwarded to
+        // sensorDefinition the way heart rate is. FTMS Indoor Bike Data
+        // already carries both while a trainer is bridged
+        // (setExternalCadence/setExternalPower feed that packet directly), so
+        // the standalone-only definition must never be told about them while
+        // bridged — doing so would newly expose CSC/Cycling Power on the
+        // bridge's own GATT table (see SensorDefinition's doc comment on
+        // _servedCadence/_servedPower for the defect this guards against).
+        onCadence: (rpm) {
+          ftmsEmulator.fitnessBike?.setExternalCadence(rpm);
+          if (!ftmsEmulator.isStarted.value) sensorDefinition.setCadence(rpm);
+        },
+        onPower: (watts) {
+          ftmsEmulator.fitnessBike?.setExternalPower(watts);
+          if (!ftmsEmulator.isStarted.value) sensorDefinition.setPower(watts);
+        },
       ).start();
     } catch (e, s) {
       recordError(e, s, context: 'SensorHub wiring');

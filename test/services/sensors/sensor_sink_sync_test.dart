@@ -66,6 +66,35 @@ void main() {
     expect(sink.attachedToComposite, isTrue);
   });
 
+  // T5-B regression: sync() used to ask specifically about
+  // SensorQuantity.heartRate. A rider who picks a cadence (or power) source
+  // and never touches heart rate must still get a sink — otherwise the
+  // definition is attached nowhere and the selection silently does nothing.
+  group('a selection on a quantity other than heart rate', () {
+    test('a cadence-only selection starts the standalone sink when the bridge is not running', () async {
+      final source = FakeSensorSource(id: 'cad', displayName: 'Cadence sensor', provides: {SensorQuantity.cadence});
+      hub.register(source);
+      hub.select(SensorQuantity.cadence, 'cad');
+
+      await sync.sync();
+
+      expect(calls, ['start']);
+      expect(sink.standaloneRunning, isTrue);
+    });
+
+    test('a power-only selection attaches to the composite when the bridge is running', () async {
+      final source = FakeSensorSource(id: 'pwr', displayName: 'Power meter', provides: {SensorQuantity.power});
+      hub.register(source);
+      hub.select(SensorQuantity.power, 'pwr');
+      isBridgeRunning.value = true;
+
+      await sync.sync();
+
+      expect(calls, ['attach']);
+      expect(sink.attachedToComposite, isTrue);
+    });
+  });
+
   test('start() re-syncs automatically when a source is selected afterwards', () async {
     sync.start();
     // Settle the initial sync triggered by start(): cold start, no source

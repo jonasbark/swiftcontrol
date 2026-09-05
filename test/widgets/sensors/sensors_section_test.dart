@@ -1,4 +1,5 @@
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/pages/sensors/sensor_quantity_selector.dart';
 import 'package:bike_control/pages/sensors/sensors_section.dart';
 import 'package:bike_control/services/sensors/fake_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_hub.dart';
@@ -96,7 +97,10 @@ void main() {
       addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
       await pumpSection(tester);
 
-      await tester.tap(find.byType(Select<String?>));
+      await tester.tap(find.descendant(
+          of: find.byKey(const Key('sensor-quantity-heartRate')),
+          matching: find.byType(Select<String?>),
+        ));
       await tester.pumpAndSettle();
       // The closed select also renders the placeholder "Trainer" text, so the
       // paired source's name only ever matches once — in the popup.
@@ -114,7 +118,10 @@ void main() {
       await core.settings.setSensorSelection(SensorQuantity.heartRate.name, 'strap');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(Select<String?>));
+      await tester.tap(find.descendant(
+          of: find.byKey(const Key('sensor-quantity-heartRate')),
+          matching: find.byType(Select<String?>),
+        ));
       await tester.pumpAndSettle();
       await tester.tap(find.text(AppLocalizations.current.sensorSourceTrainer).last);
       await tester.pumpAndSettle();
@@ -157,7 +164,10 @@ void main() {
         // Change the ONLY quantity this section exposes — heart rate — while
         // `power`'s selection above is still pending (its source, if it ever
         // registers, is not part of this test at all).
-        await tester.tap(find.byType(Select<String?>));
+        await tester.tap(find.descendant(
+          of: find.byKey(const Key('sensor-quantity-heartRate')),
+          matching: find.byType(Select<String?>),
+        ));
         await tester.pumpAndSettle();
         await tester.tap(find.text('TICKR 1234').last);
         await tester.pumpAndSettle();
@@ -294,6 +304,92 @@ void main() {
       await pumpSection(tester);
 
       expect(find.byKey(const Key('sensor-pro-badge-heartRate')), findsNothing);
+    });
+  });
+
+  // T5-C: cadence and power get their own rows alongside heart rate. Speed
+  // stays hidden — there is still no speed source to resolve to. Keyed
+  // lookups only, never literal translated text (see the plan's Task 5
+  // checklist).
+  group('cadence and power rows', () {
+    testWidgets('renders a row for heart rate, cadence and power, but not speed', (tester) async {
+      await pumpSection(tester);
+
+      expect(find.byKey(const Key('sensor-quantity-heartRate')), findsOneWidget);
+      expect(find.byKey(const Key('sensor-quantity-cadence')), findsOneWidget);
+      expect(find.byKey(const Key('sensor-quantity-power')), findsOneWidget);
+      expect(find.byKey(const Key('sensor-quantity-speed')), findsNothing);
+      expect(find.byType(SensorQuantitySelector), findsNWidgets(3));
+    });
+
+    testWidgets('selecting a cadence source updates the hub', (tester) async {
+      final hub = SensorHub();
+      hub.register(FakeSensorSource(
+        id: 'cad-1',
+        displayName: 'Cadence sensor',
+        provides: {SensorQuantity.cadence},
+      ));
+      await tester.pumpWidget(
+        ShadcnApp(
+          localizationsDelegates: [
+            ...ShadcnLocalizations.localizationsDelegates,
+            AppLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(child: SensorsSection(hub: hub)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      hub.select(SensorQuantity.cadence, 'cad-1');
+      await tester.pumpAndSettle();
+
+      expect(hub.selectionFor(SensorQuantity.cadence), 'cad-1');
+    });
+
+    testWidgets('selecting a power source updates the hub', (tester) async {
+      final hub = SensorHub();
+      hub.register(FakeSensorSource(
+        id: 'pwr-1',
+        displayName: 'Power meter',
+        provides: {SensorQuantity.power},
+      ));
+      await tester.pumpWidget(
+        ShadcnApp(
+          localizationsDelegates: [
+            ...ShadcnLocalizations.localizationsDelegates,
+            AppLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(child: SensorsSection(hub: hub)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      hub.select(SensorQuantity.power, 'pwr-1');
+      await tester.pumpAndSettle();
+
+      expect(hub.selectionFor(SensorQuantity.power), 'pwr-1');
+    });
+  });
+
+  // T5-D: the power-meter opt-in toggle. Wording lives only in the ARB file —
+  // this only ever asserts the switch's key and the persisted setting, never
+  // literal translated copy.
+  group('power-meter opt-in toggle', () {
+    testWidgets('renders off by default and persists on when toggled', (tester) async {
+      await pumpSection(tester);
+
+      expect(core.settings.getPowerMeterOptIn(), isFalse);
+      final switchFinder = find.byKey(const Key('power-meter-opt-in-switch'));
+      expect(switchFinder, findsOneWidget);
+      expect(tester.widget<Switch>(switchFinder).value, isFalse);
+
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      expect(core.settings.getPowerMeterOptIn(), isTrue);
+      expect(tester.widget<Switch>(switchFinder).value, isTrue);
     });
   });
 }

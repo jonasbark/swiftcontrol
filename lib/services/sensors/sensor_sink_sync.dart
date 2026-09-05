@@ -7,14 +7,17 @@ import 'sensor_quantity.dart';
 import 'sensor_sink_controller.dart';
 
 /// Keeps a [SensorSinkController] in sync with two things: whether the
-/// bridge is running, and whether the rider has selected a heart rate source
-/// at all.
+/// bridge is running, and whether the rider has selected a source for ANY
+/// quantity — heart rate, cadence or power.
 ///
-/// The second half matters on its own. Without it, BikeControl would start
-/// advertising itself as a heart rate monitor the moment it launches — before
-/// the rider has picked any source and with no reading to send. A monitor
-/// that never reports a value reads as broken hardware, not as "nothing
-/// chosen yet."
+/// The second half matters on its own, in two ways. Without it, BikeControl
+/// would start advertising itself as a heart rate monitor the moment it
+/// launches — before the rider has picked any source and with no reading to
+/// send. A monitor that never reports a value reads as broken hardware, not
+/// as "nothing chosen yet." And checking heart rate specifically, rather than
+/// any quantity, would leave a rider who picked only a cadence or power
+/// source with the definition attached nowhere at all — the selection would
+/// sit in the hub looking valid while never reaching anything.
 ///
 /// "No source selected" maps to [SensorSinkMode.none], NOT [SensorSinkMode
 /// .bridge]. An earlier version of this class folded "no source" into
@@ -60,7 +63,12 @@ class SensorSinkSync {
   /// internally) so a test can await one deterministic sync instead of
   /// pumping the event loop after [start].
   Future<void> sync() {
-    final hasSource = hub.selectionFor(SensorQuantity.heartRate) != null;
+    // ANY quantity counts, not just heart rate: a rider who picks a cadence
+    // or power source and never touches heart rate still needs the
+    // definition attached somewhere, or that selection silently does
+    // nothing. See this class's own doc comment for why "nothing selected"
+    // must resolve to `none` rather than `bridge`.
+    final hasSource = SensorQuantity.values.any((q) => hub.selectionFor(q) != null);
     return sink.onSinkStateChanged(
       mode: !hasSource
           ? SensorSinkMode.none

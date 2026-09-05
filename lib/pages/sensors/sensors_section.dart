@@ -1,4 +1,5 @@
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/pages/sensors/power_meter_opt_in_tile.dart';
 import 'package:bike_control/pages/sensors/sensor_discovery_section.dart';
 import 'package:bike_control/pages/sensors/sensor_quantity_selector.dart';
 import 'package:bike_control/services/sensors/sensor_hub.dart';
@@ -11,13 +12,13 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 /// metric, whether BikeControl should use it instead of the trainer's own
 /// reading.
 ///
-/// Only heart rate is wired to a real source today (a BLE chest strap) —
-/// cadence, power and speed are a later phase (external CSC/power parsing,
-/// then HealthKit; see the spec's follow-on plans). Showing selectors for
-/// them now would offer a control that can only ever resolve to "Trainer",
-/// so this section deliberately renders just the heart-rate row. The
-/// underlying `SensorQuantitySelector` is written generically, so adding the
-/// other three rows later is a one-line change here, not new widget work.
+/// Heart rate, cadence and power each have a real source behind them (a BLE
+/// chest strap, a CSC sensor, a power meter) and get their own row. Speed
+/// does not yet — there is still no speed source (see the spec's follow-on
+/// plans) — so it stays hidden rather than offering a control that can only
+/// ever resolve to "Trainer". The underlying `SensorQuantitySelector` is
+/// written generically, so adding that fourth row later is a one-line change
+/// here, not new widget work.
 class SensorsSection extends StatelessWidget {
   final SensorHub hub;
 
@@ -38,7 +39,25 @@ class SensorsSection extends StatelessWidget {
         // A strap the scanner has found but not yet connected — see its own
         // doc comment for why that can never be part of `_pairedSources`.
         const SensorDiscoverySection(),
-        SensorQuantitySelector(hub: hub, quantity: SensorQuantity.heartRate),
+        SensorQuantitySelector(
+          key: const Key('sensor-quantity-heartRate'),
+          hub: hub,
+          quantity: SensorQuantity.heartRate,
+        ),
+        SensorQuantitySelector(
+          key: const Key('sensor-quantity-cadence'),
+          hub: hub,
+          quantity: SensorQuantity.cadence,
+        ),
+        // Right above the power row: a power meter that BikeControl doesn't
+        // yet detect at all (the opt-in is off) would otherwise just look
+        // like "no sources" here, with no explanation why.
+        const PowerMeterOptInTile(),
+        SensorQuantitySelector(
+          key: const Key('sensor-quantity-power'),
+          hub: hub,
+          quantity: SensorQuantity.power,
+        ),
       ],
     );
   }

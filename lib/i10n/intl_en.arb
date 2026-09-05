@@ -2224,5 +2224,7 @@
   "sensorQuantitySpeed": "Speed",
   "sensorAwaitingFirstReading": "Waiting for first reading…",
   "sensorDroppedOut": "Signal lost — using trainer instead.",
-  "sensorsNearbyTitle": "Nearby sensors"
+  "sensorsNearbyTitle": "Nearby sensors",
+  "sensorPowerMeterOptInTitle": "Detect power meters",
+  "sensorPowerMeterOptInSubtitle": "Off by default: many power meters accept only one Bluetooth connection at a time, so pairing one to BikeControl can silently disconnect it from your bike computer or head unit. Turn this on only if BikeControl should be that one connection."
 }
