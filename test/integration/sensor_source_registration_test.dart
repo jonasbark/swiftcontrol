@@ -55,7 +55,8 @@ Future<void> main() async {
     ],
   );
 
-  test('a connected heart rate strap registers its source with the hub, and disconnect unregisters it', () async {
+  test('a connected heart rate strap registers its source with the hub, and a transient drop '
+      'unregisters it WITHOUT clearing the selection', () async {
     final peripheral = heartRateStrap();
     env.ble.addPeripheral(peripheral);
 
@@ -81,14 +82,52 @@ Future<void> main() async {
     expect(device.isConnected, isTrue);
     expect(core.sensors.sourcesFor(SensorQuantity.heartRate).single.id, device.source.id);
 
-    // Disconnect side of the same lifecycle: dropping the radio connection
-    // must unregister the source again — otherwise the UI would offer a
-    // phantom, permanently-stale source forever.
+    // The rider actually picks this strap as their heart rate source.
+    core.sensors.select(SensorQuantity.heartRate, device.source.id);
+    expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+
+    // Fix-wave-1 round 2: a transient BLE drop (strap out of range for a
+    // couple of seconds, no rider action involved) must unregister the dead
+    // source but leave the rider's choice in place — permanently reverting
+    // to the trainer on every routine drop is the bug this test guards.
     env.ble.dropConnection(peripheral.deviceId);
 
     await IntegrationEnv.waitFor(
       () => core.sensors.sourcesFor(SensorQuantity.heartRate).isEmpty,
       description: 'the disconnected strap to unregister its source from the hub',
     );
+    expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+    expect(core.sensors.droppedOut(SensorQuantity.heartRate).value, isTrue);
+  });
+
+  // Fix-wave-1 round 2: the counterpart of the test above — when the rider
+  // actually forgets the device (the "Remove"/"Ignore" action on its
+  // settings page, which always passes forget: true), the selection MUST be
+  // cleared rather than left pointing forever at a device that is never
+  // coming back.
+  test('forgetting a connected strap clears its heart-rate selection', () async {
+    final peripheral = heartRateStrap(deviceId: 'hr-strap-2');
+    env.ble.addPeripheral(peripheral);
+
+    await core.connection.performScanning();
+    await IntegrationEnv.waitFor(
+      () => core.connection.devices.whereType<BleHeartRateDevice>().isNotEmpty,
+      description: 'the strap to be discovered and classified',
+    );
+    final device = core.connection.devices.whereType<BleHeartRateDevice>().first;
+
+    await env.ble.connect(peripheral.deviceId);
+    await IntegrationEnv.waitFor(
+      () => core.sensors.sourcesFor(SensorQuantity.heartRate).isNotEmpty,
+      description: 'the connected strap to register its source with the hub',
+    );
+
+    core.sensors.select(SensorQuantity.heartRate, device.source.id);
+    expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+
+    // Mirrors controller_settings.dart's "Remove" action.
+    await core.connection.disconnect(device, persistForget: false, forget: true);
+
+    expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
   });
 }

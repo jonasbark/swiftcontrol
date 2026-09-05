@@ -306,10 +306,27 @@ class Connection {
   /// strap arrives as a brand new device and source object (see
   /// `SensorHub.register`'s doc comment), so there is nothing here worth
   /// keeping around once this one is gone.
-  Future<void> _unregisterSensorSource(BaseDevice device) async {
+  ///
+  /// `SensorHub.unregister` deliberately leaves the rider's selection
+  /// pointing at this id (see its own doc comment) — it cannot tell a
+  /// transient drop from the rider being done with the device, so it always
+  /// assumes the former. Only [forget] means the latter: [Connection] is the
+  /// one place that actually knows the rider forgot this device (as opposed
+  /// to it merely dropping out of BLE range to be rediscovered a moment
+  /// later), so clearing the selection for good is done here, explicitly,
+  /// and only then — a transient drop must leave it alone so `register`'s
+  /// rebind loop still matches when the strap reappears.
+  Future<void> _unregisterSensorSource(BaseDevice device, {required bool forget}) async {
     if (device is! BleHeartRateDevice) return;
     try {
       core.sensors.unregister(device.source.id);
+      if (forget) {
+        for (final quantity in device.source.provides) {
+          if (core.sensors.selectionFor(quantity) == device.source.id) {
+            core.sensors.select(quantity, null);
+          }
+        }
+      }
       await device.source.stop();
     } catch (e, s) {
       recordError(e, s, context: 'Connection._unregisterSensorSource ${device.source.id}');
@@ -1263,7 +1280,7 @@ class Connection {
     }
 
     if (device is BluetoothDevice) {
-      await _unregisterSensorSource(device);
+      await _unregisterSensorSource(device, forget: forget);
 
       if (persistForget) {
         // Add device to ignored list when forgetting
@@ -1320,16 +1337,27 @@ class Connection {
 
   Future<void> disconnectAll() async {
     _actionStreams.add(LogNotification(AppLocalizations.current.disconnectingAllDevices));
+    // Collected rather than awaited inline: this loop is otherwise fully
+    // synchronous, and awaiting per-device here would open a re-entrancy
+    // window between devices during a global teardown for no benefit —
+    // `bluetoothDevices` is already a `.toList()` snapshot, so nothing else
+    // needs the sensor-source teardown to have landed before the next
+    // device's turn, only before disconnectAll() itself returns.
+    final sensorSourceTeardowns = <Future<void>>[];
     for (var device in bluetoothDevices) {
       _streamSubscriptions[device]?.cancel();
       _streamSubscriptions.remove(device);
       _connectionSubscriptions[device]?.cancel();
       _connectionSubscriptions.remove(device);
-      await _unregisterSensorSource(device);
+      // Not a "forget": Bluetooth going away in bulk is a transient global
+      // drop, not the rider individually forgetting every device, so the
+      // selection is left alone the same way a single transient drop is.
+      sensorSourceTeardowns.add(_unregisterSensorSource(device, forget: false));
       device.disconnect();
       signalChange(device);
       devices.remove(device);
     }
+    await Future.wait(sensorSourceTeardowns);
     _gamePadSearchTimer?.cancel();
     _lastScanResult.clear();
     // Everything is gone, so the battery-saver suppression is moot — a later

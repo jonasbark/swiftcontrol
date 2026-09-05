@@ -66,14 +66,29 @@ class SensorHub {
     }
   }
 
+  /// Deliberately does NOT clear the selection. `unregister` cannot tell "this
+  /// sensor went away" (a transient BLE drop, about to be rediscovered as a
+  /// fresh instance under the same id — see `register`'s doc comment) from
+  /// "the rider forgot this device" — only the caller knows that. `Connection`
+  /// clears the selection itself, via [select], when the rider actually
+  /// forgot the device; every other case leaves it retained here as a pending
+  /// selection, exactly the state `select`'s not-found branch already made
+  /// valid — `register` rebinds it the moment a matching id reappears.
   void unregister(String id) {
-    // Drop the selection BEFORE removing the source: `select` detaches the
-    // listener by looking the current source up, so removing it first would
-    // strand the listener on a notifier nothing ever cleans up.
+    // Detach BEFORE removing the source: `_detachListener` resolves "the
+    // current source" by looking it up in `_sources`, so removing it first
+    // would strand the listener on a notifier nothing ever cleans up.
     for (final quantity in SensorQuantity.values) {
-      if (_selection[quantity] == id) select(quantity, null);
+      if (_selection[quantity] == id) _detachListener(quantity);
     }
     _sources.remove(id);
+    // Publish immediately rather than waiting for the next `tick()`: the
+    // selection still points at `id`, but its source is gone, so this
+    // quantity must read as dropped out right away, not up to a tick period
+    // late.
+    for (final quantity in SensorQuantity.values) {
+      if (_selection[quantity] == id) _publish(quantity);
+    }
   }
 
   List<SensorSource> sourcesFor(SensorQuantity quantity) =>

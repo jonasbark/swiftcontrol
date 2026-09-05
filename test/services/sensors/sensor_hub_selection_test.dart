@@ -88,7 +88,17 @@ void main() {
     expect(hub.sourcesFor(SensorQuantity.power).map((s) => s.id), ['p']);
   });
 
-  test('unregistering the selected source falls back to the trainer', () {
+  // Fix-wave-1 round 2: `unregister` used to clear the selection
+  // unconditionally, via the same path as an explicit "trainer" pick. That
+  // meant a transient BLE drop (unregister, then a fresh instance registers
+  // moments later — see the tests below) permanently reverted the rider to
+  // the trainer's own heart rate for the rest of the session, because
+  // `register`'s rebind loop only fires when the selection still points at
+  // the id. `unregister` cannot tell a transient drop from the rider
+  // forgetting the device, so it must assume the recoverable case; only
+  // `Connection` clears the selection for good, and only when the rider
+  // actually forgot the device (see connection.dart's `_unregisterSensorSource`).
+  test('unregistering the selected source retains the selection and flips droppedOut', () {
     final hub = SensorHub();
     final source = _hrSource('a');
     hub.register(source);
@@ -97,8 +107,11 @@ void main() {
 
     hub.unregister('a');
 
-    expect(hub.selectionFor(SensorQuantity.heartRate), isNull);
+    expect(hub.selectionFor(SensorQuantity.heartRate), 'a');
     expect(hub.resolved(SensorQuantity.heartRate).value, isNull);
+    // Flips immediately, not just on the next tick() — the source is gone
+    // right now, so the UI must show that right now.
+    expect(hub.droppedOut(SensorQuantity.heartRate).value, isTrue);
   });
 
   test('unregister leaves no listener stranded on the removed source', () {
@@ -147,6 +160,29 @@ void main() {
     expect(hub.resolved(SensorQuantity.heartRate).value, 150);
 
     // A fresh instance under the same id (a rediscovered strap) replaces it.
+    final v2 = _hrSource('strap');
+    hub.register(v2);
+    v2.emit(SensorQuantity.heartRate, 160);
+
+    expect(hub.resolved(SensorQuantity.heartRate).value, 160);
+  });
+
+  // Fix-wave-1 round 2 repro: this is the exact bug the retained-selection
+  // fix above exists for. Under the old `unregister` (clears the selection
+  // unconditionally), this failed because `register`'s rebind loop tests
+  // `_selection[quantity] == source.id`, which no longer matched once
+  // `unregister` had nulled it — v2 would register but never get selected,
+  // so the emitted value below would never reach `resolved()`.
+  test('a fresh instance registering after unregister is picked back up by the retained selection', () {
+    final hub = SensorHub();
+    final v1 = _hrSource('strap');
+    hub.register(v1);
+    hub.select(SensorQuantity.heartRate, 'strap');
+    v1.emit(SensorQuantity.heartRate, 150);
+    expect(hub.resolved(SensorQuantity.heartRate).value, 150);
+
+    hub.unregister('strap');
+
     final v2 = _hrSource('strap');
     hub.register(v2);
     v2.emit(SensorQuantity.heartRate, 160);
