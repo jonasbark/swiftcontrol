@@ -76,6 +76,14 @@ class SensorSinkController {
           await stopStandalone();
           _standalone = false;
         }
+        // Before attach: CompositeBleDefinition.attach() diffs serviceUUIDs
+        // before/after to decide whether the transport needs restarting to
+        // advertise the change. Retracting first means that diff — and
+        // whatever it (re)advertises — never includes CSC/Cycling Power in
+        // the first place, rather than leaking them in and never correcting
+        // it (see SensorDefinition.retractCadenceAndPowerForBridge's doc
+        // comment for the defect this fixes).
+        definition.retractCadenceAndPowerForBridge();
         await attach(definition);
         _attached = true;
       } else if (mode == SensorSinkMode.standalone) {
@@ -83,6 +91,13 @@ class SensorSinkController {
           await detach(definition);
           _attached = false;
         }
+        // Before startStandalone: StandaloneSensorLifecycle.start attaches
+        // this definition to its own composite and immediately starts the
+        // transport, advertising whatever serviceUUIDs says at that moment —
+        // restoring first means a rider whose trainer just dropped sees
+        // cadence/power come back on this very first advertisement, not lost
+        // until some later event.
+        definition.restoreCadenceAndPower();
         await startStandalone(definition);
         _standalone = true;
       } else {

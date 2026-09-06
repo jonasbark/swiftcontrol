@@ -1,8 +1,12 @@
 import 'dart:async';
 
 import 'package:bike_control/services/sensors/sensor_sink_controller.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/emulators/definitions/composite_ble_definition.dart';
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/emulators/definitions/sensor_definition.dart';
+import 'package:universal_ble/universal_ble.dart';
 
 void main() {
   late List<String> calls;
@@ -221,5 +225,74 @@ void main() {
 
     expect(calls, contains('attach'));
     expect(controller.attachedToComposite, isTrue);
+  });
+
+  // Coordinator fix-round-1: a real transition, not the trivial call-recording
+  // fakes above. attach/detach here really mutate a real bridge
+  // CompositeBleDefinition (as connection.dart's ftmsEmulator.attachDefinition
+  // does), so this actually proves what a trainer app would see on the wire.
+  group('cadence/power must not leak across a mode transition (T5-A follow-up)', () {
+    FitnessBikeDefinition bridgedFbd() => FitnessBikeDefinition(
+      connectedDevice: BleDevice(deviceId: 't', name: 'T'),
+      connectedDeviceServices: const <BleService>[],
+      data: ValueNotifier<String>(''),
+    );
+
+    test(
+      'cadence served while standalone must not reach the bridge composite after a real transition to bridge',
+      () async {
+        final bridgeComposite = CompositeBleDefinition(initial: [bridgedFbd()]);
+        final definition = SensorDefinition();
+        final realController = SensorSinkController(
+          definition: definition,
+          attach: (def) async => bridgeComposite.attach(def),
+          detach: (def) async => bridgeComposite.detach(def),
+          startStandalone: (_) async {},
+          stopStandalone: () async {},
+        );
+
+        // Standalone with a cadence source: CSC really is being served.
+        await realController.onSinkStateChanged(mode: SensorSinkMode.standalone);
+        definition.setCadence(90);
+        expect(definition.serviceUUIDs, contains(SensorDefinition.CYCLING_SPEED_CADENCE_SERVICE_UUID));
+
+        // A trainer connects: the sink moves to bridge mode, exactly like
+        // connection.dart does when ftmsEmulator.isStarted flips true.
+        await realController.onSinkStateChanged(mode: SensorSinkMode.bridge);
+
+        // Same comparison T5-A's own required test uses: the bridge composite
+        // must look exactly like heart-rate-only, never mind that THIS rider
+        // never even selected heart rate — cadence must not leave a trace.
+        final baseline = CompositeBleDefinition(initial: [bridgedFbd(), SensorDefinition()]);
+        expect(bridgeComposite.serviceUUIDs.toSet(), baseline.serviceUUIDs.toSet());
+        expect(bridgeComposite.serviceUUIDs, isNot(contains(SensorDefinition.CYCLING_SPEED_CADENCE_SERVICE_UUID)));
+        expect(bridgeComposite.serviceUUIDs, isNot(contains(SensorDefinition.CYCLING_POWER_SERVICE_UUID)));
+      },
+    );
+
+    test('cadence is restored once the sink returns to standalone after the bridge stint', () async {
+      final bridgeComposite = CompositeBleDefinition(initial: [bridgedFbd()]);
+      final definition = SensorDefinition();
+      final realController = SensorSinkController(
+        definition: definition,
+        attach: (def) async => bridgeComposite.attach(def),
+        detach: (def) async => bridgeComposite.detach(def),
+        startStandalone: (_) async {},
+        stopStandalone: () async {},
+      );
+
+      await realController.onSinkStateChanged(mode: SensorSinkMode.standalone);
+      definition.setCadence(90);
+      await realController.onSinkStateChanged(mode: SensorSinkMode.bridge);
+      expect(definition.serviceUUIDs, isNot(contains(SensorDefinition.CYCLING_SPEED_CADENCE_SERVICE_UUID)));
+
+      // The trainer disconnects; cadence is still selected, so the sink goes
+      // back to standalone with the SAME long-lived definition — a rider
+      // must not silently lose cadence just because their trainer dropped.
+      await realController.onSinkStateChanged(mode: SensorSinkMode.standalone);
+
+      expect(definition.serviceUUIDs, contains(SensorDefinition.CYCLING_SPEED_CADENCE_SERVICE_UUID));
+      expect(definition.cadenceRpm, 90);
+    });
   });
 }
