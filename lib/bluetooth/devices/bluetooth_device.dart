@@ -207,6 +207,31 @@ abstract class BluetoothDevice extends BaseDevice {
     required bool hasZwiftCustomService,
   }) => name == 'Zwift Ride' && !deviceRecognized && !hasZwiftCustomService;
 
+  /// Whether a device [fromScanResult] just produced should be kept when it
+  /// came from `UniversalBle.getSystemDevices` — devices the OS already
+  /// considers connected/bonded, not ones seen in a live advertisement (see
+  /// `Connection.performScanning`'s system-devices branch, the only caller).
+  /// `getSystemDevices` has to filter by service UUID to return anything at
+  /// all on Apple, so once Cycling Power (`BleSensorSource.
+  /// cyclingPowerServiceUuid`) became one of the queried services — needed so
+  /// an opted-in power meter or a cadence sensor can be found this way too —
+  /// every power meter the OS has ever bonded can come back, including one
+  /// currently held by another app.
+  ///
+  /// [ProxyDevice.proxyServiceUUIDs] matches bare Cycling Power with no
+  /// FTMS/FE-C requirement, which is correct for a *live* scan result:
+  /// nothing else distinguishes a power-only trainer from an unrecognised
+  /// power meter there, so defaulting to "trainer" is the existing, accepted
+  /// behaviour (see the "CPS advertiser with a non-power-meter name" test).
+  /// It is wrong here: it would also catch every unrecognised-name power
+  /// meter the system-devices query surfaces and add it to `proxyDevices` as
+  /// if it were a trainer. A recognised, opted-in power meter never reaches
+  /// this check at all — the narrow, name-gated `BlePowerDevice` rule in
+  /// [fromScanResult] claims it first — so this only ever excludes a
+  /// [ProxyDevice] that has nothing beyond bare Cycling Power to justify the
+  /// classification.
+  static bool isEligibleSystemDevice(BluetoothDevice device) => device is! ProxyDevice || device.isSmartTrainer;
+
   static BluetoothDevice? fromScanResult(BleDevice scanResult) {
     // Skip devices with hidden names — unless the rider has explicitly
     // opted in to power meters that are known to accept only one BLE

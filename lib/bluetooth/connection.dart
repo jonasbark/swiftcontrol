@@ -799,7 +799,14 @@ class Connection {
       UniversalBle.getSystemDevices(
         withServices: BluetoothDevice.servicesToScan,
       ).then((devices) async {
-        final baseDevices = devices.mapNotNull(BluetoothDevice.fromScanResult).toList();
+        // getSystemDevices reports OS-connected/bonded devices, not live
+        // advertisements — isEligibleSystemDevice keeps that query from
+        // grabbing another app's power meter as if it were a trainer (see
+        // its doc comment; fix-wave-C).
+        final baseDevices = devices
+            .mapNotNull(BluetoothDevice.fromScanResult)
+            .where(BluetoothDevice.isEligibleSystemDevice)
+            .toList();
         if (baseDevices.isNotEmpty) {
           addDevices(baseDevices);
         }

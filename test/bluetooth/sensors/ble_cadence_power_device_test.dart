@@ -9,6 +9,7 @@ import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_ble/universal_ble.dart';
 
@@ -301,6 +302,91 @@ void main() {
 
       expect(core.settings.getPowerMeterOptIn(), isFalse);
       expect(BluetoothDevice.fromScanResult(scan), isNull);
+    });
+  });
+
+  // fix-wave-C: `Connection.performScanning`'s getSystemDevices branch feeds
+  // `BluetoothDevice.fromScanResult`'s output through
+  // `BluetoothDevice.isEligibleSystemDevice` before handing it to
+  // `addDevices`. That branch exists because `getSystemDevices` reports
+  // devices the OS already considers connected/bonded — not just ones
+  // actively advertising nearby — and it has to filter by service UUID to
+  // return anything at all. Once Cycling Power became one of the queried
+  // services (for opted-in power meters and cadence sensors), every power
+  // meter the OS has ever bonded started coming back too, including ones
+  // currently held by another app. Those hit the exact same
+  // `ProxyDevice.proxyServiceUUIDs` rule a live-scanned power-only trainer
+  // does (see the "CPS advertiser with a non-power-meter name" test above)
+  // and were added to `proxyDevices` as if they were a trainer: the "Looking
+  // for smart trainers" hint disappeared, the setup chain could speak for a
+  // power meter, and tapping the tile would overwrite `rememberedTrainer`.
+  // `isEligibleSystemDevice` is the guard that keeps that from happening
+  // without touching `fromScanResult` or `ProxyDevice.proxyServiceUUIDs`
+  // themselves — both of which stay correct for a live scan result.
+  group('BluetoothDevice.isEligibleSystemDevice (fix-wave-C)', () {
+    test('a system-connected power meter with an unrecognised name is excluded', () {
+      final scan = BleDevice(
+        deviceId: 'system-pm-1',
+        name: 'Totally Unknown Meter 3',
+        services: [BleSensorSource.cyclingPowerServiceUuid],
+      );
+
+      final classified = BluetoothDevice.fromScanResult(scan);
+      // Sanity check on the mechanism being guarded against: bare Cycling
+      // Power with an unrecognised name classifies as a trainer.
+      expect(classified, isA<ProxyDevice>());
+      expect(BluetoothDevice.isEligibleSystemDevice(classified!), isFalse);
+    });
+
+    test('an opted-in known power meter stays eligible', () async {
+      final scan = BleDevice(
+        deviceId: 'system-pm-2',
+        name: 'STAGES 5678',
+        services: [BleSensorSource.cyclingPowerServiceUuid],
+      );
+
+      await core.settings.setPowerMeterOptIn(true);
+
+      final classified = BluetoothDevice.fromScanResult(scan);
+      expect(classified, isA<BlePowerDevice>());
+      expect(BluetoothDevice.isEligibleSystemDevice(classified!), isTrue);
+    });
+
+    test('a cadence sensor stays eligible', () {
+      final scan = BleDevice(
+        deviceId: 'system-csc-1',
+        name: 'CAD 9911',
+        services: [BleSensorSource.cscServiceUuid],
+      );
+
+      final classified = BluetoothDevice.fromScanResult(scan);
+      expect(classified, isA<BleCadenceDevice>());
+      expect(BluetoothDevice.isEligibleSystemDevice(classified!), isTrue);
+    });
+
+    test('a real smart trainer that also exposes bare Cycling Power stays eligible', () {
+      final scan = BleDevice(
+        deviceId: 'system-trainer-1',
+        name: 'X2Max 9999',
+        services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID],
+      );
+
+      final classified = BluetoothDevice.fromScanResult(scan);
+      expect(classified, isA<ProxyDevice>());
+      expect((classified as ProxyDevice).isSmartTrainer, isTrue);
+      expect(BluetoothDevice.isEligibleSystemDevice(classified), isTrue);
+    });
+
+    test('a FE-C-over-BLE trainer with no FTMS stays eligible', () {
+      final scan = BleDevice(
+        deviceId: 'system-trainer-2',
+        name: 'X2Max 8888',
+        services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FEC_BLE_SERVICE_UUID],
+      );
+
+      final classified = BluetoothDevice.fromScanResult(scan);
+      expect(classified, isA<ProxyDevice>());
+      expect(BluetoothDevice.isEligibleSystemDevice(classified!), isTrue);
     });
   });
 }
