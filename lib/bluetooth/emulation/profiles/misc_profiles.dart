@@ -218,3 +218,53 @@ final heartRateStrapProfile = EmulationProfile(
     ),
   ],
 );
+
+// Cadence sensor — notifies crank revolution data over the standard Cycling
+// Speed and Cadence Service. CSC reports a cumulative counter, not an
+// instantaneous rpm (see CrankCounter's doc comment), so each action advances
+// a counter shared across the session's presses and sends the resulting
+// frame — the first press after (re)connecting only establishes a baseline
+// and yields no cadence yet, exactly like a real sensor's first notification;
+// the rpm shows up starting with the second press.
+final cadenceSensorProfile = EmulationProfile(
+  name: 'Cadence Sensor',
+  category: EmulationCategory.accessory,
+  build: () => cadenceSensorPeripheral(),
+  inputs: (session) {
+    final counter = CrankCounter();
+    void notifyRpm(int rpm) {
+      counter.advance(rpm);
+      session.notify(BleSensorSource.cscMeasurementUuid, cscCrankFrame(counter));
+    }
+
+    return [
+      EmulatedAction('Notify 70 rpm', run: () => notifyRpm(70)),
+      EmulatedAction('Notify 90 rpm', run: () => notifyRpm(90)),
+      EmulatedAction('Notify 110 rpm', run: () => notifyRpm(110)),
+    ];
+  },
+);
+
+// Power meter — notifies instantaneous power plus the same crank revolution
+// data the cadence sensor above uses (BlePowerDevice reads cadence from this
+// characteristic's own crank sub-field, never a separate CSC service — see
+// BleSensorSource.ingestCpsMeasurement). Same baseline caveat as the cadence
+// sensor: the first press yields power only, cadence starts on the second.
+final powerMeterProfile = EmulationProfile(
+  name: 'Power Meter',
+  category: EmulationCategory.accessory,
+  build: () => powerMeterPeripheral(),
+  inputs: (session) {
+    final counter = CrankCounter();
+    void notifyPower(int watts, int rpm) {
+      counter.advance(rpm);
+      session.notify(BleSensorSource.cyclingPowerMeasurementUuid, cyclingPowerFrame(watts, counter: counter));
+    }
+
+    return [
+      EmulatedAction('Notify 150 W @ 80 rpm', run: () => notifyPower(150, 80)),
+      EmulatedAction('Notify 250 W @ 90 rpm', run: () => notifyPower(250, 90)),
+      EmulatedAction('Notify 300 W @ 100 rpm', run: () => notifyPower(300, 100)),
+    ];
+  },
+);
