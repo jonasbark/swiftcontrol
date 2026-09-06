@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:prop/utils/cps_measurement.dart';
+import 'package:prop/utils/csc_measurement.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 import '../../devices/sram/sram_axs.dart' show SramAxsConstants;
@@ -234,7 +236,10 @@ final cadenceSensorProfile = EmulationProfile(
     final counter = CrankCounter();
     void notifyRpm(int rpm) {
       counter.advance(rpm);
-      session.notify(BleSensorSource.cscMeasurementUuid, cscCrankFrame(counter));
+      session.notify(
+        BleSensorSource.cscMeasurementUuid,
+        buildCscMeasurement(counter.revs, counter.eventTime1024),
+      );
     }
 
     return [
@@ -258,7 +263,10 @@ final powerMeterProfile = EmulationProfile(
     final counter = CrankCounter();
     void notifyPower(int watts, int rpm) {
       counter.advance(rpm);
-      session.notify(BleSensorSource.cyclingPowerMeasurementUuid, cyclingPowerFrame(watts, counter: counter));
+      session.notify(
+        BleSensorSource.cyclingPowerMeasurementUuid,
+        buildCyclingPowerMeasurement(watts, crankRevs: counter.revs, eventTime1024: counter.eventTime1024),
+      );
     }
 
     return [

@@ -13,6 +13,7 @@ import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop/utils/csc_measurement.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -61,7 +62,7 @@ void main() {
       final device = BluetoothDevice.fromScanResult(scanResult) as BleCadenceDevice;
       final counter = CrankCounter();
       counter.advance(90);
-      final frame = Uint8List.fromList(cscCrankFrame(counter));
+      final frame = Uint8List.fromList(buildCscMeasurement(counter.revs, counter.eventTime1024));
 
       await device.processCharacteristic(BleSensorSource.cscMeasurementUuid, frame);
       await device.processCharacteristic(BleSensorSource.cscMeasurementUuid, frame);

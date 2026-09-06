@@ -8,6 +8,7 @@ import 'package:bike_control/bluetooth/devices/zwift/zwift_ride.dart' show RideB
 import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/prop.dart' hide RideButtonMask;
+import 'package:prop/utils/csc_measurement.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 import 'emulated_ble_platform.dart';
@@ -113,68 +114,29 @@ FakePeripheral powerMeterPeripheral({String name = 'ASSIOMA DUO'}) {
   return peripheral;
 }
 
-/// Advances a cumulative crank-revolution counter and a 1/1024s event clock
-/// together, so two consecutive CSC/Cycling Power frames built from it always
-/// decode to exactly the rpm handed to [advance] — the same scheme prop's
-/// `SensorDefinition` uses for the standalone sink
-/// (`prop/lib/emulators/definitions/sensor_definition.dart`), reused here
-/// rather than reinvented.
-///
-/// CSC and Cycling Power both report a CUMULATIVE count, not an instantaneous
-/// rpm — a client derives rpm from the delta between two notifications
-/// (`cscCadenceRpm`/`cpsCadenceRpm` in prop's measurement parsers). A fixture
-/// that emitted the same frame twice would therefore encode a ZERO delta —
-/// no cadence at all — which would look like a parsing bug, not a fixture
-/// bug. [advance] makes that impossible: every call moves the event clock
-/// forward by a fixed one-minute quantum and the counter forward by exactly
-/// [rpm] revolutions over that same quantum, so the ratio always divides back
-/// out to [rpm] regardless of how much real wall-clock time elapsed between
-/// calls.
-///
-/// Both fields are 16-bit and wrap. They are advanced with `& 0xFFFF`, the
-/// same operation the parsers unwrap a delta with via
-/// `(cur - prev) & 0xFFFF`, so a wrap here is transparent to a client doing
-/// the subtraction on the other end.
+/// Session-scoped mutable state for the emulated cadence/power profiles: a
+/// cumulative crank-revolution counter and its paired 1/1024s event clock.
+/// [advance] delegates to the shared, pure `advanceCrankCounter`
+/// (`package:prop/utils/csc_measurement.dart`) — the exact wrap-safe scheme
+/// `SensorDefinition` uses for the standalone sink — so this fixture and
+/// that sink can never encode the same rpm two different ways. See
+/// `advanceCrankCounter`'s doc comment for why two consecutive frames built
+/// from consecutive [advance] calls always decode back to the intended rpm
+/// via `cscCadenceRpm`/`cpsCadenceRpm`, and why a fixture that reused a
+/// single constant frame instead would encode no cadence at all.
 class CrankCounter {
   int _revs = 0;
   int _eventTime1024 = 0;
-
-  static const int _quantumTicks1024 = 60 * 1024;
 
   int get revs => _revs;
   int get eventTime1024 => _eventTime1024;
 
   /// Advances the counters by [rpm] revolutions over one fixed quantum.
   void advance(int rpm) {
-    final safeRpm = rpm < 0 ? 0 : rpm;
-    _revs = (_revs + safeRpm) & 0xFFFF;
-    _eventTime1024 = (_eventTime1024 + _quantumTicks1024) & 0xFFFF;
+    final next = advanceCrankCounter(crankRevs: _revs, eventTime1024: _eventTime1024, rpm: rpm);
+    _revs = next.crankRevs;
+    _eventTime1024 = next.eventTime1024;
   }
-}
-
-/// Encodes a CSC Measurement (0x2A5B), crank data only (flags bit 1 / 0x02
-/// set, wheel bit clear): cumulative crank revolutions (uint16 LE) then the
-/// last crank event time in 1/1024s units (uint16 LE). Mirrors
-/// `SensorDefinition.buildCscMeasurement` in prop.
-List<int> cscCrankFrame(CrankCounter counter) {
-  final revs = counter.revs;
-  final t = counter.eventTime1024;
-  return [0x02, revs & 0xFF, (revs >> 8) & 0xFF, t & 0xFF, (t >> 8) & 0xFF];
-}
-
-/// Encodes a Cycling Power Measurement (0x2A63): flags (uint16 LE) then
-/// instantaneous power as a signed 16-bit value (LE), with the optional
-/// crank sub-field (flag bit 5 / 0x20) appended when [counter] is given.
-/// Mirrors `SensorDefinition.buildCyclingPowerMeasurement` in prop.
-List<int> cyclingPowerFrame(int watts, {CrankCounter? counter}) {
-  final raw = watts & 0xFFFF;
-  final bytes = [0x00, 0x00, raw & 0xFF, (raw >> 8) & 0xFF];
-  if (counter == null) return bytes;
-  final revs = counter.revs;
-  final t = counter.eventTime1024;
-  bytes[0] = 0x20;
-  bytes.addAll([revs & 0xFF, (revs >> 8) & 0xFF, t & 0xFF, (t >> 8) & 0xFF]);
-  return bytes;
 }
 
 /// A Zwift Click (v1) controller. Detected through the Zwift custom service
