@@ -433,6 +433,16 @@ Future<void> main() async {
     return source;
   }
 
+  // Same as [registerAndSelectHeartRateSource], generalised to any quantity —
+  // used by the B2 cadence/power seeding tests below.
+  FakeSensorSource registerAndSelectSource(SensorQuantity quantity, String id) {
+    final source = FakeSensorSource(id: id, displayName: id, provides: {quantity});
+    core.sensors.register(source);
+    core.sensors.select(quantity, id);
+    addTearDown(() => core.sensors.select(quantity, null));
+    return source;
+  }
+
   group('a selected sensor source must not keep a disconnected trainer advertised', () {
     // W1 (fix wave 2): an earlier fix made the sensor sink three-state so "no
     // source selected" genuinely detaches everywhere (SensorSinkMode.none).
@@ -579,6 +589,98 @@ Future<void> main() async {
           reason:
               'the gate must keep the external reading off the bridge entirely (heartRateBpm defaults null with '
               'no relayed trainer sensor here), not merely delay it or land on some other value',
+        );
+      },
+    );
+  });
+
+  group('a trainer connecting mid-ride picks up already-selected cadence/power (B2)', () {
+    // B2 (fix wave 2): _seedFitnessBikeDefinition seeded heart rate into every
+    // fresh FitnessBikeDefinition (the W4 group above) but not cadence/power —
+    // so exactly the same "connects mid-ride, after a steady external reading
+    // is already flowing" gap that W4 fixed for heart rate was still open for
+    // cadence and power. Mirrors the W4 test shape.
+    test(
+      'a freshly attached trainer definition is seeded with the already-resolved external cadence and power',
+      () async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+
+        // The rider already has external cadence AND power sources selected
+        // and reporting BEFORE any trainer connects.
+        final cadenceSource = registerAndSelectSource(SensorQuantity.cadence, 'cad-b2');
+        cadenceSource.emit(SensorQuantity.cadence, 95);
+        final powerSource = registerAndSelectSource(SensorQuantity.power, 'pwr-b2');
+        powerSource.emit(SensorQuantity.power, 220);
+        await IntegrationEnv.waitFor(
+          () =>
+              core.sensors.resolved(SensorQuantity.cadence).value == 95 &&
+              core.sensors.resolved(SensorQuantity.power).value == 220,
+          description: 'cadence and power resolved before any trainer exists',
+        );
+
+        // A trainer connects mid-ride — a new sink appearing.
+        final trainer = buildFtmsTrainer(deviceId: 'fake-kickr-b2', name: 'KICKR CORE B2');
+        env.ble.addPeripheral(trainer);
+        await core.settings.setAutoConnect('KICKR CORE B2', true);
+        await core.connection.performScanning();
+        await IntegrationEnv.waitFor(
+          () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.fitnessBike != null,
+          description: 'trainer bridge attaches its FitnessBikeDefinition',
+        );
+
+        final device = core.connection.proxyDevices.single;
+        expect(
+          device.fitnessBike!.cadenceRpm.value,
+          95,
+          reason:
+              'a newly attached trainer must be seeded with the already-resolved external cadence, '
+              'not sit unseeded until the next resolved-value change',
+        );
+        expect(
+          device.fitnessBike!.powerW.value,
+          220,
+          reason: 'same gap, same fix, for power',
+        );
+      },
+    );
+
+    // THE INVARIANT: a rider who selects no external source must see
+    // byte-identical behaviour. This is the test that would have caught the
+    // ordering mistake the fix explicitly warns against — seeding
+    // unconditionally (setExternalCadence(resolved.value) with no null
+    // guard) would call setExternalCadence(null)/setExternalPower(null) on
+    // EVERY connect for EVERY rider, latching cadenceRpm/powerW at 0 instead
+    // of leaving them null until the trainer's own telemetry arrives (see
+    // FitnessBikeDefinition.trainerReportsNoCadence) — breaking the
+    // cadence-less-trainer virtual-shifting fallback for every rider, not
+    // just ones with an external source selected.
+    test(
+      'a rider with no external cadence/power selected keeps a freshly attached trainer completely unseeded',
+      () async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
+
+        final trainer = buildFtmsTrainer(deviceId: 'fake-kickr-b2-none', name: 'KICKR CORE B2 NONE');
+        env.ble.addPeripheral(trainer);
+        await core.settings.setAutoConnect('KICKR CORE B2 NONE', true);
+        await core.connection.performScanning();
+        await IntegrationEnv.waitFor(
+          () => core.connection.proxyDevices.isNotEmpty && core.connection.proxyDevices.single.fitnessBike != null,
+          description: 'trainer bridge attaches its FitnessBikeDefinition',
+        );
+
+        final device = core.connection.proxyDevices.single;
+        expect(
+          device.fitnessBike!.cadenceRpm.value,
+          isNull,
+          reason: 'nothing selected must mean nothing seeded — cadenceRpm stays null until the trainer '
+              'itself reports something',
+        );
+        expect(
+          device.fitnessBike!.powerW.value,
+          isNull,
+          reason: 'same for power',
         );
       },
     );

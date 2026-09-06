@@ -474,6 +474,28 @@ class ProxyDevice extends BluetoothDevice {
     // Harmless no-op (re-sets the same value) on the applyTrainerSettings
     // path, which re-seeds an already-live FBD rather than a fresh one.
     def.setExternalHeartRate(core.sensors.resolved(SensorQuantity.heartRate).value);
+    // Cadence and power get the same treatment — same funnel, same gap
+    // (Phase 1 fixed it for heart rate above; this closes it for the other
+    // two) — but GUARDED on a non-null value rather than passed through
+    // unconditionally like heart rate is. Unlike _relayedHeartRateBpm
+    // (nullable), FitnessBikeDefinition's trainer-side cadence/power fields
+    // are non-nullable ints defaulting to 0, so an unconditional
+    // setExternalCadence(null)/setExternalPower(null) here would latch the
+    // resolved cadenceRpm/powerW notifiers at 0 for EVERY rider on every
+    // connect — including one with no external source selected at all —
+    // which would both regress the "nothing selected → byte-identical
+    // behaviour" guarantee and silently disable
+    // FitnessBikeDefinition.trainerReportsNoCadence's cadence-less-trainer
+    // fallback (see that getter's doc comment for the full mechanism).
+    // Calling this only when there is an actual reading to seed leaves a
+    // no-external-source rider's fresh FBD completely untouched, while still
+    // fixing the same drop as heart rate: an already-flowing external
+    // cadence/power source no longer sits unseeded on a fresh FBD until the
+    // hub's resolved value next happens to change.
+    final resolvedCadence = core.sensors.resolved(SensorQuantity.cadence).value;
+    if (resolvedCadence != null) def.setExternalCadence(resolvedCadence);
+    final resolvedPower = core.sensors.resolved(SensorQuantity.power).value;
+    if (resolvedPower != null) def.setExternalPower(resolvedPower);
     // The control-protocol override lives on the definition, and every
     // connect (and every proxy→VS switch) builds a fresh one — so re-applying
     // it belongs here, in the single funnel all three rebuild paths share,
