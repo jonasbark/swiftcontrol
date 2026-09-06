@@ -36,7 +36,7 @@ class SensorsSection extends StatelessWidget {
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: -0.2),
         ),
         _pairedSources(context, l10n),
-        // A strap the scanner has found but not yet connected — see its own
+        // A sensor the scanner has found but not yet connected — see its own
         // doc comment for why that can never be part of `_pairedSources`.
         const SensorDiscoverySection(),
         SensorQuantitySelector(

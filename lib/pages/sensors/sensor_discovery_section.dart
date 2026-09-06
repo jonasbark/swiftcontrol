@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:bike_control/bluetooth/devices/base_device.dart';
-import 'package:bike_control/bluetooth/devices/sensors/ble_heart_rate_device.dart';
+import 'package:bike_control/bluetooth/devices/sensors/ble_sensor_device.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/widgets/ui/loading_widget.dart';
@@ -9,18 +9,19 @@ import 'package:bike_control/widgets/ui/setting_tile.dart';
 import 'package:bike_control/widgets/ui/small_progress_indicator.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
-/// Heart rate straps the scanner has already discovered but not connected,
-/// each with an explicit Connect action.
+/// BLE sensors — heart rate straps, cadence sensors, power meters — the
+/// scanner has already discovered but not connected, each with an explicit
+/// Connect action.
 ///
-/// A strap deliberately never auto-connects (`BleHeartRateDevice
-/// .shouldAutoConnect`) — most only allow a single simultaneous BLE
-/// connection, and auto-connecting would silently take one away from Zwift,
-/// a bike computer or a watch. That is also why `SensorsSection`'s own
-/// paired-sources list can never be this section: it only ever shows a
-/// source that has ALREADY connected (`SensorHub.register` fires from
-/// `Connection`'s post-connect hook, never before). Without this list, a
-/// discovered strap has no route to becoming a source at all — this is that
-/// missing rider action.
+/// A [BleSensorDevice] deliberately never auto-connects
+/// (`BleHeartRateDevice.shouldAutoConnect` and its cadence/power
+/// equivalents) — most only allow a single simultaneous BLE connection, and
+/// auto-connecting would silently take one away from Zwift, a bike computer
+/// or a watch. That is also why `SensorsSection`'s own paired-sources list
+/// can never be this section: it only ever shows a source that has ALREADY
+/// connected (`SensorHub.register` fires from `Connection`'s post-connect
+/// hook, never before). Without this list, a discovered sensor has no route
+/// to becoming a source at all — this is that missing rider action.
 class SensorDiscoverySection extends StatefulWidget {
   const SensorDiscoverySection({super.key});
 
@@ -34,7 +35,7 @@ class _SensorDiscoverySectionState extends State<SensorDiscoverySection> {
   @override
   void initState() {
     super.initState();
-    // Reflects newly discovered or newly connected straps live, without the
+    // Reflects newly discovered or newly connected sensors live, without the
     // rider leaving and reopening this page — mirrors ScanWidget/DevicePage's
     // own connectionStream listener.
     _connectionSub = core.connection.connectionStream.listen((_) {
@@ -56,7 +57,7 @@ class _SensorDiscoverySectionState extends State<SensorDiscoverySection> {
   /// documented, tested path for (re)connecting a device already in that
   /// list — a bare call can leave `isConnected` stuck once a listener has
   /// been torn down (see its doc comment).
-  Future<void> _connect(BleHeartRateDevice device) async {
+  Future<void> _connect(BleSensorDevice device) async {
     await core.settings.setSensorAutoConnect(device.device.deviceId, true);
     await core.connection.connectDevice(device);
   }
@@ -64,7 +65,7 @@ class _SensorDiscoverySectionState extends State<SensorDiscoverySection> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final nearby = core.connection.devices.whereType<BleHeartRateDevice>().where((d) => !d.isConnected).toList();
+    final nearby = core.connection.devices.whereType<BleSensorDevice>().where((d) => !d.isConnected).toList();
     if (nearby.isEmpty) return const SizedBox.shrink();
 
     final cs = Theme.of(context).colorScheme;

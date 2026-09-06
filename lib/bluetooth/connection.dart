@@ -6,7 +6,7 @@ import 'package:bike_control/bluetooth/devices/gamepad/gamepad_device.dart';
 import 'package:bike_control/bluetooth/devices/gyroscope/gyroscope_steering.dart';
 import 'package:bike_control/bluetooth/devices/hid/hid_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
-import 'package:bike_control/bluetooth/devices/sensors/ble_heart_rate_device.dart';
+import 'package:bike_control/bluetooth/devices/sensors/ble_sensor_device.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_climb.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_headwind.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -282,16 +282,21 @@ class Connection {
     _registerSensorSource(device);
   }
 
-  /// Gives the hub a live [SensorSource] the moment a strap actually reaches
+  /// Gives the hub a live [SensorSource] the moment a sensor actually reaches
   /// connected state — never at construction, since `fromScanResult` builds
   /// one object per scan result whether or not the rider ever connects it.
+  ///
+  /// Gated on [BleSensorDevice] rather than a concrete type: a strap, a
+  /// cadence sensor and a power meter all own a [BleSensorSource] the same
+  /// way, and dispatching on the shared interface means the NEXT sensor type
+  /// only has to mix it in, not earn a third `is` check here.
   ///
   /// Called from [_noteConnected], so it inherits the same "arriving twice is
   /// harmless" contract: `SensorHub.register` re-keys a map entry and rebinds
   /// only the quantities that already point at this id, so registering the
   /// same instance again is a no-op in every observable way.
   void _registerSensorSource(BaseDevice device) {
-    if (device is! BleHeartRateDevice) return;
+    if (device is! BleSensorDevice) return;
     try {
       core.sensors.register(device.source);
       unawaited(device.source.start());
@@ -303,9 +308,12 @@ class Connection {
   /// The disconnect-side counterpart of [_registerSensorSource]: drops the
   /// hub's registration and stops the source so its retained reading is
   /// cleared rather than left to be served stale past its TTL. A rediscovered
-  /// strap arrives as a brand new device and source object (see
+  /// sensor arrives as a brand new device and source object (see
   /// `SensorHub.register`'s doc comment), so there is nothing here worth
   /// keeping around once this one is gone.
+  ///
+  /// Gated on [BleSensorDevice] for the same reason as
+  /// [_registerSensorSource] — see its doc comment.
   ///
   /// `SensorHub.unregister` deliberately leaves the rider's selection
   /// pointing at this id (see its own doc comment) — it cannot tell a
@@ -315,9 +323,9 @@ class Connection {
   /// to it merely dropping out of BLE range to be rediscovered a moment
   /// later), so clearing the selection for good is done here, explicitly,
   /// and only then — a transient drop must leave it alone so `register`'s
-  /// rebind loop still matches when the strap reappears.
+  /// rebind loop still matches when the sensor reappears.
   Future<void> _unregisterSensorSource(BaseDevice device, {required bool forget}) async {
-    if (device is! BleHeartRateDevice) return;
+    if (device is! BleSensorDevice) return;
     try {
       core.sensors.unregister(device.source.id);
       if (forget) {

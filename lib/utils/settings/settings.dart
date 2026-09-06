@@ -266,13 +266,15 @@ class Settings {
 
   static String _sensorAutoConnectKey(String deviceId) => 'sensor_auto_connect_$deviceId';
 
-  /// Whether the rider has explicitly asked to connect this heart rate strap.
-  /// Mirrors [getAutoConnect]'s per-trainer consent flag, keyed by BLE device
-  /// id instead of trainer key — a strap must never auto-connect on its own
-  /// (see `BleHeartRateDevice.shouldAutoConnect`'s doc comment: most only
-  /// allow one simultaneous BLE link), so this stays false until the rider
-  /// taps Connect on a discovered strap, and from then on it reconnects
-  /// automatically like every other remembered device.
+  /// Whether the rider has explicitly asked to connect this BLE sensor (a
+  /// heart rate strap, a cadence sensor, or a power meter). Mirrors
+  /// [getAutoConnect]'s per-trainer consent flag, keyed by BLE device id
+  /// instead of trainer key — a sensor must never auto-connect on its own
+  /// (see `BleHeartRateDevice.shouldAutoConnect`'s doc comment, shared by its
+  /// cadence/power equivalents: most only allow one simultaneous BLE link),
+  /// so this stays false until the rider taps Connect on a discovered
+  /// sensor, and from then on it reconnects automatically like every other
+  /// remembered device.
   bool getSensorAutoConnect(String deviceId) {
     return prefs.getBool(_sensorAutoConnectKey(deviceId)) ?? false;
   }
@@ -300,12 +302,13 @@ class Settings {
 
   static const String _powerMeterOptInKey = 'power_meter_opt_in';
 
-  /// Whether the rider has explicitly opted in to detecting power meters that
-  /// `BluetoothDevice.fromScanResult`'s `_ignoredNames` would otherwise hide
-  /// (Favero Assioma, Quarq, PowerCrank, ...). Off by default: many power
-  /// meters accept only one simultaneous BLE connection, so BikeControl
-  /// pairing with one of these can silently take it away from a rider's head
-  /// unit mid-ride.
+  /// Whether the rider has explicitly opted in to detecting power meters —
+  /// both the ones `BluetoothDevice.fromScanResult`'s
+  /// `_hiddenPowerMeterNames` hides by default (Favero Assioma, Quarq,
+  /// PowerCrank, ...) and any other meter recognised only once opted in
+  /// (`_powerMeterNames`). Off by default: many power meters accept only one
+  /// simultaneous BLE connection, so BikeControl pairing with one of these
+  /// can silently take it away from a rider's head unit mid-ride.
   ///
   /// Guarded like [getUseNewUnlockMethod]: device detection can run before
   /// [init].

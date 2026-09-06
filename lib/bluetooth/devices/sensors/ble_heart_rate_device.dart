@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
+import 'package:bike_control/bluetooth/devices/sensors/ble_sensor_device.dart';
 import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/core.dart';
@@ -19,7 +20,12 @@ import 'package:universal_ble/universal_ble.dart';
 /// remembers it as `RememberedDeviceKind.controller` instead of excluding it
 /// the way it does every other accessory, and its settings page renders an
 /// empty Button Mapping table.
-class BleHeartRateDevice extends BluetoothDevice with Accessory {
+///
+/// `with BleSensorDevice`: the shared surface `Connection` and
+/// `SensorDiscoverySection` dispatch on so a strap, a cadence sensor and a
+/// power meter can all be reached the same way — see that mixin's doc
+/// comment.
+class BleHeartRateDevice extends BluetoothDevice with Accessory, BleSensorDevice {
   BleHeartRateDevice(super.scanResult) : super(availableButtons: const []) {
     source = BleSensorSource(
       // The device id is stable across restarts, which is what the rider's
@@ -31,6 +37,7 @@ class BleHeartRateDevice extends BluetoothDevice with Accessory {
     );
   }
 
+  @override
   late final BleSensorSource source;
 
   /// A strap must connect only when the rider explicitly asks. Without this,

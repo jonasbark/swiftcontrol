@@ -260,11 +260,16 @@ void main() {
         // connection.dart does when ftmsEmulator.isStarted flips true.
         await realController.onSinkStateChanged(mode: SensorSinkMode.bridge);
 
-        // Same comparison T5-A's own required test uses: the bridge composite
-        // must look exactly like heart-rate-only, never mind that THIS rider
-        // never even selected heart rate — cadence must not leave a trace.
-        final baseline = CompositeBleDefinition(initial: [bridgedFbd(), SensorDefinition()]);
-        expect(bridgeComposite.serviceUUIDs.toSet(), baseline.serviceUUIDs.toSet());
+        // A2 (fix-wave-A): this used to compare against a baseline built from
+        // a bare, fresh `SensorDefinition()` standing in for "heart rate
+        // only". That comparison relied on CSC/Cycling Power being gated on
+        // "ever served" — a bare definition had neither, so it doubled as a
+        // stand-in for "retracted". Now that CSC/Cycling Power are
+        // unconditional except while retracted (see SensorDefinition's own
+        // doc comment), a bare, non-retracted `SensorDefinition()` exposes
+        // both, so it no longer represents that baseline — asserting
+        // directly on the real, retracted composite is the meaningful check
+        // here, and always was the one that actually mattered.
         expect(bridgeComposite.serviceUUIDs, isNot(contains(SensorDefinition.CYCLING_SPEED_CADENCE_SERVICE_UUID)));
         expect(bridgeComposite.serviceUUIDs, isNot(contains(SensorDefinition.CYCLING_POWER_SERVICE_UUID)));
       },

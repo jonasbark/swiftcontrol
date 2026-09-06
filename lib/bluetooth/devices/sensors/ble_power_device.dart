@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
+import 'package:bike_control/bluetooth/devices/sensors/ble_sensor_device.dart';
 import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/core.dart';
@@ -25,10 +26,15 @@ import 'package:universal_ble/universal_ble.dart';
 ///
 /// Detection is deliberately narrower than a cadence sensor's: many power
 /// meters accept only one simultaneous BLE connection, so
-/// `BluetoothDevice.fromScanResult`'s `_ignoredNames` still hides
+/// `BluetoothDevice.fromScanResult`'s `_hiddenPowerMeterNames` still hides
 /// Favero/Quarq/PowerCrank-style meters — known to cause exactly that
 /// conflict — unless the rider has opted in via `Settings.getPowerMeterOptIn`.
-class BlePowerDevice extends BluetoothDevice with Accessory {
+///
+/// `with BleSensorDevice`: the shared surface `Connection` and
+/// `SensorDiscoverySection` dispatch on so a strap, a cadence sensor and a
+/// power meter can all be reached the same way — see that mixin's doc
+/// comment.
+class BlePowerDevice extends BluetoothDevice with Accessory, BleSensorDevice {
   BlePowerDevice(super.scanResult) : super(availableButtons: const []) {
     source = BleSensorSource(
       // The device id is stable across restarts, which is what the rider's
@@ -40,6 +46,7 @@ class BlePowerDevice extends BluetoothDevice with Accessory {
     );
   }
 
+  @override
   late final BleSensorSource source;
 
   /// A power meter must connect only when the rider explicitly asks. This

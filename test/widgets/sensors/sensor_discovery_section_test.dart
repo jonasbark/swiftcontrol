@@ -1,3 +1,4 @@
+import 'package:bike_control/bluetooth/devices/sensors/ble_cadence_device.dart';
 import 'package:bike_control/bluetooth/devices/sensors/ble_heart_rate_device.dart';
 import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/gen/l10n.dart';
@@ -81,6 +82,23 @@ void main() {
     await pump(tester);
 
     expect(find.text('TICKR 1234'), findsOneWidget);
+    expect(find.text(AppLocalizations.current.connect), findsOneWidget);
+  });
+
+  // A1 (fix-wave-A): before widening this section's dispatch from the
+  // concrete `BleHeartRateDevice` to the shared `BleSensorDevice` interface,
+  // a discovered cadence sensor or power meter never appeared here at all —
+  // there was no route to a Connect action, so it could never reach
+  // connected state, so its source could never reach the hub. This proves
+  // the widget itself, not just `Connection`, now treats a cadence sensor
+  // the same way as a strap.
+  testWidgets('lists a discovered, not-yet-connected cadence sensor with a Connect action too', (tester) async {
+    final device = BleCadenceDevice(BleDevice(deviceId: 'csc-1', name: 'CAD 7788'));
+    core.connection.devices.add(device);
+
+    await pump(tester);
+
+    expect(find.text('CAD 7788'), findsOneWidget);
     expect(find.text(AppLocalizations.current.connect), findsOneWidget);
   });
 
