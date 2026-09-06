@@ -264,6 +264,10 @@ String describeProxyDevice(ProxyDevice device) {
     // the native path; `missed·N` shows a verdict building up.
     final gearAck = def.gearEchoSummary;
     if (gearAck != 'n/a') parts.add('zwiftGearAck=$gearAck');
+    // The trainer refused to start grade simulation and virtual shifting was
+    // switched to power — the line that explains vsMode=targetPower on a
+    // bundle whose rider picked Track Resistance.
+    if (def.trackResistanceRefused.value) parts.add('simGrade=refused→power');
     final ctl = def.lastControlWrite;
     if (ctl != null) {
       final age = DateTime.now().difference(ctl.at).inSeconds;
