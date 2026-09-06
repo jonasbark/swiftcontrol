@@ -482,6 +482,7 @@ class ProxyDevice extends BluetoothDevice {
     def.setControlProtocolOverride(TrainerControlProtocol.values.asNameMap()[storedProtocol]);
 
     _wireGearEchoLog(def);
+    _wireSimRefusalLog(def);
   }
 
   /// The definition [_gearEchoLogListener] is attached to, and the listener
@@ -525,6 +526,36 @@ class ProxyDevice extends BluetoothDevice {
     def.gearEchoVerdict.addListener(onVerdict);
     _gearEchoLoggedDef = def;
     _gearEchoLogListener = onVerdict;
+  }
+
+  /// Same idempotency contract as [_wireGearEchoLog], for the SIM-grade
+  /// refusal verdict: a trainer that spends the whole handshake retry budget
+  /// refusing Start/Resume ACKs every grade write and applies none, so the
+  /// definition switches itself to Target Power — and the support log has to
+  /// say so, or "vsMode says power but I picked Track Resistance" becomes the
+  /// next unanswerable report.
+  FitnessBikeDefinition? _simRefusalLoggedDef;
+  VoidCallback? _simRefusalLogListener;
+
+  void _wireSimRefusalLog(FitnessBikeDefinition def) {
+    if (identical(_simRefusalLoggedDef, def)) return;
+    final previous = _simRefusalLogListener;
+    if (previous != null) {
+      _simRefusalLoggedDef?.trackResistanceRefused.removeListener(previous);
+    }
+    void onRefused() {
+      if (!def.trackResistanceRefused.value) return;
+      core.connection.signalNotification(
+        LogNotification(
+          '${scanResult.name}: trainer refuses to start grade simulation — '
+          'virtual shifting switched to Target Power',
+        ),
+      );
+    }
+
+    def.trackResistanceRefused.addListener(onRefused);
+    _simRefusalLoggedDef = def;
+    _simRefusalLogListener = onRefused;
   }
 
   /// Is the connected trainer reporting any sign of riding right now? Used to

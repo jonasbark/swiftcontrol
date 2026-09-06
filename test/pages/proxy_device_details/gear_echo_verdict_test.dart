@@ -111,6 +111,26 @@ Future<void> main() async {
     expect(logs, hasLength(1));
   });
 
+  test('a SIM-grade refusal is put in the support log once, across re-seeds', () async {
+    final device = trainer();
+    final logs = <String>[];
+    final sub = core.connection.actionStream.listen((n) {
+      if (n is LogNotification && n.message.contains('grade simulation')) {
+        logs.add(n.message);
+      }
+    });
+
+    device.applyTrainerSettings();
+    device.applyTrainerSettings();
+
+    device.fitnessBike!.trackResistanceRefused.value = true;
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await sub.cancel();
+
+    expect(logs, hasLength(1));
+    expect(logs.single, contains('switched to Target Power'));
+  });
+
   Future<void> pumpSection(WidgetTester tester, ProxyDevice device) async {
     await tester.pumpWidget(
       ShadcnApp(
