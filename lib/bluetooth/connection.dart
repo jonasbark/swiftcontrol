@@ -580,8 +580,12 @@ class Connection {
         // (setExternalCadence/setExternalPower feed that packet directly), so
         // the standalone-only definition must never be told about them while
         // bridged — doing so would newly expose CSC/Cycling Power on the
-        // bridge's own GATT table (see SensorDefinition's doc comment on
-        // _servedCadence/_servedPower for the defect this guards against).
+        // bridge's own GATT table. sensorDefinition advertises CSC/Cycling
+        // Power unconditionally, the same as heart rate always has;
+        // SensorSinkController is what keeps them off the bridge, by calling
+        // sensorDefinition.retractCadenceAndPowerForBridge() before every
+        // bridge attach (see that method's doc comment for the defect this
+        // guards against).
         onCadence: (rpm) {
           ftmsEmulator.fitnessBike?.setExternalCadence(rpm);
           if (!ftmsEmulator.isStarted.value) sensorDefinition.setCadence(rpm);

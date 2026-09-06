@@ -247,6 +247,68 @@ void main() {
 
       expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
+
+    // fix-wave-D: widening _powerMeterNames (A3, above) to recognise brands
+    // like Stages, SRM, and Rotor was correct on its own — but those brands
+    // do not only make crank/pedal power meters: Stages makes the SB20 smart
+    // bike, SRM makes an indoor trainer. Neither the narrow rule above nor
+    // its web-branch twin excluded a device that also advertises a trainer
+    // service, so an opted-in rider with one of those would have this rule
+    // claim their trainer as a bare BlePowerDevice before the ProxyDevice
+    // branch below ever saw it — losing resistance, ERG, and virtual
+    // shifting entirely. A device advertising a trainer service is a TRAINER
+    // that also reports power, not a power meter; trainer control must
+    // always win. The guard added here excludes FTMS/FE-C the same way
+    // ProxyDevice.isSmartTrainer does, so the two notions of "trainer"
+    // cannot drift apart.
+    test('an opted-in smart bike whose name matches a known power-meter brand keeps trainer '
+        'control (resolves to ProxyDevice, not BlePowerDevice)', () async {
+      final scan = BleDevice(
+        deviceId: 'stages-sb20-1',
+        name: 'STAGES SB20 1234',
+        services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID],
+      );
+
+      await core.settings.setPowerMeterOptIn(true);
+
+      final classified = BluetoothDevice.fromScanResult(scan);
+      expect(classified, isA<ProxyDevice>());
+      expect(classified, isNot(isA<BlePowerDevice>()));
+      expect((classified as ProxyDevice).isSmartTrainer, isTrue);
+    });
+
+    // Same guard, the FE-C-over-BLE half of "trainer service" — an SRM
+    // trainer that speaks FE-C rather than FTMS needs the same protection;
+    // ProxyDevice.isSmartTrainer treats the two as equivalent, and so does
+    // this guard.
+    test('an opted-in FE-C trainer whose name matches a known power-meter brand keeps trainer control', () async {
+      final scan = BleDevice(
+        deviceId: 'srm-fec-1',
+        name: 'SRM 4400',
+        services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FEC_BLE_SERVICE_UUID],
+      );
+
+      await core.settings.setPowerMeterOptIn(true);
+
+      final classified = BluetoothDevice.fromScanResult(scan);
+      expect(classified, isA<ProxyDevice>());
+      expect(classified, isNot(isA<BlePowerDevice>()));
+    });
+
+    // Regression guard: the trainer-service exclusion above must not touch
+    // the case the narrow rule exists FOR — a real power meter with no
+    // trainer service at all keeps working exactly as A3 established.
+    test('an opted-in power meter with no trainer service still resolves to BlePowerDevice', () async {
+      final scan = BleDevice(
+        deviceId: 'assioma-fixd-1',
+        name: 'ASSIOMA DUO-1234',
+        services: [BleSensorSource.cyclingPowerServiceUuid],
+      );
+
+      await core.settings.setPowerMeterOptIn(true);
+
+      expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
+    });
   });
 
   // A3 (fix-wave-A): `fromScanResult`'s web branch had a broad
@@ -302,6 +364,50 @@ void main() {
 
       expect(core.settings.getPowerMeterOptIn(), isFalse);
       expect(BluetoothDevice.fromScanResult(scan), isNull);
+    });
+
+    // fix-wave-D: the web branch's narrow rule gets the same
+    // _advertisesTrainerService guard as the non-web one, for the symmetry
+    // the comment above this group's narrow rule (in fromScanResult) already
+    // asks for — but unlike the non-web branch, this does NOT change the
+    // observable outcome for a Stages SB20-shaped device today. Web has no
+    // ProxyDevice/trainer-bridging concept at all to fall back to: the broad
+    // `opt-in && CPS` rule right below the narrow one has no FTMS/FE-C
+    // exclusion of its own (see fix-wave-A's comment above this group — it
+    // is deliberately name-unaware) and still claims the device, and
+    // wifi_trainer_scanner.dart's `if (kIsWeb) return;` plus custom_app.dart
+    // excluding zwiftMdns/zwiftBle on web confirm BikeControl never offers
+    // trainer bridging in a browser in the first place. So there is no
+    // "trainer control" for this device to lose on web, and this test
+    // documents the real (unchanged) result rather than asserting a
+    // ProxyDevice-shaped outcome the web branch cannot produce. Widening the
+    // broad rule to also exclude FTMS/FE-C would be a second, separate
+    // change beyond the narrow-rule guard this fix wave asked for.
+    test('a Stages SB20-shaped device still resolves to BlePowerDevice on web (no bridging concept there)', () async {
+      final scan = BleDevice(
+        deviceId: 'web-stages-sb20-1',
+        name: 'STAGES SB20 1234',
+        services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID],
+      );
+
+      await core.settings.setPowerMeterOptIn(true);
+
+      expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
+    });
+
+    // Regression guard, mirrored from the non-web branch: a real power meter
+    // with no trainer service must keep resolving to BlePowerDevice on web
+    // once opted in.
+    test('an opted-in power meter with no trainer service resolves to BlePowerDevice on web', () async {
+      final scan = BleDevice(
+        deviceId: 'web-assioma-fixd-1',
+        name: 'ASSIOMA DUO-1234',
+        services: [BleSensorSource.cyclingPowerServiceUuid],
+      );
+
+      await core.settings.setPowerMeterOptIn(true);
+
+      expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
   });
 

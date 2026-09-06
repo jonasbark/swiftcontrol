@@ -31,6 +31,7 @@ import 'package:flutter/foundation.dart';
 // `SramAdvertisement` clashes with nothing here, but the prop package also
 // exports a `SramAxs` constants class that collides with this file's `SramAxs`
 // app device import above — pull in only what's needed to avoid the clash.
+import 'package:prop/emulators/definitions/fitness_bike_definition.dart';
 import 'package:prop/prop.dart' show LogLevel, SramAdvertisement;
 import 'package:prop/utils/wahoo_climb.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -157,6 +158,28 @@ abstract class BluetoothDevice extends BaseDevice {
   /// a meter can be recognised without being hidden.
   static bool _isHiddenPowerMeterName(String name) =>
       _hiddenPowerMeterNames.any((hiddenName) => name.toUpperCase().startsWith(hiddenName));
+
+  /// Whether [scanResult] advertises a trainer service — FTMS or
+  /// FE-C-over-BLE — the same two services [ProxyDevice.isSmartTrainer]
+  /// checks to decide a device is a smart trainer. Deliberately reuses those
+  /// exact UUIDs rather than redefining them, so the two notions of
+  /// "trainer" cannot drift apart.
+  ///
+  /// Used to exclude such a device from the narrow, opted-in
+  /// `BlePowerDevice` rules in [fromScanResult] (both platform branches):
+  /// [_powerMeterNames] recognises brands like Stages, SRM, and Rotor that
+  /// do not only sell crank/pedal power meters — Stages also makes the SB20
+  /// smart bike, SRM also makes an indoor trainer — and either can advertise
+  /// bare Cycling Power alongside FTMS/FE-C. A device advertising a trainer
+  /// service is a TRAINER that also reports power, not a power meter, and
+  /// trainer control must always win: without this guard, an opted-in rider
+  /// with one of those would have the narrow rule claim it as a bare
+  /// [BlePowerDevice], losing resistance, ERG, and virtual shifting
+  /// entirely.
+  static bool _advertisesTrainerService(BleDevice scanResult) => scanResult.services.containsAny([
+    FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID,
+    FitnessBikeDefinition.FEC_BLE_SERVICE_UUID,
+  ]);
 
   /// Test seam: overrides the effective [kIsWeb] check so `fromScanResult`'s
   /// web-specific classification branch can be exercised from a normal
@@ -289,11 +312,17 @@ abstract class BluetoothDevice extends BaseDevice {
         // ever added here, which would need the ordering the non-web branch
         // already relies on. See that branch's version of this rule for why
         // the narrow form is the one that matters there today.
+        //
+        // Also excludes a device advertising FTMS/FE-C (_advertisesTrainerService)
+        // — see that method's doc comment for why a recognised power-meter
+        // NAME is not enough by itself once brands like Stages (SB20 smart
+        // bike) and SRM (indoor trainer) are in [_powerMeterNames].
         _
             when core.settings.getPowerMeterOptIn() &&
                 scanResult.name != null &&
                 _isKnownPowerMeterName(scanResult.name!) &&
-                scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) =>
+                scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) &&
+                !_advertisesTrainerService(scanResult) =>
           BlePowerDevice(scanResult),
         // Power is checked before cadence so a combo device advertising both
         // services (common — many power meters also expose CSC) resolves to
@@ -354,14 +383,21 @@ abstract class BluetoothDevice extends BaseDevice {
         // built from _powerMeterNames — a SUPERSET of the
         // _hiddenPowerMeterNames list the exclusion above uses, so a brand
         // can be recognised here without also being hidden by default).
-        // A power-only TRAINER that also advertises bare CPS (no FTMS) is not
-        // in that name list, so it is untouched by this rule and keeps
-        // resolving to ProxyDevice.
+        // A power-only TRAINER with an unrecognised name is untouched by this
+        // rule and keeps resolving to ProxyDevice below. A recognised name is
+        // NOT enough on its own, though: _powerMeterNames includes brands
+        // like Stages and SRM that also sell a smart bike (SB20) or an
+        // indoor trainer, not just crank/pedal power meters, so the
+        // _advertisesTrainerService exclusion below is what keeps one of
+        // those from being claimed here instead of by ProxyDevice — a device
+        // advertising a trainer service is a TRAINER that also reports
+        // power, not a power meter, and trainer control must always win.
         _
             when core.settings.getPowerMeterOptIn() &&
                 scanResult.name != null &&
                 _isKnownPowerMeterName(scanResult.name!) &&
-                scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) =>
+                scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) &&
+                !_advertisesTrainerService(scanResult) =>
           BlePowerDevice(scanResult),
         _
             when scanResult.services.containsAny(ProxyDevice.proxyServiceUUIDs) ||
