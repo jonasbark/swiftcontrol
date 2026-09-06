@@ -67,16 +67,29 @@ class Connection {
   List<({DateTime date, String entry})> get lastLogEntries => _appLog.entries;
 
   /// Verbose DirCon/trainer wire trace (`IN>`/`OUT<`/`trainer>`/`trainer<`),
-  /// beta only. Separate from [lastLogEntries] so a few dozen frames per second
-  /// can't flush the high-level events a support bundle needs — a beta bundle
-  /// used to arrive as pure wire trace with every shift/ERG/control line gone.
+  /// exported for beta testers only. Separate from [lastLogEntries] so a few
+  /// dozen frames per second can't flush the high-level events a support bundle
+  /// needs — a beta bundle used to arrive as pure wire trace with every
+  /// shift/ERG/control line gone. Always recorded; the beta gate sits here on
+  /// export, because the entitlement only resolves once IAP/Supabase finish
+  /// initialising — minutes into a session on a cold start — and a record-time
+  /// gate silently dropped exactly the connect/handshake/first-ride window a
+  /// support bundle exists to show.
   final SupportLogBuffer _traceLog = SupportLogBuffer(2000);
-  List<({DateTime date, String entry})> get lastTraceEntries => _traceLog.entries;
+  List<({DateTime date, String entry})> get lastTraceEntries => _isBetaTester ? _traceLog.entries : const [];
 
-  /// Beta status, guarded: the log path runs from the very first notification,
-  /// which can be before IAP / Supabase have initialised — and reading
-  /// [IAPManager.isBetaTester] then throws. Treat "not ready yet" as not-beta.
+  /// Test-only: replaces the [IAPManager] probe behind [lastTraceEntries],
+  /// which needs live Supabase/IAP state to resolve.
+  @visibleForTesting
+  bool Function()? debugIsBetaTester;
+
+  /// Beta status, guarded: [lastTraceEntries] can be read before IAP /
+  /// Supabase have initialised (an early log view, a bundle from a broken
+  /// boot) — and reading [IAPManager.isBetaTester] then throws. Treat "not
+  /// ready yet" as not-beta.
   bool get _isBetaTester {
+    final probe = debugIsBetaTester;
+    if (probe != null) return probe();
     try {
       return IAPManager.instance.isBetaTester;
     } catch (_) {
@@ -99,17 +112,15 @@ class Connection {
 
     actionStream.listen((log) => _appendLogEntry(log.toString()));
 
-    // Beta testers also get the verbose DirCon/trainer wire trace — but in its
-    // OWN buffer ([_traceLog]), so a high-rate trace never evicts the
-    // high-level events in [lastLogEntries]. A release build (e.g. a tester's)
-    // has no console to read `IN>`/`OUT<`/`trainer<` from, so this is the only
-    // way that traffic reaches a support bundle. The gate is re-checked per
-    // line so it starts working the moment the beta_access entitlement loads,
-    // and stays a cheap no-op for everyone else.
-    Logger.onTrace = (message) {
-      if (!_isBetaTester) return;
-      _traceLog.add(message);
-    };
+    // The verbose DirCon/trainer wire trace, in its OWN buffer ([_traceLog])
+    // so a high-rate trace never evicts the high-level events in
+    // [lastLogEntries]. A release build (e.g. a tester's) has no console to
+    // read `IN>`/`OUT<`/`trainer<` from, so this is the only way that traffic
+    // reaches a support bundle. Recorded unconditionally — whether it is
+    // exported is decided by [lastTraceEntries] (beta only). The string is
+    // already built for every trace call once this sink is set, so recording
+    // it costs nothing beyond the bounded buffer.
+    Logger.onTrace = _traceLog.add;
   }
 
   final Map<BaseDevice, StreamSubscription<bool>> _connectionSubscriptions = {};
