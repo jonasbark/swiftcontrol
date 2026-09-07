@@ -481,13 +481,34 @@ class ProxyDevice extends BluetoothDevice {
     final storedProtocol = core.settings.getControlProtocolOverride(trainerKey);
     def.setControlProtocolOverride(TrainerControlProtocol.values.asNameMap()[storedProtocol]);
 
-    // A trainer that accepts our gear commands but never acknowledges them
-    // is switched to FTMS by the definition itself. Put that in the support
-    // log for every rider — the definition's own logging only reaches debug
-    // consoles and beta traces, and "why is proto=ftms on a native trainer"
-    // is the first question on any shifting report. The definition is
-    // rebuilt per connection, so the listener dies with it.
-    def.gearEchoVerdict.addListener(() {
+    _wireGearEchoLog(def);
+    _wireSimRefusalLog(def);
+  }
+
+  /// The definition [_gearEchoLogListener] is attached to, and the listener
+  /// itself — so re-seeding can't stack a second one on the same notifier.
+  FitnessBikeDefinition? _gearEchoLoggedDef;
+  VoidCallback? _gearEchoLogListener;
+
+  /// Puts the gear-echo verdict in the support log for every rider: the
+  /// definition's own logging only reaches debug consoles and beta traces, and
+  /// "why is proto=ftms on a native trainer" is the first question on any
+  /// shifting report.
+  ///
+  /// Idempotent per definition. [_seedFitnessBikeDefinition] is not only a
+  /// connect-time path — [applyTrainerSettings] re-seeds the *existing*
+  /// definition on every settings change — so a plain `addListener` there
+  /// accumulated one listener per seed, and a single verdict then fanned out
+  /// into that many identical notifications. A real bundle showed five.
+  void _wireGearEchoLog(FitnessBikeDefinition def) {
+    if (identical(_gearEchoLoggedDef, def)) return;
+    final previous = _gearEchoLogListener;
+    if (previous != null) {
+      // Safe on a disposed notifier by contract, and the definition we are
+      // moving off may well have been disposed with the last connection.
+      _gearEchoLoggedDef?.gearEchoVerdict.removeListener(previous);
+    }
+    void onVerdict() {
       final verdict = def.gearEchoVerdict.value;
       if (verdict == null) return;
       core.connection.signalNotification(
@@ -500,7 +521,41 @@ class ProxyDevice extends BluetoothDevice {
             '${scanResult.name}: trainer did not acknowledge gear changes — keeping the manually chosen control protocol',
         }),
       );
-    });
+    }
+
+    def.gearEchoVerdict.addListener(onVerdict);
+    _gearEchoLoggedDef = def;
+    _gearEchoLogListener = onVerdict;
+  }
+
+  /// Same idempotency contract as [_wireGearEchoLog], for the SIM-grade
+  /// refusal verdict: a trainer that spends the whole handshake retry budget
+  /// refusing Start/Resume ACKs every grade write and applies none, so the
+  /// definition switches itself to Target Power — and the support log has to
+  /// say so, or "vsMode says power but I picked Track Resistance" becomes the
+  /// next unanswerable report.
+  FitnessBikeDefinition? _simRefusalLoggedDef;
+  VoidCallback? _simRefusalLogListener;
+
+  void _wireSimRefusalLog(FitnessBikeDefinition def) {
+    if (identical(_simRefusalLoggedDef, def)) return;
+    final previous = _simRefusalLogListener;
+    if (previous != null) {
+      _simRefusalLoggedDef?.trackResistanceRefused.removeListener(previous);
+    }
+    void onRefused() {
+      if (!def.trackResistanceRefused.value) return;
+      core.connection.signalNotification(
+        LogNotification(
+          '${scanResult.name}: trainer refuses to start grade simulation — '
+          'virtual shifting switched to Target Power',
+        ),
+      );
+    }
+
+    def.trackResistanceRefused.addListener(onRefused);
+    _simRefusalLoggedDef = def;
+    _simRefusalLogListener = onRefused;
   }
 
   /// Is the connected trainer reporting any sign of riding right now? Used to
