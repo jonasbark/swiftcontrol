@@ -38,9 +38,49 @@ class LtwooErx extends BluetoothDevice {
   /// rider is dumping the cassette, not asking for N virtual shifts.
   static const int maxClicksPerChange = 3;
 
-  Timer? _rearPollTimer;
-  Timer? _frontPollTimer;
-  Timer? _batteryPollTimer;
+  /// One scheduler tick; the rear gear is polled at this cadence.
+  static const Duration pollTickInterval = Duration(milliseconds: 500);
+
+  /// Front gear is polled every Nth idle tick (2 s).
+  static const int frontPollTickInterval = 4;
+
+  /// Battery is polled every Nth idle tick (60 s), plus once on connect.
+  static const int batteryPollTickInterval = 120;
+
+  /// Idle ticks skipped after a failed write before polling resumes (~5 s).
+  static const int failureBackoffTicks = 10;
+
+  /// Guard slightly above the platform's own GATT write timeout (10 s on
+  /// Android) so a write whose Future never completes cannot wedge the
+  /// in-flight guard forever.
+  static const Duration writeGuardTimeout = Duration(seconds: 12);
+
+  /// The single poll scheduler. All requests go out strictly serialized: a
+  /// tick that lands while a write is still in flight is skipped, never
+  /// queued — the derailleur drops the connection when writes pile up faster
+  /// than it answers them (e.g. under heavy concurrent GATT traffic).
+  /// Same discipline as https://github.com/eternal-flame-AD/ltwooShifting
+  /// (`writeInProgress`).
+  Timer? _pollTimer;
+
+  /// Count of poll requests actually sent (skipped ticks don't advance it);
+  /// selects which opcode is due next.
+  int _pollTick = 0;
+
+  /// Non-null while a write is outstanding; completes when it finishes
+  /// (successfully or not). Poll ticks skip while set; explicit sends (hello,
+  /// connect-time battery, PIN change) wait on it instead.
+  Completer<void>? _writeCompleter;
+
+  /// Idle ticks still to skip after a failed write.
+  int _backoffTicksRemaining = 0;
+
+  /// Whether a write failure was already recorded this connection.
+  bool _recordedWriteError = false;
+
+  /// Bumped by [resetConnectionState]; aborts sends queued behind an
+  /// outstanding write once the connection they belonged to is gone.
+  int _connectionGeneration = 0;
 
   /// Total number of rear gears, learned from the hello response.
   int? _numSpeeds;
@@ -95,40 +135,73 @@ class LtwooErx extends BluetoothDevice {
     startPolling();
   }
 
-  /// Sends the hello (to learn numSpeeds) and starts the poll timers. The
-  /// derailleur also pushes unsolicited event frames, which are parsed by the
-  /// same path — the rear poll is the fallback that keeps state fresh.
+  /// Sends the hello (to learn numSpeeds) and the connect-time battery
+  /// request, then starts the poll scheduler. The derailleur also pushes
+  /// unsolicited event frames, which are parsed by the same path — the rear
+  /// poll is the fallback that keeps state fresh.
   @visibleForTesting
   void startPolling() {
     unawaited(_send(LtwooProtocol.opcodeHello));
-    _rearPollTimer?.cancel();
-    _rearPollTimer = Timer.periodic(
-      const Duration(milliseconds: 500),
-      (_) => unawaited(_send(LtwooProtocol.opcodeGetRearGear)),
-    );
-    _frontPollTimer?.cancel();
-    _frontPollTimer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) => unawaited(_send(LtwooProtocol.opcodeGetFrontGear)),
-    );
-    _batteryPollTimer?.cancel();
-    _batteryPollTimer = Timer.periodic(
-      const Duration(seconds: 60),
-      (_) => unawaited(_send(LtwooProtocol.opcodeGetBattery)),
-    );
     unawaited(_send(LtwooProtocol.opcodeGetBattery));
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(pollTickInterval, (_) => _onPollTick());
+  }
+
+  /// One scheduler tick. A tick while a write is in flight is skipped, never
+  /// queued; after a failed write, [failureBackoffTicks] idle ticks are
+  /// consumed before polling resumes. Only [resetConnectionState] (via
+  /// [disconnect] / reconnect) stops the scheduler for good.
+  void _onPollTick() {
+    if (_writeCompleter != null) return;
+    if (_backoffTicksRemaining > 0) {
+      _backoffTicksRemaining--;
+      return;
+    }
+    _pollTick++;
+    final List<int> opcode;
+    if (_pollTick % batteryPollTickInterval == 0) {
+      opcode = LtwooProtocol.opcodeGetBattery;
+    } else if (_pollTick % frontPollTickInterval == 0) {
+      opcode = LtwooProtocol.opcodeGetFrontGear;
+    } else {
+      opcode = LtwooProtocol.opcodeGetRearGear;
+    }
+    unawaited(_send(opcode));
   }
 
   Future<void> _send(List<int> opcode) async {
-    final request = LtwooProtocol.buildRequest(_pin, opcode);
-    Logger.trace(() => 'ltwoo> ${_maskedHex(request)}');
+    // Serialize behind any outstanding write (poll ticks never get here while
+    // one is in flight — they skip; this wait only orders the few explicit
+    // sends: hello, connect-time battery, PIN change).
+    final generation = _connectionGeneration;
+    while (_writeCompleter != null) {
+      await _writeCompleter!.future;
+    }
+    // The connection this send was queued for is gone — don't write into the
+    // next one.
+    if (generation != _connectionGeneration) return;
+
+    final completer = _writeCompleter = Completer<void>();
     try {
-      await writeRequest(request);
+      final request = LtwooProtocol.buildRequest(_pin, opcode);
+      Logger.trace(() => 'ltwoo> ${_maskedHex(request)}');
+      await writeRequest(request).timeout(writeGuardTimeout);
     } catch (e, s) {
-      await recordError(e, s, context: 'LtwooErx: write ${opcode.map((b) => b.toRadixString(16)).join()}');
-      // A failed write means the link is gone — stop the polls instead of
-      // re-reporting at 2 Hz; the reconnect flow re-arms them in handleServices.
-      _cancelTimers();
+      _backoffTicksRemaining = failureBackoffTicks;
+      // Deliberate dedup, not a swallow: polling retries at 2 Hz against a
+      // link that can stay broken for minutes, and every retry funnels through
+      // here — so only the FIRST failure per connection goes to [recordError]
+      // (support bundles need the failure, not thousands of copies of it).
+      // Every failure still triggers the backoff above.
+      if (!_recordedWriteError) {
+        _recordedWriteError = true;
+        await recordError(e, s, context: 'LtwooErx: write ${opcode.map((b) => b.toRadixString(16)).join()}');
+      }
+    } finally {
+      if (identical(_writeCompleter, completer)) {
+        _writeCompleter = null;
+      }
+      completer.complete();
     }
   }
 
@@ -288,21 +361,20 @@ class LtwooErx extends BluetoothDevice {
     await _send(LtwooProtocol.opcodeHello);
   }
 
-  void _cancelTimers() {
-    _rearPollTimer?.cancel();
-    _rearPollTimer = null;
-    _frontPollTimer?.cancel();
-    _frontPollTimer = null;
-    _batteryPollTimer?.cancel();
-    _batteryPollTimer = null;
-  }
-
-  /// Cancels the poll timers and clears per-connection state so a reconnect
+  /// Stops the poll scheduler and clears per-connection state so a reconnect
   /// initializes silently again. Extracted from [disconnect] for tests that
   /// can't reach the BLE platform channel (WheeltopEds pattern).
   @visibleForTesting
   void resetConnectionState() {
-    _cancelTimers();
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _pollTick = 0;
+    _connectionGeneration++;
+    // A still-outstanding write belongs to the dead connection; its own guard
+    // timeout completes it eventually — don't let it block the next one.
+    _writeCompleter = null;
+    _backoffTicksRemaining = 0;
+    _recordedWriteError = false;
     _numSpeeds = null;
     _lastRawRearGear = null;
     _lastRawFrontGear = null;

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' show Locale;
 
 import 'package:bike_control/bluetooth/devices/ltwoo/ltwoo_erx.dart';
 import 'package:bike_control/bluetooth/messages/notification.dart';
 import 'package:bike_control/gen/l10n.dart';
+import 'package:bike_control/main.dart' show installLoggerErrorListener;
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/keymap/apps/openbikecontrol.dart';
@@ -22,15 +24,38 @@ class _RecordingLtwooErx extends LtwooErx {
   final List<List<String>> emitted = [];
   final List<Uint8List> written = [];
 
+  /// Optional per-write completion behavior; the default completes right away.
+  /// The request bytes are always recorded in [written] first.
+  Future<void> Function()? writeBehavior;
+
   @override
   Future<void> handleButtonsClicked(List<ControllerButton>? buttons, {bool longPress = false}) async {
     emitted.add(buttons == null ? ['<null>'] : buttons.map((b) => b.name).toList());
   }
 
   @override
-  Future<void> writeRequest(Uint8List data) async {
+  Future<void> writeRequest(Uint8List data) {
     written.add(data);
+    return writeBehavior?.call() ?? Future.value();
   }
+}
+
+// Request frames are 0xA5 + PIN(3) + "FFF"(3) + opcode…, so the opcode starts
+// at byte 7.
+bool _isRearRequest(Uint8List w) => w.length >= 9 && w[7] == 0x09 && w[8] == 0x00;
+bool _isFrontRequest(Uint8List w) => w.length >= 9 && w[7] == 0x11 && w[8] == 0x00;
+bool _isBatteryRequest(Uint8List w) => w.length >= 9 && w[7] == 0x0A && w[8] == 0x00;
+bool _isHelloRequest(Uint8List w) => w.length >= 9 && w[7] == 0x20 && w[8] == 0x01;
+
+/// Captures [Logger.onRecordError] messages for the test, replacing the app's
+/// persist listener (which would touch platform channels).
+List<String> _captureRecordedErrors() {
+  installLoggerErrorListener();
+  final previous = Logger.onRecordError;
+  final recorded = <String>[];
+  Logger.onRecordError = (message, error, stack) => recorded.add(message);
+  addTearDown(() => Logger.onRecordError = previous);
+  return recorded;
 }
 
 /// Appends the XOR checksum to [body].
@@ -250,8 +275,9 @@ Future<void> main() async {
       final d = _RecordingLtwooErx();
       await _feedRear(d, 5);
 
-      // startPolling sends the hello (and a battery request) synchronously;
-      // resetConnectionState immediately cancels the timers it armed.
+      // startPolling sends the hello synchronously (the connect-time battery
+      // request is serialized behind it); resetConnectionState immediately
+      // stops the scheduler and aborts anything still queued.
       d.startPolling();
       d.resetConnectionState();
 
@@ -374,6 +400,152 @@ Future<void> main() async {
       // 0xA5 + PIN "199" + FFF + hello opcode.
       expect(hello.sublist(0, 7), [0xA5, 0x31, 0x39, 0x39, 0x46, 0x46, 0x46]);
       expect(hello.sublist(7, 10), [0x20, 0x01, 0x00]);
+    });
+  });
+
+  group('LtwooErx poll serialization', () {
+    test('a tick during an in-flight write sends nothing; the next tick after completion sends', () {
+      fakeAsync((async) {
+        final traced = <String>[];
+        Logger.onTrace = traced.add;
+        addTearDown(() => Logger.onTrace = null);
+
+        final d = _RecordingLtwooErx();
+        final gates = <Completer<void>>[];
+        d.writeBehavior = () {
+          final gate = Completer<void>();
+          gates.add(gate);
+          return gate.future;
+        };
+
+        d.startPolling();
+        expect(d.written, hasLength(1)); // hello, in flight
+        expect(_isHelloRequest(d.written.single), isTrue);
+
+        // Two ticks while the hello write is still in flight: skipped, never
+        // queued — nothing goes out when the write completes either.
+        async.elapse(const Duration(milliseconds: 1000));
+        expect(d.written, hasLength(1));
+
+        gates[0].complete();
+        async.flushMicrotasks();
+        // The connect-time battery request was serialized behind the hello.
+        expect(d.written, hasLength(2));
+        expect(_isBatteryRequest(d.written.last), isTrue);
+
+        async.elapse(const Duration(milliseconds: 1000));
+        expect(d.written, hasLength(2)); // battery still in flight: ticks skipped
+
+        gates[1].complete();
+        async.flushMicrotasks();
+        expect(d.written, hasLength(2)); // completion alone sends nothing
+
+        async.elapse(const Duration(milliseconds: 500));
+        expect(d.written, hasLength(3)); // next idle tick polls the rear gear
+        expect(_isRearRequest(d.written.last), isTrue);
+
+        // Skipped ticks must not log: one `ltwoo>` line per actual write.
+        expect(traced.where((l) => l.startsWith('ltwoo> ')).length, d.written.length);
+
+        d.resetConnectionState();
+      });
+    });
+
+    test('a write failure records once, pauses polling ~5 s, then resumes; repeats are not re-recorded', () {
+      fakeAsync((async) {
+        final recorded = _captureRecordedErrors();
+
+        final d = _RecordingLtwooErx();
+        var failWrites = true;
+        d.writeBehavior = () => failWrites ? Future.error(Exception('GATT busy')) : Future<void>.value();
+
+        d.startPolling();
+        async.flushMicrotasks();
+        // Hello + connect-time battery both failed: recorded exactly once.
+        expect(d.written, hasLength(2));
+        expect(recorded, hasLength(1));
+
+        // Backoff: no poll attempts while paused.
+        async.elapse(const Duration(milliseconds: 4900));
+        expect(d.written, hasLength(2));
+
+        // Resumes after ~5 s; the retry fails again but is not re-recorded.
+        async.elapse(const Duration(milliseconds: 700));
+        expect(d.written, hasLength(3));
+        expect(_isRearRequest(d.written.last), isTrue);
+        expect(recorded, hasLength(1));
+
+        // Once writes succeed again, steady polling resumes after the backoff.
+        failWrites = false;
+        async.elapse(const Duration(milliseconds: 6000));
+        expect(d.written.length, greaterThanOrEqualTo(4));
+
+        d.resetConnectionState();
+      });
+    });
+
+    test('a hung write releases the in-flight guard after the timeout and polling continues', () {
+      fakeAsync((async) {
+        final recorded = _captureRecordedErrors();
+
+        final d = _RecordingLtwooErx();
+        var hangNextWrite = true;
+        d.writeBehavior = () {
+          if (hangNextWrite) {
+            hangNextWrite = false;
+            return Completer<void>().future; // never completes
+          }
+          return Future<void>.value();
+        };
+
+        d.startPolling();
+        expect(d.written, hasLength(1)); // hello, hung
+
+        // All ticks are skipped while the write is wedged.
+        async.elapse(const Duration(milliseconds: 11500));
+        expect(d.written, hasLength(1));
+
+        // The guard timeout fires and frees the queued battery request.
+        async.elapse(const Duration(milliseconds: 500));
+        expect(d.written, hasLength(2));
+        expect(_isBatteryRequest(d.written.last), isTrue);
+        expect(recorded, hasLength(1));
+
+        // The timeout counts as a failure: backoff, then polling resumes.
+        async.elapse(const Duration(milliseconds: 4000));
+        expect(d.written, hasLength(2));
+        async.elapse(const Duration(milliseconds: 1500));
+        expect(d.written.length, greaterThanOrEqualTo(3));
+        expect(_isRearRequest(d.written.last), isTrue);
+
+        d.resetConnectionState();
+      });
+    });
+
+    test('idle cadence: rear every 500 ms, front every 4th tick, battery on connect + every 60 s', () {
+      fakeAsync((async) {
+        final d = _RecordingLtwooErx();
+        d.startPolling();
+        async.flushMicrotasks();
+
+        expect(d.written, hasLength(2));
+        expect(_isHelloRequest(d.written[0]), isTrue);
+        expect(_isBatteryRequest(d.written[1]), isTrue);
+
+        async.elapse(const Duration(seconds: 60));
+        final polls = d.written.skip(2).toList();
+        expect(polls, hasLength(120));
+
+        // First 2 s: three rear polls, then a front poll on the 4th tick.
+        expect(polls.take(4).map(_isRearRequest), [true, true, true, false]);
+        expect(_isFrontRequest(polls[3]), isTrue);
+
+        expect(polls.where(_isRearRequest).length, 90);
+        expect(polls.where(_isFrontRequest).length, 29);
+        expect(polls.where(_isBatteryRequest).length, 1);
+
+        d.resetConnectionState();
+      });
     });
   });
 }
