@@ -167,6 +167,9 @@ abstract class BluetoothDevice extends BaseDevice {
           CycplusBc2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('THINK VS') => ThinkRiderVs200(scanResult),
         _ when LtwooErxConstants.matchesName(scanResult.name) => LtwooErx(scanResult),
+        // Windows' universal_ble surfaces the Tacx Neo with an empty
+        // advertisement (no services/serviceData), so match on name alone.
+        _ when scanResult.name!.toUpperCase().startsWith('TACX NEO') => ProxyDevice(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('RDR') => ShimanoDi2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('SRAM') && _sramIsConnectable(scanResult) => SramAxs(
           scanResult,
@@ -195,6 +198,11 @@ abstract class BluetoothDevice extends BaseDevice {
           CycplusBc2(scanResult),
         _ when scanResult.name!.toUpperCase().startsWith('THINK VS') => ThinkRiderVs200(scanResult),
         _ when LtwooErxConstants.matchesName(scanResult.name) => LtwooErx(scanResult),
+        // Windows' universal_ble surfaces the Tacx Neo with an empty
+        // advertisement (no services/serviceData) — only the name is usable, so
+        // match on it and build a ProxyDevice (real services discovered on
+        // connect). Must win over the services-based ProxyDevice branch below.
+        _ when scanResult.name!.toUpperCase().startsWith('TACX NEO') => ProxyDevice(scanResult),
         //_ when scanResult.services.contains(CycplusBc2Constants.SERVICE_UUID.toLowerCase()) => CycplusBc2(scanResult),
         _ when scanResult.services.contains(ShimanoDi2Constants.SERVICE_UUID.toLowerCase()) => ShimanoDi2(scanResult),
         _ when scanResult.services.contains(ShimanoDi2Constants.SERVICE_UUID_ALTERNATIVE.toLowerCase()) => ShimanoDi2(
