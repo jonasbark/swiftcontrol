@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bike_control/bluetooth/devices/base_device.dart';
 import 'package:bike_control/bluetooth/devices/bluetooth_device.dart';
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
+import 'package:bike_control/bluetooth/devices/sensors/ble_sensor_device.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/steering_device.dart';
 import 'package:bike_control/bluetooth/devices/zwift/zwift_clickv2.dart';
@@ -28,6 +29,7 @@ import 'package:bike_control/pages/proxy_device_details.dart';
 import 'package:bike_control/pages/proxy_device_details/live_metrics_section.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
+import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -73,6 +75,32 @@ int proxyChainRank(ProxyDevice p) {
 /// proxies. See [proxyChainRank].
 @visibleForTesting
 ProxyDevice? chainProxy() => core.connection.proxyDevices.sortedBy(proxyChainRank).firstOrNull;
+
+/// Whether the signals grid — `LiveMetricsSection`'s one mount reachable
+/// with no trainer bridged at all — has anything on screen to justify
+/// appearing on Home at all. Two independent reasons say yes:
+///
+///  - a bridged trainer has real numbers to report (see the doc comment on
+///    [ProxyDevice.isBridged] for why that, and not mere presence, is what
+///    "connected" means for a trainer everywhere in this app), or
+///  - some external sensor already exists for the rider to read from or
+///    pick — discovered nearby, registered with the hub, or already
+///    selected for a quantity even before its source has reconnected.
+///
+/// Deliberately NOT "a source is selected" alone: a rider with a strap in
+/// BLE range but nothing picked yet still needs the grid visible in order to
+/// reach `openSensorSourcePicker` — gating on selection would hide the only
+/// route to ever making that first pick, a chicken-and-egg. A rider with
+/// neither sees Home exactly as it rendered before this feature existed,
+/// which is the whole point of the "Calm" design principle.
+@visibleForTesting
+bool signalsGridHasContent() {
+  if (core.connection.proxyDevices.any((p) => p.isBridged)) return true;
+  final hub = core.sensors;
+  if (hub.sources.isNotEmpty) return true;
+  if (SensorQuantity.values.any((q) => hub.selectionFor(q) != null)) return true;
+  return core.connection.devices.whereType<BleSensorDevice>().isNotEmpty;
+}
 
 /// The app card's active step is "waiting for the app to connect" and the
 /// Network method is the enabled path — the moment troubleshooting helps.
@@ -483,17 +511,26 @@ class _HomePageState extends State<HomePage> {
             const Gap(10),
           ],
           // The signals grid — the app's one sensor surface (see
-          // `LiveMetricsSection`'s doc comment) — mounted unconditionally
-          // (bar screenshot mode, same as every other live readout on this
-          // page and `ProxyDeviceDetailsPage`'s own copy) so it is reachable
-          // with no trainer bridged at all: standalone mode (BikeControl as a
-          // plain heart rate monitor, no trainer ever connected) has no other
-          // route to it, since `ProxyDeviceDetailsPage` only exists for a
-          // trainer that has been. `chainProxy()` is null in that case, which
+          // `LiveMetricsSection`'s doc comment) — is reachable with no
+          // trainer bridged at all: standalone mode (BikeControl as a plain
+          // heart rate monitor, no trainer ever connected) has no other route
+          // to it, since `ProxyDeviceDetailsPage` only exists for a trainer
+          // that has been. `chainProxy()` is null in that case, which
           // `LiveMetricsSection` renders exactly like a trainer with no
           // fitness definition: every quantity falls straight through to the
           // external-sensor selection, if any.
-          if (!screenshotMode) ...[
+          //
+          // It does NOT follow it should always be on screen, though:
+          // [signalsGridHasContent] gates the mount itself so a rider with
+          // neither a connected trainer nor any known external sensor keeps
+          // the pre-sensors Home screen exactly as it was — four "--" tiles
+          // nobody asked for are noise, not "Calm". The gate is re-read on
+          // every build, and this page already rebuilds on the connection
+          // events that matter (a nearby sensor being discovered included —
+          // see `_connectionListener` in [_HomePageState.initState]), so a
+          // sensor appearing while the rider is looking at Home flips the
+          // grid on live, with no navigation round-trip needed.
+          if (!screenshotMode && signalsGridHasContent()) ...[
             LiveMetricsSection(key: const ValueKey('live-metrics'), device: chainProxy()),
             const Gap(10),
           ],
