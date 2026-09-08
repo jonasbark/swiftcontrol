@@ -25,6 +25,7 @@ import 'package:bike_control/pages/home/home_extras.dart';
 import 'package:bike_control/pages/home/home_sheets.dart';
 import 'package:bike_control/pages/network_troubleshooting_page.dart';
 import 'package:bike_control/pages/proxy_device_details.dart';
+import 'package:bike_control/pages/proxy_device_details/live_metrics_section.dart';
 import 'package:bike_control/pages/trainer_connection_settings.dart';
 import 'package:bike_control/services/overlay/trainer_overlay_service.dart';
 import 'package:bike_control/utils/core.dart';
@@ -43,7 +44,6 @@ import 'package:bike_control/widgets/home/ampel.dart';
 import 'package:bike_control/widgets/home/chain_card.dart';
 import 'package:bike_control/widgets/home/chain_labels.dart';
 import 'package:bike_control/widgets/home/ready_banner.dart';
-import 'package:bike_control/widgets/home/trainer_card_sensor_grid.dart';
 import 'package:bike_control/widgets/home/trial_card.dart';
 import 'package:bike_control/widgets/zwift_ride_firmware_notice.dart';
 import 'package:bike_control/widgets/ui/animated_button_widget.dart';
@@ -482,6 +482,21 @@ class _HomePageState extends State<HomePage> {
             _card(link, devicesById[link.deviceId], inputs),
             const Gap(10),
           ],
+          // The signals grid — the app's one sensor surface (see
+          // `LiveMetricsSection`'s doc comment) — mounted unconditionally
+          // (bar screenshot mode, same as every other live readout on this
+          // page and `ProxyDeviceDetailsPage`'s own copy) so it is reachable
+          // with no trainer bridged at all: standalone mode (BikeControl as a
+          // plain heart rate monitor, no trainer ever connected) has no other
+          // route to it, since `ProxyDeviceDetailsPage` only exists for a
+          // trainer that has been. `chainProxy()` is null in that case, which
+          // `LiveMetricsSection` renders exactly like a trainer with no
+          // fitness definition: every quantity falls straight through to the
+          // external-sensor selection, if any.
+          if (!screenshotMode) ...[
+            LiveMetricsSection(key: const ValueKey('live-metrics'), device: chainProxy()),
+            const Gap(10),
+          ],
           ..._accessorySection(),
           HomeExtras(isMobile: widget.isMobile, onUpdate: _update),
           if (widget.showHelpRow) ...[
@@ -823,29 +838,20 @@ class _HomePageState extends State<HomePage> {
   /// never seen what bridging one does, so the card makes the case rather than
   /// sitting empty. In between, nothing.
   ///
-  /// A rider's connected, selected external sensors (heart rate, cadence,
-  /// power — see [TrainerCardSensorGrid]) are ALWAYS appended after whichever
-  /// of the above applies, drivetrain, pitch, or neither: they describe the
-  /// rider, not this trainer, so they never outrank what the card is actually
-  /// reporting on, but they are too useful to gate behind a trainer ever
-  /// having been connected at all — a rider with no trainer here (standalone
-  /// mode, sensors only) still gets them, alone. [sensorGridHasContent] keeps
-  /// this addition invisible for a rider who has never opened Sensors:
-  /// `_trainerBody` then returns exactly what it always returned, unwrapped,
-  /// which is the whole of the invariant this feature must hold.
+  /// A rider's connected, selected external sensors used to be echoed here
+  /// too (a compact read-only grid). The signals grid — `LiveMetricsSection`,
+  /// mounted once below the whole chain (see `build`) — supersedes it: that
+  /// grid is now the app's only sensor surface (it also owns picking a
+  /// source, which this card never did), so echoing a second, read-only copy
+  /// of the same data here would just be noise.
   Widget? _trainerBody(ProxyDevice? proxy) {
     final definition = proxy?.fitnessBike;
     // Paired and shifting, but the trainer app is not on the bridge yet — the
     // gears are real, they are just not carrying anything. The buttons come
     // with it: a rider on the home screen can shift without opening the page.
-    final primary = proxy != null && definition != null
+    return proxy != null && definition != null
         ? DrivetrainControls(definition: definition, compact: true, dim: !proxy.isConnected)
         : _trainerFeatureList(proxy);
-
-    if (!sensorGridHasContent(core.sensors)) return primary;
-    final grid = TrainerCardSensorGrid(hub: core.sensors);
-    if (primary == null) return grid;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [primary, const Gap(10), grid]);
   }
 
   /// The bridging pitch, but only for a trainer that is here and has never

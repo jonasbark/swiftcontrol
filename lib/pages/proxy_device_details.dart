@@ -14,7 +14,6 @@ import 'package:bike_control/pages/proxy_device_details/overlay_settings_section
 import 'package:bike_control/pages/proxy_device_details/self_test_card.dart';
 import 'package:bike_control/pages/proxy_device_details/trainer_settings_section.dart';
 import 'package:bike_control/pages/proxy_device_details/virtual_shifting_pro_notice.dart';
-import 'package:bike_control/pages/sensors/sensors_section.dart';
 import 'package:bike_control/services/overview_screenshot.dart';
 import 'package:bike_control/services/telemetry_snapshot.dart';
 import 'package:bike_control/utils/core.dart';
@@ -179,7 +178,11 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
                 // Virtual Shifting settings — the thing that board is about —
                 // off the bottom of the phone.
                 if (!screenshotMode) ...[
-                  LiveMetricsSection(key: const ValueKey('live-metrics'), device: device),
+                  LiveMetricsSection(
+                    key: const ValueKey('live-metrics'),
+                    device: device,
+                    hideWhenDeviceHasNoMetrics: true,
+                  ),
                   SizedBox(height: 20),
                 ],
                 if (!screenshotMode && device.fitnessBike != null) ...[
@@ -193,18 +196,6 @@ class _ProxyDeviceDetailsPageState extends State<ProxyDeviceDetailsPage> {
                 MiniWorkoutCard(key: const ValueKey('mini-workout'), device: device),
                 SizedBox(height: 20),
                 _settingsSection(),
-                // Deliberately NOT nested inside _settingsSection(), which
-                // renders nothing for a trainer with no fitnessBike (a
-                // power-meter/HR-only proxy): heart-rate sourcing has nothing
-                // to do with virtual shifting and must show for every
-                // connected trainer, not only ones that support it. This is
-                // the per-trainer half of the feature's reachability — the
-                // other half (standalone mode, no trainer bridged at all)
-                // lives on HomeExtras' "Sensors" row.
-                if (!screenshotMode) ...[
-                  SizedBox(height: 20),
-                  SensorsSection(key: const ValueKey('sensors-section'), hub: core.sensors),
-                ],
                 SizedBox(height: 32),
                 _actions(),
               ],

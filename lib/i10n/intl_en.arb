@@ -2214,15 +2214,14 @@
   "ltwooHintCassetteEnds": "Shifting at the ends of the cassette sends no signal — the derailleur can't move further.",
   "ltwooWrongPinAlert": "The L-TWOO derailleur rejected the PIN. Check the device PIN in this controller's preferences.",
   "ltwooPinLabel": "Device PIN",
-  "sensorsSectionTitle": "Sensors",
   "sensorSourceTrainer": "Trainer",
   "sensorQuantityHeartRate": "Heart Rate",
   "sensorQuantityCadence": "Cadence",
   "sensorQuantityPower": "Power",
   "sensorQuantitySpeed": "Speed",
+  "sensorConnecting": "Connecting…",
   "sensorAwaitingFirstReading": "Waiting for first reading…",
   "sensorDroppedOut": "Signal lost — using trainer instead.",
-  "sensorNoReadingYet": "No reading yet",
   "sensorConnectFailed": "Couldn't connect",
   "sensorKindHeartRateMonitor": "Heart rate monitor",
   "sensorKindCadenceSensor": "Cadence sensor",
@@ -2232,6 +2231,5 @@
   "sensorValueCadence": "{value} rpm",
   "@sensorValueCadence": {"placeholders": {"value": {"type": "int"}}},
   "sensorValuePower": "{value} W",
-  "@sensorValuePower": {"placeholders": {"value": {"type": "int"}}},
-  "sensorsConnectedSectionTitle": "Connected sensors"
+  "@sensorValuePower": {"placeholders": {"value": {"type": "int"}}}
 }

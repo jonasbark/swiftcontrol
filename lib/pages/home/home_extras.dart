@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:bike_control/gen/l10n.dart';
-import 'package:bike_control/pages/sensors/sensors_page.dart';
 import 'package:bike_control/utils/core.dart';
 import 'package:bike_control/utils/i18n_extension.dart';
 import 'package:bike_control/utils/iap/iap_manager.dart';
@@ -104,18 +103,6 @@ class _HomeExtrasState extends State<HomeExtras> {
           ),
           if (_expanded) ...[
             const Divider(),
-            // Reachable with no trainer connected at all — the only path to
-            // it besides ProxyDeviceDetailsPage's per-trainer copy, and the
-            // one standalone mode (no trainer bridged) needs to exist.
-            _row(
-              context,
-              title: context.i18n.sensorsSectionTitle,
-              onPressed: () async {
-                await context.push(const SensorsPage());
-                widget.onUpdate();
-                if (mounted) setState(() {});
-              },
-            ),
             if (ignored.isNotEmpty)
               _row(
                 context,
