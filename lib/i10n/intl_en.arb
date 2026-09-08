@@ -2216,5 +2216,7 @@
   "ltwooHintCloseApp": "Close the LTWOO app while riding — the derailleur only accepts one Bluetooth connection at a time.",
   "ltwooHintCassetteEnds": "Shifting at the ends of the cassette sends no signal — the derailleur can't move further.",
   "ltwooWrongPinAlert": "The L-TWOO derailleur rejected the PIN. Check the device PIN in this controller's preferences.",
-  "ltwooPinLabel": "Device PIN"
+  "ltwooPinLabel": "Device PIN",
+  "ltwooAnchorGearTitle": "Keep derailleur in place",
+  "ltwooAnchorGearDescription": "After each shift, BikeControl shifts the derailleur back so the chain stays on one cog. The derailleur will briefly move with every press."
 }

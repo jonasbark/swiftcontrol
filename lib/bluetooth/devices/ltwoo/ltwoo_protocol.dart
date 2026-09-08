@@ -32,6 +32,18 @@ class LtwooProtocol {
   /// Battery: the response's payload[0] is the charge percentage.
   static const List<int> opcodeGetBattery = [0x0A, 0x00];
 
+  /// Rear remote shift, one step. Best-evidence mapping: RAW gear +1 (toward
+  /// the LARGER cog, display gear down). The mapping is not certain on all
+  /// hardware, so LtwooErx verifies it at runtime against the first observed
+  /// counter-shift echo and flips it when the derailleur moves the other way.
+  /// The response is a rear-status frame carrying the resulting raw gear.
+  static const List<int> opcodeShiftRearRawIncrease = [0x00, 0x01, 0x00];
+
+  /// Rear remote shift, one step, opposite direction: RAW gear −1 (toward the
+  /// smaller cog, display gear up). Same runtime verification as
+  /// [opcodeShiftRearRawIncrease].
+  static const List<int> opcodeShiftRearRawDecrease = [0x01, 0x01, 0x00];
+
   /// Builds a request frame for [opcode] using the 3-digit ASCII [pin].
   static Uint8List buildRequest(String pin, List<int> opcode) {
     final pinBytes = pin.codeUnits;

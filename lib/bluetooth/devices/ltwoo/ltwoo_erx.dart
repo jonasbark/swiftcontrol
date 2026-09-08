@@ -55,6 +55,18 @@ class LtwooErx extends BluetoothDevice {
   /// in-flight guard forever.
   static const Duration writeGuardTimeout = Duration(seconds: 12);
 
+  /// Minimum spacing between consecutive anchor counter-shift commands (the
+  /// vendor app spaces its writes 200 ms apart).
+  static const Duration counterShiftSpacing = Duration(milliseconds: 200);
+
+  /// A correction that hasn't reached the anchor after this long gives up and
+  /// re-anchors at the current gear — never loop forever.
+  static const Duration anchorGiveUpTimeout = Duration(seconds: 5);
+
+  /// Extra commands allowed beyond the number of steps a correction needs
+  /// before the give-up guard trips.
+  static const int anchorExtraCommandBudget = 2;
+
   /// The single poll scheduler. All requests go out strictly serialized: a
   /// tick that lands while a write is still in flight is skipped, never
   /// queued — the derailleur drops the connection when writes pile up faster
@@ -106,10 +118,57 @@ class LtwooErx extends BluetoothDevice {
   /// The NUS service uuid as discovered, captured in [handleServices].
   String? _serviceUuid;
 
+  // --- Anchor-gear mode (rear derailleur only; front shifts are untouched) ---
+  //
+  // With the mode on, every rider shift still emits its virtual clicks, then
+  // counter-shift commands walk the derailleur back to the anchor so the chain
+  // stays on one cog. State machine: `idle` → rider delta emits clicks →
+  // `countering` → echoes moving toward the anchor are swallowed → anchor
+  // reached → `idle`.
+
+  /// idle: gear deltas are rider shifts. countering: a correction toward
+  /// [_anchorRawGear] is in progress and its echoes must not emit clicks.
+  _AnchorPhase _anchorPhase = _AnchorPhase.idle;
+
+  /// The raw gear the correction returns to: the gear current when the mode
+  /// was switched on, or the first gear observed if it was already on.
+  int? _anchorRawGear;
+
+  /// Counter commands sent whose gear effect hasn't been observed yet. Kept at
+  /// 0 or 1: the next command only goes out once the previous one's outcome is
+  /// visible, so every echo can be attributed unambiguously.
+  int _pendingCounterSteps = 0;
+
+  /// Commands sent in the current correction episode; capped by
+  /// [_episodeStepBudget].
+  int _counterCommandsSent = 0;
+
+  /// steps + [anchorExtraCommandBudget], grown when rider presses (or a
+  /// misdirected command) fold more distance into the episode.
+  int _episodeStepBudget = 0;
+
+  /// True once a counter-shift echo confirmed (or flipped) the direction
+  /// mapping this connection; until then the first AWAY-moving echo is treated
+  /// as an inverted mapping, not a rider press.
+  bool _orientationVerified = false;
+
+  /// Non-null while the [counterShiftSpacing] cooldown after a command runs.
+  Timer? _counterCooldownTimer;
+
+  /// Non-null while a correction episode runs; fires the give-up guard.
+  Timer? _anchorGiveUpTimer;
+
   @visibleForTesting
   int? get debugNumSpeeds => _numSpeeds;
 
+  @visibleForTesting
+  int? get debugAnchorRawGear => _anchorRawGear;
+
   String get _pin => core.settings.getLtwooPin(device.deviceId);
+
+  bool get _anchorModeEnabled => core.settings.getLtwooAnchorGearEnabled(device.deviceId);
+
+  bool get _orientationInverted => core.settings.getLtwooShiftOrientationInverted(device.deviceId);
 
   @override
   Future<void> handleServices(List<BleService> services) async {
@@ -309,6 +368,8 @@ class LtwooErx extends BluetoothDevice {
   }
 
   Future<void> _onRearGear(int raw) async {
+    if (_anchorModeEnabled) return _onRearGearAnchored(raw);
+
     final last = _lastRawRearGear;
     _lastRawRearGear = raw;
     if (last == null) {
@@ -318,22 +379,182 @@ class LtwooErx extends BluetoothDevice {
       return;
     }
     if (raw == last) return;
+    await _emitRearShift(last, raw);
+  }
 
-    // RAW counts from the LARGEST cog: a raw DECREASE is a smaller cog =
-    // harder gear = "Shift Up"; a raw increase is "Shift Down".
-    final shiftUp = raw < last;
+  /// Emits the virtual clicks (and the descriptive support log) for a rear
+  /// gear movement [from] → [to], capped at [maxClicksPerChange].
+  ///
+  /// RAW counts from the LARGEST cog: a raw DECREASE is a smaller cog =
+  /// harder gear = "Shift Up"; a raw increase is "Shift Down".
+  Future<void> _emitRearShift(int from, int to) async {
+    final shiftUp = to < from;
     final button = shiftUp
         ? _button(shiftUpButtonName, InGameAction.shiftUp)
         : _button(shiftDownButtonName, InGameAction.shiftDown);
-    final steps = (raw - last).abs().coerceAtMost(maxClicksPerChange);
+    final steps = (to - from).abs().coerceAtMost(maxClicksPerChange);
     actionStreamInternal.add(
       LogNotification(
-        'LtwooErx: rear $last→$raw (display ${_displayGear(last)}→${_displayGear(raw)}), '
+        'LtwooErx: rear $from→$to (display ${_displayGear(from)}→${_displayGear(to)}), '
         '$steps× ${shiftUp ? 'Shift Up' : 'Shift Down'}',
       ),
     );
     for (var i = 0; i < steps; i++) {
       await _emitClick(button);
+    }
+  }
+
+  /// Rear-gear handling with anchor mode on. Rider deltas emit clicks exactly
+  /// like the plain path, then counter commands walk the derailleur back to
+  /// [_anchorRawGear]; the movement those commands cause is swallowed.
+  Future<void> _onRearGearAnchored(int raw) async {
+    final last = _lastRawRearGear;
+    _lastRawRearGear = raw;
+    if (last == null) {
+      // Mode enabled before/at connect: the first observed gear is the anchor.
+      _anchorRawGear ??= raw;
+      actionStreamInternal.add(
+        LogNotification('LtwooErx: first rear gear raw $raw (display ${_displayGear(raw)}), anchor gear mode on'),
+      );
+      return;
+    }
+    // Toggled on outside [setAnchorGearEnabled] (e.g. settings written
+    // directly): anchor at the last known gear, before this delta.
+    _anchorRawGear ??= last;
+    final anchor = _anchorRawGear!;
+
+    if (raw == last) {
+      // The derailleur answers strictly in order, so any reading that arrives
+      // after a counter command reflects its outcome: unchanged means the
+      // command had no effect (e.g. cassette end) — release it and let the
+      // budget/give-up guards decide whether to try again.
+      if (_anchorPhase == _AnchorPhase.countering && _pendingCounterSteps > 0) {
+        _pendingCounterSteps = 0;
+        _maybeSendCounterCommand();
+      }
+      return;
+    }
+
+    final delta = raw - last;
+    var riderDelta = delta;
+
+    if (_anchorPhase == _AnchorPhase.countering && _pendingCounterSteps > 0) {
+      final towardSign = (anchor - last).sign;
+      if (towardSign != 0 && delta.sign == towardSign) {
+        // Movement toward the anchor: the first step(s), up to the outstanding
+        // counter commands and never past the anchor, are our own — swallow
+        // them. Anything beyond is the rider helping and still gets clicks.
+        final ours = delta.abs().coerceAtMost(_pendingCounterSteps).coerceAtMost((anchor - last).abs());
+        _pendingCounterSteps -= ours;
+        _orientationVerified = true;
+        riderDelta = delta - towardSign * ours;
+      } else if (towardSign != 0 && !_orientationVerified) {
+        // The first counter-shift echo of this connection moved AWAY from the
+        // anchor: this derailleur maps the shift opcodes the other way around.
+        // Flip the mapping for the rest of the connection (persisted per
+        // device), swallow the misdirected step(s), and let the corrective
+        // commands below converge on the anchor with the corrected mapping.
+        _orientationVerified = true;
+        unawaited(core.settings.setLtwooShiftOrientationInverted(device.deviceId, !_orientationInverted));
+        actionStreamInternal.add(LogNotification('LtwooErx: shift command orientation inverted, corrected'));
+        final ours = delta.abs().coerceAtMost(_pendingCounterSteps);
+        _pendingCounterSteps -= ours;
+        // The misdirected steps consumed budget AND grew the distance.
+        _episodeStepBudget += ours;
+        riderDelta = delta + towardSign * ours;
+      }
+      // Away movement with a verified orientation: the rider pressed again —
+      // it stays in riderDelta and emits clicks below.
+    }
+
+    if (riderDelta != 0) {
+      await _emitRearShift(raw - riderDelta, raw);
+    }
+
+    if (raw == anchor && _pendingCounterSteps == 0) {
+      _endCounterEpisode();
+      return;
+    }
+    if (_anchorPhase == _AnchorPhase.idle) {
+      _startCounterEpisode();
+    } else if (riderDelta != 0) {
+      // A rider press mid-correction folds into the same episode (the target
+      // stays the anchor); the budget grows so the guard stays proportional
+      // to the total distance.
+      _episodeStepBudget += riderDelta.abs();
+    }
+    _maybeSendCounterCommand();
+  }
+
+  void _startCounterEpisode() {
+    _anchorPhase = _AnchorPhase.countering;
+    _counterCommandsSent = 0;
+    _episodeStepBudget = (_anchorRawGear! - _lastRawRearGear!).abs() + anchorExtraCommandBudget;
+    _anchorGiveUpTimer?.cancel();
+    _anchorGiveUpTimer = Timer(anchorGiveUpTimeout, _giveUpAnchorCorrection);
+  }
+
+  /// Stops commanding, re-anchors at the current gear, and returns to idle.
+  /// Logs at most once per episode by construction: both triggers (command
+  /// budget and timer) end the episode, which disarms them.
+  void _giveUpAnchorCorrection() {
+    final raw = _lastRawRearGear;
+    actionStreamInternal.add(LogNotification('LtwooErx: could not return to anchor gear, re-anchoring at $raw'));
+    _anchorRawGear = raw;
+    _endCounterEpisode();
+  }
+
+  void _endCounterEpisode() {
+    _anchorPhase = _AnchorPhase.idle;
+    _pendingCounterSteps = 0;
+    _counterCommandsSent = 0;
+    _episodeStepBudget = 0;
+    _anchorGiveUpTimer?.cancel();
+    _anchorGiveUpTimer = null;
+    _counterCooldownTimer?.cancel();
+    _counterCooldownTimer = null;
+  }
+
+  /// Sends the next counter-shift command when one is due: countering, no
+  /// command outstanding, and outside the [counterShiftSpacing] cooldown.
+  /// Ends the episode at the anchor; trips the give-up guard at the budget.
+  void _maybeSendCounterCommand() {
+    if (_anchorPhase != _AnchorPhase.countering) return;
+    if (_pendingCounterSteps > 0 || _counterCooldownTimer != null) return;
+    final raw = _lastRawRearGear;
+    final anchor = _anchorRawGear;
+    if (raw == null || anchor == null || raw == anchor) {
+      _endCounterEpisode();
+      return;
+    }
+    if (_counterCommandsSent >= _episodeStepBudget) {
+      _giveUpAnchorCorrection();
+      return;
+    }
+    _pendingCounterSteps = 1;
+    _counterCommandsSent++;
+    _counterCooldownTimer = Timer(counterShiftSpacing, () {
+      _counterCooldownTimer = null;
+      _maybeSendCounterCommand();
+    });
+    unawaited(_send(_counterShiftOpcode(increaseRaw: anchor > raw)));
+  }
+
+  /// The opcode that moves the raw gear one step in the requested direction
+  /// under the current (possibly runtime-flipped) mapping.
+  List<int> _counterShiftOpcode({required bool increaseRaw}) => increaseRaw != _orientationInverted
+      ? LtwooProtocol.opcodeShiftRearRawIncrease
+      : LtwooProtocol.opcodeShiftRearRawDecrease;
+
+  /// Persists the anchor-gear toggle. Turning it ON (re-)anchors at the
+  /// current gear; turning it OFF clears the anchor and any correction in
+  /// progress.
+  Future<void> setAnchorGearEnabled(bool enabled) async {
+    await core.settings.setLtwooAnchorGearEnabled(device.deviceId, enabled);
+    _endCounterEpisode();
+    _anchorRawGear = enabled ? _lastRawRearGear : null;
+    if (enabled && _anchorRawGear != null) {
+      actionStreamInternal.add(LogNotification('LtwooErx: anchor gear mode on, anchored at raw $_anchorRawGear'));
     }
   }
 
@@ -380,6 +601,12 @@ class LtwooErx extends BluetoothDevice {
     _lastRawFrontGear = null;
     _warnedWrongPin = false;
     _loggedFrameKinds.clear();
+    // Anchor state must not leak across connections: the anchor and the
+    // learned-orientation check are per-connection (the persisted orientation
+    // setting survives; only its verification is redone).
+    _endCounterEpisode();
+    _anchorRawGear = null;
+    _orientationVerified = false;
   }
 
   @override
@@ -396,25 +623,57 @@ class LtwooErx extends BluetoothDevice {
 
   @override
   Widget? buildPreferences(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(child: Text(context.i18n.ltwooPinLabel).small),
-        SizedBox(
-          width: 80,
-          child: TextField(
-            initialValue: _pin,
-            maxLength: 3,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: (value) {
-              if (value.length == 3) unawaited(setPin(value));
-            },
-          ),
+        Row(
+          children: [
+            Expanded(child: Text(context.i18n.ltwooPinLabel).small),
+            SizedBox(
+              width: 80,
+              child: TextField(
+                initialValue: _pin,
+                maxLength: 3,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (value) {
+                  if (value.length == 3) unawaited(setPin(value));
+                },
+              ),
+            ),
+          ],
+        ),
+        const Gap(8),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.i18n.ltwooAnchorGearTitle).small,
+                  Text(context.i18n.ltwooAnchorGearDescription).xSmall.muted,
+                ],
+              ),
+            ),
+            const Gap(8),
+            StatefulBuilder(
+              builder: (context, setState) => Switch(
+                value: _anchorModeEnabled,
+                onChanged: (value) {
+                  unawaited(setAnchorGearEnabled(value));
+                  setState(() {});
+                },
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
+
+/// Anchor-mode phases: see the state-machine comment on the anchor fields.
+enum _AnchorPhase { idle, countering }
 
 class LtwooErxConstants {
   /// Nordic UART Service (shared with other NUS devices — matching is

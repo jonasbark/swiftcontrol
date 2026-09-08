@@ -19,7 +19,7 @@ import 'package:universal_ble/universal_ble.dart';
 /// Records click emits (bypassing the base device's keymap timing) and captures
 /// outgoing protocol writes so no BLE platform channel is needed.
 class _RecordingLtwooErx extends LtwooErx {
-  _RecordingLtwooErx() : super(BleDevice(deviceId: 'dev1', name: 'LTOED2501AB12'));
+  _RecordingLtwooErx({String deviceId = 'dev1'}) : super(BleDevice(deviceId: deviceId, name: 'LTOED2501AB12'));
 
   final List<List<String>> emitted = [];
   final List<Uint8List> written = [];
@@ -43,6 +43,11 @@ class _RecordingLtwooErx extends LtwooErx {
 // Request frames are 0xA5 + PIN(3) + "FFF"(3) + opcode…, so the opcode starts
 // at byte 7.
 bool _isRearRequest(Uint8List w) => w.length >= 9 && w[7] == 0x09 && w[8] == 0x00;
+
+// Remote-shift request opcodes are 3 bytes: 0x00/0x01 + 0x01 + 0x00.
+bool _isShiftRawIncrease(Uint8List w) => w.length >= 10 && w[7] == 0x00 && w[8] == 0x01 && w[9] == 0x00;
+bool _isShiftRawDecrease(Uint8List w) => w.length >= 10 && w[7] == 0x01 && w[8] == 0x01 && w[9] == 0x00;
+bool _isShiftCmd(Uint8List w) => _isShiftRawIncrease(w) || _isShiftRawDecrease(w);
 bool _isFrontRequest(Uint8List w) => w.length >= 9 && w[7] == 0x11 && w[8] == 0x00;
 bool _isBatteryRequest(Uint8List w) => w.length >= 9 && w[7] == 0x0A && w[8] == 0x00;
 bool _isHelloRequest(Uint8List w) => w.length >= 9 && w[7] == 0x20 && w[8] == 0x01;
@@ -546,6 +551,230 @@ Future<void> main() async {
 
         d.resetConnectionState();
       });
+    });
+  });
+
+  group('LtwooErx anchor gear mode', () {
+    /// Fresh device with the anchor toggle already ON for its own settings key.
+    Future<_RecordingLtwooErx> anchoredDevice(String id) async {
+      await core.settings.setLtwooAnchorGearEnabled(id, true);
+      return _RecordingLtwooErx(deviceId: id);
+    }
+
+    /// Collects LogNotification messages from [d]'s action stream.
+    List<String> collectLogs(LtwooErx d) {
+      final logs = <String>[];
+      final sub = d.actionStream.listen((n) {
+        if (n is LogNotification) logs.add(n.message);
+      });
+      addTearDown(sub.cancel);
+      return logs;
+    }
+
+    test('mode off: a gear change emits clicks and writes NO shift command', () async {
+      final d = _RecordingLtwooErx(); // dev1 — anchor mode defaults to off
+      await _feedRear(d, 7);
+      await _feedRear(d, 6);
+      expect(d.emitted, [
+        [LtwooErx.shiftUpButtonName],
+        <String>[],
+      ]);
+      expect(d.written.where(_isShiftCmd), isEmpty);
+    });
+
+    test('mode on: rider shift emits one click plus one counter command; the return delta is swallowed', () async {
+      final d = await anchoredDevice('anchor-basic');
+      fakeAsync((async) {
+        unawaited(_feedRear(d, 7)); // anchors at raw 7
+        async.flushMicrotasks();
+        expect(d.emitted, isEmpty);
+
+        unawaited(_feedRear(d, 6)); // rider shift: raw −1 = Shift Up
+        async.flushMicrotasks();
+        expect(d.emitted, [
+          [LtwooErx.shiftUpButtonName],
+          <String>[],
+        ]);
+        // Default mapping: raw 6→7 needs a raw-increase = 0x00 0x01 0x00.
+        expect(d.written.where(_isShiftCmd), hasLength(1));
+        expect(_isShiftRawIncrease(d.written.singleWhere(_isShiftCmd)), isTrue);
+
+        // The counter-shift's own rear-status echo emits NO click.
+        unawaited(_feedRear(d, 7, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(2));
+
+        // Back to idle: a further rider shift emits again.
+        async.elapse(const Duration(milliseconds: 300));
+        unawaited(_feedRear(d, 6));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(4));
+        expect(d.emitted[2], [LtwooErx.shiftUpButtonName]);
+
+        d.resetConnectionState();
+      });
+    });
+
+    test('two-step rider jump: two clicks, two counter commands >=200 ms apart, both echoes swallowed', () async {
+      final d = await anchoredDevice('anchor-two-step');
+      fakeAsync((async) {
+        unawaited(_feedRear(d, 7));
+        async.flushMicrotasks();
+        unawaited(_feedRear(d, 5));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(4)); // two Shift Up clicks
+        expect(d.emitted[0], [LtwooErx.shiftUpButtonName]);
+        expect(d.emitted[2], [LtwooErx.shiftUpButtonName]);
+        // Only ONE command goes out immediately; the next waits for the echo
+        // AND the 200 ms spacing.
+        expect(d.written.where(_isShiftCmd), hasLength(1));
+
+        unawaited(_feedRear(d, 6, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(4)); // echo swallowed
+        expect(d.written.where(_isShiftCmd), hasLength(1)); // still inside the 200 ms window
+
+        async.elapse(const Duration(milliseconds: 200));
+        expect(d.written.where(_isShiftCmd), hasLength(2));
+
+        unawaited(_feedRear(d, 7, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(4)); // second echo swallowed too
+
+        d.resetConnectionState();
+      });
+    });
+
+    test('a rider press during correction emits its click and the correction still converges', () async {
+      final d = await anchoredDevice('anchor-mid-press');
+      fakeAsync((async) {
+        unawaited(_feedRear(d, 7));
+        async.flushMicrotasks();
+        unawaited(_feedRear(d, 5)); // rider jump: 2 clicks, correction starts
+        async.flushMicrotasks();
+        unawaited(_feedRear(d, 6, opcode: const [0x00, 0x09])); // first echo, swallowed
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 200)); // second command out
+        expect(d.written.where(_isShiftCmd), hasLength(2));
+        expect(d.emitted, hasLength(4));
+
+        // Rider presses again before the second echo arrives: 6 → 5.
+        unawaited(_feedRear(d, 5));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(6)); // the extra press emits its click
+        expect(d.emitted[4], [LtwooErx.shiftUpButtonName]);
+
+        // Second command's echo: swallowed, still converging on the anchor.
+        unawaited(_feedRear(d, 6, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(6));
+
+        async.elapse(const Duration(milliseconds: 200)); // third command out
+        expect(d.written.where(_isShiftCmd), hasLength(3));
+        unawaited(_feedRear(d, 7, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(6)); // final echo swallowed — converged
+
+        d.resetConnectionState();
+      });
+    });
+
+    test('orientation self-check: an inverted derailleur flips the mapping, logs once, persists, converges', () async {
+      const id = 'anchor-inverted';
+      final d = await anchoredDevice(id);
+      final logs = collectLogs(d);
+      fakeAsync((async) {
+        unawaited(_feedRear(d, 7));
+        async.flushMicrotasks();
+        unawaited(_feedRear(d, 6)); // rider shift; default raw-increase command
+        async.flushMicrotasks();
+        expect(d.written.where(_isShiftCmd), hasLength(1));
+        expect(_isShiftRawIncrease(d.written.singleWhere(_isShiftCmd)), isTrue);
+
+        // Inverted hardware: the echo moves AWAY from the anchor (6 → 5).
+        unawaited(_feedRear(d, 5, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(2)); // the misdirected echo emits no click
+
+        // Corrective commands use the flipped opcode and converge on raw 7.
+        async.elapse(const Duration(milliseconds: 200));
+        expect(d.written.where(_isShiftCmd), hasLength(2));
+        expect(_isShiftRawDecrease(d.written.where(_isShiftCmd).last), isTrue);
+        unawaited(_feedRear(d, 6, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 200));
+        expect(d.written.where(_isShiftCmd), hasLength(3));
+        expect(_isShiftRawDecrease(d.written.where(_isShiftCmd).last), isTrue);
+        unawaited(_feedRear(d, 7, opcode: const [0x00, 0x09]));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(2)); // all correction echoes swallowed
+
+        d.resetConnectionState();
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(logs.where((l) => l.contains('orientation inverted')), hasLength(1));
+      expect(core.settings.getLtwooShiftOrientationInverted(id), isTrue);
+    });
+
+    test('give-up guard: commands stop after the cap, one re-anchor log, next rider shift works', () async {
+      const id = 'anchor-give-up';
+      final d = await anchoredDevice(id);
+      final logs = collectLogs(d);
+      fakeAsync((async) {
+        unawaited(_feedRear(d, 7));
+        async.flushMicrotasks();
+        unawaited(_feedRear(d, 6)); // rider shift: 1 step → budget = 1 + 2 = 3 commands
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(2));
+
+        // The gear never moves back: every reading shows raw 6.
+        for (var i = 0; i < 10; i++) {
+          unawaited(_feedRear(d, 6, opcode: const [0x00, 0x09]));
+          async.flushMicrotasks();
+          async.elapse(const Duration(milliseconds: 200));
+        }
+        expect(d.written.where(_isShiftCmd), hasLength(3)); // steps + 2, then stop
+        expect(d.debugAnchorRawGear, 6); // re-anchored at the current gear
+
+        // Long idle: nothing else goes out.
+        async.elapse(const Duration(seconds: 10));
+        expect(d.written.where(_isShiftCmd), hasLength(3));
+
+        // The next rider shift works normally against the new anchor.
+        unawaited(_feedRear(d, 5));
+        async.flushMicrotasks();
+        expect(d.emitted, hasLength(4));
+        expect(d.emitted[2], [LtwooErx.shiftUpButtonName]);
+        expect(d.written.where(_isShiftCmd), hasLength(4));
+
+        d.resetConnectionState();
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(logs.where((l) => l.contains('re-anchoring at 6')), hasLength(1));
+    });
+
+    test('toggling the mode on re-anchors at the current gear', () async {
+      const id = 'anchor-toggle';
+      final d = _RecordingLtwooErx(deviceId: id);
+      await _feedRear(d, 7);
+      await _feedRear(d, 5); // mode off: clicks only, no commands
+      expect(d.written.where(_isShiftCmd), isEmpty);
+      expect(d.debugAnchorRawGear, isNull);
+
+      await d.setAnchorGearEnabled(true);
+      expect(d.debugAnchorRawGear, 5);
+
+      fakeAsync((async) {
+        unawaited(_feedRear(d, 4));
+        async.flushMicrotasks();
+        // Corrects back toward the toggle-time anchor (raw 5): raw-increase.
+        expect(d.written.where(_isShiftCmd), hasLength(1));
+        expect(_isShiftRawIncrease(d.written.singleWhere(_isShiftCmd)), isTrue);
+        d.resetConnectionState();
+      });
+
+      await d.setAnchorGearEnabled(false);
+      expect(d.debugAnchorRawGear, isNull);
     });
   });
 }

@@ -2036,5 +2036,7 @@
   "ltwooHintCloseApp": "Zamknij aplikację LTWOO podczas jazdy — przerzutka obsługuje tylko jedno połączenie Bluetooth naraz.",
   "ltwooHintCassetteEnds": "Na końcach kasety przerzutka nie wysyła sygnału — nie może przesunąć się dalej.",
   "ltwooWrongPinAlert": "Przerzutka L-TWOO odrzuciła PIN. Sprawdź PIN urządzenia w ustawieniach tego kontrolera.",
-  "ltwooPinLabel": "PIN urządzenia"
+  "ltwooPinLabel": "PIN urządzenia",
+  "ltwooAnchorGearTitle": "Utrzymuj przerzutkę w miejscu",
+  "ltwooAnchorGearDescription": "Po każdej zmianie biegu BikeControl cofa przerzutkę, aby łańcuch pozostał na jednej zębatce. Przerzutka będzie się krótko poruszać przy każdym naciśnięciu."
 }
