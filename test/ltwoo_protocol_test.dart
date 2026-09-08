@@ -35,6 +35,17 @@ void main() {
         Uint8List.fromList([0xA5, 0x31, 0x39, 0x39, 0x46, 0x46, 0x46, 0x09, 0x00, 0xDB]),
       );
     });
+
+    test('rear remote-shift requests with default PIN "000"', () {
+      expect(
+        LtwooProtocol.buildRequest('000', LtwooProtocol.opcodeShiftRearRawIncrease),
+        Uint8List.fromList([0xA5, 0x30, 0x30, 0x30, 0x46, 0x46, 0x46, 0x00, 0x01, 0x00, 0xD2]),
+      );
+      expect(
+        LtwooProtocol.buildRequest('000', LtwooProtocol.opcodeShiftRearRawDecrease),
+        Uint8List.fromList([0xA5, 0x30, 0x30, 0x30, 0x46, 0x46, 0x46, 0x01, 0x01, 0x00, 0xD3]),
+      );
+    });
   });
 
   group('LtwooProtocol response parsing', () {

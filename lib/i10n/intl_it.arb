@@ -2036,5 +2036,7 @@
   "ltwooHintCloseApp": "Chiudi l'app LTWOO durante la pedalata: il deragliatore accetta una sola connessione Bluetooth alla volta.",
   "ltwooHintCassetteEnds": "Alle estremità della cassetta il deragliatore non invia alcun segnale: non può spostarsi oltre.",
   "ltwooWrongPinAlert": "Il deragliatore L-TWOO ha rifiutato il PIN. Controlla il PIN del dispositivo nelle preferenze di questo controller.",
-  "ltwooPinLabel": "PIN del dispositivo"
+  "ltwooPinLabel": "PIN del dispositivo",
+  "ltwooAnchorGearTitle": "Mantieni il deragliatore in posizione",
+  "ltwooAnchorGearDescription": "Dopo ogni cambiata, BikeControl riporta il deragliatore in posizione così la catena resta su un solo pignone. Il deragliatore si muoverà brevemente a ogni pressione."
 }
