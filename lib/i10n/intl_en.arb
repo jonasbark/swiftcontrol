@@ -2232,5 +2232,6 @@
   "sensorValueCadence": "{value} rpm",
   "@sensorValueCadence": {"placeholders": {"value": {"type": "int"}}},
   "sensorValuePower": "{value} W",
-  "@sensorValuePower": {"placeholders": {"value": {"type": "int"}}}
+  "@sensorValuePower": {"placeholders": {"value": {"type": "int"}}},
+  "sensorsConnectedSectionTitle": "Connected sensors"
 }

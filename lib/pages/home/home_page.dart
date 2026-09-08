@@ -43,6 +43,7 @@ import 'package:bike_control/widgets/home/ampel.dart';
 import 'package:bike_control/widgets/home/chain_card.dart';
 import 'package:bike_control/widgets/home/chain_labels.dart';
 import 'package:bike_control/widgets/home/ready_banner.dart';
+import 'package:bike_control/widgets/home/trainer_card_sensor_grid.dart';
 import 'package:bike_control/widgets/home/trial_card.dart';
 import 'package:bike_control/widgets/zwift_ride_firmware_notice.dart';
 import 'package:bike_control/widgets/ui/animated_button_widget.dart';
@@ -821,15 +822,30 @@ class _HomePageState extends State<HomePage> {
   /// never been connected gets the bridging pitch instead — that rider has
   /// never seen what bridging one does, so the card makes the case rather than
   /// sitting empty. In between, nothing.
+  ///
+  /// A rider's connected, selected external sensors (heart rate, cadence,
+  /// power — see [TrainerCardSensorGrid]) are ALWAYS appended after whichever
+  /// of the above applies, drivetrain, pitch, or neither: they describe the
+  /// rider, not this trainer, so they never outrank what the card is actually
+  /// reporting on, but they are too useful to gate behind a trainer ever
+  /// having been connected at all — a rider with no trainer here (standalone
+  /// mode, sensors only) still gets them, alone. [sensorGridHasContent] keeps
+  /// this addition invisible for a rider who has never opened Sensors:
+  /// `_trainerBody` then returns exactly what it always returned, unwrapped,
+  /// which is the whole of the invariant this feature must hold.
   Widget? _trainerBody(ProxyDevice? proxy) {
     final definition = proxy?.fitnessBike;
-    if (proxy != null && definition != null) {
-      // Paired and shifting, but the trainer app is not on the bridge yet — the
-      // gears are real, they are just not carrying anything. The buttons come
-      // with it: a rider on the home screen can shift without opening the page.
-      return DrivetrainControls(definition: definition, compact: true, dim: !proxy.isConnected);
-    }
-    return _trainerFeatureList(proxy);
+    // Paired and shifting, but the trainer app is not on the bridge yet — the
+    // gears are real, they are just not carrying anything. The buttons come
+    // with it: a rider on the home screen can shift without opening the page.
+    final primary = proxy != null && definition != null
+        ? DrivetrainControls(definition: definition, compact: true, dim: !proxy.isConnected)
+        : _trainerFeatureList(proxy);
+
+    if (!sensorGridHasContent(core.sensors)) return primary;
+    final grid = TrainerCardSensorGrid(hub: core.sensors);
+    if (primary == null) return grid;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [primary, const Gap(10), grid]);
   }
 
   /// The bridging pitch, but only for a trainer that is here and has never
