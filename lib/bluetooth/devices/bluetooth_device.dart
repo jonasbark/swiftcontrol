@@ -104,38 +104,22 @@ abstract class BluetoothDevice extends BaseDevice {
     // Cycling Speed and Cadence Service — so cadence-only sensors appear in
     // filtered scans and can be selected as an external source.
     BleSensorSource.cscServiceUuid,
-    // Cycling Power Service — so power meters appear in filtered scans; see
-    // the power-meter opt-in gate in fromScanResult for why some of them are
-    // hidden by default even once discovered.
+    // Cycling Power Service — so power meters appear in filtered scans and
+    // can be selected as an external source.
     BleSensorSource.cyclingPowerServiceUuid,
   ];
 
-  /// Power-meter name prefixes hidden from scanning by default — the product
-  /// decision about which brands are known to accept only one simultaneous
-  /// BLE connection, so surfacing them unprompted would risk silently
-  /// costing the rider their existing pairing (see
-  /// `Settings.getPowerMeterOptIn`'s doc comment). Used only by the
-  /// name-based exclusion at the top of [fromScanResult].
-  ///
-  /// Deliberately NOT the same list as [_powerMeterNames]: which brands
-  /// BikeControl hides by default is a narrower product decision than which
-  /// brands it can RECOGNISE as a power meter at all once a rider opts in —
-  /// see that list's doc comment for the defect conflating the two caused.
-  static final List<String> _hiddenPowerMeterNames = ['ASSIOMA', 'QUARQ', 'POWERCRANK'];
-
-  /// Every power-meter name prefix BikeControl recognises for classification
-  /// — a superset of [_hiddenPowerMeterNames]. Used by the narrow, opted-in
-  /// `BlePowerDevice` rules in [fromScanResult] (both platform branches).
-  ///
-  /// Before this was split from the hide-by-default list, a meter could only
-  /// ever be CLASSIFIED as a [BlePowerDevice] if it was ALSO HIDDEN by
-  /// default — so an opted-in rider with, say, a Stages or 4iiii power meter
-  /// (real brands, never hidden, and so never recognised either) could not
-  /// select it as an external source no matter what they did: the narrow
-  /// rule's name check never matched, and the meter kept resolving to
-  /// whatever the bare-CPS fallback produced instead.
+  /// Every power-meter name prefix BikeControl recognises for classification.
+  /// Used by the narrow `BlePowerDevice` rules in [fromScanResult] (both
+  /// platform branches) so a bare Cycling Power advertiser with one of these
+  /// names is claimed as a power meter rather than falling through to
+  /// [ProxyDevice] — see [_advertisesTrainerService] for the guard that
+  /// still protects an actual trainer sold under one of these brands (e.g.
+  /// Stages' SB20 smart bike, SRM's indoor trainer).
   static final List<String> _powerMeterNames = [
-    ..._hiddenPowerMeterNames,
+    'ASSIOMA', // Favero Assioma
+    'QUARQ',
+    'POWERCRANK',
     'STAGES',
     '4IIII',
     'SRM',
@@ -146,18 +130,10 @@ abstract class BluetoothDevice extends BaseDevice {
   ];
 
   /// Whether [name] matches one of the power-meter families BikeControl
-  /// recognises for classification ([_powerMeterNames]) — the narrow,
-  /// opted-in `BlePowerDevice` rules in [fromScanResult] use this.
+  /// recognises for classification ([_powerMeterNames]) — the narrow
+  /// `BlePowerDevice` rules in [fromScanResult] use this.
   static bool _isKnownPowerMeterName(String name) =>
       _powerMeterNames.any((knownName) => name.toUpperCase().startsWith(knownName));
-
-  /// Whether [name] matches one of the power-meter families BikeControl
-  /// hides by default ([_hiddenPowerMeterNames]) — the name-based exclusion
-  /// at the top of [fromScanResult] uses this. Deliberately narrower than
-  /// [_isKnownPowerMeterName]: see [_powerMeterNames]'s doc comment for why
-  /// a meter can be recognised without being hidden.
-  static bool _isHiddenPowerMeterName(String name) =>
-      _hiddenPowerMeterNames.any((hiddenName) => name.toUpperCase().startsWith(hiddenName));
 
   /// Whether [scanResult] advertises a trainer service — FTMS or
   /// FE-C-over-BLE — the same two services [ProxyDevice.isSmartTrainer]
@@ -165,17 +141,16 @@ abstract class BluetoothDevice extends BaseDevice {
   /// exact UUIDs rather than redefining them, so the two notions of
   /// "trainer" cannot drift apart.
   ///
-  /// Used to exclude such a device from the narrow, opted-in
-  /// `BlePowerDevice` rules in [fromScanResult] (both platform branches):
-  /// [_powerMeterNames] recognises brands like Stages, SRM, and Rotor that
-  /// do not only sell crank/pedal power meters — Stages also makes the SB20
-  /// smart bike, SRM also makes an indoor trainer — and either can advertise
-  /// bare Cycling Power alongside FTMS/FE-C. A device advertising a trainer
-  /// service is a TRAINER that also reports power, not a power meter, and
-  /// trainer control must always win: without this guard, an opted-in rider
-  /// with one of those would have the narrow rule claim it as a bare
-  /// [BlePowerDevice], losing resistance, ERG, and virtual shifting
-  /// entirely.
+  /// Used to exclude such a device from the narrow `BlePowerDevice` rules in
+  /// [fromScanResult] (both platform branches): [_powerMeterNames]
+  /// recognises brands like Stages, SRM, and Rotor that do not only sell
+  /// crank/pedal power meters — Stages also makes the SB20 smart bike, SRM
+  /// also makes an indoor trainer — and either can advertise bare Cycling
+  /// Power alongside FTMS/FE-C. A device advertising a trainer service is a
+  /// TRAINER that also reports power, not a power meter, and trainer control
+  /// must always win: without this guard, a rider with one of those would
+  /// have the narrow rule claim it as a bare [BlePowerDevice], losing
+  /// resistance, ERG, and virtual shifting entirely.
   static bool _advertisesTrainerService(BleDevice scanResult) => scanResult.services.containsAny([
     FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID,
     FitnessBikeDefinition.FEC_BLE_SERVICE_UUID,
@@ -237,8 +212,8 @@ abstract class BluetoothDevice extends BaseDevice {
   /// `getSystemDevices` has to filter by service UUID to return anything at
   /// all on Apple, so once Cycling Power (`BleSensorSource.
   /// cyclingPowerServiceUuid`) became one of the queried services — needed so
-  /// an opted-in power meter or a cadence sensor can be found this way too —
-  /// every power meter the OS has ever bonded can come back, including one
+  /// a power meter or a cadence sensor can be found this way too — every
+  /// power meter the OS has ever bonded can come back, including one
   /// currently held by another app.
   ///
   /// [ProxyDevice.proxyServiceUUIDs] matches bare Cycling Power with no
@@ -248,7 +223,7 @@ abstract class BluetoothDevice extends BaseDevice {
   /// behaviour (see the "CPS advertiser with a non-power-meter name" test).
   /// It is wrong here: it would also catch every unrecognised-name power
   /// meter the system-devices query surfaces and add it to `proxyDevices` as
-  /// if it were a trainer. A recognised, opted-in power meter never reaches
+  /// if it were a trainer. A recognised power meter never reaches
   /// this check at all — the narrow, name-gated `BlePowerDevice` rule in
   /// [fromScanResult] claims it first — so this only ever excludes a
   /// [ProxyDevice] that has nothing beyond bare Cycling Power to justify the
@@ -256,13 +231,6 @@ abstract class BluetoothDevice extends BaseDevice {
   static bool isEligibleSystemDevice(BluetoothDevice device) => device is! ProxyDevice || device.isSmartTrainer;
 
   static BluetoothDevice? fromScanResult(BleDevice scanResult) {
-    // Skip devices with hidden names — unless the rider has explicitly
-    // opted in to power meters that are known to accept only one BLE
-    // connection at a time (see Settings.getPowerMeterOptIn's doc comment).
-    if (scanResult.name != null && !core.settings.getPowerMeterOptIn() && _isHiddenPowerMeterName(scanResult.name!)) {
-      return null;
-    }
-
     // Use the name first as the "System Devices" and Web (android sometimes Windows) don't have manufacturer data
     BluetoothDevice? device;
     if (_effectiveIsWeb) {
@@ -305,21 +273,20 @@ abstract class BluetoothDevice extends BaseDevice {
         // sensor and break bridging entirely. This branch has no
         // ProxyDevice case to protect against (web never builds one), so
         // today this narrow, name-gated rule produces exactly the same
-        // BlePowerDevice the broad rule below it does — both require opt-in,
-        // and once that is true the name check no longer changes the
-        // outcome. Kept anyway so the two switch branches have the same
-        // shape and do not silently diverge if a ProxyDevice-equivalent is
-        // ever added here, which would need the ordering the non-web branch
-        // already relies on. See that branch's version of this rule for why
-        // the narrow form is the one that matters there today.
+        // BlePowerDevice the broad rule below it does — the name check
+        // does not change the outcome there. Kept anyway so the two switch
+        // branches have the same shape and do not silently diverge if a
+        // ProxyDevice-equivalent is ever added here, which would need the
+        // ordering the non-web branch already relies on. See that branch's
+        // version of this rule for why the narrow form is the one that
+        // matters there today.
         //
         // Also excludes a device advertising FTMS/FE-C (_advertisesTrainerService)
         // — see that method's doc comment for why a recognised power-meter
         // NAME is not enough by itself once brands like Stages (SB20 smart
         // bike) and SRM (indoor trainer) are in [_powerMeterNames].
         _
-            when core.settings.getPowerMeterOptIn() &&
-                scanResult.name != null &&
+            when scanResult.name != null &&
                 _isKnownPowerMeterName(scanResult.name!) &&
                 scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) &&
                 !_advertisesTrainerService(scanResult) =>
@@ -329,21 +296,15 @@ abstract class BluetoothDevice extends BaseDevice {
         // the richer BlePowerDevice rather than being downgraded to
         // cadence-only.
         //
-        // Gated on opt-in alone — deliberately broader than the narrow rule
-        // above on name, since BikeControl cannot enumerate every power
-        // meter brand that exists, and a rider who already opted in
-        // (Settings.getPowerMeterOptIn) has said they understand a power
-        // meter may accept only one simultaneous BLE connection. This rule
-        // used to have NO opt-in check at all: a comment here called it
-        // "redundant" with the narrow rule above, but it was not — it was
-        // THE gate, and it was ungated, so any device advertising bare
-        // Cycling Power became a BlePowerDevice unconditionally, able to
-        // take a rider's power meter away from a bike computer it was
-        // already paired to with no consent at all.
-        _
-            when core.settings.getPowerMeterOptIn() &&
-                scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) =>
-          BlePowerDevice(scanResult),
+        // Deliberately broader than the narrow rule above on name, since
+        // BikeControl cannot enumerate every power meter brand that exists
+        // — picking a source in the Sensors UI is the rider's consent (see
+        // `SensorQuantitySelector`), so there is no separate opt-in left to
+        // gate this on. Unconditional on web specifically because there is
+        // no ProxyDevice branch here to protect (see the narrow rule's
+        // comment above) — an unrecognised-name bare-CPS advertiser simply
+        // becomes a selectable power meter rather than nothing at all.
+        _ when scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) => BlePowerDevice(scanResult),
         _ when scanResult.services.contains(BleSensorSource.cscServiceUuid) => BleCadenceDevice(scanResult),
         _ => null,
       };
@@ -376,14 +337,11 @@ abstract class BluetoothDevice extends BaseDevice {
         ),
         // Before the ProxyDevice branch below, which claims Cycling Power
         // (0x1818) unconditionally via containsAny — including for a
-        // legitimately-named, opted-in power meter, which is wrong. This
-        // rule is deliberately narrow to avoid the opposite mistake: it only
-        // fires for a device the rider has explicitly opted in to AND whose
-        // name we already recognise as a power meter (_isKnownPowerMeterName,
-        // built from _powerMeterNames — a SUPERSET of the
-        // _hiddenPowerMeterNames list the exclusion above uses, so a brand
-        // can be recognised here without also being hidden by default).
-        // A power-only TRAINER with an unrecognised name is untouched by this
+        // legitimately-named power meter, which is wrong. This rule is
+        // deliberately narrow to avoid the opposite mistake: it only fires
+        // for a device whose name we already recognise as a power meter
+        // (_isKnownPowerMeterName, built from _powerMeterNames). A
+        // power-only TRAINER with an unrecognised name is untouched by this
         // rule and keeps resolving to ProxyDevice below. A recognised name is
         // NOT enough on its own, though: _powerMeterNames includes brands
         // like Stages and SRM that also sell a smart bike (SB20) or an
@@ -393,8 +351,7 @@ abstract class BluetoothDevice extends BaseDevice {
         // advertising a trainer service is a TRAINER that also reports
         // power, not a power meter, and trainer control must always win.
         _
-            when core.settings.getPowerMeterOptIn() &&
-                scanResult.name != null &&
+            when scanResult.name != null &&
                 _isKnownPowerMeterName(scanResult.name!) &&
                 scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) &&
                 !_advertisesTrainerService(scanResult) =>
@@ -432,8 +389,8 @@ abstract class BluetoothDevice extends BaseDevice {
         // unreachable here in practice: ProxyDevice.proxyServiceUUIDs already
         // contains this exact Cycling Power UUID with no name gate, so
         // anything that would satisfy this condition was already claimed by
-        // the ProxyDevice branch above. The narrow, opted-in, name-gated rule
-        // before ProxyDevice is what actually classifies a rider's power
+        // the ProxyDevice branch above. The narrow, name-gated rule before
+        // ProxyDevice is what actually classifies a rider's power
         // meter on this branch — see its comment for why a broader
         // (name-unaware) rule can't safely sit ahead of ProxyDevice.
         _ when scanResult.services.contains(BleSensorSource.cyclingPowerServiceUuid) => BlePowerDevice(scanResult),

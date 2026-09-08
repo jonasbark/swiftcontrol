@@ -22,7 +22,7 @@ import 'package:universal_ble/universal_ble.dart';
 /// empty Button Mapping table.
 ///
 /// `with BleSensorDevice`: the shared surface `Connection` and
-/// `SensorDiscoverySection` dispatch on so a strap, a cadence sensor and a
+/// `SensorQuantitySelector` dispatch on so a strap, a cadence sensor and a
 /// power meter can all be reached the same way — see that mixin's doc
 /// comment.
 class BleHeartRateDevice extends BluetoothDevice with Accessory, BleSensorDevice {
@@ -47,10 +47,10 @@ class BleHeartRateDevice extends BluetoothDevice with Accessory, BleSensorDevice
   /// their bike computer or their watch, for no benefit to them here.
   ///
   /// Backed by a persisted per-device consent flag, the same idiom
-  /// `ProxyDevice.shouldAutoConnect` uses — false until the rider taps
-  /// Connect on this strap in the discovered-sensors list
-  /// (`SensorDiscoverySection`), which sets the flag before calling
-  /// `Connection.connectDevice`. From then on it reconnects automatically
+  /// `ProxyDevice.shouldAutoConnect` uses — false until the rider selects
+  /// this strap in its quantity's toggle group (`SensorQuantitySelector`),
+  /// which sets the flag before calling `Connection.connectDevice`. From
+  /// then on it reconnects automatically
   /// like every other remembered device, including across the fresh instance
   /// `fromScanResult` builds on every rediscovery (see `SensorHub.register`'s
   /// doc comment) — the flag is keyed by the stable BLE device id, not the

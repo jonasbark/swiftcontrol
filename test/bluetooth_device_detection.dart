@@ -128,14 +128,24 @@ void main() {
     });
   });
 
-  group('Skip powermeters', () {
-    test('Skip Favero Assioma', () {
+  // sensor-sources-phase2: `fromScanResult` used to hide ANY scan result
+  // whose name matched a known power-meter brand — Favero Assioma, Quarq,
+  // PowerCrank — universally, before any service-based dispatch ran at all
+  // (hence these fixtures deliberately advertising an unrelated SRAM AXS
+  // service, to prove the old hide applied regardless of what else the
+  // device advertised). Selecting a source in the Sensors UI is the rider's
+  // consent now (see `SensorQuantitySelector`), so there is no name-based
+  // hide left anywhere in `fromScanResult` — a device with one of these
+  // names resolves exactly like any other device, via whatever it actually
+  // advertises.
+  group('formerly-hidden power-meter names have no special effect any more', () {
+    test('a Favero Assioma-named device is detected via its actual service, not hidden', () {
       final device = _createBleDevice(name: 'Assioma 133', services: [SramAxsConstants.SERVICE_UUID]);
-      expect(BluetoothDevice.fromScanResult(device), isNull);
+      expect(BluetoothDevice.fromScanResult(device), isInstanceOf<SramAxs>());
     });
-    test('Skip QUARQ', () {
+    test('a QUARQ-named device is detected via its actual service, not hidden', () {
       final device = _createBleDevice(name: 'QUARQ 133', services: [SramAxsConstants.SERVICE_UUID]);
-      expect(BluetoothDevice.fromScanResult(device), isNull);
+      expect(BluetoothDevice.fromScanResult(device), isInstanceOf<SramAxs>());
     });
   });
 

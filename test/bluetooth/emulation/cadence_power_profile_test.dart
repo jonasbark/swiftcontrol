@@ -121,30 +121,18 @@ void main() {
       );
     });
 
-    // `BluetoothDevice.fromScanResult`'s power-meter branch requires BOTH an
-    // opt-in flag and a name on the same known-power-meter list the
-    // exclusion filter uses — see `Settings.getPowerMeterOptIn`'s doc
-    // comment and `BluetoothDevice._isKnownPowerMeterName`. If the fixture's
-    // default name didn't match that list, this would fail for the wrong
-    // reason (hidden entirely) rather than the interesting one (resolves to
-    // ProxyDevice instead of BlePowerDevice).
-    test('is hidden (null) until the rider opts in to power meters', () {
+    // `BluetoothDevice.fromScanResult`'s narrow power-meter rule requires a
+    // name on the known-power-meter list — see
+    // `BluetoothDevice._isKnownPowerMeterName`. If the fixture's default
+    // name didn't match that list, this would fail for the wrong reason
+    // (resolves to ProxyDevice) rather than the interesting one.
+    test('the fixture scan result is detected as BlePowerDevice with no opt-in step', () {
       final scanResult = powerMeterPeripheral().scanResult;
-
-      expect(core.settings.getPowerMeterOptIn(), isFalse);
-      expect(BluetoothDevice.fromScanResult(scanResult), isNull);
-    });
-
-    test('the fixture scan result is detected as BlePowerDevice once opted in', () async {
-      final scanResult = powerMeterPeripheral().scanResult;
-
-      await core.settings.setPowerMeterOptIn(true);
 
       expect(BluetoothDevice.fromScanResult(scanResult), isInstanceOf<BlePowerDevice>());
     });
 
     test('two successive frames from the profile action yield the intended watts and rpm', () async {
-      await core.settings.setPowerMeterOptIn(true);
       final ble = FakeUniversalBlePlatform();
       final manager = EmulationManager()..attach(ble);
       final session = manager.start(powerMeterProfile);

@@ -89,13 +89,13 @@ FakePeripheral cadenceSensorPeripheral({String name = 'Emulated Cadence'}) {
 ///
 /// The default name deliberately matches one of the families
 /// `BluetoothDevice._isKnownPowerMeterName` recognises (Favero Assioma):
-/// `BluetoothDevice.fromScanResult` only classifies a Cycling-Power
-/// advertiser as `BlePowerDevice` when its name is on that list AND the
-/// rider has opted in via `Settings.getPowerMeterOptIn` — otherwise it
-/// either resolves to `ProxyDevice` (unconditional CPS match) or is hidden
-/// outright. A fixture named anything else would never reach BlePowerDevice
-/// no matter how the opt-in setting is set, which would look like a
-/// detection bug rather than a fixture naming problem.
+/// `BluetoothDevice.fromScanResult`'s narrow rule only classifies a
+/// Cycling-Power advertiser as `BlePowerDevice` when its name is on that
+/// list AND it does not also advertise a trainer service — otherwise it
+/// falls through to the broader (name-unaware) rule below it. A fixture
+/// named anything else would still reach BlePowerDevice today, but naming it
+/// after a recognised brand keeps this fixture exercising the narrow,
+/// trainer-protecting rule specifically rather than the broad fallback.
 FakePeripheral powerMeterPeripheral({String name = 'ASSIOMA DUO'}) {
   // advertisedServices is what a filtered scan matches on — without it the
   // meter is built but never discovered, which looks exactly like a bug in

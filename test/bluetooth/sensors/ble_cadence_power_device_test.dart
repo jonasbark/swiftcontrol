@@ -165,111 +165,92 @@ void main() {
     // BleSensorSource.cyclingPowerServiceUuid — unconditionally, via
     // containsAny with no name gating, and it sits earlier in the non-web
     // switch than a plain service-based power rule is allowed to (staying
-    // after it is what protects real DirCon-bridged trainers). A first
-    // attempt at this task placed only a broad, name-unaware rule after
-    // ProxyDevice, which made it permanently unreachable there: this group
+    // after it is what protects real DirCon-bridged trainers). This group
     // proves the actual fix — a second, narrow rule placed BEFORE the
-    // ProxyDevice branch, gated on both explicit opt-in and a name already
-    // known to be a power meter (BluetoothDevice._isKnownPowerMeterName,
-    // built from _powerMeterNames — see A3's own group below for why that is
-    // NOT the same list the hide-by-default exclusion uses).
-    test('an opted-in known power meter resolves to BlePowerDevice, not ProxyDevice', () async {
+    // ProxyDevice branch, gated on a name already known to be a power meter
+    // (BluetoothDevice._isKnownPowerMeterName, built from _powerMeterNames).
+    //
+    // Detection has no separate opt-in step any more: selecting a source in
+    // the Sensors UI (`SensorQuantitySelector`) IS the rider's consent, so
+    // nothing here is gated on a persisted flag — see
+    // `BluetoothDevice._powerMeterNames`'s doc comment.
+    test('a known power meter resolves to BlePowerDevice, not ProxyDevice, with no opt-in required', () {
       final scan = BleDevice(
         deviceId: 'pm-1',
         name: 'ASSIOMA DUO-1234',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
 
-      await core.settings.setPowerMeterOptIn(true);
-
       expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
 
-    test('the same known power meter name is hidden (null) when not opted in', () {
+    // A brand this codebase used to hide entirely until the rider opted in
+    // (Favero Assioma, Quarq, PowerCrank) is now just another known power
+    // meter — nothing hides it any more.
+    test('a formerly-hidden power meter name is now visible with no opt-in at all', () {
       final scan = BleDevice(
         deviceId: 'pm-2',
         name: 'ASSIOMA DUO-5678',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
 
-      expect(core.settings.getPowerMeterOptIn(), isFalse);
-      expect(BluetoothDevice.fromScanResult(scan), isNull);
+      expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
 
     // The test that proves existing trainers are unaffected: a device
     // advertising bare Cycling Power Service whose name is NOT a known power
     // meter — e.g. a power-only trainer with no FTMS — must keep resolving to
-    // ProxyDevice exactly as it did before this task, opt-in or not. The
-    // narrow rule's name gate is what keeps it out of BlePowerDevice's way.
+    // ProxyDevice exactly as it did before this task. The narrow rule's name
+    // gate is what keeps it out of BlePowerDevice's way.
     // 'X2Max' mirrors the generic FE-C trainer fixture name used in
     // proxy_device_smart_trainer_test.dart — deliberately not a real power
     // meter brand, so it can never collide with _powerMeterNames.
-    test('a CPS advertiser with a non-power-meter name still resolves to ProxyDevice', () async {
+    test('a CPS advertiser with a non-power-meter name still resolves to ProxyDevice', () {
       final scan = BleDevice(
         deviceId: 'trainer-cps-1',
         name: 'X2Max 1234',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
 
-      expect(core.settings.getPowerMeterOptIn(), isFalse);
-      expect(BluetoothDevice.fromScanResult(scan), isA<ProxyDevice>());
-
-      // Holds even opted in — the name gate, not the opt-in flag, is what
-      // protects this device.
-      await core.settings.setPowerMeterOptIn(true);
-
       expect(BluetoothDevice.fromScanResult(scan), isA<ProxyDevice>());
     });
 
-    // A3 (fix-wave-A): before splitting _hiddenPowerMeterNames from
-    // _powerMeterNames, a brand could only ever be RECOGNISED as a power
-    // meter if it was ALSO hidden by default — so a real meter brand like
-    // Stages, never added to the hide-by-default list, could never become a
-    // BlePowerDevice through the narrow opted-in rule no matter what the
-    // rider did. It fell through to ProxyDevice like any other unrecognised
-    // bare-CPS device instead.
-    test('a recognised-but-not-hidden power meter brand is not hidden by default, and resolves to '
-        'BlePowerDevice once opted in', () async {
+    // A3 (fix-wave-A) originally proved a recognised-but-not-hidden brand
+    // like Stages could still become a BlePowerDevice once opted in. There is
+    // no opt-in step left, so it now resolves directly.
+    test('a recognised power meter brand resolves directly to BlePowerDevice', () {
       final scan = BleDevice(
         deviceId: 'pm-3',
         name: 'STAGES 1234',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
 
-      // Not hidden: unlike ASSIOMA/QUARQ/POWERCRANK, Stages was never added
-      // to the hide-by-default list, so it surfaces in scans even without
-      // opt-in — falling back to the generic proxy path like any other
-      // not-yet-opted-in bare-CPS device.
-      expect(core.settings.getPowerMeterOptIn(), isFalse);
-      expect(BluetoothDevice.fromScanResult(scan), isA<ProxyDevice>());
-
-      await core.settings.setPowerMeterOptIn(true);
-
       expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
 
-    // fix-wave-D: widening _powerMeterNames (A3, above) to recognise brands
-    // like Stages, SRM, and Rotor was correct on its own — but those brands
-    // do not only make crank/pedal power meters: Stages makes the SB20 smart
-    // bike, SRM makes an indoor trainer. Neither the narrow rule above nor
-    // its web-branch twin excluded a device that also advertises a trainer
-    // service, so an opted-in rider with one of those would have this rule
-    // claim their trainer as a bare BlePowerDevice before the ProxyDevice
-    // branch below ever saw it — losing resistance, ERG, and virtual
-    // shifting entirely. A device advertising a trainer service is a TRAINER
-    // that also reports power, not a power meter; trainer control must
-    // always win. The guard added here excludes FTMS/FE-C the same way
-    // ProxyDevice.isSmartTrainer does, so the two notions of "trainer"
-    // cannot drift apart.
-    test('an opted-in smart bike whose name matches a known power-meter brand keeps trainer '
-        'control (resolves to ProxyDevice, not BlePowerDevice)', () async {
+    // fix-wave-D: widening _powerMeterNames to recognise brands like Stages,
+    // SRM, and Rotor was correct on its own — but those brands do not only
+    // make crank/pedal power meters: Stages makes the SB20 smart bike, SRM
+    // makes an indoor trainer. Neither the narrow rule above nor its
+    // web-branch twin excluded a device that also advertises a trainer
+    // service, so a rider with one of those would have this rule claim their
+    // trainer as a bare BlePowerDevice before the ProxyDevice branch below
+    // ever saw it — losing resistance, ERG, and virtual shifting entirely. A
+    // device advertising a trainer service is a TRAINER that also reports
+    // power, not a power meter; trainer control must always win. The guard
+    // added here excludes FTMS/FE-C the same way ProxyDevice.isSmartTrainer
+    // does, so the two notions of "trainer" cannot drift apart. This is one
+    // of the invariants the sensor-sources-phase2 UI redesign must not
+    // break: removing the power-meter opt-in must only drop the opt-in
+    // condition from the narrow rule, not the name/service/trainer-exclusion
+    // checks that protect a real trainer sold under one of these brands.
+    test('a smart bike whose name matches a known power-meter brand keeps trainer '
+        'control (resolves to ProxyDevice, not BlePowerDevice)', () {
       final scan = BleDevice(
         deviceId: 'stages-sb20-1',
         name: 'STAGES SB20 1234',
         services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID],
       );
-
-      await core.settings.setPowerMeterOptIn(true);
 
       final classified = BluetoothDevice.fromScanResult(scan);
       expect(classified, isA<ProxyDevice>());
@@ -280,15 +261,13 @@ void main() {
     // Same guard, the FE-C-over-BLE half of "trainer service" — an SRM
     // trainer that speaks FE-C rather than FTMS needs the same protection;
     // ProxyDevice.isSmartTrainer treats the two as equivalent, and so does
-    // this guard.
-    test('an opted-in FE-C trainer whose name matches a known power-meter brand keeps trainer control', () async {
+    // this guard. The other half of the same invariant as the test above.
+    test('a FE-C trainer whose name matches a known power-meter brand keeps trainer control', () {
       final scan = BleDevice(
         deviceId: 'srm-fec-1',
         name: 'SRM 4400',
         services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FEC_BLE_SERVICE_UUID],
       );
-
-      await core.settings.setPowerMeterOptIn(true);
 
       final classified = BluetoothDevice.fromScanResult(scan);
       expect(classified, isA<ProxyDevice>());
@@ -298,14 +277,12 @@ void main() {
     // Regression guard: the trainer-service exclusion above must not touch
     // the case the narrow rule exists FOR — a real power meter with no
     // trainer service at all keeps working exactly as A3 established.
-    test('an opted-in power meter with no trainer service still resolves to BlePowerDevice', () async {
+    test('a power meter with no trainer service still resolves to BlePowerDevice', () {
       final scan = BleDevice(
         deviceId: 'assioma-fixd-1',
         name: 'ASSIOMA DUO-1234',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
-
-      await core.settings.setPowerMeterOptIn(true);
 
       expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
@@ -313,16 +290,14 @@ void main() {
 
   // A3 (fix-wave-A): `fromScanResult`'s web branch had a broad
   // `_ when scanResult.services.contains(cyclingPowerServiceUuid) =>
-  // BlePowerDevice(scanResult)` rule with NO opt-in check at all — a comment
-  // above it called this "redundant" with the narrow, opted-in rule right
-  // above it, but it is not: with opt-in off, the narrow rule simply fails
-  // to match and execution falls through to this broad one, which matched
-  // regardless. So ANY power meter whose name was not already in
-  // _hiddenPowerMeterNames became a BlePowerDevice on web with no consent at
-  // all — able to take a meter away from a bike computer that also only
-  // accepts one connection. `BluetoothDevice.debugIsWeb` lets this branch
-  // run under the normal (VM) test runner, where the real compile-time
-  // kIsWeb is always false.
+  // BlePowerDevice(scanResult)` rule with NO opt-in check at all — that used
+  // to be a real bug (any power meter became selectable with no consent).
+  // There is no opt-in step left anywhere in this file any more: picking a
+  // source in the Sensors UI is the rider's consent (see
+  // `SensorQuantitySelector`), so the broad rule is now deliberately
+  // unconditional too — see its comment in `fromScanResult`.
+  // `BluetoothDevice.debugIsWeb` lets this branch run under the normal (VM)
+  // test runner, where the real compile-time kIsWeb is always false.
   group('web detection (kIsWeb branch, via debugIsWeb)', () {
     setUp(() {
       BluetoothDevice.debugIsWeb = () => true;
@@ -332,38 +307,24 @@ void main() {
       BluetoothDevice.debugIsWeb = null;
     });
 
-    test('a power meter with an unrecognised name is NOT classified on web without opt-in', () {
+    test('a power meter with an unrecognised name still resolves to BlePowerDevice on web', () {
       final scan = BleDevice(
         deviceId: 'web-pm-1',
         name: 'Totally Unknown Meter 1',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
 
-      expect(core.settings.getPowerMeterOptIn(), isFalse);
-      expect(BluetoothDevice.fromScanResult(scan), isNull);
-    });
-
-    test('the same unrecognised-name power meter resolves to BlePowerDevice once opted in', () async {
-      final scan = BleDevice(
-        deviceId: 'web-pm-2',
-        name: 'Totally Unknown Meter 2',
-        services: [BleSensorSource.cyclingPowerServiceUuid],
-      );
-
-      await core.settings.setPowerMeterOptIn(true);
-
       expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
 
-    test('a known power-meter name is still hidden (null) on web when not opted in', () {
+    test('a known power-meter name is no longer hidden on web', () {
       final scan = BleDevice(
         deviceId: 'web-pm-3',
         name: 'ASSIOMA DUO-9999',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
 
-      expect(core.settings.getPowerMeterOptIn(), isFalse);
-      expect(BluetoothDevice.fromScanResult(scan), isNull);
+      expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
 
     // fix-wave-D: the web branch's narrow rule gets the same
@@ -372,40 +333,33 @@ void main() {
     // asks for — but unlike the non-web branch, this does NOT change the
     // observable outcome for a Stages SB20-shaped device today. Web has no
     // ProxyDevice/trainer-bridging concept at all to fall back to: the broad
-    // `opt-in && CPS` rule right below the narrow one has no FTMS/FE-C
-    // exclusion of its own (see fix-wave-A's comment above this group — it
-    // is deliberately name-unaware) and still claims the device, and
+    // CPS rule right below the narrow one has no FTMS/FE-C exclusion of its
+    // own (see fix-wave-A's comment above this group — it is deliberately
+    // name-unaware) and still claims the device, and
     // wifi_trainer_scanner.dart's `if (kIsWeb) return;` plus custom_app.dart
     // excluding zwiftMdns/zwiftBle on web confirm BikeControl never offers
     // trainer bridging in a browser in the first place. So there is no
     // "trainer control" for this device to lose on web, and this test
     // documents the real (unchanged) result rather than asserting a
-    // ProxyDevice-shaped outcome the web branch cannot produce. Widening the
-    // broad rule to also exclude FTMS/FE-C would be a second, separate
-    // change beyond the narrow-rule guard this fix wave asked for.
-    test('a Stages SB20-shaped device still resolves to BlePowerDevice on web (no bridging concept there)', () async {
+    // ProxyDevice-shaped outcome the web branch cannot produce.
+    test('a Stages SB20-shaped device still resolves to BlePowerDevice on web (no bridging concept there)', () {
       final scan = BleDevice(
         deviceId: 'web-stages-sb20-1',
         name: 'STAGES SB20 1234',
         services: [BleSensorSource.cyclingPowerServiceUuid, FitnessBikeDefinition.FITNESS_MACHINE_SERVICE_UUID],
       );
 
-      await core.settings.setPowerMeterOptIn(true);
-
       expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
 
     // Regression guard, mirrored from the non-web branch: a real power meter
-    // with no trainer service must keep resolving to BlePowerDevice on web
-    // once opted in.
-    test('an opted-in power meter with no trainer service resolves to BlePowerDevice on web', () async {
+    // with no trainer service must keep resolving to BlePowerDevice on web.
+    test('a power meter with no trainer service resolves to BlePowerDevice on web', () {
       final scan = BleDevice(
         deviceId: 'web-assioma-fixd-1',
         name: 'ASSIOMA DUO-1234',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
-
-      await core.settings.setPowerMeterOptIn(true);
 
       expect(BluetoothDevice.fromScanResult(scan), isA<BlePowerDevice>());
     });
@@ -418,9 +372,9 @@ void main() {
   // devices the OS already considers connected/bonded — not just ones
   // actively advertising nearby — and it has to filter by service UUID to
   // return anything at all. Once Cycling Power became one of the queried
-  // services (for opted-in power meters and cadence sensors), every power
-  // meter the OS has ever bonded started coming back too, including ones
-  // currently held by another app. Those hit the exact same
+  // services (for power meters and cadence sensors), every power meter the
+  // OS has ever bonded started coming back too, including ones currently
+  // held by another app. Those hit the exact same
   // `ProxyDevice.proxyServiceUUIDs` rule a live-scanned power-only trainer
   // does (see the "CPS advertiser with a non-power-meter name" test above)
   // and were added to `proxyDevices` as if they were a trainer: the "Looking
@@ -444,14 +398,12 @@ void main() {
       expect(BluetoothDevice.isEligibleSystemDevice(classified!), isFalse);
     });
 
-    test('an opted-in known power meter stays eligible', () async {
+    test('a known power meter stays eligible', () {
       final scan = BleDevice(
         deviceId: 'system-pm-2',
         name: 'STAGES 5678',
         services: [BleSensorSource.cyclingPowerServiceUuid],
       );
-
-      await core.settings.setPowerMeterOptIn(true);
 
       final classified = BluetoothDevice.fromScanResult(scan);
       expect(classified, isA<BlePowerDevice>());

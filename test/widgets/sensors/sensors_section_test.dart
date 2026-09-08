@@ -97,14 +97,7 @@ void main() {
       addTearDown(() => IAPManager.instance.setProForTesting(enabled: false));
       await pumpSection(tester);
 
-      await tester.tap(find.descendant(
-          of: find.byKey(const Key('sensor-quantity-heartRate')),
-          matching: find.byType(Select<String?>),
-        ));
-      await tester.pumpAndSettle();
-      // The closed select also renders the placeholder "Trainer" text, so the
-      // paired source's name only ever matches once — in the popup.
-      await tester.tap(find.text('TICKR 1234').last);
+      await tester.tap(find.byKey(const Key('sensor-toggle-heartRate-strap')));
       await tester.pumpAndSettle();
 
       expect(core.settings.getSensorSelection(SensorQuantity.heartRate.name), 'strap');
@@ -118,12 +111,7 @@ void main() {
       await core.settings.setSensorSelection(SensorQuantity.heartRate.name, 'strap');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.descendant(
-          of: find.byKey(const Key('sensor-quantity-heartRate')),
-          matching: find.byType(Select<String?>),
-        ));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(AppLocalizations.current.sensorSourceTrainer).last);
+      await tester.tap(find.byKey(const Key('sensor-toggle-heartRate-trainer')));
       await tester.pumpAndSettle();
 
       expect(core.settings.getSensorSelection(SensorQuantity.heartRate.name), isNull);
@@ -164,12 +152,7 @@ void main() {
         // Change the ONLY quantity this section exposes — heart rate — while
         // `power`'s selection above is still pending (its source, if it ever
         // registers, is not part of this test at all).
-        await tester.tap(find.descendant(
-          of: find.byKey(const Key('sensor-quantity-heartRate')),
-          matching: find.byType(Select<String?>),
-        ));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('TICKR 1234').last);
+        await tester.tap(find.byKey(const Key('sensor-toggle-heartRate-strap')));
         await tester.pumpAndSettle();
 
         expect(core.settings.getSensorSelection(SensorQuantity.heartRate.name), 'strap');
@@ -370,26 +353,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(hub.selectionFor(SensorQuantity.power), 'pwr-1');
-    });
-  });
-
-  // T5-D: the power-meter opt-in toggle. Wording lives only in the ARB file —
-  // this only ever asserts the switch's key and the persisted setting, never
-  // literal translated copy.
-  group('power-meter opt-in toggle', () {
-    testWidgets('renders off by default and persists on when toggled', (tester) async {
-      await pumpSection(tester);
-
-      expect(core.settings.getPowerMeterOptIn(), isFalse);
-      final switchFinder = find.byKey(const Key('power-meter-opt-in-switch'));
-      expect(switchFinder, findsOneWidget);
-      expect(tester.widget<Switch>(switchFinder).value, isFalse);
-
-      await tester.tap(switchFinder);
-      await tester.pumpAndSettle();
-
-      expect(core.settings.getPowerMeterOptIn(), isTrue);
-      expect(tester.widget<Switch>(switchFinder).value, isTrue);
     });
   });
 }

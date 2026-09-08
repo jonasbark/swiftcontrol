@@ -25,13 +25,13 @@ import 'package:universal_ble/universal_ble.dart';
 /// settings page renders an empty Button Mapping table.
 ///
 /// Detection is deliberately narrower than a cadence sensor's: many power
-/// meters accept only one simultaneous BLE connection, so
-/// `BluetoothDevice.fromScanResult`'s `_hiddenPowerMeterNames` still hides
-/// Favero/Quarq/PowerCrank-style meters — known to cause exactly that
-/// conflict — unless the rider has opted in via `Settings.getPowerMeterOptIn`.
+/// meters accept only one simultaneous BLE connection — see
+/// `BluetoothDevice._advertisesTrainerService`'s doc comment for the one
+/// classification guard that still applies regardless (a device advertising
+/// a trainer service is a trainer, not a power meter, no matter its name).
 ///
 /// `with BleSensorDevice`: the shared surface `Connection` and
-/// `SensorDiscoverySection` dispatch on so a strap, a cadence sensor and a
+/// `SensorQuantitySelector` dispatch on so a strap, a cadence sensor and a
 /// power meter can all be reached the same way — see that mixin's doc
 /// comment.
 class BlePowerDevice extends BluetoothDevice with Accessory, BleSensorDevice {
@@ -56,9 +56,9 @@ class BlePowerDevice extends BluetoothDevice with Accessory, BleSensorDevice {
   /// unit mid-ride, for no benefit to them here.
   ///
   /// Backed by the same persisted per-device consent flag `BleHeartRateDevice`
-  /// uses — false until the rider taps Connect on this meter in the
-  /// discovered-sensors list (`SensorDiscoverySection`), which sets the flag
-  /// before calling `Connection.connectDevice`. From then on it reconnects
+  /// uses — false until the rider selects this meter in its quantity's
+  /// toggle group (`SensorQuantitySelector`), which sets the flag before
+  /// calling `Connection.connectDevice`. From then on it reconnects
   /// automatically like every other remembered device, including across the
   /// fresh instance `fromScanResult` builds on every rediscovery (see
   /// `SensorHub.register`'s doc comment) — the flag is keyed by the stable
