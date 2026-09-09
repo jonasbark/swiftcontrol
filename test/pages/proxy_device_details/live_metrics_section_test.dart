@@ -202,6 +202,65 @@ void main() {
       },
     );
 
+    testWidgets(
+      "when BOTH cards grow a list of different lengths, the shorter card's list is pinned to the "
+      'top — not centred or bottom-weighted by the extra stretched height',
+      (tester) async {
+        // POWER: one candidate (Trainer + the meter) — the shorter list,
+        // whose card ends up stretched to HEART's height below.
+        final powerMeter = BlePowerDevice(BleDevice(deviceId: 'equal-height-power', name: 'ASSIOMA DUO'));
+        core.connection.devices.add(powerMeter);
+        // HEART: two candidates (Trainer + both straps) — the taller list,
+        // driving the row's own height.
+        final hr1 = BleHeartRateDevice(BleDevice(deviceId: 'equal-height-hr-1', name: 'TICKR 5555'));
+        final hr2 = BleHeartRateDevice(BleDevice(deviceId: 'equal-height-hr-2', name: 'TICKR 6666'));
+        core.connection.devices.add(hr1);
+        core.connection.devices.add(hr2);
+        addTearDown(() => core.connection.devices.clear());
+
+        await pump(tester);
+
+        expect(controlIn('power'), findsOneWidget);
+        expect(controlIn('heartRate'), findsOneWidget);
+
+        final powerCard = find.byKey(const Key('metric-card-power'));
+        final heartCard = find.byKey(const Key('metric-card-heartRate'));
+        final powerCardRect = tester.getRect(powerCard);
+        final heartCardRect = tester.getRect(heartCard);
+        // The fixture actually reproduces the mismatch: HEART's list really
+        // is longer, so POWER's card is the one equalised (stretched) here.
+        expect(powerCardRect.height, heartCardRect.height);
+
+        // The header (and so the whole list under it) sits at the SAME y in
+        // both cards — level with where the value column ends, regardless
+        // of which card's own list is shorter and got stretched to fit a
+        // taller row-mate.
+        final powerHeaderTop = tester
+            .getTopLeft(
+              find.descendant(of: powerCard, matching: find.byKey(const Key('metric-card-source-header'))),
+            )
+            .dy;
+        final heartHeaderTop = tester
+            .getTopLeft(
+              find.descendant(of: heartCard, matching: find.byKey(const Key('metric-card-source-header'))),
+            )
+            .dy;
+        expect(powerHeaderTop, heartHeaderTop);
+
+        // And the spare height from equalisation lands BELOW POWER's
+        // (shorter) list, not squeezed above it or spread invisibly through
+        // it — the list's own bottom edge sits above the card's own bottom
+        // padding edge, with room to spare.
+        final powerListBottom = tester
+            .getBottomLeft(
+              find.descendant(of: powerCard, matching: find.byKey(const Key('metric-card-source-control'))),
+            )
+            .dy;
+        final powerCardContentBottom = powerCardRect.bottom - 14; // the card's own 14px padding
+        expect(powerCardContentBottom - powerListBottom, greaterThan(8));
+      },
+    );
+
     testWidgets('renders without throwing when laid out with unbounded height (inside a scroll view)', (
       tester,
     ) async {

@@ -217,15 +217,49 @@ class MetricCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         valueRow,
-                        const Gap(12),
-                        Expanded(child: list),
+                        const Gap(6),
+                        // A real `VerticalDivider` (see the package source)
+                        // has NO way to bound its own cross axis (height) —
+                        // with no child it hard-codes `height:
+                        // double.infinity`, tightened down to whatever this
+                        // Row's OWN incoming height happens to be. That is
+                        // fine in a normal bounded layout, but this section
+                        // always sits inside a `SingleChildScrollView` on
+                        // both its real call sites (`LiveMetricsSection`'s
+                        // own doc comment), so the incoming height here is
+                        // genuinely unbounded — proven by pumping a bare
+                        // `VerticalDivider()` here before writing this: it
+                        // throws "BoxConstraints forces an infinite height".
+                        // `device.dart` hit the identical problem for its
+                        // own device-group separator and solved it the same
+                        // way: paint the rule as a border instead, sized by
+                        // the list's own real (never intrinsic, never
+                        // infinite) layout rather than by a widget that
+                        // demands unbounded height.
+                        Expanded(
+                          child: Container(
+                            key: const Key('metric-card-source-divider'),
+                            padding: const EdgeInsets.only(left: 6),
+                            decoration: BoxDecoration(border: Border(left: BorderSide(color: cs.border))),
+                            child: list,
+                          ),
+                        ),
                       ],
                     );
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     spacing: 8,
-                    children: [valueRow, list],
+                    children: [
+                      valueRow,
+                      // Stacked: a horizontal `Divider` has no such problem
+                      // — its cross axis (width) is bounded by the card's
+                      // own fixed width, never by the (possibly unbounded)
+                      // incoming height, so the real shadcn widget is safe
+                      // to use directly here.
+                      const Divider(key: Key('metric-card-source-divider')),
+                      list,
+                    ],
                   );
                 },
               ),
@@ -243,10 +277,17 @@ class MetricCard extends StatelessWidget {
       children: [
         Text(
           value ?? '--',
+          // Tabular (fixed-width) digits — restores the design system's own
+          // `.mvalue` spec (`font-variant-numeric: tabular-nums`), dropped
+          // in the Flutter port. Without it, a changing reading (1 → 11,
+          // or a heart rate flickering 98/100) reflows the glyph widths
+          // every frame and the whole tile visibly jitters. Scoped to the
+          // value only — the unit text below is untouched.
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
+            fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
         Padding(
@@ -278,6 +319,20 @@ class MetricCard extends StatelessWidget {
       width: double.infinity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        // Pinned to its own natural (content) height, not `.max` — per
+        // direct author feedback ("align the 'Source' list to the top").
+        // `_EqualHeightRow` (`live_metrics_section.dart`) can hand this
+        // list's ancestor Container a generous, bounded height once a
+        // row-mate card grows taller; without `.min` this Column is
+        // entitled to claim all of it (`RenderFlex` sizes a `MainAxisSize
+        // .max` child to its incoming max whenever that max is finite —
+        // see the framework's own `_computeSizes`), which would let the
+        // list itself absorb the equalisation slack instead of leaving it
+        // as blank space below. `.min` keeps the header level with the
+        // value column and pushes any spare height under the last row,
+        // where `MainAxisAlignment.start` (this Column's own default,
+        // untouched) already puts it.
+        mainAxisSize: MainAxisSize.min,
         spacing: 2,
         children: [
           _sourceListHeader(context, cs),

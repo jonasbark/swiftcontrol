@@ -89,6 +89,10 @@ Future<void> main() async {
       expect(find.text('142'), findsOneWidget);
       expect(find.text('bpm'), findsOneWidget);
       expect(find.byKey(const Key('metric-card-source-control')), findsNothing);
+      // No source list, no divider either — a divider with nothing to
+      // separate would be a stray line on the tile's pristine, no-sensors
+      // rendering.
+      expect(find.byKey(const Key('metric-card-source-divider')), findsNothing);
     });
 
     testWidgets('an empty source list also renders no control', (tester) async {
@@ -524,6 +528,116 @@ Future<void> main() async {
       // Beside, not stacked further down the same column: the two starting
       // points sit within one row's height of each other.
       expect((listTop.dy - valueTop.dy).abs(), lessThan(30));
+    });
+
+    group('a divider separates value from source list (direct author feedback: "add a ... divider")', () {
+      testWidgets('narrow (stacked): a HORIZONTAL divider sits between value and list', (tester) async {
+        await pump(
+          tester,
+          MetricCard(
+            key: const Key('under-test'),
+            icon: baseCard.icon,
+            iconColor: baseCard.iconColor,
+            label: baseCard.label,
+            value: baseCard.value,
+            unit: baseCard.unit,
+            sources: sources,
+          ),
+        );
+
+        final dividerFinder = find.descendant(
+          of: find.byKey(const Key('under-test')),
+          matching: find.byKey(const Key('metric-card-source-divider')),
+        );
+        expect(dividerFinder, findsOneWidget);
+        // Stacked layout: a real shadcn `Divider` (horizontal line) is safe
+        // to use directly here — its cross axis (width) is naturally bounded
+        // by the card's own fixed width, unlike `VerticalDivider`, whose
+        // cross axis (height) is NOT bounded here (see the wide test below).
+        expect(tester.widget(dividerFinder), isA<Divider>());
+
+        // Between, not above or below both: sits after the value and before
+        // the list.
+        final valueBottom = tester.getBottomLeft(find.text('142')).dy;
+        final dividerTop = tester.getTopLeft(dividerFinder).dy;
+        final listTop = tester.getTopLeft(find.byKey(const Key('metric-card-source-option-trainer'))).dy;
+        expect(dividerTop, greaterThanOrEqualTo(valueBottom));
+        expect(listTop, greaterThanOrEqualTo(tester.getBottomLeft(dividerFinder).dy));
+
+        // Subtle — a hairline, not a bar: much shorter than it is wide.
+        final size = tester.getSize(dividerFinder);
+        expect(size.height, lessThan(4));
+      });
+
+      testWidgets('wide (side-by-side): a VERTICAL divider sits between value and list', (tester) async {
+        await pump(
+          tester,
+          MetricCard(
+            key: const Key('under-test'),
+            icon: baseCard.icon,
+            iconColor: baseCard.iconColor,
+            label: baseCard.label,
+            value: baseCard.value,
+            unit: baseCard.unit,
+            sources: sources,
+          ),
+          width: 900,
+        );
+
+        final dividerFinder = find.descendant(
+          of: find.byKey(const Key('under-test')),
+          matching: find.byKey(const Key('metric-card-source-divider')),
+        );
+        expect(dividerFinder, findsOneWidget);
+        // No RenderFlex/layout overflow, and — the actual trap — no
+        // "BoxConstraints forces an infinite height" from a bare
+        // `VerticalDivider`: this Row always sits inside a scroll view in
+        // real usage (`LiveMetricsSection`'s own doc comment), so its
+        // incoming height is genuinely unbounded, not just generously
+        // large. Proven by reproducing the crash with a literal
+        // `VerticalDivider()` here before writing the real fix.
+        expect(tester.takeException(), isNull);
+
+        // Between the value and the list horizontally, not stacked below
+        // either.
+        final valueRight = tester.getTopRight(find.text('142')).dx;
+        final dividerLeft = tester.getTopLeft(dividerFinder).dx;
+        final listLeft = tester.getTopLeft(find.byKey(const Key('metric-card-source-option-trainer'))).dx;
+        expect(dividerLeft, greaterThanOrEqualTo(valueRight));
+        expect(listLeft, greaterThanOrEqualTo(dividerLeft));
+
+        // Subtle — a hairline rule on the leading edge, not a bar: a real
+        // `VerticalDivider` can't be used here at all (see this widget's own
+        // build-method comment), so the vertical case is a bordered
+        // container wrapping the list rather than a thin standalone line —
+        // assert the border itself, not a narrow bounding box.
+        final container = tester.widget<Container>(dividerFinder);
+        final decoration = container.decoration as BoxDecoration?;
+        final leftBorder = (decoration?.border as Border?)?.left;
+        expect(leftBorder, isNotNull);
+        expect(leftBorder!.width, lessThan(2));
+        expect(leftBorder.color, isNot(Colors.transparent));
+        // Taller than the value's own single line — it spans the full
+        // side-by-side content height, not just a token-sized swatch.
+        final size = tester.getSize(dividerFinder);
+        expect(size.height, greaterThan(tester.getSize(find.text('142')).height));
+      });
+    });
+  });
+
+  group('the value is fixed-width (direct author feedback: "otherwise the layout jumps around")', () {
+    testWidgets('the big value carries tabularFigures so digit changes do not reflow the tile', (tester) async {
+      await pump(tester, baseCard);
+
+      final text = tester.widget<Text>(find.text('142'));
+      expect(text.style?.fontFeatures, contains(const FontFeature.tabularFigures()));
+    });
+
+    testWidgets('the unit stays as-is — tabular figures are for the numeric value only', (tester) async {
+      await pump(tester, baseCard);
+
+      final text = tester.widget<Text>(find.text('bpm'));
+      expect(text.style?.fontFeatures ?? const [], isNot(contains(const FontFeature.tabularFigures())));
     });
   });
 }
