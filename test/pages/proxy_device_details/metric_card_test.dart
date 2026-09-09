@@ -151,6 +151,52 @@ Future<void> main() async {
     });
   });
 
+  group('Source header (direct author feedback: "add a small \'Source\' header")', () {
+    testWidgets('renders above the list when a list is shown', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(id: 'hr-1', label: 'HR6 0050789', state: MetricSourceState.notConnected),
+          ],
+        ),
+      );
+
+      expect(find.byKey(const Key('metric-card-source-header')), findsOneWidget);
+      final headerTop = tester.getTopLeft(find.byKey(const Key('metric-card-source-header'))).dy;
+      final firstRowTop = tester.getTopLeft(find.byKey(const Key('metric-card-source-option-trainer'))).dy;
+      expect(headerTop, lessThan(firstRowTop));
+    });
+
+    testWidgets('does not render when there is no list at all (THE INVARIANT is unchanged)', (tester) async {
+      await pump(tester, baseCard);
+
+      expect(find.byKey(const Key('metric-card-source-header')), findsNothing);
+    });
+
+    testWidgets('does not render for a single-entry (nothing-to-choose) list', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true)],
+        ),
+      );
+
+      expect(find.byKey(const Key('metric-card-source-header')), findsNothing);
+    });
+  });
+
   group('sources render as a list, not a toggle', () {
     testWidgets('Trainer plus every source render as their own row, each with its own subtitle', (tester) async {
       await pump(

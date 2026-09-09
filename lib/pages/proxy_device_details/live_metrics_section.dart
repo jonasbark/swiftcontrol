@@ -444,7 +444,16 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
           // no-ops (does nothing, throws nothing) when the id doesn't
           // resolve to a currently-connected `BleSensorDevice` — e.g. a
           // persisted selection whose sensor never actually connected.
-          await _disconnect(_connectedDeviceFor(previousSourceId));
+          //
+          // `forget: false` here — unlike the explicit disconnect action
+          // below (see `_disconnect`'s own doc comment): `core.sensors
+          // .select(quantity, sourceId)` above already cleared THIS
+          // quantity's pointer, and `stillInUse` just proved no OTHER
+          // quantity points at it either, so `forget: true`'s own
+          // selection-clearing walk (`Connection._unregisterSensorSource`)
+          // would find nothing left to do — the reason it was chosen no
+          // longer applies on this path.
+          await _disconnect(_connectedDeviceFor(previousSourceId), forget: false);
         }
       }
 
@@ -459,20 +468,38 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
     }
   }
 
-  /// The deliberate-forget case, not a transient drop — ordering ported
+  /// A deliberate disconnect, not a transient drop — ordering ported
   /// unchanged from the deleted `SensorSourcePicker._disconnect`. The
   /// consent flag is cleared BEFORE calling `disconnect` so nothing can read
-  /// a stale "yes" in the gap between the two calls; `forget: true` also
-  /// drops any quantity selection pointing at this source
-  /// (`Connection._unregisterSensorSource`), so the rider falls back to
-  /// Trainer for it. `persistForget: false`, deliberately: this is "I'm done
-  /// with my strap for now", not "this was never mine" — `true` would hide
-  /// it from every future scan via the permanent ignore list.
-  Future<void> _disconnect(BleSensorDevice? device) async {
+  /// a stale "yes" in the gap between the two calls.
+  ///
+  /// [forget] defaults to `true` — the list's own explicit disconnect action
+  /// (`onDisconnect` above) calls this with no selection cleanup of its own,
+  /// so it relies on `forget: true` to drop this quantity's (and any other
+  /// quantity's) selection pointing at this source
+  /// (`Connection._unregisterSensorSource`), falling back to Trainer. The
+  /// Trainer-selection path in `_select` passes `forget: false` instead — it
+  /// already cleared every pointer to this source itself before calling
+  /// here, so `forget: true`'s selection walk would be a no-op there; see
+  /// its own call site comment.
+  ///
+  /// `persistForget: false` always, deliberately: this is "I'm done with my
+  /// strap for now", not "this was never mine" — `true` would hide it from
+  /// every future scan via the permanent ignore list.
+  ///
+  /// `keepInList: true` always: per direct author feedback, a disconnected
+  /// sensor must stay in the candidate list and be immediately selectable
+  /// again — not vanish until the next scan happens to rediscover it. Reuses
+  /// the exact same `Connection.disconnect(keepInList: true)` machinery the
+  /// in-place "No connection" picker entry already relies on
+  /// (`connection_card.dart`, `onboarding_page.dart`,
+  /// `ProxyDevice.reconnectUpstream`) rather than inventing a parallel way to
+  /// keep a device round after its own BLE link drops.
+  Future<void> _disconnect(BleSensorDevice? device, {bool forget = true}) async {
     if (device == null) return;
     try {
       await core.settings.setSensorAutoConnect(device.device.deviceId, false);
-      await core.connection.disconnect(device, forget: true, persistForget: false);
+      await core.connection.disconnect(device, forget: forget, persistForget: false, keepInList: true);
       if (mounted) setState(() {});
     } catch (e, s) {
       await recordError(e, s, context: 'LiveMetricsSection._disconnect');

@@ -211,7 +211,7 @@ class MetricCard extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final valueRow = _valueRow(cs);
-                  final list = _sourceList(cs, options);
+                  final list = _sourceList(context, cs, options);
                   if (constraints.maxWidth >= _sideBySideBreakpoint) {
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,15 +269,41 @@ class MetricCard extends StatelessWidget {
   /// own subtitle explaining what selecting it means (see
   /// [MetricSourceOption.subtitle]). Replaces the horizontally-scrolling
   /// pill row this control used before direct author feedback ("make it a
-  /// list instead of a toggle").
-  Widget _sourceList(ColorScheme cs, List<MetricSourceOption> options) {
+  /// list instead of a toggle"). [_sourceListHeader] only ever appears
+  /// attached to this list — never on a tile with no list at all — since it
+  /// is composed in here rather than in [build] alongside the list.
+  Widget _sourceList(BuildContext context, ColorScheme cs, List<MetricSourceOption> options) {
     return SizedBox(
       key: const Key('metric-card-source-control'),
       width: double.infinity,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 2,
-        children: [for (final option in options) _row(cs, option)],
+        children: [
+          _sourceListHeader(context, cs),
+          for (final option in options) _row(cs, option),
+        ],
+      ),
+    );
+  }
+
+  /// Per direct author feedback ("add a small 'Source' header"): sits right
+  /// above the row list, in the SAME visual register as the tile's own
+  /// uppercase label above (bold, tracked-out, muted) but a size and weight
+  /// down from it so it reads as clearly subordinate — it must never compete
+  /// with the metric label at the top of the tile or the value beside it.
+  Widget _sourceListHeader(BuildContext context, ColorScheme cs) {
+    return Padding(
+      key: const Key('metric-card-source-header'),
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(
+        AppLocalizations.of(context).sensorSourceListHeader,
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
+          color: cs.mutedForeground.withValues(alpha: 0.7),
+        ),
       ),
     );
   }

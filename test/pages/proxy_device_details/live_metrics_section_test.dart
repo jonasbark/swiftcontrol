@@ -747,6 +747,54 @@ void main() {
       },
     );
 
+    // THE REGRESSION direct author feedback caught: "it now disconnects the
+    // sensor, but it also [dis]appears from the sensors list for a few
+    // seconds - should remain selectable". A rider who taps Trainer must see
+    // the sensor's own row stay put, not vanish until the next scan
+    // rediscovers it.
+    testWidgets(
+      'the disconnected sensor stays listed and selectable — it must not vanish while out of range',
+      (tester) async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        final ble = FakeUniversalBlePlatform();
+        UniversalBle.setInstance(ble);
+        final peripheral = strapPeripheral(deviceId: 'hr-stays-listed-1');
+        ble.addPeripheral(peripheral);
+        final device = BleHeartRateDevice(peripheral.scanResult);
+        core.connection.devices.add(device);
+        addTearDown(() {
+          core.sensors.unregister(device.source.id);
+          core.sensors.select(SensorQuantity.heartRate, null);
+        });
+
+        await pump(tester);
+        await tester.ensureVisible(segmentIn('heartRate', device.source.id));
+        await tester.tap(segmentIn('heartRate', device.source.id));
+        await tester.pumpAndSettle();
+        expect(device.isConnected, isTrue);
+
+        await tester.ensureVisible(segmentIn('heartRate', 'trainer'));
+        await tester.tap(segmentIn('heartRate', 'trainer'));
+        await tester.pumpAndSettle();
+
+        // THE REGRESSION: right after the disconnect settles — no rescan,
+        // no delay — the sensor's own row must still be present.
+        expect(core.connection.devices.contains(device), isTrue);
+        expect(segmentIn('heartRate', device.source.id), findsOneWidget);
+
+        // ...and selectable again: tapping it reconnects the very same
+        // device object (never rediscovered, never rebuilt).
+        await tester.ensureVisible(segmentIn('heartRate', device.source.id));
+        await tester.tap(segmentIn('heartRate', device.source.id));
+        await tester.pumpAndSettle();
+
+        expect(device.isConnected, isTrue);
+        expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+
+        await core.connection.stop();
+      },
+    );
+
     // THE CASE THAT MUST BE GOT RIGHT: a combo power meter serving BOTH
     // power and cadence (`BlePowerDevice.provides`). Switching POWER back to
     // Trainer must NOT drop the meter — it is still CADENCE's live source. A
