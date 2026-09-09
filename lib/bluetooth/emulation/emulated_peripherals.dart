@@ -252,6 +252,22 @@ FakePeripheral buildFtmsTrainer({String deviceId = 'fake-kickr', String name = '
   return peripheral;
 }
 
+/// A Zwift-Cog smart trainer (KICKR CORE Zwift One / Elite Direto Zwift-ready):
+/// FTMS + Cycling Power like [buildFtmsTrainer], plus its own Zwift custom
+/// service, so the definition classifies it as a grade-native trainer.
+FakePeripheral buildZwiftCogTrainer({String deviceId = 'fake-cog', String name = 'KICKR CORE 5775'}) {
+  final peripheral = buildFtmsTrainer(deviceId: deviceId, name: name);
+  peripheral.advertisedServices.add(ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID.toLowerCase());
+  peripheral.services.add(
+    BleService(ZwiftConstants.ZWIFT_CUSTOM_SERVICE_UUID, [
+      bleChar(ZwiftConstants.ZWIFT_ASYNC_CHARACTERISTIC_UUID, [CharacteristicProperty.notify]),
+      bleChar(ZwiftConstants.ZWIFT_SYNC_RX_CHARACTERISTIC_UUID, [CharacteristicProperty.write]),
+      bleChar(ZwiftConstants.ZWIFT_SYNC_TX_CHARACTERISTIC_UUID, [CharacteristicProperty.indicate]),
+    ]),
+  );
+  return peripheral;
+}
+
 /// Wires the standard Zwift controller handshake: when the app writes RideOn
 /// to Sync RX, the device acknowledges on Sync TX with its start response.
 void autoRespondToZwiftHandshake(

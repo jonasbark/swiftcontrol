@@ -167,8 +167,8 @@ Status: ${guard(() => IAPManager.instance.getStatusMessage())}${userId != null ?
 $diagnostics
 ${networkTest.isEmpty ? '' : '$networkTest\n'}Logs:
 ${guard(() => core.connection.lastLogEntries.reversed.joinToString(separator: '\n', transform: (e) => '${e.date.toString().split('.').first} - ${e.entry}'))}${guard(() {
-    // Verbose DirCon/trainer wire trace (beta only), in its own section so it
-    // never crowds out the high-level Logs above. Empty for everyone else.
+    // Verbose DirCon/trainer wire trace, in its own section so it never
+    // crowds out the high-level Logs above.
     final trace = core.connection.lastTraceEntries;
     return trace.isEmpty
         ? ''
@@ -264,6 +264,10 @@ String describeProxyDevice(ProxyDevice device) {
     // the native path; `missed·N` shows a verdict building up.
     final gearAck = def.gearEchoSummary;
     if (gearAck != 'n/a') parts.add('zwiftGearAck=$gearAck');
+    // The trainer refused to start grade simulation and virtual shifting was
+    // switched to power — the line that explains vsMode=targetPower on a
+    // bundle whose rider picked Track Resistance.
+    if (def.trackResistanceRefused.value) parts.add('simGrade=refused→power');
     final ctl = def.lastControlWrite;
     if (ctl != null) {
       final age = DateTime.now().difference(ctl.at).inSeconds;

@@ -5,6 +5,7 @@ import 'package:bike_control/bluetooth/devices/cycplus/cycplus_bc2.dart';
 import 'package:bike_control/bluetooth/devices/elite/elite_square.dart';
 import 'package:bike_control/bluetooth/devices/elite/elite_sterzo.dart';
 import 'package:bike_control/bluetooth/devices/ltwoo/ltwoo_erx.dart';
+import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/shimano/shimano_di2.dart';
 import 'package:bike_control/bluetooth/devices/sram/sram_axs.dart';
 import 'package:bike_control/bluetooth/devices/wahoo/wahoo_kickr_bike_shift.dart';
@@ -160,6 +161,25 @@ void main() {
     });
     test('legacy LTOED00 model is excluded', () {
       final device = _createBleDevice(name: 'LTOED001234');
+      expect(BluetoothDevice.fromScanResult(device), isNull);
+    });
+  });
+
+  group('Detect Tacx Neo (name-only, empty advertisement)', () {
+    test('Tacx Neo 2T with empty services/serviceData still detected as proxy', () {
+      // Windows' universal_ble surfaces the Neo with an empty advertisement —
+      // no services, no serviceData — so only the name is usable.
+      final device = _createBleDevice(name: 'Tacx Neo 2T 48844');
+      expect(BluetoothDevice.fromScanResult(device), isInstanceOf<ProxyDevice>());
+    });
+
+    test('lowercase advertised name still matches (case-insensitive)', () {
+      final device = _createBleDevice(name: 'tacx neo 2t');
+      expect(BluetoothDevice.fromScanResult(device), isInstanceOf<ProxyDevice>());
+    });
+
+    test('unrelated unknown name with empty services stays null', () {
+      final device = _createBleDevice(name: 'Some Random Trainer');
       expect(BluetoothDevice.fromScanResult(device), isNull);
     });
   });

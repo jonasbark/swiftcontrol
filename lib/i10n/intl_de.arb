@@ -1823,6 +1823,9 @@
   "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Steuerungsprotokoll",
   "controlProtocolHint": "Wie BikeControl mit diesem Trainer spricht. Automatisch ist richtig, solange ein Test nichts anderes sagt.",
+  "controlProtocolIgnored": "Dein Trainer bestätigt die Schaltbefehle über das gewählte Protokoll nicht. BikeControl würde normalerweise wechseln, behält aber deine manuelle Auswahl bei.",
+  "controlProtocolIgnoredNoFallback": "Dein Trainer bestätigt die Schaltbefehle nicht und bietet kein anderes Protokoll als Ausweichweg an.",
+  "controlProtocolUseAuto": "Auf Automatisch umstellen",
   "controlProtocolAuto": "Automatisch (empfohlen)",
   "controlProtocolFtms": "FTMS",
   "controlProtocolFec": "FE-C",
@@ -2033,5 +2036,7 @@
   "ltwooHintCloseApp": "Schließe die LTWOO-App während der Fahrt — das Schaltwerk erlaubt nur eine Bluetooth-Verbindung gleichzeitig.",
   "ltwooHintCassetteEnds": "Am Ende der Kassette sendet das Schaltwerk kein Signal mehr — es kann nicht weiter schalten.",
   "ltwooWrongPinAlert": "Das L-TWOO-Schaltwerk hat die PIN abgelehnt. Prüfe die Geräte-PIN in den Einstellungen dieses Controllers.",
-  "ltwooPinLabel": "Geräte-PIN"
+  "ltwooPinLabel": "Geräte-PIN",
+  "ltwooAnchorGearTitle": "Schaltwerk in Position halten",
+  "ltwooAnchorGearDescription": "Nach jedem Schaltvorgang schaltet BikeControl das Schaltwerk zurück, damit die Kette auf einem Ritzel bleibt. Das Schaltwerk bewegt sich bei jedem Tastendruck kurz."
 }

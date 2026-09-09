@@ -2051,6 +2051,9 @@
   "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Control protocol",
   "controlProtocolHint": "How BikeControl talks to this trainer. Auto is right unless a test told you otherwise.",
+  "controlProtocolIgnored": "Your trainer is not acknowledging gear commands on the protocol you picked. BikeControl would normally switch, but your manual choice is kept.",
+  "controlProtocolIgnoredNoFallback": "Your trainer is not acknowledging gear commands, and offers no other protocol to fall back to.",
+  "controlProtocolUseAuto": "Switch to Auto",
   "controlProtocolAuto": "Auto (recommended)",
   "controlProtocolFtms": "FTMS",
   "controlProtocolFec": "FE-C",
@@ -2237,5 +2240,7 @@
   "sensorValueCadence": "{value} rpm",
   "@sensorValueCadence": {"placeholders": {"value": {"type": "int"}}},
   "sensorValuePower": "{value} W",
-  "@sensorValuePower": {"placeholders": {"value": {"type": "int"}}}
+  "@sensorValuePower": {"placeholders": {"value": {"type": "int"}}},
+  "ltwooAnchorGearTitle": "Keep derailleur in place",
+  "ltwooAnchorGearDescription": "After each shift, BikeControl shifts the derailleur back so the chain stays on one cog. The derailleur will briefly move with every press."
 }

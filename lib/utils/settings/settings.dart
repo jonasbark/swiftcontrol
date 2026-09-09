@@ -828,6 +828,22 @@ class Settings {
 
   Future<void> setLtwooPin(String deviceId, String pin) async => prefs.setString('ltwoo_pin_$deviceId', pin);
 
+  /// Anchor-gear mode: after each rider shift, the derailleur is shifted back
+  /// so the chain stays on one cog while the levers drive virtual shifting.
+  bool getLtwooAnchorGearEnabled(String deviceId) => prefs.getBool('ltwoo_anchor_gear_$deviceId') ?? false;
+
+  Future<void> setLtwooAnchorGearEnabled(String deviceId, bool enabled) async =>
+      prefs.setBool('ltwoo_anchor_gear_$deviceId', enabled);
+
+  /// Learned orientation of the rear remote-shift opcodes: true when this
+  /// derailleur moves opposite to the default mapping (LtwooErx verifies the
+  /// mapping at runtime and persists the result here).
+  bool getLtwooShiftOrientationInverted(String deviceId) =>
+      prefs.getBool('ltwoo_shift_orientation_inverted_$deviceId') ?? false;
+
+  Future<void> setLtwooShiftOrientationInverted(String deviceId, bool inverted) async =>
+      prefs.setBool('ltwoo_shift_orientation_inverted_$deviceId', inverted);
+
   // SRAM AXS Settings
 
   String? getSramKey(String serial) => prefs.getString('sram_key_$serial');

@@ -1814,6 +1814,9 @@
   "@selfTestCtaTryProtocol": {"placeholders": {"protocol": {"type": "String"}}},
   "controlProtocolLabel": "Protokół sterowania",
   "controlProtocolHint": "Sposób, w jaki BikeControl komunikuje się z tym trenażerem. Auto jest właściwe, chyba że test wskazał inaczej.",
+  "controlProtocolIgnored": "Trenażer nie potwierdza poleceń zmiany biegów w wybranym protokole. BikeControl normalnie by go zmienił, ale ręczny wybór zostaje zachowany.",
+  "controlProtocolIgnoredNoFallback": "Trenażer nie potwierdza poleceń zmiany biegów i nie udostępnia innego protokołu zapasowego.",
+  "controlProtocolUseAuto": "Przełącz na Auto",
   "controlProtocolAuto": "Auto (zalecane)",
   "controlProtocolFtms": "FTMS",
   "controlProtocolFec": "FE-C",
@@ -2033,5 +2036,7 @@
   "ltwooHintCloseApp": "Zamknij aplikację LTWOO podczas jazdy — przerzutka obsługuje tylko jedno połączenie Bluetooth naraz.",
   "ltwooHintCassetteEnds": "Na końcach kasety przerzutka nie wysyła sygnału — nie może przesunąć się dalej.",
   "ltwooWrongPinAlert": "Przerzutka L-TWOO odrzuciła PIN. Sprawdź PIN urządzenia w ustawieniach tego kontrolera.",
-  "ltwooPinLabel": "PIN urządzenia"
+  "ltwooPinLabel": "PIN urządzenia",
+  "ltwooAnchorGearTitle": "Utrzymuj przerzutkę w miejscu",
+  "ltwooAnchorGearDescription": "Po każdej zmianie biegu BikeControl cofa przerzutkę, aby łańcuch pozostał na jednej zębatce. Przerzutka będzie się krótko poruszać przy każdym naciśnięciu."
 }
