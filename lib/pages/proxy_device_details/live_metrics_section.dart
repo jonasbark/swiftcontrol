@@ -241,7 +241,7 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
     );
   }
 
-  /// [quantity]'s full segmented option list — Trainer first, then every
+  /// [quantity]'s full source-list option set — Trainer first, then every
   /// sensor known to provide it, connected or not — or null to omit the
   /// control entirely: the tile-level invariant that a rider with no
   /// candidate sources at all (nothing registered, nothing nearby, nothing
@@ -259,6 +259,7 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
       MetricSourceOption(
         id: 'trainer',
         label: l10n.sensorSourceTrainer,
+        subtitle: l10n.sensorSourceTrainerSubtitle,
         state: MetricSourceState.trainer,
         selected: selectedId == null,
         onSelect: () => _select(quantity, null),
@@ -269,11 +270,13 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
     for (final candidate in candidates) {
       final isSelected = candidate.source.id == selectedId;
       if (isSelected) selectionMatched = true;
+      final state = _candidateState(quantity, candidate, isSelected: isSelected, droppedOut: droppedOut);
       options.add(
         MetricSourceOption(
           id: candidate.source.id,
           label: candidate.source.displayName,
-          state: _candidateState(quantity, candidate, isSelected: isSelected, droppedOut: droppedOut),
+          subtitle: _candidateSubtitle(l10n, state, isSelected: isSelected),
+          state: state,
           selected: isSelected,
           onSelect: () => _select(quantity, candidate),
           onDisconnect: isSelected && candidate.isConnected
@@ -292,6 +295,7 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
         MetricSourceOption(
           id: selectedId,
           label: l10n.sensorConnecting,
+          subtitle: l10n.sensorSourceConnectingGhostSubtitle,
           state: MetricSourceState.connecting,
           selected: true,
           onSelect: () async {},
@@ -300,6 +304,28 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
     }
 
     return options;
+  }
+
+  /// The plain-English "what does this row mean" line under each source's
+  /// own name — the point of the redesigned list per direct author feedback
+  /// ("use subtitles ... to explain what each entry means"). Kept next to
+  /// [_candidateState] since the two together fully describe a row: the
+  /// dot's colour and this text must never disagree.
+  ///
+  /// [MetricSourceState.connected] is the one state real-world meaning
+  /// splits in two depending on [isSelected] — see `_candidateState`'s doc
+  /// comment on why a "connected" candidate can be either this quantity's
+  /// live source or a sensor already linked for something else entirely.
+  String _candidateSubtitle(AppLocalizations l10n, MetricSourceState state, {required bool isSelected}) {
+    return switch (state) {
+      MetricSourceState.trainer => l10n.sensorSourceTrainerSubtitle,
+      MetricSourceState.notConnected => l10n.sensorSourceNotConnectedSubtitle,
+      MetricSourceState.connecting => l10n.sensorConnecting,
+      MetricSourceState.waitingForFirstReading => l10n.sensorAwaitingFirstReading,
+      MetricSourceState.lost => l10n.sensorDroppedOut,
+      MetricSourceState.connected =>
+        isSelected ? l10n.sensorSourceConnectedSubtitle : l10n.sensorSourceConnectedElsewhereSubtitle,
+    };
   }
 
   /// Every selectable, non-trainer source for [quantity]: already-registered
@@ -311,9 +337,9 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
   List<_SourceCandidate> _candidatesFor(SensorQuantity quantity) {
     final registered = core.sensors.sourcesFor(quantity);
     final registeredIds = registered.map((s) => s.id).toSet();
-    final nearby = core.connection.devices
-        .whereType<BleSensorDevice>()
-        .where((d) => d.source.provides.contains(quantity) && !registeredIds.contains(d.source.id));
+    final nearby = core.connection.devices.whereType<BleSensorDevice>().where(
+      (d) => d.source.provides.contains(quantity) && !registeredIds.contains(d.source.id),
+    );
     return [
       for (final source in registered) _SourceCandidate(source),
       for (final device in nearby) _SourceCandidate(device.source, device: device),

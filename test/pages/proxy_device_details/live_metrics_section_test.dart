@@ -143,8 +143,9 @@ void main() {
   });
 
   group('a nearby, not-yet-connected sensor', () {
-    testWidgets('lists Trainer (selected, quiet) AND the sensor itself (not connected) inline — no sheet needed',
-        (tester) async {
+    testWidgets('lists Trainer (selected, quiet) AND the sensor itself (not connected) inline — no sheet needed', (
+      tester,
+    ) async {
       final device = BleHeartRateDevice(BleDevice(deviceId: 'nearby-hr', name: 'TICKR 1234'));
       core.connection.devices.add(device);
 
@@ -154,14 +155,36 @@ void main() {
       expect(segmentIn('heartRate', 'trainer'), findsOneWidget);
       expect(segmentIn('heartRate', device.source.id), findsOneWidget);
       expect(
-        find.descendant(of: segmentIn('heartRate', 'trainer'), matching: find.text(AppLocalizations.current.sensorSourceTrainer)),
+        find.descendant(
+          of: segmentIn('heartRate', 'trainer'),
+          matching: find.text(AppLocalizations.current.sensorSourceTrainer),
+        ),
         findsOneWidget,
       );
       expect(
         find.descendant(of: segmentIn('heartRate', device.source.id), matching: find.text('TICKR 1234')),
         findsOneWidget,
       );
-      expect(dotColor(tester, 'heartRate', 'trainer'), Theme.of(tester.element(controlIn('heartRate'))).colorScheme.mutedForeground);
+      // Each row carries its own subtitle explaining what it means —
+      // the whole point of the list redesign.
+      expect(
+        find.descendant(
+          of: segmentIn('heartRate', 'trainer'),
+          matching: find.text(AppLocalizations.current.sensorSourceTrainerSubtitle),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: segmentIn('heartRate', device.source.id),
+          matching: find.text(AppLocalizations.current.sensorSourceNotConnectedSubtitle),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        dotColor(tester, 'heartRate', 'trainer'),
+        Theme.of(tester.element(controlIn('heartRate'))).colorScheme.mutedForeground,
+      );
       // A heart rate strap doesn't provide power or cadence.
       expect(controlIn('power'), findsNothing);
       expect(controlIn('cadence'), findsNothing);
@@ -169,11 +192,16 @@ void main() {
   });
 
   group('a selected, registered, fresh source', () {
-    testWidgets('connected: green dot on its own segment, the source\'s own display name, and its live value',
-        (tester) async {
-      final source = FakeSensorSource(id: 'hr-connected', displayName: 'HR6 0050789', provides: {
-        SensorQuantity.heartRate,
-      });
+    testWidgets('connected: green dot on its own segment, the source\'s own display name, and its live value', (
+      tester,
+    ) async {
+      final source = FakeSensorSource(
+        id: 'hr-connected',
+        displayName: 'HR6 0050789',
+        provides: {
+          SensorQuantity.heartRate,
+        },
+      );
       core.sensors.register(source);
       core.sensors.select(SensorQuantity.heartRate, source.id);
       source.emit(SensorQuantity.heartRate, 142);
@@ -188,6 +216,16 @@ void main() {
         find.descendant(of: segmentIn('heartRate', source.id), matching: find.text('HR6 0050789')),
         findsOneWidget,
       );
+      // Selected AND streaming: the "connected" subtitle reads as active,
+      // not merely "linked somewhere else" (see the DIFFERENT-quantity test
+      // below for that other half of the same state).
+      expect(
+        find.descendant(
+          of: segmentIn('heartRate', source.id),
+          matching: find.text(AppLocalizations.current.sensorSourceConnectedSubtitle),
+        ),
+        findsOneWidget,
+      );
       expect(dotColor(tester, 'heartRate', source.id), const Color(0xFF22C55E));
       // The value/unit rows are unchanged from before this feature — a raw
       // "142", not the combined "142 bpm" the deleted picker's subtitle used.
@@ -197,15 +235,20 @@ void main() {
       );
     });
 
-    testWidgets('a source registered for a DIFFERENT quantity still shows connected (green) here when unselected',
-        (tester) async {
+    testWidgets('a source registered for a DIFFERENT quantity still shows connected (green) here when unselected', (
+      tester,
+    ) async {
       // A combo sensor: selected for POWER already, never touched for
       // CADENCE. Its own BLE link is genuinely up — the CADENCE tile's
       // segment for it must say so, even though CADENCE is still on Trainer.
-      final source = FakeSensorSource(id: 'combo-1', displayName: 'Combo meter', provides: {
-        SensorQuantity.power,
-        SensorQuantity.cadence,
-      });
+      final source = FakeSensorSource(
+        id: 'combo-1',
+        displayName: 'Combo meter',
+        provides: {
+          SensorQuantity.power,
+          SensorQuantity.cadence,
+        },
+      );
       core.sensors.register(source);
       core.sensors.select(SensorQuantity.power, source.id);
       addTearDown(() {
@@ -217,10 +260,23 @@ void main() {
 
       expect(segmentIn('cadence', 'trainer'), findsOneWidget);
       expect(
-        find.descendant(of: segmentIn('cadence', 'trainer'), matching: find.text(AppLocalizations.current.sensorSourceTrainer)),
+        find.descendant(
+          of: segmentIn('cadence', 'trainer'),
+          matching: find.text(AppLocalizations.current.sensorSourceTrainer),
+        ),
         findsOneWidget,
       );
       expect(dotColor(tester, 'cadence', source.id), const Color(0xFF22C55E));
+      // Connected, but not CADENCE's own pick — a different subtitle from
+      // the "streaming its own reading" one above: this row means "tap to
+      // use it here too", not "this is already your source".
+      expect(
+        find.descendant(
+          of: segmentIn('cadence', source.id),
+          matching: find.text(AppLocalizations.current.sensorSourceConnectedElsewhereSubtitle),
+        ),
+        findsOneWidget,
+      );
     });
   });
 
@@ -241,16 +297,31 @@ void main() {
         ),
         findsOneWidget,
       );
+      // No real candidate to attach a live "connecting" state to — the
+      // subtitle says so explicitly, distinct from a real in-flight BLE
+      // handshake's own subtitle (see the waiting-for-first-reading group).
+      expect(
+        find.descendant(
+          of: segmentIn('cadence', 'ghost-cadence-source'),
+          matching: find.text(AppLocalizations.current.sensorSourceConnectingGhostSubtitle),
+        ),
+        findsOneWidget,
+      );
       expect(dotColor(tester, 'cadence', 'ghost-cadence-source'), const Color(0xFFF59E0B));
     });
   });
 
   group('a selected, registered source with no reading yet', () {
-    testWidgets('waiting for first reading: amber dot on its own segment — the label stays the source\'s own name',
-        (tester) async {
-      final source = FakeSensorSource(id: 'pwr-waiting', displayName: 'Power meter', provides: {
-        SensorQuantity.power,
-      });
+    testWidgets('waiting for first reading: amber dot on its own segment — the label stays the source\'s own name', (
+      tester,
+    ) async {
+      final source = FakeSensorSource(
+        id: 'pwr-waiting',
+        displayName: 'Power meter',
+        provides: {
+          SensorQuantity.power,
+        },
+      );
       core.sensors.register(source);
       core.sensors.select(SensorQuantity.power, source.id);
       addTearDown(() {
@@ -269,15 +340,26 @@ void main() {
         find.descendant(of: segmentIn('power', source.id), matching: find.text('Power meter')),
         findsOneWidget,
       );
+      expect(
+        find.descendant(
+          of: segmentIn('power', source.id),
+          matching: find.text(AppLocalizations.current.sensorAwaitingFirstReading),
+        ),
+        findsOneWidget,
+      );
       expect(dotColor(tester, 'power', source.id), const Color(0xFFF59E0B));
     });
   });
 
   group('a selected, registered source that stops reporting', () {
     testWidgets('lost: red dot on its own segment — falls back to the trainer value', (tester) async {
-      final source = FakeSensorSource(id: 'hr-lost', displayName: 'TICKR 1234', provides: {
-        SensorQuantity.heartRate,
-      });
+      final source = FakeSensorSource(
+        id: 'hr-lost',
+        displayName: 'TICKR 1234',
+        provides: {
+          SensorQuantity.heartRate,
+        },
+      );
       core.sensors.register(source);
       core.sensors.select(SensorQuantity.heartRate, source.id);
       // Reported before, but the only reading on record is already stale —
@@ -292,6 +374,16 @@ void main() {
       await pump(tester);
 
       expect(dotColor(tester, 'heartRate', source.id), const Color(0xFFEF4444));
+      // The subtitle names exactly what happened and what the rider is
+      // seeing instead — this is the "value has fallen back to the trainer"
+      // case the row has to spell out, not leave to the dot colour alone.
+      expect(
+        find.descendant(
+          of: segmentIn('heartRate', source.id),
+          matching: find.text(AppLocalizations.current.sensorDroppedOut),
+        ),
+        findsOneWidget,
+      );
       // Fallen back to the trainer: no external value survives to the tile.
       expect(
         find.descendant(of: find.byKey(const Key('metric-card-heartRate')), matching: find.text('--')),
@@ -340,9 +432,13 @@ void main() {
     // Already registered (no BLE connect step needed on tap) — the real
     // connect-through-a-tap path, with its BLE machinery, is the dedicated
     // "CRITICAL — connect ordering" group below.
-    final source = FakeSensorSource(id: 'hr-direct-select', displayName: 'TICKR 9999', provides: {
-      SensorQuantity.heartRate,
-    });
+    final source = FakeSensorSource(
+      id: 'hr-direct-select',
+      displayName: 'TICKR 9999',
+      provides: {
+        SensorQuantity.heartRate,
+      },
+    );
     core.sensors.register(source);
     IAPManager.instance.setProForTesting(enabled: true);
     addTearDown(() {
