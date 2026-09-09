@@ -155,6 +155,90 @@ void main() {
       expect(controlIn('heartRate'), findsNothing);
       expect(controlIn('cadence'), findsNothing);
       expect(controlIn('speed'), findsNothing);
+
+      // The equal-height fix must be a no-op here: with no card growing a
+      // source list, all four tiles were already the same height before
+      // this feature existed, and must stay exactly that way — see
+      // `_EqualHeightRow`'s own doc comment on why it only re-lays out a
+      // child that is SHORTER than its row.
+      final powerHeight = tester.getSize(find.byKey(const Key('metric-card-power'))).height;
+      final heartHeight = tester.getSize(find.byKey(const Key('metric-card-heartRate'))).height;
+      final cadenceHeight = tester.getSize(find.byKey(const Key('metric-card-cadence'))).height;
+      final speedHeight = tester.getSize(find.byKey(const Key('metric-card-speed'))).height;
+      expect(powerHeight, heartHeight);
+      expect(cadenceHeight, speedHeight);
+    });
+  });
+
+  group('equal-height rows (direct author feedback: "otherwise it looks odd")', () {
+    testWidgets(
+      'a card with a source list and its short row-mate render the SAME height, top-aligned content',
+      (tester) async {
+        // A nearby, not-yet-connected sensor is enough to grow HEART's
+        // inline source list (Trainer + the sensor itself) — POWER has no
+        // candidate at all, so it stays the short, list-less card. Exactly
+        // the mismatch from the author's screenshot.
+        final device = BleHeartRateDevice(BleDevice(deviceId: 'equal-height-hr', name: 'TICKR 5555'));
+        core.connection.devices.add(device);
+        addTearDown(() => core.connection.devices.clear());
+
+        await pump(tester);
+
+        // The fixture actually reproduces the reported mismatch — HEART
+        // really does carry extra content POWER doesn't.
+        expect(controlIn('heartRate'), findsOneWidget);
+        expect(controlIn('power'), findsNothing);
+
+        final powerCard = find.byKey(const Key('metric-card-power'));
+        final heartCard = find.byKey(const Key('metric-card-heartRate'));
+        expect(tester.getSize(powerCard).height, tester.getSize(heartCard).height);
+
+        // Top-aligned, not centred: POWER's label sits at the same y as
+        // HEART's label, even though POWER's container is now taller than
+        // its own (short) content.
+        final powerLabelTop = tester.getTopLeft(find.descendant(of: powerCard, matching: find.text('POWER'))).dy;
+        final heartLabelTop = tester.getTopLeft(find.descendant(of: heartCard, matching: find.text('HEART'))).dy;
+        expect(powerLabelTop, heartLabelTop);
+      },
+    );
+
+    testWidgets('renders without throwing when laid out with unbounded height (inside a scroll view)', (
+      tester,
+    ) async {
+      // The trap: a naive `IntrinsicHeight` + `CrossAxisAlignment.stretch`
+      // fix throws under an unbounded incoming height. Both of this
+      // section's real call sites (`ProxyDeviceDetailsPage`, the home page)
+      // render it inside a scroll view, so this is the shape that matters —
+      // an unconstrained `Column` inside a `SingleChildScrollView`, never a
+      // tightly-bounded `Scaffold` body like every other test in this file
+      // uses.
+      final device = BleHeartRateDevice(BleDevice(deviceId: 'unbounded-hr', name: 'TICKR 6666'));
+      core.connection.devices.add(device);
+      addTearDown(() => core.connection.devices.clear());
+
+      await tester.pumpWidget(
+        ShadcnApp(
+          localizationsDelegates: [
+            ...ShadcnLocalizations.localizationsDelegates,
+            AppLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            child: SingleChildScrollView(
+              child: Column(
+                children: const [LiveMetricsSection()],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      // Still renders correctly once unbounded height is survived — not
+      // just "didn't crash".
+      expect(find.byKey(const Key('metric-card-power')), findsOneWidget);
+      expect(find.byKey(const Key('metric-card-heartRate')), findsOneWidget);
     });
   });
 

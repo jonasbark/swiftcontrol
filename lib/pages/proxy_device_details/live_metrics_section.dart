@@ -125,7 +125,7 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
     return Column(
       spacing: 10,
       children: [
-        Row(
+        _EqualHeightRow(
           spacing: 10,
           children: [
             _quantityCard(
@@ -150,7 +150,7 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
             ),
           ],
         ),
-        Row(
+        _EqualHeightRow(
           spacing: 10,
           children: [
             _quantityCard(
@@ -521,4 +521,126 @@ class _LiveMetrics {
     required this.cadence,
     required this.speed,
   });
+}
+
+/// A `Row` where every child ends up the row's own height — the shorter
+/// card's `Container` stretches to match the taller one, per direct author
+/// feedback on this grid ("let the left card have the same height as the
+/// right card, otherwise it looks odd"): a metric with no source list (e.g.
+/// POWER, with only one possible source) renders short next to one that has
+/// grown an inline source list (e.g. HEART), and the mismatch reads as
+/// broken.
+///
+/// Deliberately NOT `IntrinsicHeight` + `Row(crossAxisAlignment: stretch)` —
+/// that is the obvious fix, and it is unsafe HERE for two independent
+/// reasons:
+///
+///  1. `IntrinsicHeight` measures each child through Flutter's *intrinsic
+///     dimensions* protocol (`RenderBox.getMaxIntrinsicHeight`), and
+///     `MetricCard` uses a `LayoutBuilder` for its own width-reactive
+///     side-by-side/stacked source-list switch. `LayoutBuilder` explicitly
+///     refuses intrinsic queries — see its own source
+///     (`_RenderLayoutBuilder._debugThrowIfNotCheckingIntrinsics`): "does
+///     not support returning intrinsic dimensions", because answering would
+///     mean running its builder speculatively against a hypothetical width.
+///     So `IntrinsicHeight` here throws on EVERY tile that has grown a
+///     source list — proven by pumping a minimal `IntrinsicHeight` +
+///     `LayoutBuilder` reproduction under `flutter_test` before writing
+///     this — not just under the unbounded-height page below.
+///  2. Separately, `CrossAxisAlignment.stretch` needs the row's OWN
+///     incoming height to be bounded (it tightens every child to
+///     `constraints.maxHeight`), so it throws under an unbounded-height
+///     parent — and this section renders inside a `SingleChildScrollView`
+///     on both of its real call sites.
+///
+/// This class avoids both failure modes by never touching the intrinsics
+/// protocol at all: [_RenderEqualHeightRow] runs the ordinary `RenderFlex`
+/// layout once for real (exactly what a plain `Row` already does — safe for
+/// `LayoutBuilder`, and safe unbounded, since nothing here needs the
+/// incoming height to be finite), reads the row's own resulting height off
+/// that, and then, only for a child shorter than that, lays that ONE child
+/// out again for real with a tight height matching the row. Every layout
+/// call is a genuine `RenderBox.layout()`, never an intrinsic-dimension
+/// query, and the row's own height always comes from its children's real
+/// (natural) sizes.
+///
+/// Subclasses shadcn_flutter's OWN `Row`/`RenderFlex` (`shadcn_flutter
+/// .dart`'s barrel hides Flutter's stock `Row`/`Expanded`/`Flex` in favor of
+/// its own paint-order-aware versions — see that file's "patched flex with
+/// paint order" export), NOT Flutter's raw `Row`/`RenderFlex`: `MetricCard`'s
+/// `Expanded` is shadcn's own `Expanded`, which requires shadcn's own
+/// `FlexParentData` subtype on its render object, and throws "Incorrect use
+/// of ParentDataWidget" against a plain `RenderFlex` that only knows how to
+/// hand out Flutter's base `FlexParentData`.
+class _EqualHeightRow extends Row {
+  const _EqualHeightRow({required super.children, super.spacing});
+
+  @override
+  RenderFlex createRenderObject(BuildContext context) {
+    return _RenderEqualHeightRow(textDirection: getEffectiveTextDirection(context), spacing: spacing);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, covariant _RenderEqualHeightRow renderObject) {
+    renderObject
+      ..textDirection = getEffectiveTextDirection(context)
+      ..spacing = spacing;
+  }
+}
+
+/// See [_EqualHeightRow]'s doc comment for why this exists instead of
+/// `IntrinsicHeight` + `CrossAxisAlignment.stretch` — and why it extends
+/// shadcn_flutter's `RenderFlex`, not Flutter's own.
+class _RenderEqualHeightRow extends RenderFlex {
+  _RenderEqualHeightRow({required super.textDirection, required super.spacing})
+    : super(
+        direction: Axis.horizontal,
+        // `start`, not the `RenderFlex` default `center`: once the second
+        // pass below grows a shorter child to the row's own height, its
+        // vertical position is moot (it now spans the whole row either
+        // way) — but keeping it `start` for the (common, unaffected) case
+        // where every child is already the same height costs nothing and
+        // keeps this row's own semantics closest to "top-aligned, stretch
+        // when needed" rather than momentarily centering during the first
+        // pass.
+        crossAxisAlignment: CrossAxisAlignment.start,
+      );
+
+  @override
+  void performLayout() {
+    // Pass 1: the ordinary, real `RenderFlex` algorithm (shadcn_flutter's
+    // `super.performLayout()` runs Flutter's real single-pass Flex layout,
+    // then its own paint-order bookkeeping) — every child is laid out for
+    // real, at its own natural (loosely-constrained) height. This is
+    // exactly what an unmodified `Row` does today, so it is exactly as safe
+    // for a `LayoutBuilder` descendant and exactly as safe under an
+    // unbounded incoming height. `size.height` afterward is the max of the
+    // children's own real heights.
+    super.performLayout();
+    final rowHeight = size.height;
+    // Pass 2: any child shorter than the row itself gets ONE more real
+    // layout call, this time with a tight height equal to the row's own —
+    // still a real `RenderBox.layout()`, not an intrinsic query, so it
+    // stays safe for `MetricCard`'s `LayoutBuilder`. `MetricCard`'s
+    // `Container` has no explicit height and no `alignment`, and its
+    // `Column` defaults to `mainAxisSize.max` / `mainAxisAlignment.start`,
+    // so the extra height lands as trailing space below the existing
+    // content — the label/value/source-list stay top-aligned, they don't
+    // re-centre into the middle of the taller box. Only the height changes
+    // (the width, and therefore each child's `x` offset, is untouched), and
+    // a child can only grow up to `rowHeight` — exactly the row's own size —
+    // so this can never introduce overflow for shadcn's overflow check
+    // above to catch.
+    var child = firstChild;
+    while (child != null) {
+      final childParentData = child.parentData! as FlexParentData;
+      if (child.size.height < rowHeight) {
+        child.layout(
+          BoxConstraints.tightFor(width: child.size.width, height: rowHeight),
+          parentUsesSize: true,
+        );
+      }
+      child = childParentData.nextSibling;
+    }
+  }
 }
