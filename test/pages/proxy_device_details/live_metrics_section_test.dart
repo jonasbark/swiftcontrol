@@ -1,24 +1,47 @@
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sensors/ble_heart_rate_device.dart';
+import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/proxy_device_details/live_metrics_section.dart';
 import 'package:bike_control/pages/proxy_device_details/metric_card.dart';
-import 'package:bike_control/pages/proxy_device_details/sensor_source_picker.dart';
+import 'package:bike_control/services/sensors/ble_sensor_source.dart';
 import 'package:bike_control/services/sensors/fake_sensor_source.dart';
 import 'package:bike_control/services/sensors/sensor_quantity.dart';
 import 'package:bike_control/utils/actions/base_actions.dart';
 import 'package:bike_control/utils/core.dart';
+import 'package:bike_control/utils/iap/iap_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
+// ignore: depend_on_referenced_packages
+import 'package:flutter_local_notifications_platform_interface/flutter_local_notifications_platform_interface.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+/// No-op local-notifications backend — `Connection._connect` posts a
+/// "connected" notification on success, and the plugin's static platform
+/// instance is only set by real plugin registration. Mirrors
+/// `test/integration/harness/test_env.dart`'s own fake (and the deleted
+/// `sensor_source_picker_test.dart`'s, which this file's connect-ordering
+/// tests are ported from).
+class _FakeLocalNotificationsPlatform extends FlutterLocalNotificationsPlatform {
+  @override
+  Future<void> show({required int id, String? title, String? body, String? payload}) async {}
+
+  @override
+  Future<void> cancel({required int id}) async {}
+
+  @override
+  Future<void> cancelAll() async {}
+}
+
 /// The signals grid: decoupled from `ProxyDevice` (standalone mode) and, per
-/// the Claude Design system spec, growing an optional source row on the
-/// power/heart/cadence tiles. Mounts the REAL `core.sensors` — the same
-/// singleton `Connection` registers into — so this proves the section reacts
-/// to the actual hub, not a double. Every test that touches it cleans up via
+/// the Claude Design system spec (and direct author feedback that a picker
+/// sheet was the wrong shape), the app's ONE sensor surface — each of the
+/// power/heart/cadence tiles lists its sources INLINE as a segmented control,
+/// no dropdown, no sheet. Mounts the REAL `core.sensors` — the same singleton
+/// `Connection` registers into — so this proves the section reacts to the
+/// actual hub, not a double. Every test that touches it cleans up via
 /// `addTearDown` so later tests start from a clean selection/registration.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,10 +65,19 @@ void main() {
     core.settings.prefs = await SharedPreferences.getInstance();
     core.actionHandler = StubActions();
     core.connection.devices.clear();
+    FlutterLocalNotificationsPlatform.instance = _FakeLocalNotificationsPlatform();
+    IAPManager.instance.setProForTesting(enabled: false);
   });
 
   tearDown(() {
+    // NOT `core.connection.stop()` here: most tests in this file never set a
+    // fake `UniversalBle` instance, and `stop()` calls
+    // `getBluetoothAvailabilityState()`, which throws with no platform
+    // channel to answer it. The tests that DO drive a real (dis)connect
+    // through `Connection` call `stop()` themselves, inside the test body —
+    // see their own comment on why it has to happen there.
     core.connection.devices.clear();
+    IAPManager.instance.setProForTesting(enabled: false);
   });
 
   Future<void> pump(WidgetTester tester, {ProxyDevice? device, bool hideWhenDeviceHasNoMetrics = false}) async {
@@ -64,22 +96,38 @@ void main() {
     await tester.pump();
   }
 
-  Finder rowIn(String quantityName) => find.descendant(
+  Finder controlIn(String quantityName) => find.descendant(
     of: find.byKey(Key('metric-card-$quantityName')),
-    matching: find.byKey(const Key('metric-card-source-row')),
+    matching: find.byKey(const Key('metric-card-source-control')),
   );
 
-  Color? dotIn(WidgetTester tester, String quantityName) {
+  Finder segmentIn(String quantityName, String id) => find.descendant(
+    of: find.byKey(Key('metric-card-$quantityName')),
+    matching: find.byKey(Key('metric-card-source-option-$id')),
+  );
+
+  Color? dotColor(WidgetTester tester, String quantityName, String id) {
     final finder = find.descendant(
       of: find.byKey(Key('metric-card-$quantityName')),
-      matching: find.byKey(const Key('metric-card-source-dot')),
+      matching: find.byKey(Key('metric-card-source-dot-$id')),
     );
     final container = tester.widget<Container>(finder);
     return (container.decoration as BoxDecoration?)?.color;
   }
 
+  FakePeripheral strapPeripheral({required String deviceId, String name = 'TICKR 1234'}) => FakePeripheral(
+    deviceId: deviceId,
+    name: name,
+    advertisedServices: [BleSensorSource.heartRateServiceUuid],
+    services: [
+      BleService(BleSensorSource.heartRateServiceUuid, [
+        BleCharacteristic(BleSensorSource.heartRateMeasurementUuid, [CharacteristicProperty.notify], const []),
+      ]),
+    ],
+  );
+
   group('THE INVARIANT: no external sensors at all', () {
-    testWidgets('standalone (no device): every tile shows "--" and no tile has a source row', (tester) async {
+    testWidgets('standalone (no device): every tile shows "--" and no tile has a source control', (tester) async {
       await pump(tester);
 
       expect(find.byKey(const Key('metric-card-power')), findsOneWidget);
@@ -87,31 +135,42 @@ void main() {
       expect(find.byKey(const Key('metric-card-cadence')), findsOneWidget);
       expect(find.byKey(const Key('metric-card-speed')), findsOneWidget);
       expect(find.text('--'), findsNWidgets(4));
-      expect(rowIn('power'), findsNothing);
-      expect(rowIn('heartRate'), findsNothing);
-      expect(rowIn('cadence'), findsNothing);
-      expect(rowIn('speed'), findsNothing);
+      expect(controlIn('power'), findsNothing);
+      expect(controlIn('heartRate'), findsNothing);
+      expect(controlIn('cadence'), findsNothing);
+      expect(controlIn('speed'), findsNothing);
     });
   });
 
   group('a nearby, not-yet-connected sensor', () {
-    testWidgets('makes the row appear in the quiet "trainer" state, not the sensor', (tester) async {
+    testWidgets('lists Trainer (selected, quiet) AND the sensor itself (not connected) inline — no sheet needed',
+        (tester) async {
       final device = BleHeartRateDevice(BleDevice(deviceId: 'nearby-hr', name: 'TICKR 1234'));
       core.connection.devices.add(device);
 
       await pump(tester);
 
-      expect(rowIn('heartRate'), findsOneWidget);
-      expect(find.text(AppLocalizations.current.sensorSourceTrainer), findsOneWidget);
-      expect(dotIn(tester, 'heartRate'), Theme.of(tester.element(rowIn('heartRate'))).colorScheme.mutedForeground);
+      expect(controlIn('heartRate'), findsOneWidget);
+      expect(segmentIn('heartRate', 'trainer'), findsOneWidget);
+      expect(segmentIn('heartRate', device.source.id), findsOneWidget);
+      expect(
+        find.descendant(of: segmentIn('heartRate', 'trainer'), matching: find.text(AppLocalizations.current.sensorSourceTrainer)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: segmentIn('heartRate', device.source.id), matching: find.text('TICKR 1234')),
+        findsOneWidget,
+      );
+      expect(dotColor(tester, 'heartRate', 'trainer'), Theme.of(tester.element(controlIn('heartRate'))).colorScheme.mutedForeground);
       // A heart rate strap doesn't provide power or cadence.
-      expect(rowIn('power'), findsNothing);
-      expect(rowIn('cadence'), findsNothing);
+      expect(controlIn('power'), findsNothing);
+      expect(controlIn('cadence'), findsNothing);
     });
   });
 
   group('a selected, registered, fresh source', () {
-    testWidgets('connected: green dot, the source\'s own display name, and its live value', (tester) async {
+    testWidgets('connected: green dot on its own segment, the source\'s own display name, and its live value',
+        (tester) async {
       final source = FakeSensorSource(id: 'hr-connected', displayName: 'HR6 0050789', provides: {
         SensorQuantity.heartRate,
       });
@@ -125,32 +184,70 @@ void main() {
 
       await pump(tester);
 
-      expect(find.text('HR6 0050789'), findsOneWidget);
-      expect(dotIn(tester, 'heartRate'), const Color(0xFF22C55E));
+      expect(
+        find.descendant(of: segmentIn('heartRate', source.id), matching: find.text('HR6 0050789')),
+        findsOneWidget,
+      );
+      expect(dotColor(tester, 'heartRate', source.id), const Color(0xFF22C55E));
       // The value/unit rows are unchanged from before this feature — a raw
-      // "142", not the combined "142 bpm" the picker's subtitle uses.
+      // "142", not the combined "142 bpm" the deleted picker's subtitle used.
       expect(
         find.descendant(of: find.byKey(const Key('metric-card-heartRate')), matching: find.text('142')),
         findsOneWidget,
       );
     });
+
+    testWidgets('a source registered for a DIFFERENT quantity still shows connected (green) here when unselected',
+        (tester) async {
+      // A combo sensor: selected for POWER already, never touched for
+      // CADENCE. Its own BLE link is genuinely up — the CADENCE tile's
+      // segment for it must say so, even though CADENCE is still on Trainer.
+      final source = FakeSensorSource(id: 'combo-1', displayName: 'Combo meter', provides: {
+        SensorQuantity.power,
+        SensorQuantity.cadence,
+      });
+      core.sensors.register(source);
+      core.sensors.select(SensorQuantity.power, source.id);
+      addTearDown(() {
+        core.sensors.unregister(source.id);
+        core.sensors.select(SensorQuantity.power, null);
+      });
+
+      await pump(tester);
+
+      expect(segmentIn('cadence', 'trainer'), findsOneWidget);
+      expect(
+        find.descendant(of: segmentIn('cadence', 'trainer'), matching: find.text(AppLocalizations.current.sensorSourceTrainer)),
+        findsOneWidget,
+      );
+      expect(dotColor(tester, 'cadence', source.id), const Color(0xFF22C55E));
+    });
   });
 
   group('a selected source not yet registered', () {
-    testWidgets('connecting: amber dot, "Connecting…"', (tester) async {
+    testWidgets('ghost segment: amber dot, "Connecting…", alongside Trainer', (tester) async {
       core.sensors.select(SensorQuantity.cadence, 'ghost-cadence-source');
       addTearDown(() => core.sensors.select(SensorQuantity.cadence, null));
 
       await pump(tester);
 
-      expect(rowIn('cadence'), findsOneWidget);
-      expect(find.text(AppLocalizations.current.sensorConnecting), findsOneWidget);
-      expect(dotIn(tester, 'cadence'), const Color(0xFFF59E0B));
+      expect(controlIn('cadence'), findsOneWidget);
+      expect(segmentIn('cadence', 'trainer'), findsOneWidget);
+      expect(segmentIn('cadence', 'ghost-cadence-source'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: segmentIn('cadence', 'ghost-cadence-source'),
+          matching: find.text(AppLocalizations.current.sensorConnecting),
+        ),
+        findsOneWidget,
+      );
+      expect(dotColor(tester, 'cadence', 'ghost-cadence-source'), const Color(0xFFF59E0B));
     });
   });
 
   group('a selected, registered source with no reading yet', () {
-    testWidgets('waiting for first reading: amber dot', (tester) async {
+    testWidgets('waiting for first reading: amber dot on its own segment — the label stays the source\'s own name',
+        (tester) async {
       final source = FakeSensorSource(id: 'pwr-waiting', displayName: 'Power meter', provides: {
         SensorQuantity.power,
       });
@@ -163,13 +260,21 @@ void main() {
 
       await pump(tester);
 
-      expect(find.text(AppLocalizations.current.sensorAwaitingFirstReading), findsOneWidget);
-      expect(dotIn(tester, 'power'), const Color(0xFFF59E0B));
+      // Unlike the deleted single-row design, a real candidate's label is
+      // always its own name — only the dot carries "waiting" here; there is
+      // no separate ghost/no-name segment involved (that only happens when
+      // the selection matches no known candidate at all — see the
+      // "not yet registered" group above).
+      expect(
+        find.descendant(of: segmentIn('power', source.id), matching: find.text('Power meter')),
+        findsOneWidget,
+      );
+      expect(dotColor(tester, 'power', source.id), const Color(0xFFF59E0B));
     });
   });
 
   group('a selected, registered source that stops reporting', () {
-    testWidgets('lost: red dot, signal-lost copy — falls back to the trainer', (tester) async {
+    testWidgets('lost: red dot on its own segment — falls back to the trainer value', (tester) async {
       final source = FakeSensorSource(id: 'hr-lost', displayName: 'TICKR 1234', provides: {
         SensorQuantity.heartRate,
       });
@@ -186,8 +291,7 @@ void main() {
 
       await pump(tester);
 
-      expect(find.text(AppLocalizations.current.sensorDroppedOut), findsOneWidget);
-      expect(dotIn(tester, 'heartRate'), const Color(0xFFEF4444));
+      expect(dotColor(tester, 'heartRate', source.id), const Color(0xFFEF4444));
       // Fallen back to the trainer: no external value survives to the tile.
       expect(
         find.descendant(of: find.byKey(const Key('metric-card-heartRate')), matching: find.text('--')),
@@ -197,7 +301,7 @@ void main() {
   });
 
   group('SPEED', () {
-    testWidgets('never shows a source row, even with a selected, connected "speed" source', (tester) async {
+    testWidgets('never shows a source control, even with a selected, connected "speed" source', (tester) async {
       final source = FakeSensorSource(id: 'spd', displayName: 'Speed sensor', provides: {SensorQuantity.speed});
       core.sensors.register(source);
       core.sensors.select(SensorQuantity.speed, source.id);
@@ -209,7 +313,7 @@ void main() {
 
       await pump(tester);
 
-      expect(rowIn('speed'), findsNothing);
+      expect(controlIn('speed'), findsNothing);
     });
   });
 
@@ -232,29 +336,181 @@ void main() {
     });
   });
 
-  testWidgets('tapping a source row opens the picker for that quantity', (tester) async {
-    final nearby = BleHeartRateDevice(BleDevice(deviceId: 'nearby-hr-2', name: 'TICKR 9999'));
-    core.connection.devices.add(nearby);
+  testWidgets('tapping a source segment selects it directly — no sheet, no picker opens', (tester) async {
+    // Already registered (no BLE connect step needed on tap) — the real
+    // connect-through-a-tap path, with its BLE machinery, is the dedicated
+    // "CRITICAL — connect ordering" group below.
+    final source = FakeSensorSource(id: 'hr-direct-select', displayName: 'TICKR 9999', provides: {
+      SensorQuantity.heartRate,
+    });
+    core.sensors.register(source);
+    IAPManager.instance.setProForTesting(enabled: true);
+    addTearDown(() {
+      core.sensors.unregister(source.id);
+      core.sensors.select(SensorQuantity.heartRate, null);
+    });
 
     await pump(tester);
-    await tester.tap(rowIn('heartRate'));
+    // The segmented control scrolls horizontally (`MetricCard._sourceControl`)
+    // for a quantity with enough sources that they cannot all fit — bring the
+    // target into the viewport first so the tap cannot silently miss it.
+    await tester.ensureVisible(segmentIn('heartRate', source.id));
+    await tester.tap(segmentIn('heartRate', source.id));
     await tester.pumpAndSettle();
 
-    expect(find.byType(SensorSourcePicker), findsOneWidget);
+    expect(core.sensors.selectionFor(SensorQuantity.heartRate), source.id);
   });
 
-  testWidgets('a sensor discovered after the section is already mounted flips a row live', (tester) async {
+  testWidgets('a sensor discovered after the section is already mounted flips its own segment live', (tester) async {
     await pump(tester);
-    expect(rowIn('heartRate'), findsNothing);
+    expect(controlIn('heartRate'), findsNothing);
 
     final device = BleHeartRateDevice(BleDevice(deviceId: 'hr-live', name: 'Live TICKR'));
     core.connection.devices.add(device);
     core.connection.signalChange(device);
     await tester.pumpAndSettle();
 
-    // Discovered but not yet connected: the row appears in the quiet
-    // "trainer" state — no remount of the section was needed for it to show.
-    expect(rowIn('heartRate'), findsOneWidget);
-    expect(find.text(AppLocalizations.current.sensorSourceTrainer), findsOneWidget);
+    // Discovered but not yet connected: Trainer plus the sensor's own
+    // segment appear — no remount of the section was needed for it to show.
+    expect(segmentIn('heartRate', 'trainer'), findsOneWidget);
+    expect(segmentIn('heartRate', device.source.id), findsOneWidget);
+  });
+
+  group('Pro gating', () {
+    testWidgets('selecting Trainer clears the selection, with no BLE side effect and no Pro gate', (tester) async {
+      IAPManager.instance.setProForTesting(enabled: false);
+      core.sensors.select(SensorQuantity.heartRate, 'was-something');
+      addTearDown(() => core.sensors.select(SensorQuantity.heartRate, null));
+
+      await pump(tester);
+      await tester.ensureVisible(segmentIn('heartRate', 'trainer'));
+      await tester.tap(segmentIn('heartRate', 'trainer'));
+      await tester.pumpAndSettle();
+
+      expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+    });
+  });
+
+  group('CRITICAL — connect ordering', () {
+    testWidgets(
+      'tapping a not-yet-connected sensor\'s segment persists consent BEFORE connecting, '
+      'then drives the device to a real connected state',
+      (tester) async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        final ble = FakeUniversalBlePlatform();
+        UniversalBle.setInstance(ble);
+        final peripheral = strapPeripheral(deviceId: 'hr-pick-3');
+        ble.addPeripheral(peripheral);
+        final device = BleHeartRateDevice(peripheral.scanResult);
+        core.connection.devices.add(device);
+        addTearDown(() {
+          core.sensors.unregister(device.source.id);
+          core.sensors.select(SensorQuantity.heartRate, null);
+        });
+        expect(device.shouldAutoConnect, isFalse);
+
+        await pump(tester);
+        await tester.ensureVisible(segmentIn('heartRate', device.source.id));
+        await tester.tap(segmentIn('heartRate', device.source.id));
+        await tester.pumpAndSettle();
+
+        expect(device.isConnected, isTrue);
+        // Persisted, not just in-memory — AND proof of the load-bearing
+        // ordering: had the flag been written after calling connect() instead
+        // of before, `shouldAutoConnect` would have read false at connect()
+        // time, `connect()` would have early-returned, and `isConnected` above
+        // would still be false no matter what the flag reads now.
+        expect(core.settings.getSensorAutoConnect(device.device.deviceId), isTrue);
+        expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+
+        // `Connection`'s BLE connection-state listener re-evaluates on every
+        // (dis)connect and would otherwise leave a periodic gamepad-search
+        // timer pending past this test's end (`performScanning`'s doc
+        // comment) — `flutter_test`'s pending-timer check runs at the end of
+        // the test body itself, before any `tearDown`/`addTearDown` gets a
+        // turn, so this has to happen here rather than in either of those.
+        await core.connection.stop();
+      },
+    );
+
+    // Deliberately no automated widget test drives a FAILED connect through
+    // the real `Connection`/`FakeUniversalBlePlatform` stack, and no test
+    // drives the Pro-denied dialog path to completion — both are pre-existing
+    // gaps this file inherits from the deleted `sensor_source_picker_test
+    // .dart`, which carried the same limitation for the same reason: under
+    // `testWidgets`' FakeAsync zone, a rejected `device.connect()` does not
+    // resolve within any bounded number of `pump()`/`pumpAndSettle()` calls,
+    // independent of which error it rejects with, and `showGoProDialog` pulls
+    // in the full purchase-flow UI. Both paths are covered by code review
+    // instead: `_select`'s catch block forwards through `recordError` before
+    // rethrowing (verified above the fold), and the Pro gate
+    // (`sourceId != null && !isProEnabledForCurrentDevice`) is exercised for
+    // its "does not apply to Trainer" half by the test above.
+  });
+
+  group('disconnect', () {
+    testWidgets(
+      'long-pressing the selected, connected segment clears the consent flag BEFORE disconnecting, '
+      'and the selection falls back to Trainer',
+      (tester) async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        final ble = FakeUniversalBlePlatform();
+        UniversalBle.setInstance(ble);
+        final peripheral = strapPeripheral(deviceId: 'hr-pick-4');
+        ble.addPeripheral(peripheral);
+        final device = BleHeartRateDevice(peripheral.scanResult);
+        core.connection.devices.add(device);
+        addTearDown(() {
+          core.sensors.unregister(device.source.id);
+          core.sensors.select(SensorQuantity.heartRate, null);
+        });
+
+        // Get to a genuinely connected+registered+selected state first, via
+        // the same tap the connect-ordering test above proves.
+        await pump(tester);
+        await tester.ensureVisible(segmentIn('heartRate', device.source.id));
+        await tester.tap(segmentIn('heartRate', device.source.id));
+        await tester.pumpAndSettle();
+        expect(device.isConnected, isTrue);
+        expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+
+        await tester.ensureVisible(segmentIn('heartRate', device.source.id));
+        await tester.longPress(segmentIn('heartRate', device.source.id));
+        await tester.pumpAndSettle();
+
+        expect(core.settings.getSensorAutoConnect(device.device.deviceId), isFalse);
+        expect(device.isConnected, isFalse);
+        // `forget: true` cascades: the quantity selection that pointed at this
+        // source falls back to Trainer rather than being left dangling.
+        expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+        // `persistForget: false`: not on the permanent ignore list, so it stays
+        // reconnectable — proven indirectly here by the flag call above using
+        // exactly that pair of arguments (see `LiveMetricsSection._disconnect`'s
+        // doc comment); asserting the ignore list itself is
+        // `ignored_devices_dialog`/`Settings.getIgnoredDevices` territory, out
+        // of scope for this file.
+
+        // See the connect-ordering test's own comment on why this has to run
+        // here, inside the test body, rather than in a teardown hook.
+        await core.connection.stop();
+      },
+    );
+
+    testWidgets('long-pressing Trainer does nothing (no onDisconnect wired)', (tester) async {
+      // A bare "nothing selected, nothing nearby" tile renders no control at
+      // all (THE INVARIANT) — a nearby sensor is the minimal setup that
+      // makes the Trainer segment itself exist to long-press.
+      final nearby = BleHeartRateDevice(BleDevice(deviceId: 'nearby-hr-3', name: 'TICKR 0001'));
+      core.connection.devices.add(nearby);
+
+      await pump(tester);
+
+      await tester.ensureVisible(segmentIn('heartRate', 'trainer'));
+      await tester.longPress(segmentIn('heartRate', 'trainer'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+    });
   });
 }
