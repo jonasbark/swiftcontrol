@@ -1,5 +1,6 @@
 import 'package:bike_control/bluetooth/devices/proxy/proxy_device.dart';
 import 'package:bike_control/bluetooth/devices/sensors/ble_heart_rate_device.dart';
+import 'package:bike_control/bluetooth/devices/sensors/ble_power_device.dart';
 import 'package:bike_control/bluetooth/emulation/emulated_ble_platform.dart';
 import 'package:bike_control/gen/l10n.dart';
 import 'package:bike_control/pages/proxy_device_details/live_metrics_section.dart';
@@ -122,6 +123,21 @@ void main() {
     services: [
       BleService(BleSensorSource.heartRateServiceUuid, [
         BleCharacteristic(BleSensorSource.heartRateMeasurementUuid, [CharacteristicProperty.notify], const []),
+      ]),
+    ],
+  );
+
+  // A combo power meter — `BlePowerDevice.provides` is `{power, cadence}` —
+  // used to prove the multi-quantity guard: a sensor selected for two
+  // quantities must not be disconnected just because ONE of them switches
+  // back to Trainer.
+  FakePeripheral powerPeripheral({required String deviceId, String name = 'ASSIOMA DUO'}) => FakePeripheral(
+    deviceId: deviceId,
+    name: name,
+    advertisedServices: [BleSensorSource.cyclingPowerServiceUuid],
+    services: [
+      BleService(BleSensorSource.cyclingPowerServiceUuid, [
+        BleCharacteristic(BleSensorSource.cyclingPowerMeasurementUuid, [CharacteristicProperty.notify], const []),
       ]),
     ],
   );
@@ -607,6 +623,121 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+    });
+  });
+
+  group('selecting Trainer disconnects the now-idle sensor (direct author feedback)', () {
+    testWidgets(
+      'a sensor serving only this quantity: selecting Trainer disconnects it and clears its consent flag',
+      (tester) async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        final ble = FakeUniversalBlePlatform();
+        UniversalBle.setInstance(ble);
+        final peripheral = strapPeripheral(deviceId: 'hr-trainer-back-1');
+        ble.addPeripheral(peripheral);
+        final device = BleHeartRateDevice(peripheral.scanResult);
+        core.connection.devices.add(device);
+        addTearDown(() {
+          core.sensors.unregister(device.source.id);
+          core.sensors.select(SensorQuantity.heartRate, null);
+        });
+
+        await pump(tester);
+        await tester.ensureVisible(segmentIn('heartRate', device.source.id));
+        await tester.tap(segmentIn('heartRate', device.source.id));
+        await tester.pumpAndSettle();
+        expect(device.isConnected, isTrue);
+        expect(core.sensors.selectionFor(SensorQuantity.heartRate), device.source.id);
+
+        await tester.ensureVisible(segmentIn('heartRate', 'trainer'));
+        await tester.tap(segmentIn('heartRate', 'trainer'));
+        await tester.pumpAndSettle();
+
+        expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+        expect(device.isConnected, isFalse);
+        expect(core.settings.getSensorAutoConnect(device.device.deviceId), isFalse);
+
+        // See the connect-ordering test's own comment on why this has to run
+        // here, inside the test body, rather than in a teardown hook.
+        await core.connection.stop();
+      },
+    );
+
+    // THE CASE THAT MUST BE GOT RIGHT: a combo power meter serving BOTH
+    // power and cadence (`BlePowerDevice.provides`). Switching POWER back to
+    // Trainer must NOT drop the meter — it is still CADENCE's live source. A
+    // naive "always disconnect on Trainer" implementation passes every other
+    // test in this file and still fails this one.
+    testWidgets(
+      'a sensor selected for TWO quantities stays connected when only ONE switches back to Trainer',
+      (tester) async {
+        IAPManager.instance.setProForTesting(enabled: true);
+        final ble = FakeUniversalBlePlatform();
+        UniversalBle.setInstance(ble);
+        final peripheral = powerPeripheral(deviceId: 'combo-power-1');
+        ble.addPeripheral(peripheral);
+        final device = BlePowerDevice(peripheral.scanResult);
+        core.connection.devices.add(device);
+        addTearDown(() {
+          core.sensors.unregister(device.source.id);
+          core.sensors.select(SensorQuantity.power, null);
+          core.sensors.select(SensorQuantity.cadence, null);
+        });
+
+        await pump(tester);
+        // Select it for POWER first — the real connect-through-a-tap path.
+        await tester.ensureVisible(segmentIn('power', device.source.id));
+        await tester.tap(segmentIn('power', device.source.id));
+        await tester.pumpAndSettle();
+        expect(device.isConnected, isTrue);
+        expect(core.sensors.selectionFor(SensorQuantity.power), device.source.id);
+
+        // Already registered and connected — selecting it for CADENCE too
+        // just binds the hub, exactly like a rider using the same combo
+        // meter for both readings.
+        await tester.ensureVisible(segmentIn('cadence', device.source.id));
+        await tester.tap(segmentIn('cadence', device.source.id));
+        await tester.pumpAndSettle();
+        expect(core.sensors.selectionFor(SensorQuantity.cadence), device.source.id);
+
+        // Switch POWER back to Trainer.
+        await tester.ensureVisible(segmentIn('power', 'trainer'));
+        await tester.tap(segmentIn('power', 'trainer'));
+        await tester.pumpAndSettle();
+
+        expect(core.sensors.selectionFor(SensorQuantity.power), isNull);
+        // CADENCE's own selection is untouched.
+        expect(core.sensors.selectionFor(SensorQuantity.cadence), device.source.id);
+        // Still connected — it is still serving CADENCE.
+        expect(device.isConnected, isTrue);
+        // Consent flag left exactly as it was — no disconnect was attempted.
+        expect(core.settings.getSensorAutoConnect(device.device.deviceId), isTrue);
+
+        await core.connection.stop();
+      },
+    );
+
+    testWidgets('Trainer already selected: selecting it again attempts no disconnect and writes no flag', (
+      tester,
+    ) async {
+      // A nearby, unregistered strap makes the Trainer segment exist to tap
+      // (THE INVARIANT: no candidates at all means no control renders) while
+      // leaving Trainer itself already selected for heartRate.
+      final nearby = BleHeartRateDevice(BleDevice(deviceId: 'nearby-hr-trainer-noop', name: 'TICKR 0002'));
+      core.connection.devices.add(nearby);
+      expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+      expect(core.settings.getSensorAutoConnect(nearby.device.deviceId), isFalse);
+
+      await pump(tester);
+      await tester.ensureVisible(segmentIn('heartRate', 'trainer'));
+      await tester.tap(segmentIn('heartRate', 'trainer'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(core.sensors.selectionFor(SensorQuantity.heartRate), isNull);
+      // No disconnect was ever attempted against the nearby, unrelated
+      // device — its consent flag is untouched.
+      expect(core.settings.getSensorAutoConnect(nearby.device.deviceId), isFalse);
     });
   });
 }

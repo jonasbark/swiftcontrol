@@ -404,6 +404,12 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
         }
       }
 
+      // Captured BEFORE `core.sensors.select` below overwrites it — only
+      // meaningful in the "back to Trainer" case (`candidate == null`); a
+      // pick of an actual sensor never disconnects anything here, so this
+      // stays null for that path and the block at the bottom is skipped.
+      final previousSourceId = candidate == null ? core.sensors.selectionFor(quantity) : null;
+
       core.sensors.select(quantity, sourceId);
       // Persists every quantity's CURRENT selection, not just this one — see
       // `SensorHub.persistSelections`.
@@ -414,6 +420,34 @@ class _LiveMetricsSectionState extends State<LiveMetricsSection> {
         await core.settings.setSensorAutoConnect(device.device.deviceId, true);
         await core.connection.connectDevice(device);
       }
+
+      // Direct author feedback: "when using 'Trainer' again, it should
+      // disconnect the other sensor" — a sensor held connected but unused
+      // still occupies the device (many straps/power meters accept only one
+      // BLE connection at a time) and drains its battery for nothing.
+      //
+      // BUT a single sensor can serve MORE THAN ONE quantity — e.g.
+      // `BlePowerDevice.provides` is `{power, cadence}` — so a rider who has
+      // that meter selected for BOTH and switches only POWER back to
+      // Trainer must NOT lose CADENCE too. The naive "sourceId was cleared,
+      // disconnect it" version looks correct and silently breaks exactly
+      // that rider. So: walk every `SensorQuantity` via `selectionFor` and
+      // only disconnect if NONE of them still point at this source. This
+      // check has to run AFTER `core.sensors.select` above has already
+      // cleared THIS quantity's own pointer — otherwise it would always find
+      // its own stale selection and conclude "still in use".
+      if (previousSourceId != null) {
+        final stillInUse = SensorQuantity.values.any((q) => core.sensors.selectionFor(q) == previousSourceId);
+        if (!stillInUse) {
+          // Reuses the exact same disconnect path the list's explicit
+          // disconnect action uses, so the two cannot drift. `_disconnect`
+          // no-ops (does nothing, throws nothing) when the id doesn't
+          // resolve to a currently-connected `BleSensorDevice` — e.g. a
+          // persisted selection whose sensor never actually connected.
+          await _disconnect(_connectedDeviceFor(previousSourceId));
+        }
+      }
+
       if (mounted) setState(() {});
     } catch (e, s) {
       // Recorded here with a specific context AND rethrown: the enclosing
