@@ -757,16 +757,17 @@ Future<void> main() async {
           )
           .dx;
 
-      // 8px each side — see `MetricCard._dividerGutter`'s own doc comment
-      // for why 8 (not a new number). On the right, `dividerLeft` is the
+      // 16px each side — see `MetricCard._dividerGutter`'s own doc comment
+      // for why 16 (not a new number: `--s-4` on the design system's own
+      // 4/8/12/16/20 spacing scale). On the right, `dividerLeft` is the
       // divider CONTAINER's own outer edge, which is where its `Border`
       // (the visible rule, default `BorderSide` width 1px) is painted —
       // the padding gutter starts only after that rule, so content sits
       // `ruleWidth + gutter` from the container's own left, not `gutter`
       // alone.
       const ruleWidth = 1;
-      expect(dividerLeft - columnRight, 8);
-      expect(listLeft - dividerLeft, ruleWidth + 8);
+      expect(dividerLeft - columnRight, 16);
+      expect(listLeft - dividerLeft, ruleWidth + 16);
     });
 
     testWidgets('stacked: symmetric vertical gutter separates the value from the divider, '
@@ -809,8 +810,126 @@ Future<void> main() async {
           )
           .dy;
 
-      expect(dividerTop - valueBottom, 8);
-      expect(listTop - dividerBottom, 8);
+      expect(dividerTop - valueBottom, 16);
+      expect(listTop - dividerBottom, 16);
+    });
+  });
+
+  group('source list width cap (direct author feedback: '
+      '"make the sensors list max 50% width of the parent card")', () {
+    testWidgets('side-by-side: the source list never exceeds half the card content width, '
+        'even with a long name that would otherwise push it wider', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(
+              id: 'long',
+              label: 'A Very Long Sensor Display Name That Would Otherwise Crowd The Value',
+              subtitle: 'An equally long subtitle sentence explaining what selecting this sensor does.',
+              state: MetricSourceState.notConnected,
+            ),
+          ],
+        ),
+        // 900px harness, well over the 240px side-by-side breakpoint — see
+        // the "layout: side-by-side vs stacked" group above for why.
+        width: 900,
+      );
+      await tester.pump();
+
+      // Degrades gracefully under the cap rather than overflowing — same
+      // ellipsis-on-one-line behaviour the "long source name truncates"
+      // test already asserts for the stacked layout.
+      expect(tester.takeException(), isNull);
+
+      const cardPadding = 14.0;
+      final cardWidth = tester.getSize(find.byKey(const Key('under-test'))).width;
+      final contentWidth = cardWidth - cardPadding * 2;
+
+      final listWidth = tester.getSize(find.byKey(const Key('metric-card-source-control'))).width;
+
+      // Never more than half the card's own content width...
+      expect(listWidth, lessThanOrEqualTo(contentWidth * 0.5));
+      // ...and genuinely clamped there, not just coincidentally narrow: with
+      // this much horizontal room and no cap, the list (which fills
+      // whatever width it is given — see `MetricCard._sourceList`'s own
+      // `SizedBox(width: double.infinity)`) would take almost everything
+      // left after the compact label/value column, well past half.
+      expect(listWidth, greaterThan(contentWidth * 0.35));
+
+      final longNameText = tester.widget<Text>(
+        find.text('A Very Long Sensor Display Name That Would Otherwise Crowd The Value'),
+      );
+      expect(longNameText.maxLines, 1);
+      expect(longNameText.overflow, TextOverflow.ellipsis);
+    });
+
+    testWidgets('side-by-side: the value column takes the remaining width and the value is not clipped', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(
+              id: 'long',
+              label: 'A Very Long Sensor Display Name That Would Otherwise Crowd The Value',
+              state: MetricSourceState.notConnected,
+            ),
+          ],
+        ),
+        width: 900,
+      );
+
+      const cardPadding = 14.0;
+      final cardWidth = tester.getSize(find.byKey(const Key('under-test'))).width;
+      final contentWidth = cardWidth - cardPadding * 2;
+      final columnWidth = tester.getSize(find.byKey(const Key('metric-card-label-value-column'))).width;
+
+      // More than the column's own bare content needs (well under half at
+      // this width for "HEART"/"142 bpm") — it is being handed the leftover
+      // space the capped list gave up, not just sized to its own text.
+      expect(columnWidth, greaterThan(contentWidth * 0.4));
+
+      final valueText = tester.widget<Text>(find.text('142'));
+      // No explicit clip/ellipsis on the hero value — nothing here truncates
+      // it, and no overflow exception was thrown laying it out.
+      expect(valueText.overflow, isNot(TextOverflow.ellipsis));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a single-source tile (no list at all) is unchanged by the cap', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true)],
+        ),
+        width: 900,
+      );
+
+      expect(find.byKey(const Key('metric-card-source-control')), findsNothing);
+      expect(find.byKey(const Key('metric-card-source-divider')), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   });
 

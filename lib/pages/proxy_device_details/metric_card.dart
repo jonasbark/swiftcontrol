@@ -173,13 +173,11 @@ class MetricCard extends StatelessWidget {
   /// Gutter on both sides of the divider — `Gap` before it, matching
   /// `Container.padding` after it (side-by-side), or the equivalent
   /// vertical spacing above/below it (stacked). Per direct author feedback
-  /// ("add more spacing next to the divider"): 8, not a new number — this
-  /// is this card's own existing `Column`/`Row` inter-element spacing
-  /// (the gap between the label row and the value/list content, and,
-  /// already, the stacked layout's own spacing around its horizontal
-  /// divider), reused here so the side-by-side divider's gutter matches it
-  /// instead of the tighter 6px it used to sit in.
-  static const double _dividerGutter = 8;
+  /// ("even more divider padding"): 16, not a new number — `--s-4` on this
+  /// project's design-system spacing scale (4 / 8 / 12 / 16 / 20), a
+  /// deliberate step up from the previous 8 (`--s-2`) rather than the
+  /// tighter 6px this used to sit in before that first widening.
+  static const double _dividerGutter = 16;
 
   @override
   Widget build(BuildContext context) {
@@ -244,12 +242,26 @@ class MetricCard extends StatelessWidget {
                         // share this `Row`'s own `CrossAxisAlignment.start`
                         // top edge — verified equal (0px diff) by
                         // `metric_card_test.dart`'s alignment group.
-                        Column(
-                          key: const Key('metric-card-label-value-column'),
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 8,
-                          children: [labelRow, valueRow],
+                        //
+                        // `Expanded` (flex:1), not left to its own natural
+                        // (min) content width, per direct author feedback
+                        // ("make the sensors list max 50% width of the
+                        // parent card"): the source list's own box below is
+                        // now hard-capped at half of `constraints.maxWidth`
+                        // (this `LayoutBuilder`'s own content width) rather
+                        // than an `Expanded` that just soaked up whatever
+                        // the list didn't. Once that cap can leave space
+                        // unclaimed on the list's side, something has to
+                        // claim it back — this column, exactly like it did
+                        // implicitly before, just explicit now.
+                        Expanded(
+                          child: Column(
+                            key: const Key('metric-card-label-value-column'),
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: 8,
+                            children: [labelRow, valueRow],
+                          ),
                         ),
                         const Gap(_dividerGutter),
                         // A real `VerticalDivider` (see the package source)
@@ -270,7 +282,33 @@ class MetricCard extends StatelessWidget {
                         // the list's own real (never intrinsic, never
                         // infinite) layout rather than by a widget that
                         // demands unbounded height.
-                        Expanded(
+                        //
+                        // `ConstrainedBox`, NOT `Expanded`, on this side —
+                        // per direct author feedback ("make the sensors
+                        // list max 50% width of the parent card"): a long
+                        // sensor name/subtitle must not let this side of
+                        // the row crowd the value, which is the hero (this
+                        // class's own doc comment). `Expanded` here would
+                        // hand it every pixel the label/value column didn't
+                        // claim, exactly the bug being fixed. Capping at
+                        // half of THIS `LayoutBuilder`'s own content width —
+                        // not the raw tile width — matches how
+                        // `_sideBySideBreakpoint` itself is already measured
+                        // (see that constant's own doc comment). The list
+                        // still fills whatever room it is given (unchanged
+                        // `SizedBox(width: double.infinity)` in
+                        // `_sourceList`), so it always sits AT the cap, not
+                        // just under it, once there is more than 240px of
+                        // content width to divide — `metric_card_test.dart`
+                        // measures this directly. Long text degrades exactly
+                        // as it already did before this fix: the label row
+                        // ellipsizes past one line (`_MetricSourceRow`'s own
+                        // `Text.maxLines: 1` / `TextOverflow.ellipsis`), the
+                        // subtitle wraps up to two lines before ellipsizing
+                        // — neither depends on how wide the cap happens to
+                        // land, only on the width it is actually given.
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
                           child: Container(
                             key: const Key('metric-card-source-divider'),
                             padding: const EdgeInsets.only(left: _dividerGutter),
