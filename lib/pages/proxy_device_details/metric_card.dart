@@ -170,6 +170,17 @@ class MetricCard extends StatelessWidget {
   /// squarely between those two clusters.
   static const double _sideBySideBreakpoint = 240;
 
+  /// Gutter on both sides of the divider — `Gap` before it, matching
+  /// `Container.padding` after it (side-by-side), or the equivalent
+  /// vertical spacing above/below it (stacked). Per direct author feedback
+  /// ("add more spacing next to the divider"): 8, not a new number — this
+  /// is this card's own existing `Column`/`Row` inter-element spacing
+  /// (the gap between the label row and the value/list content, and,
+  /// already, the stacked layout's own spacing around its horizontal
+  /// divider), reused here so the side-by-side divider's gutter matches it
+  /// instead of the tighter 6px it used to sit in.
+  static const double _dividerGutter = 8;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -178,6 +189,22 @@ class MetricCard extends StatelessWidget {
     // just as much "nothing to choose" as null/empty — see this class's own
     // doc comment on the no-external-sensors invariant.
     final hasOptions = options != null && options.length > 1;
+    final labelRow = Row(
+      key: const Key('metric-card-label-row'),
+      spacing: 6,
+      children: [
+        Icon(icon, size: 14, color: iconColor),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+            color: cs.mutedForeground,
+          ),
+        ),
+      ],
+    );
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -186,29 +213,13 @@ class MetricCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: cs.border),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 8,
-          children: [
-            Row(
-              spacing: 6,
-              children: [
-                Icon(icon, size: 14, color: iconColor),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: cs.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-            if (!hasOptions)
-              _valueRow(cs)
-            else
-              LayoutBuilder(
+        child: !hasOptions
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 8,
+                children: [labelRow, _valueRow(cs)],
+              )
+            : LayoutBuilder(
                 builder: (context, constraints) {
                   final valueRow = _valueRow(cs);
                   final list = _sourceList(context, cs, options);
@@ -216,8 +227,31 @@ class MetricCard extends StatelessWidget {
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        valueRow,
-                        const Gap(6),
+                        // The label row moves in here, alongside the value,
+                        // rather than sitting in an ancestor `Column` above
+                        // this `Row` (the pre-fix layout) — per direct
+                        // author feedback ("the list should begin at the
+                        // same height as the 'Herz' header itself. Right
+                        // now it starts below"): with the label row OUTSIDE
+                        // this `Row`, the source list's header (the OTHER
+                        // side of this same `Row`) started level with the
+                        // VALUE, a full label-row-height + spacing below
+                        // the label — measured at 20px in a widget test
+                        // before this fix. Putting both the label and the
+                        // value in their own `Column` here, as this `Row`'s
+                        // left child, makes that `Column`'s top (the label
+                        // row's top) and the source list's top (its header)
+                        // share this `Row`'s own `CrossAxisAlignment.start`
+                        // top edge — verified equal (0px diff) by
+                        // `metric_card_test.dart`'s alignment group.
+                        Column(
+                          key: const Key('metric-card-label-value-column'),
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 8,
+                          children: [labelRow, valueRow],
+                        ),
+                        const Gap(_dividerGutter),
                         // A real `VerticalDivider` (see the package source)
                         // has NO way to bound its own cross axis (height) —
                         // with no child it hard-codes `height:
@@ -239,7 +273,7 @@ class MetricCard extends StatelessWidget {
                         Expanded(
                           child: Container(
                             key: const Key('metric-card-source-divider'),
-                            padding: const EdgeInsets.only(left: 6),
+                            padding: const EdgeInsets.only(left: _dividerGutter),
                             decoration: BoxDecoration(border: Border(left: BorderSide(color: cs.border))),
                             child: list,
                           ),
@@ -249,8 +283,16 @@ class MetricCard extends StatelessWidget {
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 8,
+                    // Already `_dividerGutter` (8) above AND below the
+                    // divider — this uniform `Column` spacing applies
+                    // between every consecutive pair of children equally,
+                    // so it already gave the stacked divider the same
+                    // gutter the side-by-side one gets above. Confirmed by
+                    // measurement while diagnosing this fix (both gaps
+                    // 8px), so nothing to change here.
+                    spacing: _dividerGutter,
                     children: [
+                      labelRow,
                       valueRow,
                       // Stacked: a horizontal `Divider` has no such problem
                       // — its cross axis (width) is bounded by the card's
@@ -263,8 +305,6 @@ class MetricCard extends StatelessWidget {
                   );
                 },
               ),
-          ],
-        ),
       ),
     );
   }

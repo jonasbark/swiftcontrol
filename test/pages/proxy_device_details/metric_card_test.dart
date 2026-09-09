@@ -625,6 +625,195 @@ Future<void> main() async {
     });
   });
 
+  group('SOURCE header starts level with the label row (direct author feedback: '
+      '"the list should begin at the same height as the \'Herz\' header itself")', () {
+    // Measures both offsets directly (not "is the header present/above",
+    // which the older "renders above the list" test already covers) — the
+    // point of this group is catching a residual OFFSET between the two,
+    // however small, not just ordering.
+    void expectHeaderLevelWithLabel(WidgetTester tester) {
+      final labelTop = tester
+          .getTopLeft(
+            find.descendant(of: find.byKey(const Key('under-test')), matching: find.byKey(const Key('metric-card-label-row'))),
+          )
+          .dy;
+      final headerTop = tester
+          .getTopLeft(
+            find.descendant(
+              of: find.byKey(const Key('under-test')),
+              matching: find.byKey(const Key('metric-card-source-header')),
+            ),
+          )
+          .dy;
+      expect(headerTop, labelTop);
+    }
+
+    testWidgets('short list (two rows), value present', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(id: 'hr-1', label: 'HR6 0050789', state: MetricSourceState.notConnected),
+          ],
+        ),
+        width: 900,
+      );
+
+      expectHeaderLevelWithLabel(tester);
+    });
+
+    testWidgets('short list, value is "--" (null)', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: null,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(id: 'hr-1', label: 'HR6 0050789', state: MetricSourceState.notConnected),
+          ],
+        ),
+        width: 900,
+      );
+
+      expectHeaderLevelWithLabel(tester);
+    });
+
+    testWidgets('long list (five rows)', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(id: 'a', label: 'A', state: MetricSourceState.connected),
+            option(id: 'b', label: 'B', state: MetricSourceState.connecting),
+            option(id: 'c', label: 'C', state: MetricSourceState.waitingForFirstReading),
+            option(id: 'd', label: 'D', state: MetricSourceState.lost),
+          ],
+        ),
+        width: 900,
+      );
+
+      expectHeaderLevelWithLabel(tester);
+    });
+  });
+
+  group('divider gutter (direct author feedback: "add more spacing next to the divider")', () {
+    testWidgets('side-by-side: symmetric horizontal gutter separates the value/label column from the divider, '
+        'and the divider from the list', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(id: 'hr-1', label: 'HR6 0050789', state: MetricSourceState.notConnected),
+          ],
+        ),
+        width: 900,
+      );
+
+      final columnRight = tester
+          .getTopRight(
+            find.descendant(
+              of: find.byKey(const Key('under-test')),
+              matching: find.byKey(const Key('metric-card-label-value-column')),
+            ),
+          )
+          .dx;
+      final dividerFinder = find.descendant(
+        of: find.byKey(const Key('under-test')),
+        matching: find.byKey(const Key('metric-card-source-divider')),
+      );
+      final dividerLeft = tester.getTopLeft(dividerFinder).dx;
+      final listLeft = tester
+          .getTopLeft(
+            find.descendant(
+              of: find.byKey(const Key('under-test')),
+              matching: find.byKey(const Key('metric-card-source-option-trainer')),
+            ),
+          )
+          .dx;
+
+      // 8px each side — see `MetricCard._dividerGutter`'s own doc comment
+      // for why 8 (not a new number). On the right, `dividerLeft` is the
+      // divider CONTAINER's own outer edge, which is where its `Border`
+      // (the visible rule, default `BorderSide` width 1px) is painted —
+      // the padding gutter starts only after that rule, so content sits
+      // `ruleWidth + gutter` from the container's own left, not `gutter`
+      // alone.
+      const ruleWidth = 1;
+      expect(dividerLeft - columnRight, 8);
+      expect(listLeft - dividerLeft, ruleWidth + 8);
+    });
+
+    testWidgets('stacked: symmetric vertical gutter separates the value from the divider, '
+        'and the divider from the list', (tester) async {
+      await pump(
+        tester,
+        MetricCard(
+          key: const Key('under-test'),
+          icon: baseCard.icon,
+          iconColor: baseCard.iconColor,
+          label: baseCard.label,
+          value: baseCard.value,
+          unit: baseCard.unit,
+          sources: [
+            option(id: 'trainer', label: 'Trainer', state: MetricSourceState.trainer, selected: true),
+            option(id: 'hr-1', label: 'HR6 0050789', state: MetricSourceState.notConnected),
+          ],
+        ),
+        // Default 360px harness — stacked layout.
+      );
+
+      final valueBottom = tester.getBottomLeft(find.text('142')).dy;
+      final dividerFinder = find.descendant(
+        of: find.byKey(const Key('under-test')),
+        matching: find.byKey(const Key('metric-card-source-divider')),
+      );
+      final dividerTop = tester.getTopLeft(dividerFinder).dy;
+      final dividerBottom = tester.getBottomLeft(dividerFinder).dy;
+      // The list's own container top (its "SOURCE" header is the first
+      // thing inside it) — NOT the first option row, which sits further
+      // down past the header's own height/padding and would conflate "gap
+      // after the divider" with "header height" (measured and ruled out
+      // while diagnosing this fix).
+      final listTop = tester
+          .getTopLeft(
+            find.descendant(
+              of: find.byKey(const Key('under-test')),
+              matching: find.byKey(const Key('metric-card-source-control')),
+            ),
+          )
+          .dy;
+
+      expect(dividerTop - valueBottom, 8);
+      expect(listTop - dividerBottom, 8);
+    });
+  });
+
   group('the value is fixed-width (direct author feedback: "otherwise the layout jumps around")', () {
     testWidgets('the big value carries tabularFigures so digit changes do not reflow the tile', (tester) async {
       await pump(tester, baseCard);
